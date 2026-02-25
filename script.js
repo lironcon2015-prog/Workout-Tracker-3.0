@@ -1,5 +1,5 @@
 /**
- * GYMPRO ELITE V12.12.3 (Freestyle Persistence & Safety Fixes)
+ * GYMPRO ELITE V12.12.4 (Freestyle Persistence & Safety Fixes)
  * - Feature: Cluster Early Exit (Finish Round button).
  * - Feature: Per-Workout Exercise Defaults (Target Weight/Reps/RIR).
  * - Fix: Deload menu sync.
@@ -328,7 +328,7 @@ const StorageManager = {
     exportConfiguration() {
         const configData = {
             type: 'config_only',
-            version: '12.12.3',
+            version: '12.12.4',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),

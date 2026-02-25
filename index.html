@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>GymPro Elite 12.12.3</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="glass-overlay"></div>
+    
+    <!-- Warmup Modal -->
+    <div id="warmup-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>חימום מומלץ</h3>
+            <div id="warmup-list" class="vertical-stack" style="margin: 20px 0;"></div>
+            <button class="btn-main primary-gradient" onclick="markWarmupDone()">סיימתי חימום</button>
+            <button class="btn-text" onclick="closeWarmup()">סגור ללא רישום</button>
+        </div>
+    </div>
+
+    <!-- Edit Set Modal -->
+    <div id="edit-set-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>עריכת סט</h3>
+            <div class="input-grid" style="margin-bottom: 15px;">
+                <div class="glass-card compact"><label>Weight</label><input type="number" id="edit-weight" class="minimal-input" style="margin:0;"></div>
+                <div class="glass-card compact"><label>Reps</label><input type="number" id="edit-reps" class="minimal-input" style="margin:0;"></div>
+                <div class="glass-card compact"><label>RIR</label><input type="number" id="edit-rir" class="minimal-input" style="margin:0;"></div>
+            </div>
+            <input type="text" id="edit-note" class="minimal-input" placeholder="הערה...">
+            
+            <button class="btn-main primary-gradient" onclick="saveSetEdit()">שמור שינויים</button>
+            <button id="btn-delete-set" class="btn-text" style="color: #ff453a;" onclick="deleteSetFromLog()">מחק סט זה</button>
+            <button class="btn-text" onclick="closeEditModal()">ביטול</button>
+        </div>
+    </div>
+
+    <!-- Exercise Config Modal (Global DB) -->
+    <div id="ex-config-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 350px;">
+            <h3 id="ex-config-title">הגדרת תרגיל</h3>
+            
+            <div class="vertical-stack" style="gap: 15px; text-align: right;">
+                <div>
+                    <label class="input-label">שם התרגיל</label>
+                    <input type="text" id="conf-ex-name" class="minimal-input" placeholder="למשל: לחיצת חזה">
+                </div>
+                
+                <div>
+                    <label class="input-label">קבוצת שריר</label>
+                    <select id="conf-ex-muscle" class="minimal-input" style="background: var(--card-bg);">
+                        <option value="חזה">חזה</option>
+                        <option value="גב">גב</option>
+                        <option value="רגליים">רגליים</option>
+                        <option value="כתפיים">כתפיים</option>
+                        <option value="יד קדמית">יד קדמית</option>
+                        <option value="יד אחורית">יד אחורית</option>
+                        <option value="בטן">בטן</option>
+                        <option value="קליסטניקס">קליסטניקס</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                    <span class="input-label" style="margin:0;">חד-צדדי (Unilateral)</span>
+                    <input type="checkbox" id="conf-ex-uni" class="archive-checkbox">
+                </div>
+
+                <div class="input-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div>
+                        <label class="input-label">משקל בסיס</label>
+                        <input type="number" id="conf-ex-base" class="minimal-input" placeholder="kg">
+                    </div>
+                    <div>
+                        <label class="input-label">קפיצות (Step)</label>
+                        <select id="conf-ex-step" class="minimal-input" style="background: var(--card-bg);">
+                            <option value="0.5">0.5</option>
+                            <option value="1">1.0</option>
+                            <option value="1.25">1.25</option>
+                            <option value="2.5">2.5</option>
+                            <option value="5">5.0</option>
+                            <option value="10">10.0</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="input-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div>
+                        <label class="input-label">מינימום</label>
+                        <input type="number" id="conf-ex-min" class="minimal-input" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="input-label">מקסימום</label>
+                        <input type="number" id="conf-ex-max" class="minimal-input" placeholder="200">
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-main primary-gradient" onclick="saveExerciseConfig()">שמור הגדרות</button>
+            <button id="btn-delete-ex" class="btn-text" style="color: #ff453a; display: none;" onclick="deleteExercise()">מחק תרגיל מהמאגר</button>
+            <button class="btn-text" onclick="closeExConfigModal()">ביטול</button>
+        </div>
+    </div>
+
+    <!-- Workout Exercise Settings Modal (Per Plan Defaults) -->
+    <div id="exercise-settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="ex-settings-title">הגדרות תרגיל בתוכנית</h3>
+            <p class="sub-text" style="margin-bottom: 15px;">הגדרות אלו ידרסו את ההיסטוריה עבור אימון זה</p>
+            
+            <div class="input-grid" style="margin-bottom: 20px;">
+                <div class="glass-card compact" style="margin:0; padding:10px;">
+                    <label>משקל יעד</label>
+                    <input type="number" id="target-weight-input" class="minimal-input" placeholder="Auto" style="margin:0;">
+                </div>
+                <div class="glass-card compact" style="margin:0; padding:10px;">
+                    <label>חזרות יעד</label>
+                    <input type="number" id="target-reps-input" class="minimal-input" placeholder="Auto" style="margin:0;">
+                </div>
+                <div class="glass-card compact" style="margin:0; padding:10px;">
+                    <label>RIR יעד</label>
+                    <input type="number" id="target-rir-input" class="minimal-input" placeholder="-" style="margin:0;">
+                </div>
+            </div>
+
+            <p class="sub-text">זמן מנוחה (שניות)</p>
+            <div class="stepper-control" style="margin: 10px 0 20px;">
+                <button class="stepper-btn" onclick="changeRestTime(-15)">-</button>
+                <span id="rest-time-display" class="stepper-value">90s</span>
+                <button class="stepper-btn" onclick="changeRestTime(15)">+</button>
+            </div>
+
+            <button class="btn-main primary-gradient" onclick="saveExerciseSettings()">שמור</button>
+            <button class="btn-text" onclick="closeExerciseSettings()">ביטול</button>
+        </div>
+    </div>
+
+    <!-- Recovery Modal -->
+    <div id="recovery-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>נמצא אימון פעיל</h3>
+            <p class="sub-text">האם ברצונך להמשיך מהנקודה שבה הפסקת?</p>
+            <div class="vertical-stack">
+                <button class="btn-main primary-gradient" onclick="restoreSession()">כן, המשך אימון</button>
+                <button class="btn-text" style="color: #ff453a;" onclick="discardSession()">לא, התחל מחדש</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Sheet (Drawer) -->
+    <div id="sheet-overlay" class="bottom-sheet-overlay" onclick="closeDayDrawer()"></div>
+    <div id="sheet-modal" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div id="sheet-content" class="sheet-content"></div>
+    </div>
+
+    <div class="app-container">
+        <header class="app-header">
+            <button id="global-back" class="back-btn" onclick="handleBackClick()">
+                <div class="chevron-back"></div>
+            </button>
+            <div class="brand-logo">GYMPRO <span>ELITE</span></div>
+            <button id="btn-settings" class="settings-btn" onclick="openSettings()">⚙️</button>
+        </header>
+
+        <main class="content-area">
+            
+            <div id="ui-week" class="screen active">
+                <div class="hero-section"><h1>ברוך הבא <span>לוח בקרה אישי</span></h1></div>
+                
+                <button onclick="initAudio()" id="audio-init-btn" class="action-card primary-gradient">
+                    <div class="card-text center-text">לחץ להפעלת סאונד</div>
+                </button>
+
+                <div class="section-label">בחר תוכנית שבועית</div>
+                
+                <div class="grid-menu" style="grid-template-columns: 1fr 1fr;">
+                    <button class="menu-card" onclick="selectWeek(1)"><span>שבוע 1</span><div class="chevron"></div></button>
+                    <button class="menu-card" onclick="selectWeek(2)"><span>שבוע 2</span><div class="chevron"></div></button>
+                    <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="chevron"></div></button>
+                    <button class="menu-card deload-card" onclick="selectWeek('deload')"><span>דילואוד</span><div class="chevron"></div></button>
+                </div>
+
+                <button class="action-card secondary" style="margin-top: 20px;" onclick="openArchive()">
+                    <div class="card-text center-text">ארכיון וגיבוי</div>
+                </button>
+
+                <div class="version-footer">GymPro Elite v12.12.3</div>
+            </div>
+
+            <!-- SETTINGS SCREEN -->
+            <div id="ui-settings" class="screen">
+                <h2 class="section-title">הגדרות וניהול</h2>
+                
+                <button class="menu-card tall" style="width:100%; margin-bottom: 10px; border-color: var(--accent);" onclick="openWorkoutManager()">
+                    <h3 style="color:var(--accent);">ניהול תוכניות אימון</h3>
+                    <p>ערוך, צור או מחק תוכניות</p>
+                </button>
+
+                <button class="menu-card tall" style="width:100%; margin-bottom: 20px; border-color: var(--type-b);" onclick="openExerciseDatabase()">
+                    <h3 style="color:var(--type-b);">ניהול מאגר תרגילים</h3>
+                    <p>יצירה, עריכה וניהול הגדרות לכל התרגילים</p>
+                </button>
+
+                <div class="glass-card">
+                    <h3 style="margin-top:0">ניהול נתונים</h3>
+                    <p style="color:var(--text-dim); font-size:0.9em;">גרסה V12.12.3</p>
+                    <button class="btn-text" style="color: #ff453a; border: 1px solid #ff453a; border-radius: 12px; margin-bottom: 20px;" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
+                    
+                    <div style="border-top: 1px solid var(--border); padding-top: 15px;">
+                        <label style="color:var(--text-dim); font-size:0.8em; display:block; margin-bottom:10px;">ניהול תבניות (ללא היסטוריה)</label>
+                        <div class="input-grid" style="grid-template-columns: 1fr 1fr;">
+                            <button class="glass-card compact" style="margin:0; border-color: var(--accent); color: var(--accent);" onclick="StorageManager.exportConfiguration()">שמור תבנית</button>
+                            <button class="glass-card compact" style="margin:0; border-color: var(--type-b); color: var(--type-b);" onclick="triggerConfigImport()">טען תבנית</button>
+                        </div>
+                    </div>
+                </div>
+                <input type="file" id="import-config-file" style="display: none;" onchange="processConfigImport(this)">
+            </div>
+
+            <!-- EXERCISE DATABASE MANAGER -->
+            <div id="ui-exercise-db" class="screen">
+                 <div style="position: sticky; top: 0; background: var(--bg); z-index: 10; padding-bottom: 10px;">
+                    <h2 class="section-title" style="margin-bottom: 10px;">מאגר תרגילים</h2>
+                    
+                    <input type="text" id="db-search" class="search-input" placeholder="חפש תרגיל לעריכה..." oninput="renderExerciseDatabase()">
+                    
+                    <div class="chip-container">
+                        <button class="chip active" onclick="setDbFilter('all', this)">הכל</button>
+                        <button class="chip" onclick="setDbFilter('חזה', this)">חזה</button>
+                        <button class="chip" onclick="setDbFilter('גב', this)">גב</button>
+                        <button class="chip" onclick="setDbFilter('רגליים', this)">רגליים</button>
+                        <button class="chip" onclick="setDbFilter('כתפיים', this)">כתפיים</button>
+                        <button class="chip" onclick="setDbFilter('ידיים', this)">ידיים</button>
+                        <button class="chip" onclick="setDbFilter('בטן', this)">בטן</button>
+                        <button class="chip" onclick="setDbFilter('קליסטניקס', this)">קליסטניקס</button>
+                    </div>
+
+                    <button class="btn-text" onclick="openExerciseCreator()" style="color: var(--type-b); border: 1px dashed var(--type-b); margin-top: 5px; font-weight: 600;">+ יצירת תרגיל חדש</button>
+                </div>
+                <div id="db-list" class="vertical-stack" style="padding-top: 10px;"></div>
+                <button class="btn-text" onclick="handleBackClick()">חזור</button>
+            </div>
+
+            <!-- WORKOUT MANAGER (LIST) -->
+            <div id="ui-workout-manager" class="screen">
+                <div class="hero-section"><h2>ניהול תוכניות</h2></div>
+                <div id="manager-list" class="vertical-stack"></div>
+                <div style="margin-top: 15px;">
+                    <button class="btn-main primary-gradient" onclick="createNewWorkout()">+ צור תוכנית חדשה</button>
+                    <button class="btn-text" style="margin-top: 15px;" onclick="navigate('ui-week', true)">חזרה ללוח הבקרה</button>
+                </div>
+            </div>
+
+            <!-- WORKOUT EDITOR -->
+            <div id="ui-workout-editor" class="screen">
+                <div class="hero-section"><h2>עריכת תוכנית</h2></div>
+                
+                <div class="glass-card">
+                    <label style="font-size:0.8em; color:var(--text-dim);">שם התוכנית</label>
+                    <input type="text" id="editor-workout-name" class="minimal-input" style="text-align:right; font-size:1.2em; font-weight:bold; margin-bottom:10px;">
+                    
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 10px;">
+                        <span style="font-size:0.9em;">הצג בשבוע דילואוד?</span>
+                        <input type="checkbox" id="editor-deload-check" class="archive-checkbox">
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 5px;">
+                        <span style="font-size:0.9em; color: var(--type-free);">מופיע בדילואוד בלבד?</span>
+                        <input type="checkbox" id="editor-deload-only-check" class="archive-checkbox">
+                    </div>
+                </div>
+
+                <div class="section-label">רשימת תרגילים</div>
+                <div id="editor-list" class="vertical-stack"></div>
+
+                <div class="input-grid" style="margin-top: 10px; grid-template-columns: 1fr 1fr;">
+                    <button class="btn-text" style="border: 1px dashed var(--accent); color: var(--accent);" onclick="openExerciseSelector()">+ הוסף תרגיל</button>
+                    <button class="btn-text" style="border: 1px dashed var(--type-free); color: var(--type-free);" onclick="addClusterToEditor()">+ צור סבב</button>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <button class="btn-main primary-gradient" onclick="saveWorkoutChanges()">שמור שינויים</button>
+                    <button class="btn-text" onclick="handleBackClick()">ביטול</button>
+                </div>
+            </div>
+
+            <!-- EXERCISE SELECTOR (SMART PICKER) -->
+            <div id="ui-exercise-selector" class="screen">
+                <div style="position: sticky; top: 0; background: var(--bg); z-index: 10; padding-bottom: 10px;">
+                    <h2 class="section-title" style="margin-bottom: 10px;">בחר תרגיל</h2>
+                    
+                    <input type="text" id="selector-search" class="search-input" placeholder="חפש תרגיל..." oninput="filterSelector()">
+                    
+                    <div class="chip-container">
+                        <button class="chip active" onclick="setSelectorFilter('all', this)">הכל</button>
+                        <button class="chip" onclick="setSelectorFilter('חזה', this)">חזה</button>
+                        <button class="chip" onclick="setSelectorFilter('גב', this)">גב</button>
+                        <button class="chip" onclick="setSelectorFilter('רגליים', this)">רגליים</button>
+                        <button class="chip" onclick="setSelectorFilter('כתפיים', this)">כתפיים</button>
+                        <button class="chip" onclick="setSelectorFilter('ידיים', this)">ידיים</button>
+                        <button class="chip" onclick="setSelectorFilter('בטן', this)">בטן</button>
+                        <button class="chip" onclick="setSelectorFilter('קליסטניקס', this)">קליסטניקס</button>
+                    </div>
+
+                    <button class="btn-text" onclick="openExerciseCreator()" style="color: var(--type-b); border: 1px dashed var(--type-b); margin-top: 10px; font-weight: 600;">+ יצירת תרגיל חדש</button>
+                </div>
+
+                <div id="selector-list" class="vertical-stack" style="padding-top: 10px;"></div>
+                <button class="btn-text" onclick="handleBackClick()">ביטול</button>
+            </div>
+
+            <div id="ui-workout-type" class="screen">
+                <div class="hero-section"><h2 id="workout-week-title">בחר מסלול</h2></div>
+                <div id="workout-menu-container" class="vertical-stack"></div>
+                <button class="menu-card tall freestyle-card" style="margin-top: 15px;" onclick="startFreestyle()"><h3>Freestyle</h3><p>בחירה חופשית</p></button>
+            </div>
+            
+            <!-- VARIATION / FREESTYLE -->
+            <div id="ui-variation" class="screen">
+                <div style="position: sticky; top: 0; background: var(--bg); z-index: 10; padding-bottom: 10px;">
+                     <div id="variation-context-container" style="display:none; margin-bottom:10px;">
+                        <button id="btn-var-resume" class="action-card success-gradient" style="margin-bottom:10px;" onclick="resumeWorkout()">
+                            <div class="card-text center-text">חזור למסלול</div>
+                        </button>
+                     </div>
+
+                     <h2 id="variation-title" class="section-title" style="margin-bottom:10px;">בחר תרגיל</h2>
+                     <input type="text" id="freestyle-search" class="search-input" placeholder="חפש תרגיל..." oninput="renderFreestyleList()">
+                     <div id="variation-chips" class="chip-container" style="display: flex;"></div>
+                </div>
+                
+                <div id="variation-options" class="vertical-stack" style="padding-top: 10px;"></div>
+                <button id="btn-var-finish-extra" class="finish-main-btn" style="display:none; margin-top:20px;" onclick="finishExtraPhase()">סיום אימון</button>
+                <button class="btn-text" onclick="handleBackClick()">חזור</button>
+            </div>
+            
+            <div id="ui-swap-list" class="screen">
+                <h2 class="section-title">אפשרויות החלפה</h2>
+                <div id="swap-container" class="vertical-stack"></div>
+                <button class="btn-text" onclick="handleBackClick()">ביטול</button>
+            </div>
+
+            <div id="ui-1rm" class="screen">
+                <div class="hero-section"><h2 id="rm-title">1RM</h2></div>
+                <div class="glass-card">
+                    <label>משקל מקסימלי (RM)</label>
+                    <select id="rm-picker" class="ios-picker"></select>
+                </div>
+                <button class="btn-main primary-gradient" onclick="save1RM()">צור אימון</button>
+            </div>
+
+            <div id="ui-confirm" class="screen">
+                <div class="confirm-fixed-top">
+                    <p>התרגיל הבא:</p>
+                    <h2 id="confirm-ex-name"></h2>
+                    <div id="confirm-ex-config" class="sub-text" style="margin-top: -10px; margin-bottom: 20px; font-size: 0.8em; color: var(--accent);"></div>
+                    
+                    <button class="btn-main primary-gradient" onclick="confirmExercise(true)">התחל אימון</button>
+                    
+                    <div class="secondary-buttons-grid">
+                        <button class="control-btn passive-action" onclick="confirmExercise(false)"><span>דלג</span></button>
+                        <button id="btn-swap-confirm" class="control-btn outline-action" onclick="openSwapMenu()"><span>החלף</span></button>
+                        <button id="btn-add-exercise" class="control-btn outline-action" onclick="interruptWorkout()"><span>הוסף</span></button>
+                    </div>
+                </div>
+                <div id="history-container" style="width: 100%; margin-top: 20px;"></div>
+            </div>
+
+            <div id="ui-cluster-rest" class="screen flex-center">
+                <div class="confirm-box">
+                    <p style="color:var(--text-dim);">מנוחה בין סבבים</p>
+                    <h2 id="cluster-status-text"></h2>
+                    <div class="timer-wrap" style="margin: 30px auto;">
+                        <svg class="timer-svg" viewBox="0 0 100 100">
+                            <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
+                            <circle id="cluster-timer-bar" class="timer-bar" cx="50" cy="50" r="45"></circle>
+                        </svg>
+                        <div id="cluster-timer-text" class="timer-text">00:00</div>
+                    </div>
+                    <div id="next-round-preview" class="glass-card compact" style="text-align: right; margin-bottom: 20px;">
+                        <label>הסבב הבא כולל:</label>
+                        <div id="cluster-next-list" style="font-size: 0.9em; color: white;"></div>
+                    </div>
+                    <button id="btn-cluster-main" class="btn-main primary-gradient" onclick="startNextRound()">התחל סבב הבא</button>
+                    <button id="btn-extra-round" class="btn-text secondary-action" style="display: none; margin-top: 15px;" onclick="addExtraRound()">+ בצע סבב נוסף</button>
+                    <button id="btn-cluster-skip-text" class="btn-text" style="color: #ff453a; margin-top: 10px;" onclick="finishCluster()">סיים סבב זה והמשך</button>
+                </div>
+            </div>
+
+            <div id="ui-main" class="screen">
+                <div class="exercise-header">
+                    <div class="header-tools">
+                        <button onclick="openHistoryDrawer()" class="tool-btn">היסטוריה</button>
+                        <button onclick="openSessionLog()" class="tool-btn">יומן</button>
+                    </div>
+
+                    <div class="badge-row" style="margin-top: 5px;">
+                        <span id="set-counter" class="ios-badge">SET 1/3</span>
+                        <button id="btn-warmup" class="warmup-badge" onclick="calcWarmup()">חימום</button>
+                        <div id="unilateral-note" class="uni-badge">UNILATERAL</div>
+                    </div>
+                    <h2 id="ex-display-name" style="margin-top: 15px;"></h2>
+                    <div id="last-set-info" class="history-pill"></div>
+                </div>
+
+                <div class="input-grid">
+                    <div class="glass-card compact"><label>Weight</label><select id="weight-picker" class="ios-picker"></select></div>
+                    <div class="glass-card compact"><label>Reps</label><select id="reps-picker" class="ios-picker"></select></div>
+                    <div class="glass-card compact"><label>RIR</label><select id="rir-picker" class="ios-picker"></select></div>
+                </div>
+
+                <input type="text" id="set-notes" class="minimal-input" placeholder="הערות לסט (אופציונלי)">
+                <button id="btn-submit-set" class="btn-main primary-gradient pulse" onclick="nextStep()">סיום סט</button>
+
+                <div id="action-panel" class="action-panel" style="display: none;">
+                    <p id="next-ex-preview" class="passive-preview"></p>
+                    <div class="vertical-stack">
+                        <button class="btn-main primary-gradient" onclick="finishCurrentExercise()">המשך לתרגיל הבא</button>
+                        <button class="btn-text secondary-action" onclick="addExtraSet()">+ סט נוסף</button>
+                    </div>
+                </div>
+
+                <div id="timer-area" class="timer-section">
+                    <div class="timer-wrap">
+                        <svg class="timer-svg" viewBox="0 0 100 100">
+                            <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
+                            <circle id="timer-progress" class="timer-bar" cx="50" cy="50" r="45"></circle>
+                        </svg>
+                        <div id="rest-timer" class="timer-text">00:00</div>
+                    </div>
+                </div>
+                
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button id="btn-skip-exercise" class="btn-text passive-skip" style="width:100%; margin:0;" onclick="skipCurrentExercise()">דלג על התרגיל</button>
+                    <button id="btn-finish-round" class="btn-text passive-skip" style="width:100%; margin:0; border-color: #ff9f0a; color: #ff9f0a; display:none;" onclick="finishClusterRound()">סיים סבב</button>
+                </div>
+            </div>
+
+            <div id="ui-ask-extra" class="screen">
+                <div class="confirm-fixed-top">
+                    <h2>האם להוסיף תרגילים נוספים?</h2>
+                    <p class="sub-text">ניתן לבחור תרגילים מכל קבוצות השרירים</p>
+                    <div class="vertical-stack">
+                        <button class="btn-text" onclick="finish()">לא, סיים אימון</button>
+                        <button class="btn-main primary-gradient" onclick="startExtraPhase()">כן, הוסף תרגילים</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ui-summary" class="screen">
+                <div class="hero-section"><h2>סיכום אימון</h2></div>
+                <input type="text" id="summary-note" class="minimal-input" placeholder="הערות כלליות לאימון (אופציונלי)" style="margin-bottom: 20px;">
+                <div id="summary-area" class="summary-card"></div>
+                <button class="btn-main primary-gradient" onclick="copyResult()">העתק וסגור</button>
+            </div>
+
+            <div id="ui-archive" class="screen">
+                <div class="hero-section"><h2>ארכיון וגיבוי</h2></div>
+                <div class="input-grid" style="margin-bottom: 20px;">
+                    <button class="glass-card compact" onclick="exportData()" style="width:100%; border:1px solid var(--accent); color:var(--accent);"><label style="color:var(--text); font-size:0.9em; margin-bottom:5px; font-weight:600;">ייצוא</label></button>
+                    <button class="glass-card compact" onclick="triggerImport()" style="width:100%; border:1px solid #32D74B; color:#32D74B;"><label style="color:var(--text); font-size:0.9em; margin-bottom:5px; font-weight:600;">ייבוא</label></button>
+                </div>
+                <div class="segmented-control">
+                    <button id="btn-view-list" class="segment-btn active" onclick="switchArchiveView('list')">רשימה</button>
+                    <button id="btn-view-calendar" class="segment-btn" onclick="switchArchiveView('calendar')">לוח שנה</button>
+                </div>
+                <div id="calendar-view" style="display: none;">
+                    <div class="calendar-wrapper">
+                        <div class="calendar-header">
+                            <button class="month-nav-btn" onclick="changeMonth(-1)">❮</button>
+                            <span id="current-month-display" class="current-month-display"></span>
+                            <button class="month-nav-btn" onclick="changeMonth(1)">❯</button>
+                        </div>
+                        <div class="calendar-grid">
+                            <div class="day-name">א'</div><div class="day-name">ב'</div><div class="day-name">ג'</div><div class="day-name">ד'</div><div class="day-name">ה'</div><div class="day-name">ו'</div><div class="day-name">ש'</div>
+                        </div>
+                        <div id="calendar-days" class="calendar-grid"></div>
+                    </div>
+                </div>
+                <div id="list-view-container">
+                    <div class="archive-actions" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button class="glass-card compact" style="width: 100%; color: var(--accent); border-color: var(--accent); font-weight:600; font-size: 0.9em;" onclick="copyBulkLog('all')">העתק הכל</button>
+                        <button id="btn-copy-selected" class="glass-card compact" style="width: 100%; color: var(--text-dim); border-color: var(--border); font-weight:600; opacity: 0.5; font-size: 0.9em;" onclick="copyBulkLog('selected')" disabled>העתק מסומנים</button>
+                    </div>
+                    <div id="archive-list" class="vertical-stack"></div>
+                </div>
+                <input type="file" id="import-file" style="display: none;" onchange="importData(this)">
+            </div>
+
+            <div id="ui-archive-detail" class="screen">
+                <div class="hero-section"><h2>פרטי אימון</h2></div>
+                <div id="archive-detail-content" class="summary-card"></div>
+                <div class="vertical-stack" style="margin-top: 20px;">
+                    <button class="btn-main primary-gradient" id="btn-archive-copy">העתק סיכום</button>
+                    <button class="btn-text" id="btn-archive-delete" style="color: #ff453a;">מחק אימון מהארכיון</button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

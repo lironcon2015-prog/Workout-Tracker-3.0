@@ -1,17 +1,16 @@
 /**
- * GYMPRO ELITE - WORKOUT CORE LOGIC (Part 1)
- * Includes: Global State, Initialization, Navigation, Basic Flow Engine.
+ * GYMPRO ELITE - WORKOUT CORE LOGIC
+ * Version: 12.12.5
+ * Includes: Global State, Init, Navigation, Workout Engine, Timer, Intra-Workout Persistence.
  */
 
 // --- GLOBAL VARIABLES & STATE ---
 
-// Helper for substitutes (Logic moved here from script.js)
 function getSubstitutes(exName) {
     const group = substituteGroups.find(g => g.includes(exName));
     return group ? group.filter(n => n !== exName) : [];
 }
 
-// Helper to check if exercise or variation was done
 function isExOrVariationDone(originalName) {
     if (state.completedExInSession.includes(originalName)) return true;
     const group = substituteGroups.find(g => g.includes(originalName));
@@ -21,7 +20,6 @@ function isExOrVariationDone(originalName) {
     return false;
 }
 
-// GLOBAL STATE
 let state = {
     week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0, 
     log: [], currentEx: null, currentExName: '',
@@ -49,7 +47,6 @@ let state = {
     lastClusterRest: 0
 };
 
-// MANAGER STATE (Shared with editor-logic.js)
 let managerState = {
     originalName: '',
     currentName: '',
@@ -65,12 +62,8 @@ let wakeLock = null;
 
 // --- INITIALIZATION ---
 window.onload = () => {
-    // StorageManager is defined in storage.js
     StorageManager.initDB();
-    
-    // Render functions from other modules are called safely
     if(typeof renderWorkoutMenu === 'function') renderWorkoutMenu(); 
-    
     checkRecovery();
 };
 
@@ -89,7 +82,6 @@ function restoreSession() {
         document.getElementById('recovery-modal').style.display = 'none';
         
         let lastScreen = state.historyStack[state.historyStack.length - 1];
-        // Fix for edge cases where stack points to transient screens
         if (['ui-muscle-select', 'ui-ask-arms', 'ui-arm-selection'].includes(lastScreen)) {
              if (lastScreen === 'ui-muscle-select') {
                  state.historyStack.pop();
@@ -106,7 +98,6 @@ function restoreSession() {
         document.getElementById(lastScreen).classList.add('active');
         document.getElementById('global-back').style.visibility = (lastScreen === 'ui-week') ? 'hidden' : 'visible';
         
-        // Restore UI specific to the screen
         switch (lastScreen) {
             case 'ui-main':
                 initPickers();
@@ -127,7 +118,6 @@ function restoreSession() {
             case 'ui-cluster-rest': renderClusterRestUI(); break;
             case 'ui-confirm': showConfirmScreen(state.currentExName); break;
             case 'ui-swap-list': openSwapMenu(); break;
-            // Calls to other modules
             case 'ui-workout-manager': if(typeof renderManagerList === 'function') renderManagerList(); break;
             case 'ui-workout-editor': if(typeof openEditorUI === 'function') openEditorUI(); break; 
             case 'ui-exercise-selector': 
@@ -155,7 +145,6 @@ function discardSession() {
     document.getElementById('recovery-modal').style.display = 'none';
 }
 
-// --- AUDIO & HAPTICS ---
 function haptic(type = 'light') {
     if (!("vibrate" in navigator)) return;
     try {
@@ -191,7 +180,6 @@ async function initAudio() {
     try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
 }
 
-// --- NAVIGATION SYSTEM ---
 function navigate(id, clearStack = false) {
     haptic('light');
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -216,7 +204,6 @@ function handleBackClick() {
 
     const currentScreen = state.historyStack[state.historyStack.length - 1];
 
-    // Guard Layer - Prevent accidental exit during active set
     if (currentScreen === 'ui-main') {
         if (state.isFreestyle && state.setIdx === 0 && state.log.length === 0) {
             // pass
@@ -271,11 +258,9 @@ function handleBackClick() {
         document.getElementById('selector-search').value = "";
     }
 
-    // Navigation Execution
     state.historyStack.pop();
     const prevScreen = state.historyStack[state.historyStack.length - 1];
     
-    // Refresh hooks for returning screens
     if (prevScreen === 'ui-variation') {
         if(typeof updateVariationUI === 'function') updateVariationUI(); 
         if(typeof renderFreestyleChips === 'function') renderFreestyleChips();
@@ -290,7 +275,6 @@ function handleBackClick() {
     if (settingsBtn) settingsBtn.style.visibility = (prevScreen === 'ui-week') ? 'visible' : 'hidden';
 }
 
-// --- WORKOUT FLOW ENGINE (CORE) ---
 function selectWeek(w) { 
     state.week = w; 
     if(typeof renderWorkoutMenu === 'function') renderWorkoutMenu(); 
@@ -336,7 +320,6 @@ function checkFlow() {
 }
 
 function showConfirmScreen(forceExName = null) {
-    // Cluster Logic
     if (state.clusterMode && state.clusterIdx === 0 && !forceExName) {
         document.getElementById('confirm-ex-name').innerText = "סבב / מעגל (Cluster)";
         document.getElementById('confirm-ex-config').innerText = `סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
@@ -356,7 +339,6 @@ function showConfirmScreen(forceExName = null) {
         return;
     }
 
-    // Regular / Specific Exercise Logic
     document.querySelector('.secondary-buttons-grid').style.display = 'grid';
 
     let exName = forceExName;
@@ -377,7 +359,6 @@ function showConfirmScreen(forceExName = null) {
     state.currentEx = JSON.parse(JSON.stringify(exData));
     state.currentExName = exData.name;
     
-    // Copy Plan Defaults to currentEx state
     if (currentPlanItem) {
         if (currentPlanItem.restTime) state.currentEx.restTime = currentPlanItem.restTime;
         if (currentPlanItem.targetWeight) state.currentEx.targetWeight = currentPlanItem.targetWeight;
@@ -413,7 +394,6 @@ function showConfirmScreen(forceExName = null) {
     const historyContainer = document.getElementById('history-container');
     historyContainer.innerHTML = "";
     
-    // Note: getLastPerformance is in archive-logic.js
     if(typeof getLastPerformance === 'function') {
         const history = getLastPerformance(exName);
         if (history) {
@@ -459,9 +439,6 @@ function showConfirmScreen(forceExName = null) {
     navigate('ui-confirm');
     StorageManager.saveSessionState();
 }
-
-// End of Part 1. 
-// Part 2 will contain: confirmExercise, initPickers, Timer Logic, and Intra-Workout Persistence.
 // --- WORKOUT EXECUTION LOGIC ---
 
 function confirmExercise(doEx) {
@@ -579,7 +556,7 @@ function isUnilateral(exName) {
     return unilateralKeywords.some(keyword => exName.includes(keyword));
 }
 
-// --- INIT PICKERS (CRITICAL: Persistence Logic) ---
+// --- INIT PICKERS (CRITICAL: Fixed Logic Order) ---
 function initPickers() {
     document.getElementById('ex-display-name').innerText = state.currentExName;
     const exHeader = document.querySelector('.exercise-header');
@@ -615,26 +592,27 @@ function initPickers() {
     const target = state.currentEx.sets[state.setIdx];
     document.getElementById('set-notes').value = '';
     
-    // --- DETERMINE DEFAULTS (NEW LOGIC) ---
+    // --- DETERMINE DEFAULTS (FIXED LOGIC) ---
     // Variables for the picker values
     let defaultW = 0;
     let defaultR = 8;
     let defaultRIR = 2;
 
-    // Priority 1. Check Previous Sets in CURRENT Block (Highest Priority if > set 1)
-    if (state.setIdx > 0 && state.lastLoggedSet) {
-        defaultW = state.lastLoggedSet.w;
-        defaultR = state.lastLoggedSet.r;
-        defaultRIR = state.lastLoggedSet.rir;
-    }
-    // Priority 2. Main / Calculated Logic (Guard Clause - Always obey 1RM calc)
-    else if (state.currentEx.isCalc) {
+    // Priority 1: Main/Calculated Logic (Guard Clause - Always obey 1RM calc)
+    // This ensures that "Main" exercises always follow the scheme, ignoring previous sets history.
+    if (state.currentEx.isCalc) {
         defaultW = target.w;
         defaultR = target.r;
         defaultRIR = 2; // Default for main unless specified
     }
+    // Priority 2: Check Previous Sets in CURRENT Block (Highest Priority for normal exercises if > set 1)
+    else if (state.setIdx > 0 && state.lastLoggedSet) {
+        defaultW = state.lastLoggedSet.w;
+        defaultR = state.lastLoggedSet.r;
+        defaultRIR = state.lastLoggedSet.rir;
+    }
+    // Priority 3: Intra-Workout Persistence / Plan Defaults / History
     else {
-        // Priority 3. Intra-Workout Persistence (The Feature)
         // Check if this exercise was done previously in THIS session (e.g. in previous cluster round)
         const sessionHistory = state.log.filter(l => l.exName === state.currentExName && !l.skip && !l.isWarmup);
         
@@ -645,7 +623,7 @@ function initPickers() {
             defaultRIR = lastSessionEntry.rir;
         } 
         else {
-            // Priority 4. Plan Defaults / Global History
+            // Priority 4: Plan Defaults / Global History
             let planW = state.currentEx.targetWeight;
             let planR = state.currentEx.targetReps;
             let planRIR = state.currentEx.targetRIR;

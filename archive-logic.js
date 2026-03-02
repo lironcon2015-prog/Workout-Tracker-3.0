@@ -9,9 +9,10 @@ function finish() {
     state.workoutDurationMins = Math.floor((Date.now() - state.workoutStartTime) / 60000);
     navigate('ui-summary');
     document.getElementById('summary-note').value = "";
-    const workoutDisplayName = state.type; 
-    const dateStr = new Date().toLocaleDateString('he-IL');
-    let summaryText = `GYMPRO ELITE SUMMARY\n${workoutDisplayName} | Week ${state.week} | ${dateStr} | ${state.workoutDurationMins}m\n\n`;
+    
+    // --- 1. DATA PROCESSING (Keep old structure for Data integrity) ---
+    // This part creates the 'details' object which is saved for stats and history.
+    // It groups everything by exercise name, regardless of cluster status.
     let grouped = {};
     state.log.forEach(e => {
         if (!grouped[e.exName]) grouped[e.exName] = { sets: [], vol: 0, hasWarmup: false };
@@ -22,16 +23,74 @@ function finish() {
             
             let setStr = `${weightStr} x ${e.r} (RIR ${e.rir})`;
             if (e.note) setStr += ` | Note: ${e.note}`;
-            grouped[e.exName].sets.push(setStr); grouped[e.exName].vol += (e.w * e.r);
+            grouped[e.exName].sets.push(setStr); 
+            grouped[e.exName].vol += (e.w * e.r);
         }
     });
-    for (let ex in grouped) { 
-        summaryText += `${ex} (Vol: ${grouped[ex].vol}kg):\n`;
-        if (grouped[ex].hasWarmup) summaryText += `🔥 Warmup Completed\n`;
-        summaryText += `${grouped[ex].sets.join('\n')}\n\n`; 
-    }
-    document.getElementById('summary-area').innerText = summaryText.trim();
+    
     state.lastWorkoutDetails = grouped;
+
+    // --- 2. VISUAL SUMMARY GENERATION (New Hybrid Logic) ---
+    const workoutDisplayName = state.type; 
+    const dateStr = new Date().toLocaleDateString('he-IL');
+    let summaryText = `GYMPRO ELITE SUMMARY\n${workoutDisplayName} | Week ${state.week} | ${dateStr} | ${state.workoutDurationMins}m\n\n`;
+
+    let processedIndices = new Set();
+    let lastClusterRound = 0;
+
+    // Iterate chronologically through the log
+    state.log.forEach((entry, index) => {
+        if (processedIndices.has(index)) return; // Already printed (as part of a standard group)
+        if (entry.isWarmup) return; // Skip warmups in main text (can add if needed)
+
+        if (entry.isCluster) {
+            // --- CLUSTER: Print Chronologically ---
+            if (entry.round && entry.round > lastClusterRound) {
+                summaryText += `\n--- Cluster Round ${entry.round} ---\n`;
+                lastClusterRound = entry.round;
+            }
+            
+            let details = "";
+            if (entry.skip) {
+                details = "(Skipped)";
+            } else {
+                let weightStr = `${entry.w}kg`;
+                if (isUnilateral(entry.exName)) weightStr += ` (Uni)`;
+                details = `${weightStr} x ${entry.r} (RIR ${entry.rir})`;
+                if (entry.note) details += ` | ${entry.note}`;
+            }
+            
+            summaryText += `• ${entry.exName}: ${details}\n`;
+            processedIndices.add(index);
+
+        } else {
+            // --- STANDARD: Group by Exercise ---
+            // Print Header using data from 'grouped'
+            if(grouped[entry.exName]) {
+                summaryText += `${entry.exName} (Vol: ${grouped[entry.exName].vol}kg):\n`;
+                if (grouped[entry.exName].hasWarmup) summaryText += `🔥 Warmup Completed\n`;
+                
+                // Find all sets for this exercise in the log (non-cluster) and print them
+                state.log.forEach((subEntry, subIndex) => {
+                    if (!processedIndices.has(subIndex) && !subEntry.isCluster && subEntry.exName === entry.exName && !subEntry.isWarmup) {
+                        if (subEntry.skip) {
+                            summaryText += `(Skipped)\n`;
+                        } else {
+                            let weightStr = `${subEntry.w}kg`;
+                            if (isUnilateral(subEntry.exName)) weightStr += ` (יד אחת)`;
+                            let setStr = `${weightStr} x ${subEntry.r} (RIR ${subEntry.rir})`;
+                            if (subEntry.note) setStr += ` | Note: ${subEntry.note}`;
+                            summaryText += `${setStr}\n`;
+                        }
+                        processedIndices.add(subIndex);
+                    }
+                });
+                summaryText += `\n`; // Spacer between exercises
+            }
+        }
+    });
+
+    document.getElementById('summary-area').innerText = summaryText.trim();
 }
 
 function copyResult() {

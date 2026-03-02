@@ -1,5 +1,6 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS
+ * Version: 12.12.5 (Fix: Multi-Cluster Display)
  * Includes: Finish Workout, Archive View, Calendar, Data Import/Export, Log Editing.
  */
 
@@ -10,9 +11,7 @@ function finish() {
     navigate('ui-summary');
     document.getElementById('summary-note').value = "";
     
-    // --- 1. DATA PROCESSING (Keep old structure for Data integrity) ---
-    // This part creates the 'details' object which is saved for stats and history.
-    // It groups everything by exercise name, regardless of cluster status.
+    // --- 1. DATA PROCESSING (No Change) ---
     let grouped = {};
     state.log.forEach(e => {
         if (!grouped[e.exName]) grouped[e.exName] = { sets: [], vol: 0, hasWarmup: false };
@@ -30,7 +29,7 @@ function finish() {
     
     state.lastWorkoutDetails = grouped;
 
-    // --- 2. VISUAL SUMMARY GENERATION (New Hybrid Logic) ---
+    // --- 2. VISUAL SUMMARY GENERATION (Fixed Logic) ---
     const workoutDisplayName = state.type; 
     const dateStr = new Date().toLocaleDateString('he-IL');
     let summaryText = `GYMPRO ELITE SUMMARY\n${workoutDisplayName} | Week ${state.week} | ${dateStr} | ${state.workoutDurationMins}m\n\n`;
@@ -40,12 +39,14 @@ function finish() {
 
     // Iterate chronologically through the log
     state.log.forEach((entry, index) => {
-        if (processedIndices.has(index)) return; // Already printed (as part of a standard group)
-        if (entry.isWarmup) return; // Skip warmups in main text (can add if needed)
+        if (processedIndices.has(index)) return; 
+        if (entry.isWarmup) return; 
 
         if (entry.isCluster) {
             // --- CLUSTER: Print Chronologically ---
-            if (entry.round && entry.round > lastClusterRound) {
+            
+            // FIX: Changed '>' to '!==' to detect new clusters starting at round 1
+            if (entry.round && entry.round !== lastClusterRound) {
                 summaryText += `\n--- Cluster Round ${entry.round} ---\n`;
                 lastClusterRound = entry.round;
             }
@@ -65,6 +66,10 @@ function finish() {
 
         } else {
             // --- STANDARD: Group by Exercise ---
+            
+            // FIX: Reset cluster tracking when we encounter a standard exercise
+            lastClusterRound = 0;
+
             // Print Header using data from 'grouped'
             if(grouped[entry.exName]) {
                 summaryText += `${entry.exName} (Vol: ${grouped[entry.exName].vol}kg):\n`;

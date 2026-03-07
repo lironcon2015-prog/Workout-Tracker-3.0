@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS
- * Version: 12.12.5 (Fix: Multi-Cluster Display)
+ * Version: 12.12.5 (Fix: Multi-Cluster Display + Better History Retrieval)
  * Includes: Finish Workout, Archive View, Calendar, Data Import/Export, Log Editing.
  */
 
@@ -359,7 +359,13 @@ function openHistoryDrawer() {
         history.sets.forEach((setStr, idx) => {
             let weight = "-", reps = "-", rir = "-";
             try {
-                const parts = setStr.split('x');
+                // Parse set string which might include notes
+                let coreStr = setStr;
+                if (setStr.includes('| Note:')) {
+                    coreStr = setStr.split('| Note:')[0].trim();
+                }
+
+                const parts = coreStr.split('x');
                 if(parts.length > 1) {
                     weight = parts[0].replace('kg', '').trim();
                     const rest = parts[1];
@@ -391,7 +397,10 @@ function getLastPerformance(exName) {
     for (const item of archive) {
         if (item.week === 'deload') continue;
         if (item.details && item.details[exName]) {
-            return { date: item.date, sets: item.details[exName].sets };
+            // Updated Logic: Check if there are actually sets recorded
+            if (item.details[exName].sets && item.details[exName].sets.length > 0) {
+                return { date: item.date, sets: item.details[exName].sets };
+            }
         }
     }
     return null;

@@ -1,4 +1,3 @@
-/* style.css */
 :root {
     --bg: #000000;
     --card-bg: #1c1c1e;
@@ -323,6 +322,11 @@ body {
 .history-col { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .history-col.set-idx { color: var(--text-dim); font-size: 0.9em; }
 .history-col.rir-note { color: var(--accent); font-size: 0.85em; }
+
+/* History Notes Section (New) */
+.history-notes-list { margin-top: 15px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.2); text-align: right; }
+.note-item { font-size: 0.85em; color: var(--text-dim); margin-bottom: 4px; display: flex; align-items: flex-start; }
+.note-num { color: var(--accent); font-weight: bold; margin-left: 8px; min-width: 15px; }
 
 .passive-skip { margin: 25px auto 0; font-size: 0.85em; color: var(--text-dim); background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; padding: 10px 20px; width: auto; display: block; cursor: pointer; transition: all 0.2s; }
 .passive-skip:hover { background: rgba(255,255,255,0.1); color: var(--text); }

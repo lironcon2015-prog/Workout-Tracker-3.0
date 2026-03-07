@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 12.12.5
+ * Version: 12.12.5 (History View Update: Parsed Notes)
  * Includes: Global State, Init, Navigation, Workout Engine, Timer, Intra-Workout Persistence.
  */
 
@@ -398,10 +398,28 @@ function showConfirmScreen(forceExName = null) {
         const history = getLastPerformance(exName);
         if (history) {
             let rowsHtml = "";
+            let notesHtml = "";
+            let hasAnyNotes = false;
+            let notesList = [];
+
             history.sets.forEach((setStr, idx) => {
                 let weight = "-", reps = "-", rir = "-";
+                let currentNote = "";
+                let coreStr = setStr;
+
+                // 1. Separate Note from Core Data
+                if (setStr.includes('| Note:')) {
+                    const parts = setStr.split('| Note:');
+                    coreStr = parts[0].trim();
+                    currentNote = parts[1].trim();
+                }
+
+                if (currentNote) hasAnyNotes = true;
+                notesList.push(currentNote);
+
+                // 2. Parse Core Data (Weight, Reps, RIR)
                 try {
-                    const parts = setStr.split('x');
+                    const parts = coreStr.split('x');
                     if(parts.length > 1) {
                         weight = parts[0].replace('kg', '').trim();
                         const rest = parts[1];
@@ -420,6 +438,15 @@ function showConfirmScreen(forceExName = null) {
                 </div>`;
             });
 
+            // 3. Build Notes Section if any notes exist
+            if (hasAnyNotes) {
+                notesHtml = `<div class="history-notes-list">`;
+                notesList.forEach((note, i) => {
+                    notesHtml += `<div class="note-item"><span class="note-num">${i + 1}.</span> ${note}</div>`;
+                });
+                notesHtml += `</div>`;
+            }
+
             const gridHtml = `
             <div class="history-card-container">
                 <div style="font-size:0.85em; color:var(--text-dim); text-align:right; margin-bottom:10px;">📅 ביצוע אחרון: ${history.date}</div>
@@ -430,6 +457,7 @@ function showConfirmScreen(forceExName = null) {
                     <div>RIR</div>
                 </div>
                 <div class="history-list">${rowsHtml}</div>
+                ${notesHtml}
             </div>
             `;
             historyContainer.innerHTML = gridHtml;
@@ -498,7 +526,6 @@ function confirmExercise(doEx) {
         startRecording();
     }
 }
-
 function resizeSets(count) {
     const defaultReps = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].r : 10;
     const defaultWeight = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].w : 10;

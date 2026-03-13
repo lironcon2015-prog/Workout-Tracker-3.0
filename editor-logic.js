@@ -1,5 +1,6 @@
 /**
  * GYMPRO ELITE - EDITOR & MANAGER LOGIC
+ * Version: 13.1.0 (Phase 2: Refactored Inline Styles to Utility Classes)
  * Includes: Workout Editor, Exercise Database Manager, Settings, Workout Menu.
  */
 
@@ -20,13 +21,15 @@ function renderWorkoutMenu() {
         });
 
         if(deloadWorkouts.length === 0) {
-            container.innerHTML = `<p style="text-align:center; color:var(--text-dim);">בחר Freestyle או סמן תוכנית כדילואוד בעורך</p>`;
+            container.innerHTML = `<p class="text-center color-dim">בחר Freestyle או סמן תוכנית כדילואוד בעורך</p>`;
         } else {
              deloadWorkouts.forEach(key => {
                 const btn = document.createElement('button');
                 btn.className = "menu-card tall";
                 const meta = state.workoutMeta[key];
-                const badge = (meta && meta.isDeloadOnly) ? `<span style="font-size:0.7em; color:var(--type-free); border:1px solid var(--type-free); padding:2px 6px; border-radius:4px;">Deload Only</span>` : '';
+                
+                // Using utility classes where possible. Specific custom borders/padding kept minimal.
+                const badge = (meta && meta.isDeloadOnly) ? `<span class="text-xs color-type-free rounded-md" style="border:1px solid var(--type-free); padding:2px 6px;">Deload Only</span>` : '';
                 
                 let count = 0;
                 const w = state.workouts[key];
@@ -34,7 +37,7 @@ function renderWorkoutMenu() {
                     w.forEach(item => { if(item.type === 'cluster') count += item.exercises.length; else count++; });
                 }
 
-                btn.innerHTML = `<div style="display:flex; justify-content:space-between; width:100%; align-items:center;"><h3>${key}</h3>${badge}</div><p>${count} תרגילים</p>`;
+                btn.innerHTML = `<div class="flex-between w-100"><h3>${key}</h3>${badge}</div><p>${count} תרגילים</p>`;
                 btn.onclick = () => selectWorkout(key); // selectWorkout is in workout-core.js
                 container.appendChild(btn);
              });
@@ -65,7 +68,7 @@ function openWorkoutManager() { renderManagerList(); navigate('ui-workout-manage
 function renderManagerList() {
     const list = document.getElementById('manager-list'); list.innerHTML = "";
     const keys = Object.keys(state.workouts);
-    if(keys.length === 0) { list.innerHTML = "<p style='text-align:center; color:var(--text-dim)'>אין תוכניות שמורות</p>"; return; }
+    if(keys.length === 0) { list.innerHTML = `<p class="text-center color-dim">אין תוכניות שמורות</p>`; return; }
 
     keys.forEach(key => {
         const wo = state.workouts[key];
@@ -118,7 +121,7 @@ function duplicateWorkout(key) {
 
 function createNewWorkout() {
     managerState.originalName = ''; managerState.currentName = 'New Plan';
-    managerState.exercises = [];
+    managerState.exercises =[];
     openEditorUI();
 }
 
@@ -226,7 +229,7 @@ function renderExerciseDatabase() {
     });
 
     if (filtered.length === 0) {
-        list.innerHTML = `<p style="text-align:center; color:var(--text-dim); margin-top:20px;">לא נמצאו תרגילים</p>`;
+        list.innerHTML = `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
         return;
     }
 
@@ -237,8 +240,8 @@ function renderExerciseDatabase() {
         
         row.innerHTML = `
             <div class="selector-item-info">
-                <div style="font-weight:600; font-size:1em;">${ex.name}</div>
-                <div style="font-size:0.8em; color:var(--text-dim); margin-top:2px;">${ex.muscles.join(', ')}</div>
+                <div class="font-semi text-base">${ex.name}</div>
+                <div class="text-sm color-dim mt-xs">${ex.muscles.join(', ')}</div>
             </div>
             <div class="selector-item-actions">
                 <div class="chevron"></div>
@@ -261,8 +264,8 @@ function saveExerciseConfig() {
     if (!name) { alert("נא להזין שם תרגיל"); return; }
 
     let musclesArr = [muscleSelect];
-    if (muscleSelect === 'יד קדמית') musclesArr = ['ידיים', 'biceps'];
-    if (muscleSelect === 'יד אחורית') musclesArr = ['ידיים', 'triceps'];
+    if (muscleSelect === 'יד קדמית') musclesArr =['ידיים', 'biceps'];
+    if (muscleSelect === 'יד אחורית') musclesArr =['ידיים', 'triceps'];
 
     if (mode === 'create') {
         if (state.exercises.find(e => e.name === name)) { alert("שם תרגיל כבר קיים"); return; }
@@ -343,7 +346,7 @@ function deleteExercise() {
     const targetName = document.getElementById('ex-config-modal').dataset.target;
     if (!targetName) return;
 
-    let usedIn = [];
+    let usedIn =[];
     for (let key in state.workouts) {
         const wo = state.workouts[key];
         if (Array.isArray(wo)) {
@@ -411,7 +414,7 @@ function renderRegularItem(item, idx, list) {
             </div>
         `;
     } else {
-        setControls = `<span style="font-size:0.8em; color:var(--text-dim); margin:0 5px;">1RM</span>`;
+        setControls = `<span class="text-sm color-dim" style="margin:0 5px;">1RM</span>`;
     }
 
     row.innerHTML = `
@@ -440,18 +443,18 @@ function renderClusterItem(cluster, idx, list) {
             <button class="control-icon-btn" onclick="removeExFromEditor(${idx})" style="color:#ff453a;">✕</button>
         </div>
     </div>
-    <div class="input-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:10px;">
-        <div class="glass-card compact" style="margin:0; padding:8px;">
+    <div class="input-grid grid-2-cols mb-sm">
+        <div class="glass-card compact m-0 p-sm">
             <label>מס' סבבים</label>
-            <div class="set-selector" style="justify-content:center;">
+            <div class="set-selector flex-center">
                 <button class="set-btn" onclick="changeClusterRounds(${idx}, -1)">-</button>
                 <span class="set-val">${cluster.rounds}</span>
                 <button class="set-btn" onclick="changeClusterRounds(${idx}, 1)">+</button>
             </div>
         </div>
-        <div class="glass-card compact" style="margin:0; padding:8px;">
+        <div class="glass-card compact m-0 p-sm">
             <label>מנוחה בסוף סבב</label>
-            <div class="set-selector" style="justify-content:center;">
+            <div class="set-selector flex-center">
                 <button class="set-btn" onclick="changeClusterRest(${idx}, -30)">-</button>
                 <span class="set-val" style="width:40px;">${cluster.clusterRest}s</span>
                 <button class="set-btn" onclick="changeClusterRest(${idx}, 30)">+</button>
@@ -463,7 +466,7 @@ function renderClusterItem(cluster, idx, list) {
 
     cluster.exercises.forEach((ex, internalIdx) => {
         html += `
-        <div class="editor-row" style="padding: 8px; background:rgba(255,255,255,0.05);">
+        <div class="editor-row p-sm" style="background:rgba(255,255,255,0.05);">
             <div class="row-info" onclick="openRestTimerModal(${idx}, ${internalIdx})">${internalIdx+1}. ${ex.name}</div>
             <div class="editor-controls">
                  <button class="control-icon-btn" style="width:24px; height:24px;" onclick="removeExFromCluster(${idx}, ${internalIdx})">✕</button>
@@ -472,7 +475,7 @@ function renderClusterItem(cluster, idx, list) {
     });
 
     html += `
-        <button class="btn-text" style="font-size:0.8em; padding:8px; color:var(--type-free);" onclick="openExerciseSelectorForCluster(${idx})">+ הוסף תרגיל לסבב</button>
+        <button class="btn-text text-sm color-type-free p-sm" onclick="openExerciseSelectorForCluster(${idx})">+ הוסף תרגיל לסבב</button>
     </div>`;
 
     box.innerHTML = html;
@@ -485,7 +488,7 @@ function moveExInEditor(idx, dir) { if(idx + dir < 0 || idx + dir >= managerStat
 function removeExFromEditor(idx) { managerState.exercises.splice(idx, 1); renderEditorList(); }
 function changeClusterRounds(idx, delta) { let val = managerState.exercises[idx].rounds + delta; if(val < 1) val = 1; managerState.exercises[idx].rounds = val; renderEditorList(); }
 function changeClusterRest(idx, delta) { let val = managerState.exercises[idx].clusterRest + delta; if(val < 0) val = 0; managerState.exercises[idx].clusterRest = val; renderEditorList(); }
-function addClusterToEditor() { managerState.exercises.push({ type: 'cluster', rounds: 3, clusterRest: 120, exercises: [] }); renderEditorList(); }
+function addClusterToEditor() { managerState.exercises.push({ type: 'cluster', rounds: 3, clusterRest: 120, exercises:[] }); renderEditorList(); }
 function removeExFromCluster(clusterIdx, exIdx) { managerState.exercises[clusterIdx].exercises.splice(exIdx, 1); renderEditorList(); }
 
 function saveWorkoutChanges() {

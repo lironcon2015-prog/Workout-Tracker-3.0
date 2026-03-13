@@ -12,6 +12,20 @@
     --type-b: #32D74B;
     --type-c: #FF9F0A;
     --type-free: #BF5AF2;
+
+    /* Design System: Spacing */
+    --sp-xs: 4px;
+    --sp-sm: 8px;
+    --sp-md: 16px;
+    --sp-lg: 24px;
+    --sp-xl: 32px;
+
+    /* Design System: Typography */
+    --text-xs: 0.75em;
+    --text-sm: 0.85em;
+    --text-base: 1em;
+    --text-lg: 1.2em;
+    --text-xl: 1.5em;
 }
 
 body {
@@ -20,6 +34,90 @@ body {
     direction: rtl; overflow: hidden;
     -webkit-tap-highlight-color: transparent;
 }
+
+/* =========================================
+   DESIGN SYSTEM - UTILITY CLASSES
+   ========================================= */
+
+/* Spacing Utils */
+.m-0 { margin: 0 !important; }
+.mt-0 { margin-top: 0 !important; }
+.mt-xs { margin-top: var(--sp-xs) !important; }
+.mt-sm { margin-top: var(--sp-sm) !important; }
+.mt-md { margin-top: var(--sp-md) !important; }
+.mt-lg { margin-top: var(--sp-lg) !important; }
+.mt-xl { margin-top: var(--sp-xl) !important; }
+.mt-neg-sm { margin-top: -10px !important; }
+
+.mb-0 { margin-bottom: 0 !important; }
+.mb-xs { margin-bottom: var(--sp-xs) !important; }
+.mb-sm { margin-bottom: var(--sp-sm) !important; }
+.mb-md { margin-bottom: var(--sp-md) !important; }
+.mb-lg { margin-bottom: var(--sp-lg) !important; }
+
+.my-md { margin-top: var(--sp-md) !important; margin-bottom: var(--sp-md) !important; }
+.my-lg { margin-top: var(--sp-lg) !important; margin-bottom: var(--sp-lg) !important; }
+.my-xl { margin-top: var(--sp-xl) !important; margin-bottom: var(--sp-xl) !important; }
+.mx-auto { margin-left: auto !important; margin-right: auto !important; }
+
+.p-0 { padding: 0 !important; }
+.p-sm { padding: var(--sp-sm) !important; }
+.pt-sm { padding-top: var(--sp-sm) !important; }
+.pt-md { padding-top: var(--sp-md) !important; }
+.pb-sm { padding-bottom: var(--sp-sm) !important; }
+
+/* Typography Utils */
+.text-center { text-align: center !important; }
+.text-right { text-align: right !important; }
+.text-xs { font-size: var(--text-xs) !important; }
+.text-sm { font-size: var(--text-sm) !important; }
+.text-base { font-size: var(--text-base) !important; }
+.text-lg { font-size: var(--text-lg) !important; }
+.text-xl { font-size: var(--text-xl) !important; }
+.font-bold { font-weight: 800 !important; }
+.font-semi { font-weight: 600 !important; }
+
+/* Color Utils */
+.color-white { color: var(--text) !important; }
+.color-dim { color: var(--text-dim) !important; }
+.color-danger { color: #ff453a !important; }
+.color-accent { color: var(--accent) !important; }
+.color-type-b { color: var(--type-b) !important; }
+.color-type-c { color: var(--type-c) !important; }
+.color-type-free { color: var(--type-free) !important; }
+.color-success { color: #32D74B !important; }
+
+/* Layout & Flex Utils */
+.d-flex { display: flex !important; }
+.d-block { display: block !important; }
+.d-none { display: none !important; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.gap-sm { gap: var(--sp-sm) !important; }
+.gap-md { gap: var(--sp-md) !important; }
+.grid-2-cols { grid-template-columns: 1fr 1fr; }
+.w-100 { width: 100% !important; }
+.max-w-350 { max-width: 350px !important; }
+
+/* Borders & Backgrounds Utils */
+.bg-card { background: var(--card-bg) !important; }
+.border-top { border-top: 1px solid var(--border) !important; }
+.border-bottom { border-bottom: 1px solid var(--border) !important; }
+.border-accent { border-color: var(--accent) !important; }
+.border-danger { border-color: #ff453a !important; }
+.border-type-b { border-color: var(--type-b) !important; }
+.border-success { border-color: #32D74B !important; }
+.border-dim { border-color: var(--border) !important; }
+.border-dashed { border-style: dashed !important; border-width: 1px !important; }
+.rounded-md { border-radius: 12px !important; }
+.opacity-50 { opacity: 0.5 !important; }
+
+/* Components Utils */
+.sticky-header { position: sticky; top: 0; background: var(--bg); z-index: 10; padding-bottom: var(--sp-sm); }
+
+/* =========================================
+   BASE STYLES & COMPONENTS
+   ========================================= */
 
 .glass-overlay {
     position: fixed; inset: 0;
@@ -92,9 +190,7 @@ body {
 .hero-section h1 { font-size: 2em; line-height: 1.1; margin: 0; }
 .hero-section span { display: block; color: var(--text-dim); font-size: 0.6em; font-weight: 400; margin-top: 5px; }
 
-.section-label {
-    font-size: 0.9em; color: var(--text-dim); margin-bottom: 15px; margin-top: 10px; 
-}
+.section-label { font-size: 0.9em; color: var(--text-dim); margin-bottom: 15px; margin-top: 10px; }
 .section-title { font-size: 1.4em; margin-bottom: 20px; }
 
 .action-card {
@@ -234,10 +330,6 @@ body {
 .confirm-fixed-top h2 { font-size: 1.8em; margin: 10px 0 10px; }
 .sub-text { color: var(--text-dim); font-size: 0.9em; margin-bottom: 30px; }
 
-/* =========================================
-   PHASE 1 - UI MAIN ENHANCEMENTS
-   ========================================= */
-
 /* 1. הירארכיה ויזואלית לשם התרגיל */
 #ex-display-name {
     font-size: 2em;
@@ -253,7 +345,6 @@ body {
     position: relative;
 }
 
-/* יצירת "אי" עבור אזור ההזנה, מבלי לשנות HTML */
 #ui-main .input-grid {
     background: rgba(255,255,255,0.03);
     border-radius: 16px;
@@ -262,7 +353,6 @@ body {
     border: 1px solid rgba(255,255,255,0.05);
 }
 
-/* איפוס שוליים כדי שלא יווצר רווח כפול בתוך ה"אי" החדש */
 #ui-main .input-grid .glass-card {
     margin-bottom: 0;
 }
@@ -274,7 +364,7 @@ body {
     box-shadow: 0 8px 30px rgba(10, 132, 255, 0.4);
 }
 
-/* 4. מיקוד משקל בכפתורי הפעולה המשניים - יחס 1fr 1.5fr 1.5fr */
+/* 4. מיקוד משקל בכפתורי הפעולה המשניים */
 .secondary-buttons-grid {
     display: grid; 
     grid-template-columns: 1fr 1.5fr 1.5fr; 
@@ -288,21 +378,12 @@ body {
     font-size: 0.9em; font-weight: 600; cursor: pointer; transition: all 0.2s; height: 50px;
 }
 
-/* 5. "דלג" כפעולה הרסנית */
-.passive-action { 
-    background: rgba(255, 59, 48, 0.08); 
-    border: 1px solid rgba(255, 59, 48, 0.3); 
-    color: #ff453a; 
-}
-
+/* 5. כפתורים הרסניים ומשניים */
+.passive-action { background: rgba(255, 59, 48, 0.08); border: 1px solid rgba(255, 59, 48, 0.3); color: #ff453a; }
 .outline-action { background: transparent; border: 1px solid var(--accent); color: var(--text); }
-
 .primary-gradient { background: var(--accent-gradient); }
 .success-gradient { background: var(--success-gradient); }
 .secondary { background: #3a3a3c; }
-
-.flex-center { justify-content: center; align-items: center; }
-.confirm-box { text-align: center; width: 100%; }
 
 /* Timer */
 .timer-section { display: flex; flex-direction: column; align-items: center; margin-top: 25px; visibility: hidden; }
@@ -348,7 +429,7 @@ body {
 }
 .modal-content {
     background: var(--card-bg); border: 1px solid var(--border);
-    padding: 25px; border-radius: var(--ios-radius); width: 85%; max-width: 320px;
+    padding: 25px; border-radius: var(--ios-radius); width: 85%;
     text-align: center;
 }
 .warmup-row {
@@ -373,55 +454,23 @@ body {
 .history-col.set-idx { color: var(--text-dim); font-size: 0.9em; }
 .history-col.rir-note { color: var(--accent); font-size: 0.85em; }
 
-/* History Notes Section (New) */
+/* History Notes Section */
 .history-notes-list { margin-top: 15px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.2); text-align: right; }
 .note-item { font-size: 0.85em; color: var(--text-dim); margin-bottom: 4px; display: flex; align-items: flex-start; }
 .note-num { color: var(--accent); font-weight: bold; margin-left: 8px; min-width: 15px; }
 
-/* 5. המשך כפתורי דילוג הרסניים - סגנון לפעולות עמוד האימון הראשי */
 .passive-skip { 
-    margin: 25px auto 0; 
-    font-size: 0.85em; 
-    color: #ff453a; 
-    background: rgba(255, 59, 48, 0.05); 
-    border: 1px solid rgba(255, 59, 48, 0.3); 
-    border-radius: 20px; 
-    padding: 10px 20px; 
-    width: auto; 
-    display: block; 
-    cursor: pointer; 
-    transition: all 0.2s; 
+    margin: 25px auto 0; font-size: 0.85em; color: #ff453a; 
+    background: rgba(255, 59, 48, 0.05); border: 1px solid rgba(255, 59, 48, 0.3); 
+    border-radius: 20px; padding: 10px 20px; width: auto; 
+    display: block; cursor: pointer; transition: all 0.2s; 
 }
-.passive-skip:hover { 
-    background: rgba(255, 59, 48, 0.15); 
-    color: #ff3b30; 
-}
+.passive-skip:hover { background: rgba(255, 59, 48, 0.15); color: #ff3b30; }
 
-/* Header Toolbar (History & Log) */
-.header-tools {
-    position: absolute;
-    left: 0;
-    top: 0;
-    display: flex;
-    gap: 8px; /* Space between buttons */
-}
-
-.tool-btn {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-dim);
-    padding: 6px 10px;
-    font-size: 0.8em;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.tool-btn:active {
-    background: rgba(255,255,255,0.15);
-}
-
+/* Header Toolbar */
+.header-tools { position: absolute; left: 0; top: 0; display: flex; gap: 8px; }
+.tool-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-dim); padding: 6px 10px; font-size: 0.8em; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.tool-btn:active { background: rgba(255,255,255,0.15); }
 
 .cluster-queue-container { background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 10px; margin: 10px 0 20px; text-align: right; border-right: 3px solid var(--type-free); }
 .queue-title { font-size: 0.75em; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; font-weight: 700; }
@@ -447,7 +496,7 @@ body {
 .cluster-title { color: var(--type-free); font-weight: 700; font-size: 0.9em; }
 .cluster-content { padding-left: 5px; }
 
-.stepper-control { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 20px 0; }
+.stepper-control { display: flex; align-items: center; justify-content: center; gap: 20px; }
 .stepper-btn { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: white; font-size: 1.5em; cursor: pointer; }
 .stepper-value { font-size: 1.5em; font-weight: 700; width: 60px; }
 

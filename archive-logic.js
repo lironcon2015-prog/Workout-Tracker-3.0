@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS
- * Version: 12.12.5 (Fix: Multi-Cluster Display + Better History Retrieval)
+ * Version: 13.1.0 (Phase 2: Refactored Inline Styles to Utility Classes)
  * Includes: Finish Workout, Archive View, Calendar, Data Import/Export, Log Editing.
  */
 
@@ -14,7 +14,7 @@ function finish() {
     // --- 1. DATA PROCESSING (No Change) ---
     let grouped = {};
     state.log.forEach(e => {
-        if (!grouped[e.exName]) grouped[e.exName] = { sets: [], vol: 0, hasWarmup: false };
+        if (!grouped[e.exName]) grouped[e.exName] = { sets:[], vol: 0, hasWarmup: false };
         if (e.isWarmup) grouped[e.exName].hasWarmup = true;
         else if (!e.skip) {
             let weightStr = `${e.w}kg`;
@@ -45,7 +45,6 @@ function finish() {
         if (entry.isCluster) {
             // --- CLUSTER: Print Chronologically ---
             
-            // FIX: Changed '>' to '!==' to detect new clusters starting at round 1
             if (entry.round && entry.round !== lastClusterRound) {
                 summaryText += `\n--- Cluster Round ${entry.round} ---\n`;
                 lastClusterRound = entry.round;
@@ -67,15 +66,12 @@ function finish() {
         } else {
             // --- STANDARD: Group by Exercise ---
             
-            // FIX: Reset cluster tracking when we encounter a standard exercise
             lastClusterRound = 0;
 
-            // Print Header using data from 'grouped'
             if(grouped[entry.exName]) {
                 summaryText += `${entry.exName} (Vol: ${grouped[entry.exName].vol}kg):\n`;
                 if (grouped[entry.exName].hasWarmup) summaryText += `🔥 Warmup Completed\n`;
                 
-                // Find all sets for this exercise in the log (non-cluster) and print them
                 state.log.forEach((subEntry, subIndex) => {
                     if (!processedIndices.has(subIndex) && !subEntry.isCluster && subEntry.exName === entry.exName && !subEntry.isWarmup) {
                         if (subEntry.skip) {
@@ -90,7 +86,7 @@ function finish() {
                         processedIndices.add(subIndex);
                     }
                 });
-                summaryText += `\n`; // Spacer between exercises
+                summaryText += `\n`; 
             }
         }
     });
@@ -137,12 +133,29 @@ function renderArchiveList() {
     const list = document.getElementById('archive-list'); list.innerHTML = "";
     selectedArchiveIds.clear(); updateCopySelectedBtn();
     const history = StorageManager.getArchive();
-    if (history.length === 0) { list.innerHTML = `<div style="text-align:center; color:gray; margin-top:20px;">אין אימונים שמורים</div>`; } 
-    else {
+    
+    if (history.length === 0) { 
+        list.innerHTML = `<div class="text-center color-dim mt-md">אין אימונים שמורים</div>`; 
+    } else {
         history.forEach(item => {
-            const card = document.createElement('div'); card.className = "menu-card"; card.style.cursor = "default";
+            const card = document.createElement('div'); 
+            card.className = "menu-card"; 
+            card.style.cursor = "default";
             const weekStr = item.week ? ` • שבוע ${item.week}` : '';
-            card.innerHTML = `<div class="archive-card-row"><input type="checkbox" class="archive-checkbox" data-id="${item.timestamp}"><div class="archive-info"><div style="display:flex; justify-content:space-between; width:100%;"><h3 style="margin:0;">${item.date}</h3><span style="font-size:0.8em; color:#8E8E93">${item.duration} דק'</span></div><p style="margin:0; color:#8E8E93; font-size:0.85em;">${item.type}${weekStr}</p></div><div class="chevron"></div></div>`;
+            
+            card.innerHTML = `
+                <div class="archive-card-row">
+                    <input type="checkbox" class="archive-checkbox" data-id="${item.timestamp}">
+                    <div class="archive-info">
+                        <div class="flex-between w-100">
+                            <h3 class="m-0">${item.date}</h3>
+                            <span class="text-sm color-dim">${item.duration} דק'</span>
+                        </div>
+                        <p class="m-0 color-dim text-sm">${item.type}${weekStr}</p>
+                    </div>
+                    <div class="chevron"></div>
+                </div>`;
+                
             const checkbox = card.querySelector('.archive-checkbox');
             checkbox.addEventListener('change', (e) => toggleArchiveSelection(parseInt(e.target.dataset.id)));
             checkbox.addEventListener('click', (e) => e.stopPropagation());
@@ -153,10 +166,20 @@ function renderArchiveList() {
 }
 
 function toggleArchiveSelection(id) { if (selectedArchiveIds.has(id)) selectedArchiveIds.delete(id); else selectedArchiveIds.add(id); updateCopySelectedBtn(); }
+
 function updateCopySelectedBtn() {
     const btn = document.getElementById('btn-copy-selected');
-    if (selectedArchiveIds.size > 0) { btn.disabled = false; btn.style.opacity = "1"; btn.style.borderColor = "var(--accent)"; btn.style.color = "var(--accent)"; } 
-    else { btn.disabled = true; btn.style.opacity = "0.5"; btn.style.borderColor = "var(--border)"; btn.style.color = "var(--text-dim)"; }
+    if (selectedArchiveIds.size > 0) { 
+        btn.disabled = false; 
+        btn.style.opacity = "1"; 
+        btn.style.borderColor = "var(--accent)"; 
+        btn.style.color = "var(--accent)"; 
+    } else { 
+        btn.disabled = true; 
+        btn.style.opacity = "0.5"; 
+        btn.style.borderColor = "var(--border)"; 
+        btn.style.color = "var(--text-dim)"; 
+    }
 }
 
 function copyBulkLog(mode) {
@@ -176,24 +199,34 @@ function renderCalendar() {
     const targetDate = new Date(now.getFullYear(), now.getMonth() + state.calendarOffset, 1);
     const year = targetDate.getFullYear();
     const month = targetDate.getMonth();
-    const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+    const monthNames =["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
     document.getElementById('current-month-display').innerText = `${monthNames[month]} ${year}`;
     const firstDayIndex = targetDate.getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const history = StorageManager.getArchive();
+    
     const monthWorkouts = history.filter(item => {
         const d = new Date(item.timestamp);
         return d.getMonth() === month && d.getFullYear() === year;
     });
-    for(let i = 0; i < firstDayIndex; i++) { const cell = document.createElement('div'); cell.className = "calendar-cell empty"; grid.appendChild(cell); }
+    
+    for(let i = 0; i < firstDayIndex; i++) { 
+        const cell = document.createElement('div'); 
+        cell.className = "calendar-cell empty"; 
+        grid.appendChild(cell); 
+    }
+    
     const today = new Date();
     for(let day = 1; day <= daysInMonth; day++) {
         const cell = document.createElement('div'); cell.className = "calendar-cell";
         cell.innerHTML = `<span>${day}</span>`;
         if(state.calendarOffset === 0 && day === today.getDate()) cell.classList.add('today');
+        
         const dailyWorkouts = monthWorkouts.filter(item => new Date(item.timestamp).getDate() === day);
         if(dailyWorkouts.length > 0) {
-            const dotsContainer = document.createElement('div'); dotsContainer.className = "dots-container";
+            const dotsContainer = document.createElement('div'); 
+            dotsContainer.className = "dots-container";
+            
             dailyWorkouts.forEach(wo => {
                 const dot = document.createElement('div');
                 let dotClass = 'type-free';
@@ -214,21 +247,25 @@ function openDayDrawer(workouts, day, monthName) {
     const drawer = document.getElementById('sheet-modal');
     const overlay = document.getElementById('sheet-overlay');
     const content = document.getElementById('sheet-content');
+    
     let html = `<h3>${day} ב${monthName}</h3>`;
-    if(workouts.length === 0) { html += `<p>אין אימונים ביום זה</p>`; } 
-    else {
-        html += `<p>נמצאו ${workouts.length} אימונים:</p>`;
+    
+    if(workouts.length === 0) { 
+        html += `<p class="color-dim text-sm">אין אימונים ביום זה</p>`; 
+    } else {
+        html += `<p class="color-dim text-sm">נמצאו ${workouts.length} אימונים:</p>`;
         workouts.forEach(wo => {
             let dotColor = '#BF5AF2';
             if(wo.type.includes('כתפיים - גב - חזה') || wo.type.includes('A')) dotColor = '#0A84FF';
             else if(wo.type.includes('רגליים - גב') || wo.type.includes('B')) dotColor = '#32D74B';
             else if(wo.type.includes('חזה - כתפיים') || wo.type.includes('C')) dotColor = '#FF9F0A';
+            
             html += `
             <div class="mini-workout-item" onclick='openArchiveFromDrawer(${JSON.stringify(wo).replace(/'/g, "&#39;")})'>
                 <div class="mini-dot" style="background:${dotColor}"></div>
                 <div style="flex-grow:1;">
-                    <div style="font-weight:600; font-size:0.95em;">${wo.type}</div>
-                    <div style="font-size:0.8em; color:#8E8E93;">${wo.duration} דק' • ${new Date(wo.timestamp).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'})}</div>
+                    <div class="font-semi text-base">${wo.type}</div>
+                    <div class="text-xs color-dim">${wo.duration} דק' • ${new Date(wo.timestamp).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'})}</div>
                 </div>
                 <div class="chevron"></div>
             </div>`;
@@ -254,7 +291,8 @@ function openArchiveFromDrawer(itemData) {
 }
 
 function showArchiveDetail(item) {
-    currentArchiveItem = item; document.getElementById('archive-detail-content').innerText = item.summary;
+    currentArchiveItem = item; 
+    document.getElementById('archive-detail-content').innerText = item.summary;
     document.getElementById('btn-archive-copy').onclick = () => navigator.clipboard.writeText(item.summary).then(() => alert("הועתק!"));
     
     document.getElementById('btn-archive-delete').onclick = () => { 
@@ -270,25 +308,42 @@ function showArchiveDetail(item) {
 
 function exportData() {
     const data = StorageManager.getAllData();
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: "application/json"})); a.download = `gympro_backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    const a = document.createElement('a'); 
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: "application/json"})); 
+    a.download = `gympro_backup_${new Date().toISOString().slice(0,10)}.json`; 
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
+
 function triggerImport() { document.getElementById('import-file').click(); }
+
 function importData(input) {
     const file = input.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const data = JSON.parse(e.target.result);
-            if(confirm("האם לדרוס את הנתונים הקיימים ולשחזר מהגיבוי?")) { StorageManager.restoreData(data); alert("הנתונים שוחזרו בהצלחה!"); location.reload(); }
+            if(confirm("האם לדרוס את הנתונים הקיימים ולשחזר מהגיבוי?")) { 
+                StorageManager.restoreData(data); 
+                alert("הנתונים שוחזרו בהצלחה!"); 
+                location.reload(); 
+            }
         } catch(err) { alert("שגיאה בטעינת הקובץ."); }
     };
     reader.readAsText(file);
 }
+
 function triggerConfigImport() { document.getElementById('import-config-file').click(); }
+
 function processConfigImport(input) {
     const file = input.files[0]; if(!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) { try { StorageManager.importConfiguration(JSON.parse(e.target.result)); } catch(err) { alert("שגיאה בטעינת הקובץ."); } };
+    reader.onload = function(e) { 
+        try { 
+            StorageManager.importConfiguration(JSON.parse(e.target.result)); 
+        } catch(err) { 
+            alert("שגיאה בטעינת הקובץ."); 
+        } 
+    };
     reader.readAsText(file);
 }
 
@@ -300,9 +355,9 @@ function openSessionLog() {
     let html = `<h3>יומן אימון נוכחי</h3>`;
     
     if (state.log.length === 0) {
-        html += `<p style="text-align:center; margin-top:20px;">טרם בוצעו סטים באימון זה</p>`;
+        html += `<p class="text-center mt-lg color-dim">טרם בוצעו סטים באימון זה</p>`;
     } else {
-        html += `<div class="vertical-stack">`;
+        html += `<div class="vertical-stack mt-sm">`;
         state.log.forEach((entry, index) => {
             const isSkip = entry.skip;
             const isWarmup = entry.isWarmup;
@@ -318,8 +373,8 @@ function openSessionLog() {
             <div class="mini-workout-item" onclick="openEditSet(${index})">
                 <div class="mini-dot" style="background:${dotColor}"></div>
                 <div style="flex-grow:1;">
-                    <div style="font-weight:600; font-size:0.9em;">${index + 1}. ${displayTitle}</div>
-                    <div style="font-size:0.85em; color:#8E8E93;">${details}</div>
+                    <div class="font-semi text-sm">${index + 1}. ${displayTitle}</div>
+                    <div class="text-sm color-dim mt-xs">${details}</div>
                 </div>
                 <div class="chevron"></div>
             </div>`;
@@ -343,23 +398,22 @@ function openHistoryDrawer() {
     let html = `<h3>היסטוריה: ${state.currentExName}</h3>`;
     
     if (!history) {
-        html += `<p style="text-align:center; margin-top:20px; color:var(--text-dim);">אין נתונים מהאימון הקודם</p>`;
+        html += `<p class="text-center mt-lg color-dim">אין נתונים מהאימון הקודם</p>`;
     } else {
-        html += `<div style="font-size:0.85em; color:var(--text-dim); margin-bottom:15px;">📅 ביצוע אחרון: ${history.date}</div>`;
+        html += `<div class="text-sm color-dim mb-md text-right mt-xs">📅 ביצוע אחרון: ${history.date}</div>`;
         
         html += `
-        <div style="display: grid; grid-template-columns: 0.5fr 1fr 1fr 1fr; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; margin-bottom: 10px; font-size: 0.8em; color: var(--text-dim); font-weight: 600; text-align: center;">
+        <div class="history-header">
             <div>סט</div>
             <div>משקל</div>
             <div>חזרות</div>
             <div>RIR</div>
         </div>
-        <div class="vertical-stack">`;
+        <div class="history-list">`;
         
         history.sets.forEach((setStr, idx) => {
             let weight = "-", reps = "-", rir = "-";
             try {
-                // Parse set string which might include notes
                 let coreStr = setStr;
                 if (setStr.includes('| Note:')) {
                     coreStr = setStr.split('| Note:')[0].trim();
@@ -376,11 +430,11 @@ function openHistoryDrawer() {
             } catch(e) {}
 
             html += `
-            <div style="display: grid; grid-template-columns: 0.5fr 1fr 1fr 1fr; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.95em; text-align: center; color: white;">
-                <div style="color:var(--text-dim); font-size:0.9em;">#${idx + 1}</div>
-                <div>${weight}</div>
-                <div>${reps}</div>
-                <div style="color:var(--accent); font-size:0.85em;">${rir}</div>
+            <div class="history-row">
+                <div class="history-col set-idx">#${idx + 1}</div>
+                <div class="history-col">${weight}</div>
+                <div class="history-col">${reps}</div>
+                <div class="history-col rir-note">${rir}</div>
             </div>`;
         });
         html += `</div>`;
@@ -397,7 +451,6 @@ function getLastPerformance(exName) {
     for (const item of archive) {
         if (item.week === 'deload') continue;
         if (item.details && item.details[exName]) {
-            // Updated Logic: Check if there are actually sets recorded
             if (item.details[exName].sets && item.details[exName].sets.length > 0) {
                 return { date: item.date, sets: item.details[exName].sets };
             }
@@ -466,7 +519,6 @@ function deleteSetFromLog() {
     haptic('warning');
     
     if (document.getElementById('ui-main').classList.contains('active')) {
-        // initPickers defined in workout-core.js
         if(typeof initPickers === 'function') initPickers();
     }
     openSessionLog();

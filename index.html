@@ -163,7 +163,10 @@
                 <div class="chevron-back"></div>
             </button>
             <div class="brand-logo">GYMPRO <span>ELITE</span></div>
-            <button id="btn-settings" class="settings-btn" onclick="openSettings()">⚙️</button>
+            <div class="d-flex" style="gap: 5px;">
+                <button id="btn-sound" class="settings-btn" onclick="initAudio()">🔇</button>
+                <button id="btn-settings" class="settings-btn" onclick="openSettings()">⚙️</button>
+            </div>
         </header>
 
         <main class="content-area">
@@ -171,13 +174,9 @@
             <div id="ui-week" class="screen active">
                 <div class="hero-section"><h1>ברוך הבא <span>לוח בקרה אישי</span></h1></div>
                 
-                <button onclick="initAudio()" id="audio-init-btn" class="action-card primary-gradient">
-                    <div class="card-text center-text">לחץ להפעלת סאונד</div>
-                </button>
-
-                <div class="section-label">בחר תוכנית שבועית</div>
+                <div class="section-label mt-0">בחר תוכנית שבועית</div>
                 
-                <div class="grid-menu grid-2-cols">
+                <div class="grid-menu grid-2-cols mt-sm">
                     <button class="menu-card" onclick="selectWeek(1)"><span>שבוע 1</span><div class="chevron"></div></button>
                     <button class="menu-card" onclick="selectWeek(2)"><span>שבוע 2</span><div class="chevron"></div></button>
                     <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="chevron"></div></button>
@@ -355,6 +354,7 @@
 
             <div id="ui-confirm" class="screen">
                 <div class="confirm-fixed-top">
+                    <div id="confirm-ex-counter" class="text-sm color-accent font-semi mb-xs" style="display: none;"></div>
                     <p>התרגיל הבא:</p>
                     <h2 id="confirm-ex-name"></h2>
                     <div id="confirm-ex-config" class="sub-text mt-neg-sm mb-lg text-xs color-accent"></div>
@@ -416,7 +416,7 @@
                 <input type="text" id="set-notes" class="minimal-input" placeholder="הערות לסט (אופציונלי)">
                 <button id="btn-submit-set" class="btn-main primary-gradient pulse" onclick="nextStep()">סיום סט</button>
 
-                <div id="action-panel" class="action-panel" style="display: none;">
+                <div id="action-panel" class="action-panel">
                     <p id="next-ex-preview" class="passive-preview"></p>
                     <div class="vertical-stack">
                         <button class="btn-main primary-gradient" onclick="finishCurrentExercise()">המשך לתרגיל הבא</button>

@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 13.1.0 (Phase 2: Refactored Inline Styles to Utility Classes)
+ * Version: 13.1.1 (Phase 2: Enhanced UI Actions & Logic Updates)
  * Includes: Global State, Init, Navigation, Workout Engine, Timer, Intra-Workout Persistence.
  */
 
@@ -22,7 +22,7 @@ function isExOrVariationDone(originalName) {
 
 let state = {
     week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0, 
-    log: [], currentEx: null, currentExName: '',
+    log:[], currentEx: null, currentExName: '',
     historyStack:['ui-week'],
     timerInterval: null, seconds: 0, startTime: null,
     isFreestyle: false, isExtraPhase: false, isInterruption: false, 
@@ -174,9 +174,8 @@ function playBeep(times = 1) {
 async function initAudio() {
     haptic('medium');
     playBeep(1);
-    const btn = document.getElementById('audio-init-btn');
-    btn.innerHTML = `<div class="card-text center-text">מנוע סאונד פעיל</div>`;
-    btn.style.background = "var(--success-gradient)";
+    const btn = document.getElementById('btn-sound');
+    if (btn) btn.innerText = "🔊";
     try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
 }
 
@@ -194,8 +193,6 @@ function navigate(id, clearStack = false) {
     }
     
     document.getElementById('global-back').style.visibility = (id === 'ui-week') ? 'hidden' : 'visible';
-    const settingsBtn = document.getElementById('btn-settings');
-    if (settingsBtn) settingsBtn.style.visibility = (id === 'ui-week') ? 'visible' : 'hidden';
 }
 
 function handleBackClick() {
@@ -271,8 +268,6 @@ function handleBackClick() {
     document.getElementById(prevScreen).classList.add('active');
     
     document.getElementById('global-back').style.visibility = (prevScreen === 'ui-week') ? 'hidden' : 'visible';
-    const settingsBtn = document.getElementById('btn-settings');
-    if (settingsBtn) settingsBtn.style.visibility = (prevScreen === 'ui-week') ? 'visible' : 'hidden';
 }
 
 function selectWeek(w) { 
@@ -320,6 +315,17 @@ function checkFlow() {
 }
 
 function showConfirmScreen(forceExName = null) {
+    const counterDiv = document.getElementById('confirm-ex-counter');
+    if (counterDiv) {
+        const completed = state.completedExInSession.length;
+        if (completed > 0 && !state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.clusterMode) {
+            counterDiv.innerText = `✓ ${completed} תרגילים הושלמו`;
+            counterDiv.style.display = 'block';
+        } else {
+            counterDiv.style.display = 'none';
+        }
+    }
+
     if (state.clusterMode && state.clusterIdx === 0 && !forceExName) {
         document.getElementById('confirm-ex-name').innerText = "סבב / מעגל (Cluster)";
         document.getElementById('confirm-ex-config').innerText = `סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
@@ -464,10 +470,10 @@ function showConfirmScreen(forceExName = null) {
     navigate('ui-confirm');
     StorageManager.saveSessionState();
 }
+
 // --- WORKOUT EXECUTION LOGIC ---
 
 function confirmExercise(doEx) {
-    // Cluster Start Logic
     if (state.clusterMode && state.clusterIdx === 0 && document.getElementById('confirm-ex-name').innerText.includes("Cluster")) {
         const firstExItem = state.activeCluster.exercises[0];
         const exData = state.exercises.find(e => e.name === firstExItem.name);
@@ -485,9 +491,7 @@ function confirmExercise(doEx) {
         return;
     }
 
-    // Skip Logic
     if (!doEx) { 
-        // Tag skipped entry with cluster data if needed
         state.log.push({ 
             skip: true, 
             exName: state.currentExName,
@@ -523,6 +527,7 @@ function confirmExercise(doEx) {
         startRecording();
     }
 }
+
 function resizeSets(count) {
     const defaultReps = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].r : 10;
     const defaultWeight = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].w : 10;
@@ -566,7 +571,10 @@ function startRecording() {
         state.lastLoggedSet = null; 
     }
 
-    document.getElementById('action-panel').style.display = 'none';
+    const actionPanel = document.getElementById('action-panel');
+    actionPanel.style.display = 'none';
+    actionPanel.classList.remove('is-visible');
+
     document.getElementById('btn-submit-set').style.display = 'block';
     
     navigate('ui-main'); 
@@ -621,20 +629,17 @@ function initPickers() {
     let defaultR = 8;
     let defaultRIR = 2;
 
-    // Priority 1: Main/Calc (Updated 12.12.5)
     if (state.currentEx.isCalc) {
         defaultW = target.w;
         defaultR = target.r;
         defaultRIR = 2; 
     }
-    // Priority 2: Last Set (if not Main)
     else if (state.setIdx > 0 && state.lastLoggedSet) {
         defaultW = state.lastLoggedSet.w;
         defaultR = state.lastLoggedSet.r;
         defaultRIR = state.lastLoggedSet.rir;
     }
     else {
-        // Priority 3: Intra-Workout Persistence
         const sessionHistory = state.log.filter(l => l.exName === state.currentExName && !l.skip && !l.isWarmup);
         
         if (sessionHistory.length > 0) {
@@ -644,7 +649,6 @@ function initPickers() {
             defaultRIR = lastSessionEntry.rir;
         } 
         else {
-            // Priority 4: Plan Defaults / Global History
             let planW = state.currentEx.targetWeight;
             let planR = state.currentEx.targetReps;
             let planRIR = state.currentEx.targetRIR;
@@ -766,7 +770,6 @@ function nextStep() {
     const wVal = parseFloat(document.getElementById('weight-picker').value);
     const noteVal = document.getElementById('set-notes').value.trim();
     
-    // NEW: Tagging for Cluster/Round context
     const entry = { 
         exName: state.currentExName, 
         w: wVal, 
@@ -814,7 +817,14 @@ function nextStep() {
         haptic('medium'); 
         document.getElementById('btn-submit-set').style.display = 'none';
         document.getElementById('btn-skip-exercise').style.display = 'none';
-        document.getElementById('action-panel').style.display = 'block';
+        
+        // Animated Action Panel Reveal
+        const actionPanel = document.getElementById('action-panel');
+        actionPanel.style.display = 'block';
+        actionPanel.classList.remove('is-visible');
+        void actionPanel.offsetWidth; // Trigger reflow for animation
+        actionPanel.classList.add('is-visible');
+
         let nextName = getNextExerciseName();
         document.getElementById('next-ex-preview').innerText = `הבא בתור: ${nextName}`;
         if (!state.clusterMode) { document.getElementById('timer-area').style.visibility = 'hidden'; stopRestTimer(); }
@@ -838,7 +848,7 @@ function finishCurrentExercise() {
         
         if (state.isInterruption) { 
             state.isInterruption = false; 
-            showConfirmScreen(); // <-- FIX: Regenerate target exercise state before showing UI
+            showConfirmScreen(); 
         } 
         else if (state.isExtraPhase) {
             if(typeof updateVariationUI === 'function') updateVariationUI();
@@ -970,7 +980,11 @@ function finishClusterRound() {
 function addExtraSet() {
     state.setIdx++;
     state.currentEx.sets.push({...state.currentEx.sets[state.setIdx-1]});
-    document.getElementById('action-panel').style.display = 'none';
+    
+    const actionPanel = document.getElementById('action-panel');
+    actionPanel.style.display = 'none';
+    actionPanel.classList.remove('is-visible');
+    
     document.getElementById('btn-submit-set').style.display = 'block';
     initPickers();
     document.getElementById('timer-area').style.visibility = 'visible'; 
@@ -988,7 +1002,7 @@ function interruptWorkout() {
 
 function resumeWorkout() { 
     state.isInterruption = false; 
-    showConfirmScreen(); // <-- FIX: Regenerate target exercise state before showing UI
+    showConfirmScreen(); 
 }
 
 function startExtraPhase() { 

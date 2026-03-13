@@ -234,8 +234,51 @@ body {
 .confirm-fixed-top h2 { font-size: 1.8em; margin: 10px 0 10px; }
 .sub-text { color: var(--text-dim); font-size: 0.9em; margin-bottom: 30px; }
 
+/* =========================================
+   PHASE 1 - UI MAIN ENHANCEMENTS
+   ========================================= */
+
+/* 1. הירארכיה ויזואלית לשם התרגיל */
+#ex-display-name {
+    font-size: 2em;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+/* 2. הפרדה ויזואלית לאזורים */
+.exercise-header {
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 20px;
+    position: relative;
+}
+
+/* יצירת "אי" עבור אזור ההזנה, מבלי לשנות HTML */
+#ui-main .input-grid {
+    background: rgba(255,255,255,0.03);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* איפוס שוליים כדי שלא יווצר רווח כפול בתוך ה"אי" החדש */
+#ui-main .input-grid .glass-card {
+    margin-bottom: 0;
+}
+
+/* 3. הבלטת כפתור הסיום */
+#btn-submit-set {
+    padding: 22px;
+    font-size: 1.2em;
+    box-shadow: 0 8px 30px rgba(10, 132, 255, 0.4);
+}
+
+/* 4. מיקוד משקל בכפתורי הפעולה המשניים - יחס 1fr 1.5fr 1.5fr */
 .secondary-buttons-grid {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+    display: grid; 
+    grid-template-columns: 1fr 1.5fr 1.5fr; 
+    gap: 12px;
     margin-top: 15px; width: 100%;
 }
 
@@ -244,7 +287,14 @@ body {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     font-size: 0.9em; font-weight: 600; cursor: pointer; transition: all 0.2s; height: 50px;
 }
-.passive-action { background: rgba(255,255,255,0.08); border: none; color: var(--text-dim); }
+
+/* 5. "דלג" כפעולה הרסנית */
+.passive-action { 
+    background: rgba(255, 59, 48, 0.08); 
+    border: 1px solid rgba(255, 59, 48, 0.3); 
+    color: #ff453a; 
+}
+
 .outline-action { background: transparent; border: 1px solid var(--accent); color: var(--text); }
 
 .primary-gradient { background: var(--accent-gradient); }
@@ -328,8 +378,24 @@ body {
 .note-item { font-size: 0.85em; color: var(--text-dim); margin-bottom: 4px; display: flex; align-items: flex-start; }
 .note-num { color: var(--accent); font-weight: bold; margin-left: 8px; min-width: 15px; }
 
-.passive-skip { margin: 25px auto 0; font-size: 0.85em; color: var(--text-dim); background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; padding: 10px 20px; width: auto; display: block; cursor: pointer; transition: all 0.2s; }
-.passive-skip:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+/* 5. המשך כפתורי דילוג הרסניים - סגנון לפעולות עמוד האימון הראשי */
+.passive-skip { 
+    margin: 25px auto 0; 
+    font-size: 0.85em; 
+    color: #ff453a; 
+    background: rgba(255, 59, 48, 0.05); 
+    border: 1px solid rgba(255, 59, 48, 0.3); 
+    border-radius: 20px; 
+    padding: 10px 20px; 
+    width: auto; 
+    display: block; 
+    cursor: pointer; 
+    transition: all 0.2s; 
+}
+.passive-skip:hover { 
+    background: rgba(255, 59, 48, 0.15); 
+    color: #ff3b30; 
+}
 
 /* Header Toolbar (History & Log) */
 .header-tools {

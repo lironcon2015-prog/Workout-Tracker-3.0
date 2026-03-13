@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 12.12.7 (Interruption Flow Fix & Safe Back Navigation)
+ * Version: 13.1.0 (Phase 2: Refactored Inline Styles to Utility Classes)
  * Includes: Global State, Init, Navigation, Workout Engine, Timer, Intra-Workout Persistence.
  */
 
@@ -205,7 +205,6 @@ function handleBackClick() {
     const currentScreen = state.historyStack[state.historyStack.length - 1];
 
     if (currentScreen === 'ui-main') {
-        // Safe check added: if we are in Freestyle, Extra Phase or Interruption and hit back, naturally pop to variation screen.
         if ((state.isFreestyle || state.isExtraPhase || state.isInterruption) && state.setIdx === 0 && state.log.length === 0) {
             // pass
         } 
@@ -283,7 +282,7 @@ function selectWeek(w) {
 }
 
 function selectWorkout(t) {
-    state.type = t; state.exIdx = 0; state.log = []; 
+    state.type = t; state.exIdx = 0; state.log =[]; 
     state.completedExInSession =[]; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
     state.clusterMode = false;
@@ -327,9 +326,9 @@ function showConfirmScreen(forceExName = null) {
         document.getElementById('confirm-ex-config').style.display = 'block';
 
         const historyContainer = document.getElementById('history-container');
-        let listHtml = `<div class="vertical-stack" style="text-align:right; margin: 20px 0;">`;
+        let listHtml = `<div class="vertical-stack text-right my-md">`;
         state.activeCluster.exercises.forEach((ex, i) => {
-            listHtml += `<div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:12px; margin-bottom:5px;">${i+1}. ${ex.name}</div>`;
+            listHtml += `<div class="bg-card p-sm rounded-md mb-xs">${i+1}. ${ex.name}</div>`;
         });
         listHtml += `</div>`;
         historyContainer.innerHTML = listHtml;
@@ -408,7 +407,6 @@ function showConfirmScreen(forceExName = null) {
                 let currentNote = "";
                 let coreStr = setStr;
 
-                // 1. Separate Note from Core Data
                 if (setStr.includes('| Note:')) {
                     const parts = setStr.split('| Note:');
                     coreStr = parts[0].trim();
@@ -418,7 +416,6 @@ function showConfirmScreen(forceExName = null) {
                 if (currentNote) hasAnyNotes = true;
                 notesList.push(currentNote);
 
-                // 2. Parse Core Data (Weight, Reps, RIR)
                 try {
                     const parts = coreStr.split('x');
                     if(parts.length > 1) {
@@ -439,7 +436,6 @@ function showConfirmScreen(forceExName = null) {
                 </div>`;
             });
 
-            // 3. Build Notes Section if any notes exist
             if (hasAnyNotes) {
                 notesHtml = `<div class="history-notes-list">`;
                 notesList.forEach((note, i) => {
@@ -450,7 +446,7 @@ function showConfirmScreen(forceExName = null) {
 
             const gridHtml = `
             <div class="history-card-container">
-                <div style="font-size:0.85em; color:var(--text-dim); text-align:right; margin-bottom:10px;">📅 ביצוע אחרון: ${history.date}</div>
+                <div class="text-sm color-dim text-right mb-sm">📅 ביצוע אחרון: ${history.date}</div>
                 <div class="history-header">
                     <div>סט</div>
                     <div>משקל</div>
@@ -549,12 +545,12 @@ function setupCalculatedEx() {
 function save1RM() {
     state.rm = parseFloat(document.getElementById('rm-picker').value);
     StorageManager.saveRM(state.currentExName, state.rm);
-    let percentages = []; let reps =[];
+    let percentages =[]; let reps =[];
     const w = parseInt(state.week);
     if (w === 1) { percentages =[0.65, 0.75, 0.85, 0.75, 0.65]; reps =[5, 5, 5, 8, 10]; } 
     else if (w === 2) { percentages =[0.70, 0.80, 0.90, 0.80, 0.70, 0.70]; reps =[3, 3, 3, 8, 10, 10]; } 
     else if (w === 3) { percentages =[0.75, 0.85, 0.95, 0.85, 0.75, 0.75]; reps =[5, 3, 1, 8, 10, 10]; }
-    else { percentages =[0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
+    else { percentages =[0.65, 0.75, 0.85, 0.75, 0.65]; reps =[5, 5, 5, 8, 10]; }
     state.currentEx.sets = percentages.map((pct, i) => ({ w: Math.round((state.rm * pct) / 2.5) * 2.5, r: reps[i] }));
     startRecording();
 }
@@ -685,7 +681,7 @@ function initPickers() {
     } else hist.style.display = 'none';
     
     document.getElementById('unilateral-note').style.display = isUnilateral(state.currentExName) ? 'block' : 'none';
-    document.getElementById('btn-warmup').style.display = (state.setIdx === 0 && !state.clusterMode && ["Squat", "Deadlift", "Bench", "Overhead"].some(k => state.currentExName.includes(k))) ? 'block' : 'none';
+    document.getElementById('btn-warmup').style.display = (state.setIdx === 0 && !state.clusterMode &&["Squat", "Deadlift", "Bench", "Overhead"].some(k => state.currentExName.includes(k))) ? 'block' : 'none';
     
     const timerArea = document.getElementById('timer-area');
     if (state.clusterMode && state.timerInterval) {
@@ -905,7 +901,7 @@ function startNextRound() {
     if(nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
     if(nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
 
-    state.currentEx.sets = [{w:10, r:10}];
+    state.currentEx.sets =[{w:10, r:10}];
     startRecording();
 }
 
@@ -1009,7 +1005,7 @@ function finishExtraPhase() {
 }
 
 function startFreestyle() {
-    state.type = 'Freestyle'; state.log = []; state.completedExInSession =[];
+    state.type = 'Freestyle'; state.log =[]; state.completedExInSession =[];
     state.isFreestyle = true; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
     
@@ -1093,9 +1089,9 @@ function renderFreestyleList() {
 
     if (filtered.length === 0) {
         if (state.freestyleFilter === 'בוצעו') {
-            options.innerHTML = `<p style="text-align:center; color:var(--text-dim); margin-top:20px;">טרם בוצעו תרגילים</p>`;
+            options.innerHTML = `<p class="text-center color-dim mt-md">טרם בוצעו תרגילים</p>`;
         } else {
-            options.innerHTML = `<p style="text-align:center; color:var(--text-dim); margin-top:20px;">לא נמצאו תרגילים</p>`;
+            options.innerHTML = `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
         }
         return;
     }
@@ -1140,16 +1136,16 @@ function openSwapMenu() {
     }
 
     const titleOrder = document.createElement('div');
-    titleOrder.className = "section-label";
+    titleOrder.className = "section-label mt-lg";
     titleOrder.innerText = `שאר האימון (החלף סדר)`;
-    titleOrder.style.marginTop = "20px";
     container.appendChild(titleOrder);
 
     const remaining = workoutList.map((item, idx) => ({ item, idx })).filter(({ item, idx }) => idx > state.exIdx);
 
     if (remaining.length === 0) {
         const empty = document.createElement('p');
-        empty.style.textAlign = 'center'; empty.style.color = 'var(--text-dim)'; empty.innerText = 'אין תרגילים נוספים להחלפה';
+        empty.className = "text-center color-dim";
+        empty.innerText = 'אין תרגילים נוספים להחלפה';
         container.appendChild(empty);
     } else {
         remaining.forEach(({ item, idx }) => {

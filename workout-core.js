@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 12.12.5 (History View Update: Parsed Notes)
+ * Version: 12.12.7 (Interruption Flow Fix & Safe Back Navigation)
  * Includes: Global State, Init, Navigation, Workout Engine, Timer, Intra-Workout Persistence.
  */
 
@@ -8,7 +8,7 @@
 
 function getSubstitutes(exName) {
     const group = substituteGroups.find(g => g.includes(exName));
-    return group ? group.filter(n => n !== exName) : [];
+    return group ? group.filter(n => n !== exName) :[];
 }
 
 function isExOrVariationDone(originalName) {
@@ -23,11 +23,11 @@ function isExOrVariationDone(originalName) {
 let state = {
     week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0, 
     log: [], currentEx: null, currentExName: '',
-    historyStack: ['ui-week'],
+    historyStack:['ui-week'],
     timerInterval: null, seconds: 0, startTime: null,
     isFreestyle: false, isExtraPhase: false, isInterruption: false, 
     currentMuscle: '',
-    completedExInSession: [],
+    completedExInSession:[],
     workoutStartTime: null, workoutDurationMins: 0,
     lastLoggedSet: null,
     lastWorkoutDetails: {},
@@ -35,7 +35,7 @@ let state = {
     calendarOffset: 0,
     editingIndex: -1,
     freestyleFilter: 'all',
-    exercises: [],
+    exercises:[],
     workouts: {},
     workoutMeta: {}, 
     
@@ -50,7 +50,7 @@ let state = {
 let managerState = {
     originalName: '',
     currentName: '',
-    exercises: [],
+    exercises:[],
     selectorFilter: 'all',
     dbFilter: 'all',
     activeClusterRef: null,
@@ -205,7 +205,8 @@ function handleBackClick() {
     const currentScreen = state.historyStack[state.historyStack.length - 1];
 
     if (currentScreen === 'ui-main') {
-        if (state.isFreestyle && state.setIdx === 0 && state.log.length === 0) {
+        // Safe check added: if we are in Freestyle, Extra Phase or Interruption and hit back, naturally pop to variation screen.
+        if ((state.isFreestyle || state.isExtraPhase || state.isInterruption) && state.setIdx === 0 && state.log.length === 0) {
             // pass
         } 
         else if (state.setIdx > 0) {
@@ -283,7 +284,7 @@ function selectWeek(w) {
 
 function selectWorkout(t) {
     state.type = t; state.exIdx = 0; state.log = []; 
-    state.completedExInSession = []; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
+    state.completedExInSession =[]; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
     state.clusterMode = false;
     checkFlow(); 
@@ -400,7 +401,7 @@ function showConfirmScreen(forceExName = null) {
             let rowsHtml = "";
             let notesHtml = "";
             let hasAnyNotes = false;
-            let notesList = [];
+            let notesList =[];
 
             history.sets.forEach((setStr, idx) => {
                 let weight = "-", reps = "-", rir = "-";
@@ -548,12 +549,12 @@ function setupCalculatedEx() {
 function save1RM() {
     state.rm = parseFloat(document.getElementById('rm-picker').value);
     StorageManager.saveRM(state.currentExName, state.rm);
-    let percentages = []; let reps = [];
+    let percentages = []; let reps =[];
     const w = parseInt(state.week);
-    if (w === 1) { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; } 
-    else if (w === 2) { percentages = [0.70, 0.80, 0.90, 0.80, 0.70, 0.70]; reps = [3, 3, 3, 8, 10, 10]; } 
-    else if (w === 3) { percentages = [0.75, 0.85, 0.95, 0.85, 0.75, 0.75]; reps = [5, 3, 1, 8, 10, 10]; }
-    else { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
+    if (w === 1) { percentages =[0.65, 0.75, 0.85, 0.75, 0.65]; reps =[5, 5, 5, 8, 10]; } 
+    else if (w === 2) { percentages =[0.70, 0.80, 0.90, 0.80, 0.70, 0.70]; reps =[3, 3, 3, 8, 10, 10]; } 
+    else if (w === 3) { percentages =[0.75, 0.85, 0.95, 0.85, 0.75, 0.75]; reps =[5, 3, 1, 8, 10, 10]; }
+    else { percentages =[0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
     state.currentEx.sets = percentages.map((pct, i) => ({ w: Math.round((state.rm * pct) / 2.5) * 2.5, r: reps[i] }));
     startRecording();
 }
@@ -722,8 +723,7 @@ function initPickers() {
     const rPick = document.getElementById('reps-picker'); rPick.innerHTML = "";
     for(let i = 1; i <= 30; i++) { let o = new Option(i, i); if(i === defaultR) o.selected = true; rPick.add(o); }
     
-    const rirPick = document.getElementById('rir-picker'); rirPick.innerHTML = "";
-    [0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5].forEach(v => {
+    const rirPick = document.getElementById('rir-picker'); rirPick.innerHTML = "";[0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5].forEach(v => {
         let o = new Option(v === 0 ? "Fail" : v, v); 
         if(parseFloat(v) === parseFloat(defaultRIR)) o.selected = true; 
         rirPick.add(o);
@@ -801,7 +801,7 @@ function nextStep() {
             if(nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
             if(nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
 
-            state.currentEx.sets = [{w:10, r:10}];
+            state.currentEx.sets =[{w:10, r:10}];
             state.setIdx = 0; state.lastLoggedSet = null; 
             initPickers();
             document.getElementById('timer-area').style.visibility = 'visible';
@@ -842,8 +842,7 @@ function finishCurrentExercise() {
         
         if (state.isInterruption) { 
             state.isInterruption = false; 
-            navigate('ui-confirm'); 
-            StorageManager.saveSessionState(); 
+            showConfirmScreen(); // <-- FIX: Regenerate target exercise state before showing UI
         } 
         else if (state.isExtraPhase) {
             if(typeof updateVariationUI === 'function') updateVariationUI();
@@ -937,7 +936,7 @@ function skipCurrentExercise() {
                 if(nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
                 if(nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
 
-                state.currentEx.sets = [{w:10, r:10}];
+                state.currentEx.sets =[{w:10, r:10}];
                 state.setIdx = 0; state.lastLoggedSet = null; 
                 initPickers();
                 resetAndStartTimer(state.lastClusterRest || 30);
@@ -993,8 +992,7 @@ function interruptWorkout() {
 
 function resumeWorkout() { 
     state.isInterruption = false; 
-    navigate('ui-confirm'); 
-    StorageManager.saveSessionState(); 
+    showConfirmScreen(); // <-- FIX: Regenerate target exercise state before showing UI
 }
 
 function startExtraPhase() { 
@@ -1011,7 +1009,7 @@ function finishExtraPhase() {
 }
 
 function startFreestyle() {
-    state.type = 'Freestyle'; state.log = []; state.completedExInSession = [];
+    state.type = 'Freestyle'; state.log = []; state.completedExInSession =[];
     state.isFreestyle = true; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
     
@@ -1055,7 +1053,7 @@ function renderFreestyleChips() {
     const container = document.getElementById('variation-chips');
     container.innerHTML = "";
     
-    const muscles = ['all', 'חזה', 'גב', 'רגליים', 'כתפיים', 'יד קדמית', 'יד אחורית', 'בטן', 'קליסטניקס', 'בוצעו'];
+    const muscles =['all', 'חזה', 'גב', 'רגליים', 'כתפיים', 'יד קדמית', 'יד אחורית', 'בטן', 'קליסטניקס', 'בוצעו'];
     const labels = { 'all': 'הכל' };
     
     muscles.forEach(m => {
@@ -1109,7 +1107,7 @@ function renderFreestyleList() {
         btn.onclick = () => {
             state.currentEx = JSON.parse(JSON.stringify(ex));
             state.currentExName = ex.name;
-            if(!state.currentEx.sets || state.currentEx.sets.length < 3) state.currentEx.sets = [{w:10, r:10}, {w:10, r:10}, {w:10, r:10}];
+            if(!state.currentEx.sets || state.currentEx.sets.length < 3) state.currentEx.sets =[{w:10, r:10}, {w:10, r:10}, {w:10, r:10}];
             startRecording();
         };
         options.appendChild(btn);
@@ -1176,7 +1174,7 @@ function openSwapMenu() {
 function calcWarmup() {
     const targetW = parseFloat(document.getElementById('weight-picker').value);
     const list = document.getElementById('warmup-list'); list.innerHTML = "";
-    const percentages = [0, 0.4, 0.6, 0.8];
+    const percentages =[0, 0.4, 0.6, 0.8];
     percentages.forEach((pct, idx) => {
         let w; let reps;
         if(idx === 0) { w = 20; reps = 10; }

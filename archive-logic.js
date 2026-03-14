@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS
- * Version: 13.1.0 (Phase 2: Refactored Inline Styles to Utility Classes)
+ * Version: 13.1.2 (Phase 3: Visual Summary Screen & Separation of Concerns)
  * Includes: Finish Workout, Archive View, Calendar, Data Import/Export, Log Editing.
  */
 
@@ -11,7 +11,7 @@ function finish() {
     navigate('ui-summary');
     document.getElementById('summary-note').value = "";
     
-    // --- 1. DATA PROCESSING (No Change) ---
+    // --- 1. DATA PROCESSING ---
     let grouped = {};
     state.log.forEach(e => {
         if (!grouped[e.exName]) grouped[e.exName] = { sets:[], vol: 0, hasWarmup: false };
@@ -29,81 +29,169 @@ function finish() {
     
     state.lastWorkoutDetails = grouped;
 
-    // --- 2. VISUAL SUMMARY GENERATION (Fixed Logic) ---
+    // --- 2. DUAL GENERATION (Raw Text & Visual HTML) ---
     const workoutDisplayName = state.type; 
     const dateStr = new Date().toLocaleDateString('he-IL');
+    
+    // Raw String for Clipboard
     let summaryText = `GYMPRO ELITE SUMMARY\n${workoutDisplayName} | Week ${state.week} | ${dateStr} | ${state.workoutDurationMins}m\n\n`;
+
+    // Visual HTML for Screen (No Icons, Typography Focused)
+    let html = `
+    <div class="summary-overview-card">
+        <div class="summary-overview-col">
+            <span class="summary-overview-val">${workoutDisplayName}</span>
+            <span class="summary-overview-label">תוכנית</span>
+        </div>
+        <div class="summary-overview-col">
+            <span class="summary-overview-val">${state.week}</span>
+            <span class="summary-overview-label">שבוע</span>
+        </div>
+        <div class="summary-overview-col">
+            <span class="summary-overview-val">${state.workoutDurationMins}m</span>
+            <span class="summary-overview-label">זמן</span>
+        </div>
+        <div class="summary-overview-col">
+            <span class="summary-overview-val">${dateStr}</span>
+            <span class="summary-overview-label">תאריך</span>
+        </div>
+    </div>`;
 
     let processedIndices = new Set();
     let lastClusterRound = 0;
 
-    // Iterate chronologically through the log
+    // Single chronological loop building both outputs
     state.log.forEach((entry, index) => {
         if (processedIndices.has(index)) return; 
         if (entry.isWarmup) return; 
 
         if (entry.isCluster) {
-            // --- CLUSTER: Print Chronologically ---
-            
+            // Cluster Card Handling
             if (entry.round && entry.round !== lastClusterRound) {
                 summaryText += `\n--- Cluster Round ${entry.round} ---\n`;
+                html += `<div class="summary-cluster-round">סבב ${entry.round}</div>`;
                 lastClusterRound = entry.round;
             }
+            
+            html += `<div class="summary-ex-card"><div class="summary-ex-header"><span class="summary-ex-title">${entry.exName}</span></div>`;
             
             let details = "";
             if (entry.skip) {
                 details = "(Skipped)";
+                html += `<div class="summary-tag-skip">דילוג</div>`;
             } else {
                 let weightStr = `${entry.w}kg`;
                 if (isUnilateral(entry.exName)) weightStr += ` (Uni)`;
                 details = `${weightStr} x ${entry.r} (RIR ${entry.rir})`;
                 if (entry.note) details += ` | ${entry.note}`;
+                
+                html += `
+                <div class="summary-set-row">
+                    <span class="summary-set-num">-</span>
+                    <span class="summary-set-details">${weightStr} x ${entry.r} (RIR ${entry.rir})</span>
+                </div>`;
+                if (entry.note) html += `<div class="summary-set-note">הערה: ${entry.note}</div>`;
             }
             
             summaryText += `• ${entry.exName}: ${details}\n`;
+            html += `</div>`;
             processedIndices.add(index);
 
         } else {
-            // --- STANDARD: Group by Exercise ---
-            
+            // Standard Exercise Handling
             lastClusterRound = 0;
-
             if(grouped[entry.exName]) {
                 summaryText += `${entry.exName} (Vol: ${grouped[entry.exName].vol}kg):\n`;
                 if (grouped[entry.exName].hasWarmup) summaryText += `🔥 Warmup Completed\n`;
                 
+                html += `<div class="summary-ex-card">
+                    <div class="summary-ex-header">
+                        <span class="summary-ex-title">${entry.exName}</span>
+                        <span class="summary-ex-vol">[נפח: ${grouped[entry.exName].vol}kg]</span>
+                    </div>`;
+                    
+                if (grouped[entry.exName].hasWarmup) {
+                    html += `<div class="summary-tag-warmup">[ סט חימום ]</div>`;
+                }
+
+                let setCounter = 1;
                 state.log.forEach((subEntry, subIndex) => {
                     if (!processedIndices.has(subIndex) && !subEntry.isCluster && subEntry.exName === entry.exName && !subEntry.isWarmup) {
                         if (subEntry.skip) {
                             summaryText += `(Skipped)\n`;
+                            html += `<div class="summary-tag-skip">(דילוג)</div>`;
                         } else {
                             let weightStr = `${subEntry.w}kg`;
                             if (isUnilateral(subEntry.exName)) weightStr += ` (יד אחת)`;
                             let setStr = `${weightStr} x ${subEntry.r} (RIR ${subEntry.rir})`;
                             if (subEntry.note) setStr += ` | Note: ${subEntry.note}`;
                             summaryText += `${setStr}\n`;
+                            
+                            html += `
+                            <div class="summary-set-row">
+                                <span class="summary-set-num">${setCounter}.</span>
+                                <span class="summary-set-details">${weightStr} x ${subEntry.r} (RIR ${subEntry.rir})</span>
+                            </div>`;
+                            if (subEntry.note) html += `<div class="summary-set-note">הערה: ${subEntry.note}</div>`;
+                            setCounter++;
                         }
                         processedIndices.add(subIndex);
                     }
                 });
                 summaryText += `\n`; 
+                html += `</div>`;
             }
         }
     });
 
-    document.getElementById('summary-area').innerText = summaryText.trim();
+    const summaryArea = document.getElementById('summary-area');
+    summaryArea.className = ""; // Remove monospace specific class for the new visual layout
+    summaryArea.innerHTML = html;
+    summaryArea.dataset.rawSummary = summaryText.trim(); // Store original format for Clipboard
 }
 
 function copyResult() {
-    let text = document.getElementById('summary-area').innerText;
+    // Read the pristine raw text stored in the dataset
+    const summaryArea = document.getElementById('summary-area');
+    const rawText = summaryArea.dataset.rawSummary;
+    
+    let textToCopy = rawText;
     const userNote = document.getElementById('summary-note').value.trim();
-    if (userNote) text += `\n\n📝 הערות כלליות: ${userNote}`;
+    if (userNote) textToCopy += `\n\n📝 הערות כלליות: ${userNote}`;
+    
     const workoutDisplayName = state.type;
     const dateStr = new Date().toLocaleDateString('he-IL');
-    const archiveObj = { id: Date.now(), date: dateStr, timestamp: Date.now(), type: workoutDisplayName, week: state.week, duration: state.workoutDurationMins, summary: text, details: state.lastWorkoutDetails, generalNote: userNote };
+    
+    // Save to LocalStorage exactly as before
+    const archiveObj = { 
+        id: Date.now(), 
+        date: dateStr, 
+        timestamp: Date.now(), 
+        type: workoutDisplayName, 
+        week: state.week, 
+        duration: state.workoutDurationMins, 
+        summary: textToCopy, 
+        details: state.lastWorkoutDetails, 
+        generalNote: userNote 
+    };
     StorageManager.saveToArchive(archiveObj);
-    if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => { haptic('light'); alert("הסיכום נשמר בארכיון והועתק!"); location.reload(); }); } 
-    else { const el = document.createElement("textarea"); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); alert("הסיכום נשמר בארכיון והועתק!"); location.reload(); }
+    
+    if (navigator.clipboard) { 
+        navigator.clipboard.writeText(textToCopy).then(() => { 
+            haptic('light'); 
+            alert("הסיכום נשמר בארכיון והועתק!"); 
+            location.reload(); 
+        }); 
+    } else { 
+        const el = document.createElement("textarea"); 
+        el.value = textToCopy; 
+        document.body.appendChild(el); 
+        el.select(); 
+        document.execCommand('copy'); 
+        document.body.removeChild(el); 
+        alert("הסיכום נשמר בארכיון והועתק!"); 
+        location.reload(); 
+    }
 }
 
 function switchArchiveView(view) {

@@ -372,7 +372,7 @@ body {
     margin-bottom: 0;
 }
 
-/* 3. הבלטת כפתור הסיום (תוספת Pulse Animation) */
+/* 3. הבלטת כפתור הסיום (תוספת Pulse Animation ו-Click Feedback) */
 #btn-submit-set {
     padding: 22px;
     font-size: 1.2em;
@@ -387,6 +387,17 @@ body {
     0% { transform: scale(1); box-shadow: 0 4px 20px rgba(10, 132, 255, 0.3); }
     50% { transform: scale(1.02); box-shadow: 0 4px 30px rgba(10, 132, 255, 0.6); }
     100% { transform: scale(1); box-shadow: 0 4px 20px rgba(10, 132, 255, 0.3); }
+}
+
+/* Click Glow Feedback */
+@keyframes buttonGlow {
+    0% { box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.8); transform: scale(0.95); }
+    50% { box-shadow: 0 0 20px 10px rgba(10, 132, 255, 0); transform: scale(1.02); }
+    100% { box-shadow: 0 0 0 0 rgba(10, 132, 255, 0); transform: scale(1); }
+}
+
+.click-feedback {
+    animation: buttonGlow 0.3s ease-out !important;
 }
 
 /* 4. מיקוד משקל בכפתורי הפעולה המשניים */
@@ -411,7 +422,7 @@ body {
 .success-gradient { background: var(--success-gradient); }
 .secondary { background: #3a3a3c; }
 
-/* Timer (נשאר visibility: hidden כבקשתך) */
+/* Timer */
 .timer-section { display: flex; flex-direction: column; align-items: center; margin-top: 25px; visibility: hidden; }
 .timer-wrap { position: relative; width: 140px; height: 140px; margin-bottom: 15px; }
 .timer-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
@@ -422,7 +433,7 @@ body {
 }
 .timer-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2.2em; font-weight: 300; font-variant-numeric: tabular-nums; }
 
-/* Badges & Summary (שדרוג History Pill) */
+/* Badges & History Pill */
 .history-pill { 
     background: rgba(10, 132, 255, 0.1); color: var(--accent); 
     padding: 8px 12px; border-radius: 8px; font-size: 0.85em; font-weight: 600;
@@ -439,11 +450,63 @@ body {
 }
 @keyframes pulseRed { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
+/* =========================================
+   SUMMARY SCREEN UI CARDS (Phase 3)
+   ========================================= */
+
+/* Legacy Monospace class for Archive Detail views */
 .summary-card {
     background: #111; padding: 20px; border-radius: var(--ios-radius);
     font-family: 'Menlo', monospace; white-space: pre-wrap; font-size: 0.85em;
     border: 1px solid var(--border); color: #d1d1d6; line-height: 1.5;
 }
+
+/* New Visual Cards for Summary Area */
+.summary-overview-card { 
+    background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); 
+    border: 1px solid var(--border); border-radius: var(--ios-radius); 
+    padding: 15px; margin-bottom: 20px; display: flex; 
+    justify-content: space-between; align-items: center; text-align: center; 
+}
+.summary-overview-col { flex: 1; display: flex; flex-direction: column; border-left: 1px solid rgba(255,255,255,0.1); }
+.summary-overview-col:last-child { border-left: none; }
+.summary-overview-val { font-size: 1.05em; font-weight: 700; color: var(--text); }
+.summary-overview-label { font-size: 0.7em; color: var(--text-dim); margin-top: 4px; }
+
+.summary-ex-card { 
+    background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); 
+    border: 1px solid var(--border); border-radius: var(--ios-radius); 
+    padding: 15px; margin-bottom: 15px; text-align: right; 
+}
+.summary-ex-header { 
+    display: flex; justify-content: space-between; align-items: baseline; 
+    border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 10px; 
+}
+.summary-ex-title { font-weight: 700; font-size: 1.05em; color: var(--text); }
+.summary-ex-vol { font-size: 0.8em; color: var(--text-dim); }
+
+.summary-set-row { 
+    display: flex; align-items: center; justify-content: flex-start; 
+    padding: 4px 0; font-size: 0.95em; color: var(--text); 
+}
+.summary-set-num { width: 25px; color: var(--text-dim); font-size: 0.9em; }
+.summary-set-details { flex-grow: 1; }
+.summary-set-note { 
+    display: block; font-size: 0.85em; color: var(--text-dim); 
+    padding-right: 25px; margin-top: -2px; margin-bottom: 6px; 
+}
+
+.summary-tag-warmup { 
+    color: var(--text-dim); font-size: 0.85em; margin-bottom: 5px; 
+    border: 1px solid var(--border); display: inline-block; padding: 2px 6px; border-radius: 4px; 
+}
+.summary-tag-skip { color: var(--text-dim); font-size: 0.85em; margin-bottom: 5px; font-style: italic; }
+.summary-cluster-round { 
+    color: var(--type-free); font-weight: 700; font-size: 0.9em; 
+    margin: 10px 0 5px; border-bottom: 1px dashed rgba(191, 90, 242, 0.3); 
+    padding-bottom: 4px; text-align: right; 
+}
+
 .finish-main-btn { background: #3a3a3c; color: white; padding: 15px; border-radius: var(--ios-radius); border: none; width: 100%; margin-top: 20px; font-weight: 600; }
 
 /* Modal Styles */

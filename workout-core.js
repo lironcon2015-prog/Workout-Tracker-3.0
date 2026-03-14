@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 13.1.1 (Phase 2: Enhanced UI Actions & Logic Updates)
+ * Version: 13.1.2 (Phase 3: Visual Summary Screen & Separation of Concerns)
  * Includes: Global State, Init, Navigation, Workout Engine, Timer, Intra-Workout Persistence.
  */
 
@@ -766,7 +766,17 @@ function resetAndStartTimer(customTime = null) {
 function stopRestTimer() { if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; } }
 
 function nextStep() {
-    haptic('light');
+    haptic('medium'); // Enhanced Haptic bump
+    
+    // Add rapid visual Glow effect without delaying execution
+    const btn = document.getElementById('btn-submit-set');
+    if (btn) {
+        btn.classList.remove('click-feedback');
+        void btn.offsetWidth; // Force Reflow
+        btn.classList.add('click-feedback');
+        setTimeout(() => btn.classList.remove('click-feedback'), 300);
+    }
+    
     const wVal = parseFloat(document.getElementById('weight-picker').value);
     const noteVal = document.getElementById('set-notes').value.trim();
     
@@ -814,7 +824,6 @@ function nextStep() {
         document.getElementById('timer-area').style.visibility = 'visible'; 
         resetAndStartTimer();
     } else { 
-        haptic('medium'); 
         document.getElementById('btn-submit-set').style.display = 'none';
         document.getElementById('btn-skip-exercise').style.display = 'none';
         

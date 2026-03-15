@@ -690,7 +690,7 @@ function initPickers() {
     const timerArea = document.getElementById('timer-area');
     if (state.clusterMode && state.timerInterval) {
         timerArea.style.visibility = 'visible';
-    } else if (state.setIdx > 0 && document.getElementById('action-panel').style.display === 'none') { 
+    } else if (state.setIdx > 0 && !document.getElementById('action-panel').classList.contains('is-visible')) { 
         timerArea.style.visibility = 'visible'; 
     } else { 
         timerArea.style.visibility = 'hidden'; 

@@ -1,19 +1,21 @@
 /**
  * GymPro Elite - Storage Manager
- * Handles all LocalStorage operations.
+ * Version: 14.2.0
+ * Handles all LocalStorage operations. No native alert/confirm.
  */
 
 const StorageManager = {
-    KEY_WEIGHTS: 'gympro_weights',
-    KEY_RM: 'gympro_rm',
-    KEY_ARCHIVE: 'gympro_archive',
+    KEY_WEIGHTS:      'gympro_weights',
+    KEY_RM:           'gympro_rm',
+    KEY_ARCHIVE:      'gympro_archive',
     KEY_DB_EXERCISES: 'gympro_db_exercises',
-    KEY_DB_WORKOUTS: 'gympro_db_workouts',
-    KEY_META: 'gympro_workout_meta',
-    KEY_SESSION: 'gympro_current_session', 
+    KEY_DB_WORKOUTS:  'gympro_db_workouts',
+    KEY_META:         'gympro_workout_meta',
+    KEY_SESSION:      'gympro_current_session',
+    KEY_ANALYTICS:    'gympro_analytics_prefs',
 
     getData(key) {
-        try { return JSON.parse(localStorage.getItem(key)); } 
+        try { return JSON.parse(localStorage.getItem(key)); }
         catch { return null; }
     },
 
@@ -26,8 +28,6 @@ const StorageManager = {
         const storedWo = this.getData(this.KEY_DB_WORKOUTS);
         const storedMeta = this.getData(this.KEY_META);
 
-        // state will be defined in script.js, but since initDB is called on window.onload,
-        // state will be available in the global scope.
         if (storedEx && storedEx.length > 0) {
             state.exercises = storedEx;
             const missing = defaultExercises.filter(def => !state.exercises.find(e => e.name === def.name));
@@ -55,13 +55,15 @@ const StorageManager = {
         }
     },
 
+    // ── Session ──────────────────────────────────────────────────────────
+
     saveSessionState() {
         const sessionData = {
             state: JSON.parse(JSON.stringify(state)),
             managerState: JSON.parse(JSON.stringify(managerState)),
             timestamp: Date.now()
         };
-        sessionData.state.timerInterval = null; 
+        sessionData.state.timerInterval = null;
         this.saveData(this.KEY_SESSION, sessionData);
     },
 
@@ -77,15 +79,7 @@ const StorageManager = {
         return this.getData(this.KEY_SESSION);
     },
 
-    resetFactory() {
-        if(confirm("פעולה זו תאפס את כל התרגילים והאימונים לברירת המחדל. האם להמשיך?")) {
-            localStorage.removeItem(this.KEY_DB_EXERCISES);
-            localStorage.removeItem(this.KEY_DB_WORKOUTS);
-            localStorage.removeItem(this.KEY_META);
-            localStorage.removeItem(this.KEY_SESSION);
-            location.reload();
-        }
-    },
+    // ── Weights / RM ─────────────────────────────────────────────────────
 
     getLastWeight(exName) {
         const data = this.getData(this.KEY_WEIGHTS) || {};
@@ -110,6 +104,8 @@ const StorageManager = {
         this.saveData(this.KEY_RM, data);
     },
 
+    // ── Archive ──────────────────────────────────────────────────────────
+
     saveToArchive(workoutObj) {
         let history = this.getData(this.KEY_ARCHIVE) || [];
         history.unshift(workoutObj);
@@ -119,12 +115,36 @@ const StorageManager = {
     getArchive() {
         return this.getData(this.KEY_ARCHIVE) || [];
     },
-    
+
     deleteFromArchive(timestamp) {
         let history = this.getArchive();
         history = history.filter(h => h.timestamp !== timestamp);
         this.saveData(this.KEY_ARCHIVE, history);
     },
+
+    // ── Analytics Prefs ─────────────────────────────────────────────────
+
+    getAnalyticsPrefs() {
+        return this.getData(this.KEY_ANALYTICS) || {
+            heroMetrics: ['days', 'vol', 'total'],
+            volumeRange: 4,
+            muscleRange: '1m',
+            consistencyRange: 8,
+            microPoints: 6,
+            microAxis: 'e1rm',
+            microOrder: [],
+            formula: 'epley',
+            units: 'kg',
+            name: '',
+            workoutAliases: {}
+        };
+    },
+
+    saveAnalyticsPrefs(prefs) {
+        this.saveData(this.KEY_ANALYTICS, prefs);
+    },
+
+    // ── Backup / Restore ────────────────────────────────────────────────
 
     getAllData() {
         return {
@@ -135,37 +155,48 @@ const StorageManager = {
     },
 
     restoreData(dataObj) {
-        if(dataObj.weights) this.saveData(this.KEY_WEIGHTS, dataObj.weights);
-        if(dataObj.rms) this.saveData(this.KEY_RM, dataObj.rms);
-        if(dataObj.archive) this.saveData(this.KEY_ARCHIVE, dataObj.archive);
+        if (dataObj.weights) this.saveData(this.KEY_WEIGHTS, dataObj.weights);
+        if (dataObj.rms) this.saveData(this.KEY_RM, dataObj.rms);
+        if (dataObj.archive) this.saveData(this.KEY_ARCHIVE, dataObj.archive);
     },
+
+    // ── Configuration Export / Import ────────────────────────────────────
 
     exportConfiguration() {
         const configData = {
             type: 'config_only',
-            version: '12.12.5',
+            version: '14.2.0',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
             meta: this.getData(this.KEY_META)
         };
-        const a = document.createElement('a'); 
-        a.href = URL.createObjectURL(new Blob([JSON.stringify(configData, null, 2)], {type: "application/json"})); 
-        a.download = `gympro_config_${new Date().toISOString().slice(0,10)}.json`; 
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(configData, null, 2)], { type: "application/json" }));
+        a.download = `gympro_config_${new Date().toISOString().slice(0, 10)}.json`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
     },
 
     importConfiguration(data) {
         if (data.type !== 'config_only') {
-            alert("שגיאה: קובץ תבנית לא תקין.");
+            showAlert("שגיאה: קובץ תבנית לא תקין.");
             return;
         }
-        if(confirm("פעולה זו תדרוס את התוכניות והתרגילים. האם להמשיך?")) {
+        showConfirm("פעולה זו תדרוס את התוכניות והתרגילים. האם להמשיך?", () => {
             this.saveData(this.KEY_DB_WORKOUTS, data.workouts);
             this.saveData(this.KEY_DB_EXERCISES, data.exercises);
             if (data.meta) this.saveData(this.KEY_META, data.meta);
-            alert("התבניות נטענו בהצלחה!");
-            location.reload();
-        }
+            showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
+        });
+    },
+
+    // ── Factory Reset (confirmation handled in caller) ───────────────────
+
+    resetToFactory() {
+        localStorage.removeItem(this.KEY_DB_EXERCISES);
+        localStorage.removeItem(this.KEY_DB_WORKOUTS);
+        localStorage.removeItem(this.KEY_META);
+        localStorage.removeItem(this.KEY_SESSION);
+        // Analytics prefs kept intentionally — only structural data is reset
     }
 };

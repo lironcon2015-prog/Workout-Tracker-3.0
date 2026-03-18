@@ -1,33 +1,68 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 13.1.2 (Phase 3: Visual Summary Screen & Separation of Concerns)
- * Includes: Global State, Init, Navigation, Workout Engine, Timer, Intra-Workout Persistence.
+ * Version: 14.2.0
+ * Fixes: custom modals (no confirm/alert), checkFlow while-loop, navigate-after-save, safe-area toast.
  */
 
-// --- GLOBAL VARIABLES & STATE ---
+// ─── CUSTOM MODAL SYSTEM ───────────────────────────────────────────────────
+// Replaces all native confirm() / alert() calls app-wide.
+
+function showAlert(msg, onOk) {
+    const modal = document.getElementById('custom-alert-modal');
+    document.getElementById('custom-alert-msg').textContent = msg;
+    modal.style.display = 'flex';
+    const okBtn = document.getElementById('custom-alert-ok');
+    const handler = () => {
+        modal.style.display = 'none';
+        okBtn.removeEventListener('click', handler);
+        if (typeof onOk === 'function') onOk();
+    };
+    okBtn.addEventListener('click', handler);
+}
+
+function showConfirm(msg, onOk, onCancel) {
+    const modal = document.getElementById('custom-confirm-modal');
+    document.getElementById('custom-confirm-msg').textContent = msg;
+    modal.style.display = 'flex';
+    const okBtn = document.getElementById('custom-confirm-ok');
+    const cancelBtn = document.getElementById('custom-confirm-cancel');
+
+    const cleanup = () => {
+        modal.style.display = 'none';
+        okBtn.removeEventListener('click', okHandler);
+        cancelBtn.removeEventListener('click', cancelHandler);
+    };
+    const okHandler = () => { cleanup(); if (typeof onOk === 'function') onOk(); };
+    const cancelHandler = () => { cleanup(); if (typeof onCancel === 'function') onCancel(); };
+
+    okBtn.addEventListener('click', okHandler);
+    cancelBtn.addEventListener('click', cancelHandler);
+}
+
+// ─── HELPER: Substitute groups ─────────────────────────────────────────────
 
 function getSubstitutes(exName) {
     const group = substituteGroups.find(g => g.includes(exName));
-    return group ? group.filter(n => n !== exName) :[];
+    return group ? group.filter(n => n !== exName) : [];
 }
 
 function isExOrVariationDone(originalName) {
     if (state.completedExInSession.includes(originalName)) return true;
     const group = substituteGroups.find(g => g.includes(originalName));
-    if (group) {
-        return group.some(varName => state.completedExInSession.includes(varName));
-    }
+    if (group) return group.some(varName => state.completedExInSession.includes(varName));
     return false;
 }
 
+// ─── GLOBAL STATE ──────────────────────────────────────────────────────────
+
 let state = {
-    week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0, 
-    log:[], currentEx: null, currentExName: '',
-    historyStack:['ui-week'],
+    week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0,
+    log: [], currentEx: null, currentExName: '',
+    historyStack: ['ui-week'],
     timerInterval: null, seconds: 0, startTime: null,
-    isFreestyle: false, isExtraPhase: false, isInterruption: false, 
+    isFreestyle: false, isExtraPhase: false, isInterruption: false,
     currentMuscle: '',
-    completedExInSession:[],
+    completedExInSession: [],
     workoutStartTime: null, workoutDurationMins: 0,
     lastLoggedSet: null,
     lastWorkoutDetails: {},
@@ -35,14 +70,14 @@ let state = {
     calendarOffset: 0,
     editingIndex: -1,
     freestyleFilter: 'all',
-    exercises:[],
+    exercises: [],
     workouts: {},
-    workoutMeta: {}, 
-    
+    workoutMeta: {},
+
     // Cluster State
     clusterMode: false,
     activeCluster: null,
-    clusterIdx: 0, 
+    clusterIdx: 0,
     clusterRound: 1,
     lastClusterRest: 0
 };
@@ -50,22 +85,23 @@ let state = {
 let managerState = {
     originalName: '',
     currentName: '',
-    exercises:[],
+    exercises: [],
     selectorFilter: 'all',
     dbFilter: 'all',
     activeClusterRef: null,
-    editingTimerEx: null 
+    editingTimerEx: null
 };
 
 let audioContext;
 let wakeLock = null;
 
-// --- INITIALIZATION ---
+// ─── INITIALIZATION ────────────────────────────────────────────────────────
+
 window.onload = () => {
     StorageManager.initDB();
-    if(typeof renderWorkoutMenu === 'function') renderWorkoutMenu(); 
+    if (typeof renderWorkoutMenu === 'function') renderWorkoutMenu();
     checkRecovery();
-    if(typeof renderHeroCard === 'function') renderHeroCard();
+    if (typeof renderHeroCard === 'function') renderHeroCard();
 };
 
 function checkRecovery() {
@@ -79,61 +115,61 @@ function restoreSession() {
     if (session && session.state) {
         state = session.state;
         if (session.managerState) managerState = session.managerState;
-        
+
         document.getElementById('recovery-modal').style.display = 'none';
-        
+
         let lastScreen = state.historyStack[state.historyStack.length - 1];
         if (['ui-muscle-select', 'ui-ask-arms', 'ui-arm-selection'].includes(lastScreen)) {
-             if (lastScreen === 'ui-muscle-select') {
-                 state.historyStack.pop();
-                 state.historyStack.push('ui-variation');
-                 lastScreen = 'ui-variation';
-             } else {
-                 state.historyStack.pop();
-                 state.historyStack.push('ui-ask-extra');
-                 lastScreen = 'ui-ask-extra';
-             }
+            if (lastScreen === 'ui-muscle-select') {
+                state.historyStack.pop();
+                state.historyStack.push('ui-variation');
+                lastScreen = 'ui-variation';
+            } else {
+                state.historyStack.pop();
+                state.historyStack.push('ui-ask-extra');
+                lastScreen = 'ui-ask-extra';
+            }
         }
-        
+
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(lastScreen).classList.add('active');
         document.getElementById('global-back').style.visibility = (lastScreen === 'ui-week') ? 'hidden' : 'visible';
-        
+
         switch (lastScreen) {
             case 'ui-main':
                 initPickers();
                 if (state.startTime && state.seconds > 0) {
                     const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
-                    let target = state.currentEx && state.currentEx.restTime ? state.currentEx.restTime : 90;
+                    const target = state.currentEx && state.currentEx.restTime ? state.currentEx.restTime : 90;
                     if (elapsed < target) {
                         document.getElementById('timer-area').style.visibility = 'visible';
-                        resetAndStartTimer(target); 
+                        resetAndStartTimer(target);
                     } else {
-                         document.getElementById('timer-area').style.visibility = 'visible';
-                         document.getElementById('rest-timer').innerText = "00:00";
-                         document.getElementById('timer-progress').style.strokeDashoffset = 0;
-                         state.seconds = target;
+                        document.getElementById('timer-area').style.visibility = 'visible';
+                        document.getElementById('rest-timer').innerText = "00:00";
+                        document.getElementById('timer-progress').style.strokeDashoffset = 0;
+                        state.seconds = target;
                     }
                 }
                 break;
             case 'ui-cluster-rest': renderClusterRestUI(); break;
             case 'ui-confirm': showConfirmScreen(state.currentExName); break;
             case 'ui-swap-list': openSwapMenu(); break;
-            case 'ui-workout-manager': if(typeof renderManagerList === 'function') renderManagerList(); break;
-            case 'ui-workout-editor': if(typeof openEditorUI === 'function') openEditorUI(); break; 
-            case 'ui-exercise-selector': 
-                document.getElementById('selector-search').value = ""; 
-                if(typeof updateSelectorChips === 'function') updateSelectorChips(); 
-                if(typeof renderSelectorList === 'function') renderSelectorList(); 
+            case 'ui-workout-manager': if (typeof renderManagerList === 'function') renderManagerList(); break;
+            case 'ui-workout-editor': if (typeof openEditorUI === 'function') openEditorUI(); break;
+            case 'ui-exercise-selector':
+                document.getElementById('selector-search').value = "";
+                if (typeof updateSelectorChips === 'function') updateSelectorChips();
+                if (typeof renderSelectorList === 'function') renderSelectorList();
                 break;
             case 'ui-1rm': setupCalculatedEx(); break;
-            case 'ui-variation': 
-                if(typeof updateVariationUI === 'function') updateVariationUI();
-                if(typeof renderFreestyleChips === 'function') renderFreestyleChips();
-                if(typeof renderFreestyleList === 'function') renderFreestyleList();
+            case 'ui-variation':
+                if (typeof updateVariationUI === 'function') updateVariationUI();
+                if (typeof renderFreestyleChips === 'function') renderFreestyleChips();
+                if (typeof renderFreestyleList === 'function') renderFreestyleList();
                 break;
-            case 'ui-exercise-db': if(typeof renderExerciseDatabase === 'function') renderExerciseDatabase(); break;
-            case 'ui-archive': if(typeof openArchive === 'function') openArchive(); break;
+            case 'ui-exercise-db': if (typeof renderExerciseDatabase === 'function') renderExerciseDatabase(); break;
+            case 'ui-archive': if (typeof openArchive === 'function') openArchive(); break;
         }
         haptic('success');
     } else {
@@ -146,14 +182,16 @@ function discardSession() {
     document.getElementById('recovery-modal').style.display = 'none';
 }
 
+// ─── HAPTIC / AUDIO ────────────────────────────────────────────────────────
+
 function haptic(type = 'light') {
     if (!("vibrate" in navigator)) return;
     try {
-        if (type === 'light') navigator.vibrate(20); 
+        if (type === 'light') navigator.vibrate(20);
         else if (type === 'medium') navigator.vibrate(40);
         else if (type === 'success') navigator.vibrate([50, 50, 50]);
         else if (type === 'warning') navigator.vibrate([30, 30]);
-    } catch(e) {}
+    } catch (e) {}
 }
 
 function playBeep(times = 1) {
@@ -175,27 +213,30 @@ function playBeep(times = 1) {
 async function initAudio() {
     haptic('medium');
     playBeep(1);
+    // Toggle SVG sound icon class
     const btn = document.getElementById('btn-sound');
-    if (btn) btn.innerText = "🔊";
+    if (btn) btn.classList.toggle('sound-active', true);
     try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
 }
+
+// ─── NAVIGATION ────────────────────────────────────────────────────────────
 
 function navigate(id, clearStack = false) {
     haptic('light');
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-    
+
     if (id !== 'ui-main') stopRestTimer();
-    const WORKOUT_SCREENS = ['ui-workout-type','ui-confirm','ui-main','ui-1rm','ui-cluster-rest','ui-variation','ui-swap-list','ui-ask-extra','ui-summary'];
-const tabBar = document.querySelector('.tab-bar');
-if (tabBar) tabBar.style.display = WORKOUT_SCREENS.includes(id) ? 'none' : 'flex';
+    const WORKOUT_SCREENS = ['ui-workout-type', 'ui-confirm', 'ui-main', 'ui-1rm', 'ui-cluster-rest', 'ui-variation', 'ui-swap-list', 'ui-ask-extra', 'ui-summary'];
+    const tabBar = document.querySelector('.tab-bar');
+    if (tabBar) tabBar.style.display = WORKOUT_SCREENS.includes(id) ? 'none' : 'flex';
 
     if (clearStack) {
         state.historyStack = [id];
     } else {
         if (state.historyStack[state.historyStack.length - 1] !== id) state.historyStack.push(id);
     }
-    
+
     document.getElementById('global-back').style.visibility = (id === 'ui-week') ? 'hidden' : 'visible';
 }
 
@@ -208,18 +249,16 @@ function handleBackClick() {
     if (currentScreen === 'ui-main') {
         if ((state.isFreestyle || state.isExtraPhase || state.isInterruption) && state.setIdx === 0 && state.log.length === 0) {
             // pass
-        } 
-        else if (state.setIdx > 0) {
-            if(confirm("חזרה אחורה תמחק את הסט הנוכחי. להמשיך?")) {
-               state.setIdx--;
-               initPickers();
-               StorageManager.saveSessionState();
-               return; 
-            }
-            return; 
+        } else if (state.setIdx > 0) {
+            showConfirm("חזרה אחורה תמחק את הסט הנוכחי. להמשיך?", () => {
+                state.setIdx--;
+                initPickers();
+                StorageManager.saveSessionState();
+            });
+            return;
         } else {
             stopRestTimer();
-            state.historyStack.pop(); 
+            state.historyStack.pop();
             navigate('ui-confirm');
             return;
         }
@@ -227,8 +266,13 @@ function handleBackClick() {
 
     if (currentScreen === 'ui-variation') {
         if ((state.isFreestyle || state.isInterruption || state.isExtraPhase) && state.log.length > 0) {
-            if(!confirm("האם לצאת מהאימון? (הנתונים שלא נשמרו בארכיון יאבדו)")) return;
-            StorageManager.clearSessionState();
+            showConfirm("האם לצאת מהאימון? (הנתונים שלא נשמרו בארכיון יאבדו)", () => {
+                StorageManager.clearSessionState();
+                state.isInterruption = false;
+                state.isExtraPhase = false;
+                _doBack(currentScreen);
+            });
+            return;
         }
         state.isInterruption = false;
         state.isExtraPhase = false;
@@ -236,62 +280,85 @@ function handleBackClick() {
 
     if (currentScreen === 'ui-confirm') {
         if (state.log.length > 0 || state.completedExInSession.length > 0) {
-            if(confirm("האם לצאת מהאימון?")) StorageManager.clearSessionState();
-            else return; 
+            showConfirm("האם לצאת מהאימון?", () => {
+                StorageManager.clearSessionState();
+                _doBack(currentScreen);
+            });
+            return;
         }
     }
 
     if (currentScreen === 'ui-cluster-rest') {
-        if(!confirm("האם לצאת ממצב Cluster?")) return;
-        state.clusterMode = false;
-        document.getElementById('ui-main').classList.remove('cluster');
+        showConfirm("האם לצאת ממצב Cluster?", () => {
+            state.clusterMode = false;
+            document.getElementById('ui-main').classList.remove('cluster');
+            _doBack(currentScreen);
+        });
+        return;
     }
 
-    if (currentScreen === 'ui-workout-editor') { 
-        if(confirm("לצאת ללא שמירה?")) { 
-            state.historyStack.pop(); 
-            navigate('ui-workout-manager'); 
-            return;
-        }
-        return; 
+    if (currentScreen === 'ui-workout-editor') {
+        showConfirm("לצאת ללא שמירה?", () => {
+            state.historyStack.pop();
+            navigate('ui-workout-manager');
+        });
+        return;
     }
 
     if (currentScreen === 'ui-exercise-selector') {
         document.getElementById('selector-search').value = "";
     }
 
+    _doBack(currentScreen);
+}
+
+function _doBack(currentScreen) {
     state.historyStack.pop();
     const prevScreen = state.historyStack[state.historyStack.length - 1];
-    
+
     if (prevScreen === 'ui-variation') {
-        if(typeof updateVariationUI === 'function') updateVariationUI(); 
-        if(typeof renderFreestyleChips === 'function') renderFreestyleChips();
-        if(typeof renderFreestyleList === 'function') renderFreestyleList();
+        if (typeof updateVariationUI === 'function') updateVariationUI();
+        if (typeof renderFreestyleChips === 'function') renderFreestyleChips();
+        if (typeof renderFreestyleList === 'function') renderFreestyleList();
     }
 
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(prevScreen).classList.add('active');
-    
     document.getElementById('global-back').style.visibility = (prevScreen === 'ui-week') ? 'hidden' : 'visible';
 }
 
-function selectWeek(w) { 
-    state.week = w; 
-    if(typeof renderWorkoutMenu === 'function') renderWorkoutMenu(); 
-    navigate('ui-workout-type'); 
+function openSettings() { navigate('ui-settings'); }
+
+// ─── WEEK / WORKOUT SELECTION ──────────────────────────────────────────────
+
+function selectWeek(w) {
+    state.week = w;
+    if (typeof renderWorkoutMenu === 'function') renderWorkoutMenu();
+    navigate('ui-workout-type');
 }
 
 function selectWorkout(t) {
-    state.type = t; state.exIdx = 0; state.log =[]; 
-    state.completedExInSession =[]; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
+    state.type = t; state.exIdx = 0; state.log = [];
+    state.completedExInSession = []; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
     state.clusterMode = false;
-    checkFlow(); 
+    checkFlow();
 }
+
+// ─── FLOW CONTROL (while-loop, no recursion) ───────────────────────────────
 
 function checkFlow() {
     const workoutList = state.workouts[state.type];
-    
+
+    // Skip already-completed non-cluster exercises (bounded while loop)
+    while (
+        state.exIdx < workoutList.length &&
+        workoutList[state.exIdx].type !== 'cluster' &&
+        isExOrVariationDone(workoutList[state.exIdx].name)
+    ) {
+        state.exIdx++;
+    }
+
     if (state.exIdx >= workoutList.length) {
         navigate('ui-ask-extra');
         StorageManager.saveSessionState();
@@ -302,7 +369,7 @@ function checkFlow() {
 
     if (item.type === 'cluster') {
         state.clusterMode = true;
-        state.activeCluster = JSON.parse(JSON.stringify(item)); 
+        state.activeCluster = JSON.parse(JSON.stringify(item));
         state.clusterIdx = 0;
         state.clusterRound = 1;
         state.lastClusterRest = 30;
@@ -310,14 +377,11 @@ function checkFlow() {
     } else {
         state.clusterMode = false;
         state.activeCluster = null;
-        if (isExOrVariationDone(item.name)) {
-            state.exIdx++;
-            checkFlow(); 
-        } else {
-            showConfirmScreen();
-        }
+        showConfirmScreen();
     }
 }
+
+// ─── CONFIRM SCREEN ────────────────────────────────────────────────────────
 
 function showConfirmScreen(forceExName = null) {
     const counterDiv = document.getElementById('confirm-ex-counter');
@@ -339,11 +403,11 @@ function showConfirmScreen(forceExName = null) {
         const historyContainer = document.getElementById('history-container');
         let listHtml = `<div class="vertical-stack text-right my-md">`;
         state.activeCluster.exercises.forEach((ex, i) => {
-            listHtml += `<div class="bg-card p-sm rounded-md mb-xs">${i+1}. ${ex.name}</div>`;
+            listHtml += `<div class="bg-card p-sm rounded-md mb-xs">${i + 1}. ${ex.name}</div>`;
         });
         listHtml += `</div>`;
         historyContainer.innerHTML = listHtml;
-        
+
         document.querySelector('.secondary-buttons-grid').style.display = 'none';
         navigate('ui-confirm');
         StorageManager.saveSessionState();
@@ -363,13 +427,13 @@ function showConfirmScreen(forceExName = null) {
         }
         exName = currentPlanItem.name;
     }
-    
+
     const exData = state.exercises.find(e => e.name === exName);
-    if (!exData) { alert("שגיאה: התרגיל לא נמצא במאגר."); return; }
+    if (!exData) { showAlert("שגיאה: התרגיל לא נמצא במאגר."); return; }
 
     state.currentEx = JSON.parse(JSON.stringify(exData));
     state.currentExName = exData.name;
-    
+
     if (currentPlanItem) {
         if (currentPlanItem.restTime) state.currentEx.restTime = currentPlanItem.restTime;
         if (currentPlanItem.targetWeight) state.currentEx.targetWeight = currentPlanItem.targetWeight;
@@ -379,7 +443,7 @@ function showConfirmScreen(forceExName = null) {
 
     document.getElementById('confirm-ex-name').innerText = exData.name;
     const configDiv = document.getElementById('confirm-ex-config');
-    
+
     if (state.clusterMode) {
         configDiv.innerHTML = `חלק מסבב (${state.clusterRound}/${state.activeCluster.rounds})`;
         configDiv.style.display = 'block';
@@ -393,25 +457,25 @@ function showConfirmScreen(forceExName = null) {
 
     const swapBtn = document.getElementById('btn-swap-confirm');
     const addBtn = document.getElementById('btn-add-exercise');
-    
+
     if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption) {
         swapBtn.style.visibility = 'visible';
-        addBtn.style.visibility = 'visible'; 
+        addBtn.style.visibility = 'visible';
     } else {
-        swapBtn.style.visibility = 'hidden'; 
-        addBtn.style.visibility = 'hidden'; 
+        swapBtn.style.visibility = 'hidden';
+        addBtn.style.visibility = 'hidden';
     }
 
     const historyContainer = document.getElementById('history-container');
     historyContainer.innerHTML = "";
-    
-    if(typeof getLastPerformance === 'function') {
+
+    if (typeof getLastPerformance === 'function') {
         const history = getLastPerformance(exName);
         if (history) {
             let rowsHtml = "";
             let notesHtml = "";
             let hasAnyNotes = false;
-            let notesList =[];
+            let notesList = [];
 
             history.sets.forEach((setStr, idx) => {
                 let weight = "-", reps = "-", rir = "-";
@@ -429,14 +493,14 @@ function showConfirmScreen(forceExName = null) {
 
                 try {
                     const parts = coreStr.split('x');
-                    if(parts.length > 1) {
+                    if (parts.length > 1) {
                         weight = parts[0].replace('kg', '').trim();
                         const rest = parts[1];
                         const rirMatch = rest.match(/\(RIR (.*?)\)/);
                         reps = rest.split('(')[0].trim();
-                        if(rirMatch) rir = rirMatch[1];
+                        if (rirMatch) rir = rirMatch[1];
                     }
-                } catch(e) {}
+                } catch (e) {}
 
                 rowsHtml += `
                 <div class="history-row">
@@ -457,17 +521,13 @@ function showConfirmScreen(forceExName = null) {
 
             const gridHtml = `
             <div class="history-card-container">
-                <div class="text-sm color-dim text-right mb-sm">📅 ביצוע אחרון: ${history.date}</div>
+                <div class="text-sm color-dim text-right mb-sm">ביצוע אחרון: ${history.date}</div>
                 <div class="history-header">
-                    <div>סט</div>
-                    <div>משקל</div>
-                    <div>חזרות</div>
-                    <div>RIR</div>
+                    <div>סט</div><div>משקל</div><div>חזרות</div><div>RIR</div>
                 </div>
                 <div class="history-list">${rowsHtml}</div>
                 ${notesHtml}
-            </div>
-            `;
+            </div>`;
             historyContainer.innerHTML = gridHtml;
         }
     }
@@ -476,45 +536,45 @@ function showConfirmScreen(forceExName = null) {
     StorageManager.saveSessionState();
 }
 
-// --- WORKOUT EXECUTION LOGIC ---
+// ─── WORKOUT EXECUTION ─────────────────────────────────────────────────────
 
 function confirmExercise(doEx) {
     if (state.clusterMode && state.clusterIdx === 0 && document.getElementById('confirm-ex-name').innerText.includes("Cluster")) {
         const firstExItem = state.activeCluster.exercises[0];
         const exData = state.exercises.find(e => e.name === firstExItem.name);
-        
+
         state.currentEx = JSON.parse(JSON.stringify(exData));
         state.currentExName = exData.name;
-        
-        if(firstExItem.restTime) state.currentEx.restTime = firstExItem.restTime;
-        if(firstExItem.targetWeight) state.currentEx.targetWeight = firstExItem.targetWeight;
-        if(firstExItem.targetReps) state.currentEx.targetReps = firstExItem.targetReps;
-        if(firstExItem.targetRIR) state.currentEx.targetRIR = firstExItem.targetRIR;
+
+        if (firstExItem.restTime) state.currentEx.restTime = firstExItem.restTime;
+        if (firstExItem.targetWeight) state.currentEx.targetWeight = firstExItem.targetWeight;
+        if (firstExItem.targetReps) state.currentEx.targetReps = firstExItem.targetReps;
+        if (firstExItem.targetRIR) state.currentEx.targetRIR = firstExItem.targetRIR;
 
         resizeSets(1);
         startRecording();
         return;
     }
 
-    if (!doEx) { 
-        state.log.push({ 
-            skip: true, 
+    if (!doEx) {
+        state.log.push({
+            skip: true,
             exName: state.currentExName,
             isCluster: state.clusterMode,
             round: state.clusterMode ? state.clusterRound : null
-        }); 
-        if(!state.clusterMode) state.completedExInSession.push(state.currentExName); 
-        finishCurrentExercise(); 
-        return; 
+        });
+        if (!state.clusterMode) state.completedExInSession.push(state.currentExName);
+        finishCurrentExercise();
+        return;
     }
-    
-    let isMain = state.currentEx.isCalc; 
+
+    let isMain = state.currentEx.isCalc;
     let targetSets = null;
 
     if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption) {
         if (state.clusterMode) {
-             targetSets = 1;
-             isMain = false;
+            targetSets = 1;
+            isMain = false;
         } else {
             const planItem = state.workouts[state.type][state.exIdx];
             if (planItem) {
@@ -525,8 +585,8 @@ function confirmExercise(doEx) {
     }
 
     if (isMain) {
-        state.currentEx.isCalc = true; 
-        setupCalculatedEx(); 
+        state.currentEx.isCalc = true;
+        setupCalculatedEx();
     } else {
         if (targetSets && targetSets > 0) resizeSets(targetSets);
         startRecording();
@@ -536,17 +596,17 @@ function confirmExercise(doEx) {
 function resizeSets(count) {
     const defaultReps = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].r : 10;
     const defaultWeight = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].w : 10;
-    state.currentEx.sets = Array(count).fill({w: defaultWeight, r: defaultReps});
+    state.currentEx.sets = Array(count).fill({ w: defaultWeight, r: defaultReps });
 }
 
 function setupCalculatedEx() {
     document.getElementById('rm-title').innerText = `${state.currentExName} 1RM`;
     const lastRM = StorageManager.getLastRM(state.currentExName);
-    const baseRM = state.currentEx.baseRM || 50; 
+    const baseRM = state.currentEx.baseRM || 50;
     const p = document.getElementById('rm-picker'); p.innerHTML = "";
     const defaultRM = lastRM ? lastRM : baseRM;
-    for(let i = 20; i <= 200; i += 2.5) {
-        let o = new Option(i + " kg", i); if(i === defaultRM) o.selected = true; p.add(o);
+    for (let i = 20; i <= 200; i += 2.5) {
+        let o = new Option(i + " kg", i); if (i === defaultRM) o.selected = true; p.add(o);
     }
     navigate('ui-1rm');
     StorageManager.saveSessionState();
@@ -555,25 +615,25 @@ function setupCalculatedEx() {
 function save1RM() {
     state.rm = parseFloat(document.getElementById('rm-picker').value);
     StorageManager.saveRM(state.currentExName, state.rm);
-    let percentages =[]; let reps =[];
+    let percentages = []; let reps = [];
     const w = parseInt(state.week);
-    if (w === 1) { percentages =[0.65, 0.75, 0.85, 0.75, 0.65]; reps =[5, 5, 5, 8, 10]; } 
-    else if (w === 2) { percentages =[0.70, 0.80, 0.90, 0.80, 0.70, 0.70]; reps =[3, 3, 3, 8, 10, 10]; } 
-    else if (w === 3) { percentages =[0.75, 0.85, 0.95, 0.85, 0.75, 0.75]; reps =[5, 3, 1, 8, 10, 10]; }
-    else { percentages =[0.65, 0.75, 0.85, 0.75, 0.65]; reps =[5, 5, 5, 8, 10]; }
+    if (w === 1) { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
+    else if (w === 2) { percentages = [0.70, 0.80, 0.90, 0.80, 0.70, 0.70]; reps = [3, 3, 3, 8, 10, 10]; }
+    else if (w === 3) { percentages = [0.75, 0.85, 0.95, 0.85, 0.75, 0.75]; reps = [5, 3, 1, 8, 10, 10]; }
+    else { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
     state.currentEx.sets = percentages.map((pct, i) => ({ w: Math.round((state.rm * pct) / 2.5) * 2.5, r: reps[i] }));
     startRecording();
 }
 
-function startRecording() { 
+function startRecording() {
     const existingLogs = state.log.filter(l => l.exName === state.currentExName && !l.skip && !l.isWarmup);
 
     if (existingLogs.length > 0 && !state.clusterMode) {
-         state.setIdx = existingLogs.length;
-         state.lastLoggedSet = existingLogs[existingLogs.length - 1];
+        state.setIdx = existingLogs.length;
+        state.lastLoggedSet = existingLogs[existingLogs.length - 1];
     } else {
-        state.setIdx = 0; 
-        state.lastLoggedSet = null; 
+        state.setIdx = 0;
+        state.lastLoggedSet = null;
     }
 
     const actionPanel = document.getElementById('action-panel');
@@ -581,21 +641,20 @@ function startRecording() {
     actionPanel.classList.remove('is-visible');
 
     document.getElementById('btn-submit-set').style.display = 'block';
-    
-    navigate('ui-main'); 
-    initPickers(); 
+
+    navigate('ui-main');
+    initPickers();
     StorageManager.saveSessionState();
 }
 
 function isUnilateral(exName) {
     const exData = state.exercises.find(e => e.name === exName);
-    if (exData && exData.isUnilateral !== undefined) {
-        return exData.isUnilateral;
-    }
+    if (exData && exData.isUnilateral !== undefined) return exData.isUnilateral;
     return unilateralKeywords.some(keyword => exName.includes(keyword));
 }
 
-// --- INIT PICKERS ---
+// ─── INIT PICKERS ──────────────────────────────────────────────────────────
+
 function initPickers() {
     document.getElementById('ex-display-name').innerText = state.currentExName;
     const exHeader = document.querySelector('.exercise-header');
@@ -634,7 +693,7 @@ function initPickers() {
 
     const target = state.currentEx.sets[state.setIdx];
     document.getElementById('set-notes').value = '';
-    
+
     let defaultW = 0;
     let defaultR = 8;
     let defaultRIR = 2;
@@ -642,23 +701,20 @@ function initPickers() {
     if (state.currentEx.isCalc) {
         defaultW = target.w;
         defaultR = target.r;
-        defaultRIR = 2; 
-    }
-    else if (state.setIdx > 0 && state.lastLoggedSet) {
+        defaultRIR = 2;
+    } else if (state.setIdx > 0 && state.lastLoggedSet) {
         defaultW = state.lastLoggedSet.w;
         defaultR = state.lastLoggedSet.r;
         defaultRIR = state.lastLoggedSet.rir;
-    }
-    else {
+    } else {
         const sessionHistory = state.log.filter(l => l.exName === state.currentExName && !l.skip && !l.isWarmup);
-        
+
         if (sessionHistory.length > 0) {
             const lastSessionEntry = sessionHistory[sessionHistory.length - 1];
             defaultW = lastSessionEntry.w;
             defaultR = lastSessionEntry.r;
             defaultRIR = lastSessionEntry.rir;
-        } 
-        else {
+        } else {
             let planW = state.currentEx.targetWeight;
             let planR = state.currentEx.targetReps;
             let planRIR = state.currentEx.targetRIR;
@@ -692,19 +748,21 @@ function initPickers() {
     if (state.lastLoggedSet) {
         hist.innerText = `סט אחרון: ${state.lastLoggedSet.w}kg x ${state.lastLoggedSet.r} (RIR ${state.lastLoggedSet.rir})`;
         hist.style.display = 'block';
-    } else hist.style.display = 'none';
-    
+    } else {
+        hist.style.display = 'none';
+    }
+
     document.getElementById('unilateral-note').style.display = isUnilateral(state.currentExName) ? 'block' : 'none';
-    document.getElementById('btn-warmup').style.display = (state.setIdx === 0 && !state.clusterMode &&["Squat", "Deadlift", "Bench", "Overhead"].some(k => state.currentExName.includes(k))) ? 'block' : 'none';
-    
+    document.getElementById('btn-warmup').style.display = (state.setIdx === 0 && !state.clusterMode && ["Squat", "Deadlift", "Bench", "Overhead"].some(k => state.currentExName.includes(k))) ? 'block' : 'none';
+
     const timerArea = document.getElementById('timer-area');
     if (state.clusterMode && state.timerInterval) {
         timerArea.style.visibility = 'visible';
-    } else if (state.setIdx > 0 && document.getElementById('action-panel').style.display === 'none') { 
-        timerArea.style.visibility = 'visible'; 
-    } else { 
-        timerArea.style.visibility = 'hidden'; 
-        if (!state.clusterMode) stopRestTimer(); 
+    } else if (state.setIdx > 0 && document.getElementById('action-panel').style.display === 'none') {
+        timerArea.style.visibility = 'visible';
+    } else {
+        timerArea.style.visibility = 'hidden';
+        if (!state.clusterMode) stopRestTimer();
     }
 
     const skipBtn = document.getElementById('btn-skip-exercise');
@@ -721,24 +779,27 @@ function initPickers() {
     const wPick = document.getElementById('weight-picker'); wPick.innerHTML = "";
     const manualRange = state.currentEx.manualRange || {};
     const step = state.currentEx.step || 2.5;
-    
+
     let minW = manualRange.min !== undefined ? manualRange.min : (state.currentEx.minW !== undefined ? state.currentEx.minW : Math.max(0, defaultW - 40));
     let maxW = manualRange.max !== undefined ? manualRange.max : (state.currentEx.maxW !== undefined ? state.currentEx.maxW : defaultW + 50);
     if (minW < 0) minW = 0;
 
-    for(let i = minW; i <= maxW; i = parseFloat((i + step).toFixed(2))) {
-        let o = new Option(i + " kg", i); if(i === defaultW) o.selected = true; wPick.add(o);
+    for (let i = minW; i <= maxW; i = parseFloat((i + step).toFixed(2))) {
+        let o = new Option(i + " kg", i); if (i === defaultW) o.selected = true; wPick.add(o);
     }
-    
+
     const rPick = document.getElementById('reps-picker'); rPick.innerHTML = "";
-    for(let i = 1; i <= 30; i++) { let o = new Option(i, i); if(i === defaultR) o.selected = true; rPick.add(o); }
-    
-    const rirPick = document.getElementById('rir-picker'); rirPick.innerHTML = "";[0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5].forEach(v => {
-        let o = new Option(v === 0 ? "Fail" : v, v); 
-        if(parseFloat(v) === parseFloat(defaultRIR)) o.selected = true; 
+    for (let i = 1; i <= 30; i++) { let o = new Option(i, i); if (i === defaultR) o.selected = true; rPick.add(o); }
+
+    const rirPick = document.getElementById('rir-picker'); rirPick.innerHTML = "";
+    [0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5].forEach(v => {
+        let o = new Option(v === 0 ? "Fail" : v, v);
+        if (parseFloat(v) === parseFloat(defaultRIR)) o.selected = true;
         rirPick.add(o);
     });
 }
+
+// ─── TIMER ─────────────────────────────────────────────────────────────────
 
 function resetAndStartTimer(customTime = null) {
     stopRestTimer(); state.seconds = 0; state.startTime = Date.now();
@@ -746,64 +807,63 @@ function resetAndStartTimer(customTime = null) {
     if (customTime !== null) target = customTime;
     else if (state.currentEx.restTime) target = state.currentEx.restTime;
     else target = (state.exIdx === 0 && !state.clusterMode) ? 120 : 90;
-    
-    const circle = document.getElementById('timer-progress'); 
+
+    const circle = document.getElementById('timer-progress');
     const text = document.getElementById('rest-timer');
     const clusterBar = document.getElementById('cluster-timer-bar');
     const clusterText = document.getElementById('cluster-timer-text');
 
     const updateUI = (mins, secs, progress) => {
-        if(text) text.innerText = `${mins}:${secs}`;
-        if(circle) circle.style.strokeDashoffset = 283 - (progress * 283);
-        if(clusterText) clusterText.innerText = `${mins}:${secs}`;
-        if(clusterBar) clusterBar.style.strokeDashoffset = 283 - (progress * 283);
+        if (text) text.innerText = `${mins}:${secs}`;
+        if (circle) circle.style.strokeDashoffset = 283 - (progress * 283);
+        if (clusterText) clusterText.innerText = `${mins}:${secs}`;
+        if (clusterBar) clusterBar.style.strokeDashoffset = 283 - (progress * 283);
     };
 
     state.timerInterval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
         state.seconds = elapsed;
-        const remaining = Math.max(0, target - elapsed); 
         const mins = Math.floor(state.seconds / 60).toString().padStart(2, '0');
         const secs = (state.seconds % 60).toString().padStart(2, '0');
         const progress = Math.min(state.seconds / target, 1);
         updateUI(mins, secs, progress);
         if (state.seconds === target) playBeep(2);
-    }, 100); 
-    
+    }, 100);
+
     StorageManager.saveSessionState();
 }
 
 function stopRestTimer() { if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; } }
 
+// ─── NEXT STEP (LOG SET) ───────────────────────────────────────────────────
+
 function nextStep() {
-    haptic('medium'); // Enhanced Haptic bump
-    
-    // Add rapid visual Glow effect without delaying execution
+    haptic('medium');
+
     const btn = document.getElementById('btn-submit-set');
     if (btn) {
         btn.classList.remove('click-feedback');
-        void btn.offsetWidth; // Force Reflow
+        void btn.offsetWidth;
         btn.classList.add('click-feedback');
         setTimeout(() => btn.classList.remove('click-feedback'), 300);
     }
-    
+
     const wVal = parseFloat(document.getElementById('weight-picker').value);
     const noteVal = document.getElementById('set-notes').value.trim();
-    
-    const entry = { 
-        exName: state.currentExName, 
-        w: wVal, 
-        r: parseInt(document.getElementById('reps-picker').value), 
-        rir: document.getElementById('rir-picker').value, 
+
+    const entry = {
+        exName: state.currentExName,
+        w: wVal,
+        r: parseInt(document.getElementById('reps-picker').value),
+        rir: document.getElementById('rir-picker').value,
         note: noteVal,
         isCluster: state.clusterMode,
         round: state.clusterMode ? state.clusterRound : null
     };
-    
+
     StorageManager.saveWeight(state.currentExName, wVal);
-    
     state.log.push(entry); state.lastLoggedSet = entry;
-    StorageManager.saveSessionState(); 
+    StorageManager.saveSessionState();
 
     if (state.clusterMode) {
         state.lastClusterRest = state.currentEx.restTime || 30;
@@ -811,37 +871,38 @@ function nextStep() {
             state.clusterIdx++;
             const nextExItem = state.activeCluster.exercises[state.clusterIdx];
             const exData = state.exercises.find(e => e.name === nextExItem.name);
-            
+
             state.currentEx = JSON.parse(JSON.stringify(exData));
             state.currentExName = exData.name;
-            
-            if(nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
-            if(nextExItem.targetWeight) state.currentEx.targetWeight = nextExItem.targetWeight;
-            if(nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
-            if(nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
 
-            state.currentEx.sets =[{w:10, r:10}];
-            state.setIdx = 0; state.lastLoggedSet = null; 
+            if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
+            if (nextExItem.targetWeight) state.currentEx.targetWeight = nextExItem.targetWeight;
+            if (nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
+            if (nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
+
+            state.currentEx.sets = [{ w: 10, r: 10 }];
+            state.setIdx = 0; state.lastLoggedSet = null;
             initPickers();
             document.getElementById('timer-area').style.visibility = 'visible';
             resetAndStartTimer(state.lastClusterRest);
-            return; 
-        } else { finishCurrentExercise(); return; }
+            return;
+        } else {
+            finishCurrentExercise(); return;
+        }
     }
 
-    if (state.setIdx < state.currentEx.sets.length - 1) { 
-        state.setIdx++; initPickers(); 
-        document.getElementById('timer-area').style.visibility = 'visible'; 
+    if (state.setIdx < state.currentEx.sets.length - 1) {
+        state.setIdx++; initPickers();
+        document.getElementById('timer-area').style.visibility = 'visible';
         resetAndStartTimer();
-    } else { 
+    } else {
         document.getElementById('btn-submit-set').style.display = 'none';
         document.getElementById('btn-skip-exercise').style.display = 'none';
-        
-        // Animated Action Panel Reveal
+
         const actionPanel = document.getElementById('action-panel');
         actionPanel.style.display = 'block';
         actionPanel.classList.remove('is-visible');
-        void actionPanel.offsetWidth; // Trigger reflow for animation
+        void actionPanel.offsetWidth;
         actionPanel.classList.add('is-visible');
 
         let nextName = getNextExerciseName();
@@ -859,33 +920,35 @@ function getNextExerciseName() {
 
 function finishCurrentExercise() {
     state.historyStack = state.historyStack.filter(s => s !== 'ui-main');
-    
+
     if (state.clusterMode) {
         handleClusterFlow();
     } else {
         if (!state.completedExInSession.includes(state.currentExName)) state.completedExInSession.push(state.currentExName);
-        
-        if (state.isInterruption) { 
-            state.isInterruption = false; 
-            showConfirmScreen(); 
-        } 
-        else if (state.isExtraPhase) {
-            if(typeof updateVariationUI === 'function') updateVariationUI();
-            if(typeof renderFreestyleChips === 'function') renderFreestyleChips();
-            if(typeof renderFreestyleList === 'function') renderFreestyleList();
-            navigate('ui-variation'); 
-            StorageManager.saveSessionState(); 
-        } 
-        else if (state.isFreestyle) { 
+
+        if (state.isInterruption) {
+            state.isInterruption = false;
+            showConfirmScreen();
+        } else if (state.isExtraPhase) {
+            if (typeof updateVariationUI === 'function') updateVariationUI();
+            if (typeof renderFreestyleChips === 'function') renderFreestyleChips();
+            if (typeof renderFreestyleList === 'function') renderFreestyleList();
             navigate('ui-variation');
-            if(typeof updateVariationUI === 'function') updateVariationUI();
-            if(typeof renderFreestyleChips === 'function') renderFreestyleChips();
-            if(typeof renderFreestyleList === 'function') renderFreestyleList();
             StorageManager.saveSessionState();
-        } 
-        else { checkFlow(); }
+        } else if (state.isFreestyle) {
+            navigate('ui-variation');
+            if (typeof updateVariationUI === 'function') updateVariationUI();
+            if (typeof renderFreestyleChips === 'function') renderFreestyleChips();
+            if (typeof renderFreestyleList === 'function') renderFreestyleList();
+            StorageManager.saveSessionState();
+        } else {
+            state.exIdx++;
+            checkFlow();
+        }
     }
 }
+
+// ─── CLUSTER ───────────────────────────────────────────────────────────────
 
 function handleClusterFlow() {
     navigate('ui-cluster-rest');
@@ -913,56 +976,64 @@ function renderClusterRestUI() {
         btnSkip.style.display = 'none';
     }
     const listDiv = document.getElementById('cluster-next-list');
-    listDiv.innerHTML = state.activeCluster.exercises.map((e,i) => `<div>${i+1}. ${e.name}</div>`).join('');
+    listDiv.innerHTML = state.activeCluster.exercises.map((e, i) => `<div>${i + 1}. ${e.name}</div>`).join('');
 }
 
 function startNextRound() {
     state.clusterRound++; state.clusterIdx = 0; stopRestTimer();
-    
+
     const nextExItem = state.activeCluster.exercises[0];
     const exData = state.exercises.find(e => e.name === nextExItem.name);
-    
+
     state.currentEx = JSON.parse(JSON.stringify(exData));
     state.currentExName = exData.name;
-    
-    if(nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
-    if(nextExItem.targetWeight) state.currentEx.targetWeight = nextExItem.targetWeight;
-    if(nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
-    if(nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
 
-    state.currentEx.sets =[{w:10, r:10}];
+    if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
+    if (nextExItem.targetWeight) state.currentEx.targetWeight = nextExItem.targetWeight;
+    if (nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
+    if (nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
+
+    state.currentEx.sets = [{ w: 10, r: 10 }];
     startRecording();
 }
 
 function addExtraRound() { state.activeCluster.rounds++; renderClusterRestUI(); StorageManager.saveSessionState(); }
-function finishCluster() { state.clusterMode = false; state.activeCluster = null; document.getElementById('ui-main').classList.remove('cluster'); state.exIdx++; checkFlow(); }
+
+function finishCluster() {
+    state.clusterMode = false; state.activeCluster = null;
+    document.getElementById('ui-main').classList.remove('cluster');
+    state.exIdx++;
+    checkFlow();
+}
+
+// ─── SKIP / EXTRA SET ──────────────────────────────────────────────────────
 
 function skipCurrentExercise() {
-    if(confirm("לדלג על תרגיל זה ולעבור לבא?")) {
-        state.log.push({ 
-            skip: true, 
+    showConfirm("לדלג על תרגיל זה ולעבור לבא?", () => {
+        state.log.push({
+            skip: true,
             exName: state.currentExName,
             isCluster: state.clusterMode,
             round: state.clusterMode ? state.clusterRound : null
         });
-        
+
         if (state.clusterMode) {
-             if (state.clusterIdx < state.activeCluster.exercises.length - 1) {
+            if (state.clusterIdx < state.activeCluster.exercises.length - 1) {
                 state.clusterIdx++;
-                
+
                 const nextExItem = state.activeCluster.exercises[state.clusterIdx];
                 const exData = state.exercises.find(e => e.name === nextExItem.name);
-                
+
                 state.currentEx = JSON.parse(JSON.stringify(exData));
                 state.currentExName = exData.name;
-                
-                if(nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
-                if(nextExItem.targetWeight) state.currentEx.targetWeight = nextExItem.targetWeight;
-                if(nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
-                if(nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
 
-                state.currentEx.sets =[{w:10, r:10}];
-                state.setIdx = 0; state.lastLoggedSet = null; 
+                if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
+                if (nextExItem.targetWeight) state.currentEx.targetWeight = nextExItem.targetWeight;
+                if (nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
+                if (nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
+
+                state.currentEx.sets = [{ w: 10, r: 10 }];
+                state.setIdx = 0; state.lastLoggedSet = null;
                 initPickers();
                 resetAndStartTimer(state.lastClusterRest || 30);
             } else {
@@ -971,87 +1042,90 @@ function skipCurrentExercise() {
         } else {
             finishCurrentExercise();
         }
-    }
+    });
 }
 
 function finishClusterRound() {
-    if (!confirm("האם לסיים את הסבב הנוכחי ולדלג על יתר התרגילים?")) return;
-    
-    state.log.push({ 
-        skip: true, 
-        exName: state.currentExName,
-        isCluster: state.clusterMode,
-        round: state.clusterMode ? state.clusterRound : null
-    });
-    
-    for (let i = state.clusterIdx + 1; i < state.activeCluster.exercises.length; i++) {
-        state.log.push({ 
-            skip: true, 
-            exName: state.activeCluster.exercises[i].name,
+    showConfirm("האם לסיים את הסבב הנוכחי ולדלג על יתר התרגילים?", () => {
+        state.log.push({
+            skip: true,
+            exName: state.currentExName,
             isCluster: state.clusterMode,
             round: state.clusterMode ? state.clusterRound : null
         });
-    }
-    
-    handleClusterFlow();
+
+        for (let i = state.clusterIdx + 1; i < state.activeCluster.exercises.length; i++) {
+            state.log.push({
+                skip: true,
+                exName: state.activeCluster.exercises[i].name,
+                isCluster: state.clusterMode,
+                round: state.clusterMode ? state.clusterRound : null
+            });
+        }
+        handleClusterFlow();
+    });
 }
 
 function addExtraSet() {
     state.setIdx++;
-    state.currentEx.sets.push({...state.currentEx.sets[state.setIdx-1]});
-    
+    state.currentEx.sets.push({ ...state.currentEx.sets[state.setIdx - 1] });
+
     const actionPanel = document.getElementById('action-panel');
     actionPanel.style.display = 'none';
     actionPanel.classList.remove('is-visible');
-    
+
     document.getElementById('btn-submit-set').style.display = 'block';
     initPickers();
-    document.getElementById('timer-area').style.visibility = 'visible'; 
+    document.getElementById('timer-area').style.visibility = 'visible';
     resetAndStartTimer();
 }
 
+// ─── INTERRUPTION / EXTRA PHASE ────────────────────────────────────────────
+
 function interruptWorkout() {
     state.isInterruption = true;
-    if(typeof updateVariationUI === 'function') updateVariationUI();
-    if(typeof renderFreestyleChips === 'function') renderFreestyleChips();
-    if(typeof renderFreestyleList === 'function') renderFreestyleList();
+    if (typeof updateVariationUI === 'function') updateVariationUI();
+    if (typeof renderFreestyleChips === 'function') renderFreestyleChips();
+    if (typeof renderFreestyleList === 'function') renderFreestyleList();
     navigate('ui-variation');
     StorageManager.saveSessionState();
 }
 
-function resumeWorkout() { 
-    state.isInterruption = false; 
-    showConfirmScreen(); 
+function resumeWorkout() {
+    state.isInterruption = false;
+    showConfirmScreen();
 }
 
-function startExtraPhase() { 
-    state.isExtraPhase = true; 
-    if(typeof updateVariationUI === 'function') updateVariationUI();
-    if(typeof renderFreestyleChips === 'function') renderFreestyleChips();
-    if(typeof renderFreestyleList === 'function') renderFreestyleList();
-    navigate('ui-variation'); 
-    StorageManager.saveSessionState(); 
+function startExtraPhase() {
+    state.isExtraPhase = true;
+    if (typeof updateVariationUI === 'function') updateVariationUI();
+    if (typeof renderFreestyleChips === 'function') renderFreestyleChips();
+    if (typeof renderFreestyleList === 'function') renderFreestyleList();
+    navigate('ui-variation');
+    StorageManager.saveSessionState();
 }
 
-function finishExtraPhase() { 
-    if(typeof finish === 'function') finish();
+function finishExtraPhase() {
+    if (typeof finish === 'function') finish();
 }
+
+// ─── FREESTYLE ─────────────────────────────────────────────────────────────
 
 function startFreestyle() {
-    state.type = 'Freestyle'; state.log =[]; state.completedExInSession =[];
+    state.type = 'Freestyle'; state.log = []; state.completedExInSession = [];
     state.isFreestyle = true; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
-    
-    state.freestyleFilter = 'all'; 
+
+    state.freestyleFilter = 'all';
     document.getElementById('freestyle-search').value = '';
-    
-    if(typeof updateVariationUI === 'function') updateVariationUI();
+
+    if (typeof updateVariationUI === 'function') updateVariationUI();
     navigate('ui-variation');
-    
-    if(typeof renderFreestyleChips === 'function') renderFreestyleChips();
-    if(typeof renderFreestyleList === 'function') renderFreestyleList();
-    
-    StorageManager.saveSessionState(); 
+
+    if (typeof renderFreestyleChips === 'function') renderFreestyleChips();
+    if (typeof renderFreestyleList === 'function') renderFreestyleList();
+
+    StorageManager.saveSessionState();
 }
 
 function updateVariationUI() {
@@ -1081,18 +1155,18 @@ function updateVariationUI() {
 function renderFreestyleChips() {
     const container = document.getElementById('variation-chips');
     container.innerHTML = "";
-    
-    const muscles =['all', 'חזה', 'גב', 'רגליים', 'כתפיים', 'יד קדמית', 'יד אחורית', 'בטן', 'קליסטניקס', 'בוצעו'];
+
+    const muscles = ['all', 'חזה', 'גב', 'רגליים', 'כתפיים', 'יד קדמית', 'יד אחורית', 'בטן', 'קליסטניקס', 'בוצעו'];
     const labels = { 'all': 'הכל' };
-    
+
     muscles.forEach(m => {
         const btn = document.createElement('button');
         btn.className = `chip ${state.freestyleFilter === m ? 'active' : ''}`;
         btn.innerText = labels[m] || m;
-        btn.onclick = () => { 
-            state.freestyleFilter = m; 
-            renderFreestyleChips(); 
-            renderFreestyleList(); 
+        btn.onclick = () => {
+            state.freestyleFilter = m;
+            renderFreestyleChips();
+            renderFreestyleList();
         };
         container.appendChild(btn);
     });
@@ -1101,9 +1175,9 @@ function renderFreestyleChips() {
 function renderFreestyleList() {
     const options = document.getElementById('variation-options');
     options.innerHTML = "";
-    
+
     const searchVal = document.getElementById('freestyle-search').value.toLowerCase();
-    
+
     let filtered = state.exercises.filter(ex => {
         const isDone = state.completedExInSession.includes(ex.name);
         if (state.freestyleFilter === 'בוצעו') return isDone;
@@ -1117,36 +1191,36 @@ function renderFreestyleList() {
         if (state.freestyleFilter === 'יד אחורית') return ex.muscles.includes('triceps');
         return ex.muscles.includes(state.freestyleFilter);
     });
-    
-    filtered.sort((a,b) => a.name.localeCompare(b.name));
+
+    filtered.sort((a, b) => a.name.localeCompare(b.name));
 
     if (filtered.length === 0) {
-        if (state.freestyleFilter === 'בוצעו') {
-            options.innerHTML = `<p class="text-center color-dim mt-md">טרם בוצעו תרגילים</p>`;
-        } else {
-            options.innerHTML = `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
-        }
+        options.innerHTML = state.freestyleFilter === 'בוצעו'
+            ? `<p class="text-center color-dim mt-md">טרם בוצעו תרגילים</p>`
+            : `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
         return;
     }
 
     filtered.forEach(ex => {
-        const btn = document.createElement('button'); 
+        const btn = document.createElement('button');
         btn.className = "menu-card";
         btn.innerHTML = `<span>${ex.name}</span><div class="chevron"></div>`;
         btn.onclick = () => {
             state.currentEx = JSON.parse(JSON.stringify(ex));
             state.currentExName = ex.name;
-            if(!state.currentEx.sets || state.currentEx.sets.length < 3) state.currentEx.sets =[{w:10, r:10}, {w:10, r:10}, {w:10, r:10}];
+            if (!state.currentEx.sets || state.currentEx.sets.length < 3) state.currentEx.sets = [{ w: 10, r: 10 }, { w: 10, r: 10 }, { w: 10, r: 10 }];
             startRecording();
         };
         options.appendChild(btn);
     });
 }
 
+// ─── SWAP MENU ─────────────────────────────────────────────────────────────
+
 function openSwapMenu() {
-    const container = document.getElementById('swap-container'); 
+    const container = document.getElementById('swap-container');
     container.innerHTML = "";
-    
+
     const workoutList = state.workouts[state.type]; if (!workoutList) return;
 
     const variations = getSubstitutes(state.currentExName).filter(name => !state.completedExInSession.includes(name));
@@ -1156,12 +1230,12 @@ function openSwapMenu() {
         titleVar.innerText = `וריאציות (מחליף את הנוכחי)`;
         container.appendChild(titleVar);
         variations.forEach(vName => {
-            const btn = document.createElement('button'); 
-            btn.className = "menu-card"; 
+            const btn = document.createElement('button');
+            btn.className = "menu-card";
             btn.innerHTML = `<span>${vName}</span><div class="chevron"></div>`;
             btn.onclick = () => {
                 state.currentExName = vName;
-                state.historyStack.pop(); 
+                state.historyStack.pop();
                 showConfirmScreen(vName);
             };
             container.appendChild(btn);
@@ -1173,7 +1247,7 @@ function openSwapMenu() {
     titleOrder.innerText = `שאר האימון (החלף סדר)`;
     container.appendChild(titleOrder);
 
-    const remaining = workoutList.map((item, idx) => ({ item, idx })).filter(({ item, idx }) => idx > state.exIdx);
+    const remaining = workoutList.map((item, idx) => ({ item, idx })).filter(({ idx }) => idx > state.exIdx);
 
     if (remaining.length === 0) {
         const empty = document.createElement('p');
@@ -1182,15 +1256,15 @@ function openSwapMenu() {
         container.appendChild(empty);
     } else {
         remaining.forEach(({ item, idx }) => {
-            const btn = document.createElement('button'); 
-            btn.className = "menu-card"; 
+            const btn = document.createElement('button');
+            btn.className = "menu-card";
             btn.innerHTML = `<span>${item.name}</span><div class="chevron"></div>`;
-            btn.onclick = () => { 
+            btn.onclick = () => {
                 const currentItem = state.workouts[state.type][state.exIdx];
                 state.workouts[state.type][state.exIdx] = state.workouts[state.type][idx];
                 state.workouts[state.type][idx] = currentItem;
                 state.historyStack.pop();
-                showConfirmScreen(); 
+                showConfirmScreen();
             };
             container.appendChild(btn);
         });
@@ -1200,13 +1274,15 @@ function openSwapMenu() {
     StorageManager.saveSessionState();
 }
 
+// ─── WARMUP ────────────────────────────────────────────────────────────────
+
 function calcWarmup() {
     const targetW = parseFloat(document.getElementById('weight-picker').value);
     const list = document.getElementById('warmup-list'); list.innerHTML = "";
-    const percentages =[0, 0.4, 0.6, 0.8];
+    const percentages = [0, 0.4, 0.6, 0.8];
     percentages.forEach((pct, idx) => {
         let w; let reps;
-        if(idx === 0) { w = 20; reps = 10; }
+        if (idx === 0) { w = 20; reps = 10; }
         else {
             w = Math.round((targetW * pct) / 2.5) * 2.5;
             if (w < 20) w = 20;
@@ -1222,3 +1298,289 @@ function calcWarmup() {
 
 function closeWarmup() { document.getElementById('warmup-modal').style.display = 'none'; }
 function markWarmupDone() { state.log.push({ exName: state.currentExName, isWarmup: true }); StorageManager.saveSessionState(); closeWarmup(); }
+
+// ─── FINISH WORKOUT & SUMMARY ──────────────────────────────────────────────
+
+function finish() {
+    stopRestTimer();
+    state.workoutDurationMins = state.workoutStartTime ? Math.round((Date.now() - state.workoutStartTime) / 60000) : 0;
+
+    const summaryNote = document.getElementById('summary-note');
+    if (summaryNote) summaryNote.value = '';
+
+    navigate('ui-summary');
+    buildSummaryUI();
+    StorageManager.saveSessionState();
+}
+
+function buildSummaryUI() {
+    const area = document.getElementById('summary-area');
+    if (!area) return;
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+    // Group log by exercise
+    const exMap = {};
+    state.log.forEach(entry => {
+        if (entry.isWarmup) return;
+        if (!exMap[entry.exName]) exMap[entry.exName] = { sets: [], skipped: entry.skip || false };
+        if (!entry.skip) exMap[entry.exName].sets.push(entry);
+        else exMap[entry.exName].skipped = true;
+    });
+
+    let totalVol = 0;
+    let totalSets = 0;
+
+    let html = `<div class="summary-overview-card">
+        <div class="summary-overview-col"><div class="summary-overview-val">${state.type}</div><div class="summary-overview-label">סוג אימון</div></div>
+        <div class="summary-overview-col"><div class="summary-overview-val">${state.workoutDurationMins}m</div><div class="summary-overview-label">משך</div></div>
+        <div class="summary-overview-col"><div class="summary-overview-val">${dateStr}</div><div class="summary-overview-label">${timeStr}</div></div>
+    </div>`;
+
+    Object.entries(exMap).forEach(([exName, data]) => {
+        if (data.sets.length === 0) return;
+        let exVol = 0;
+        let setRows = '';
+        data.sets.forEach((s, i) => {
+            const vol = s.w * s.r;
+            exVol += vol;
+            totalSets++;
+            setRows += `<div class="summary-set-row">
+                <div class="summary-set-num">${i + 1}</div>
+                <div class="summary-set-details">${s.w}kg x ${s.r} (RIR ${s.rir}${s.note ? ` | ${s.note}` : ''})</div>
+            </div>`;
+        });
+        totalVol += exVol;
+        const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
+        html += `<div class="summary-ex-card">
+            <div class="summary-ex-header">
+                <div class="summary-ex-title">${exName}</div>
+                <div class="summary-ex-vol">${volStr}</div>
+            </div>
+            ${setRows}
+        </div>`;
+    });
+
+    area.innerHTML = html;
+
+    // Update overview total vol
+    const volStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
+    const overview = area.querySelector('.summary-overview-card');
+    if (overview) {
+        const cols = overview.querySelectorAll('.summary-overview-col');
+        if (cols[1]) {
+            cols[1].querySelector('.summary-overview-val').textContent = state.workoutDurationMins + 'm';
+        }
+    }
+}
+
+function copyResult() {
+    const note = (document.getElementById('summary-note') ? document.getElementById('summary-note').value.trim() : '');
+    _saveToArchive(note);
+
+    // Navigate cleanly without reload
+    state.log = [];
+    state.completedExInSession = [];
+    state.isFreestyle = false;
+    state.isExtraPhase = false;
+    state.isInterruption = false;
+    state.clusterMode = false;
+    state.activeCluster = null;
+    state.currentEx = null;
+    state.currentExName = '';
+    state.workoutStartTime = null;
+    state.lastLoggedSet = null;
+
+    StorageManager.clearSessionState();
+
+    if (typeof renderHeroCard === 'function') renderHeroCard();
+
+    navigate('ui-week', true);
+    haptic('success');
+}
+
+function _saveToArchive(note) {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+    const exMap = {};
+    state.log.forEach(entry => {
+        if (entry.isWarmup) return;
+        const key = entry.exName;
+        if (!exMap[key]) exMap[key] = { sets: [], skips: 0 };
+        if (!entry.skip) {
+            const rir = entry.rir !== undefined ? entry.rir : '—';
+            const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
+            exMap[key].sets.push(`${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+        } else {
+            exMap[key].skips++;
+        }
+    });
+
+    const details = {};
+    let summaryLines = [`[${state.type}] ${dateStr} ${timeStr} — ${state.workoutDurationMins} דקות`];
+    if (note) summaryLines.push(`הערה: ${note}`);
+    summaryLines.push('');
+
+    let totalVol = 0;
+    Object.entries(exMap).forEach(([exName, data]) => {
+        let exVol = 0;
+        data.sets.forEach(setStr => {
+            const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
+            const parts = core.split('x');
+            if (parts.length >= 2) {
+                const w = parseFloat(parts[0].replace('kg', '').replace('(יד אחת)', '').trim());
+                const rMatch = parts[1].match(/\d+/);
+                const r = rMatch ? parseInt(rMatch[0]) : 1;
+                if (!isNaN(w)) exVol += w * r;
+            }
+        });
+        totalVol += exVol;
+        const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
+        summaryLines.push(`• ${exName} (${volStr})`);
+        data.sets.forEach((s, i) => summaryLines.push(`  סט ${i + 1}: ${s}`));
+        if (data.skips > 0) summaryLines.push(`  [דולג x${data.skips}]`);
+        details[exName] = { sets: data.sets, vol: exVol };
+    });
+
+    const totalVolStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
+    summaryLines.push('');
+    summaryLines.push(`סה"כ נפח: ${totalVolStr}`);
+
+    const archiveEntry = {
+        timestamp: Date.now(),
+        date: dateStr,
+        time: timeStr,
+        type: state.type,
+        duration: state.workoutDurationMins,
+        summary: summaryLines.join('\n'),
+        details,
+        note
+    };
+
+    StorageManager.saveToArchive(archiveEntry);
+    haptic('success');
+}
+
+// ─── SESSION LOG DRAWER ────────────────────────────────────────────────────
+
+function openSessionLog() {
+    const modal = document.getElementById('warmup-modal');
+    const list = document.getElementById('warmup-list');
+    list.innerHTML = "";
+
+    if (state.log.length === 0) {
+        list.innerHTML = '<p class="text-center color-dim">טרם נרשמו סטים</p>';
+    } else {
+        const realSets = state.log.filter(l => !l.skip && !l.isWarmup);
+        realSets.forEach((entry, i) => {
+            const row = document.createElement('div');
+            row.className = 'warmup-row';
+            row.setAttribute('data-idx', i);
+            row.innerHTML = `<span style="font-weight:600;">${entry.exName}</span><span style="cursor:pointer;color:var(--accent);" onclick="openEditSetModal(${i})">${entry.w}kg x ${entry.r} • RIR ${entry.rir}</span>`;
+            list.appendChild(row);
+        });
+    }
+
+    const titleEl = modal.querySelector('h3');
+    if (titleEl) titleEl.textContent = 'יומן אימון';
+    modal.style.display = 'flex';
+}
+
+function openHistoryDrawer() {
+    navigate('ui-confirm');
+    if (typeof getLastPerformance === 'function') showConfirmScreen(state.currentExName);
+}
+
+let _editSetRealIdx = -1;
+
+function openEditSetModal(realIdx) {
+    _editSetRealIdx = realIdx;
+    const realSets = state.log.filter(l => !l.skip && !l.isWarmup);
+    const entry = realSets[realIdx];
+    if (!entry) return;
+
+    document.getElementById('warmup-modal').style.display = 'none';
+    document.getElementById('edit-weight').value = entry.w;
+    document.getElementById('edit-reps').value = entry.r;
+    document.getElementById('edit-rir').value = entry.rir;
+    document.getElementById('edit-note').value = entry.note || '';
+    document.getElementById('edit-set-modal').style.display = 'flex';
+}
+
+function saveSetEdit() {
+    const realSets = state.log.filter(l => !l.skip && !l.isWarmup);
+    const entry = realSets[_editSetRealIdx];
+    if (!entry) return;
+    entry.w = parseFloat(document.getElementById('edit-weight').value);
+    entry.r = parseInt(document.getElementById('edit-reps').value);
+    entry.rir = document.getElementById('edit-rir').value;
+    entry.note = document.getElementById('edit-note').value.trim();
+    closeEditModal();
+    StorageManager.saveSessionState();
+}
+
+function deleteSetFromLog() {
+    const realSets = state.log.filter(l => !l.skip && !l.isWarmup);
+    const entry = realSets[_editSetRealIdx];
+    if (!entry) return;
+    const logIdx = state.log.indexOf(entry);
+    if (logIdx !== -1) state.log.splice(logIdx, 1);
+    closeEditModal();
+    StorageManager.saveSessionState();
+}
+
+function closeEditModal() { document.getElementById('edit-set-modal').style.display = 'none'; }
+
+// ─── EXERCISE SETTINGS ─────────────────────────────────────────────────────
+
+let _editingRestEx = null;
+
+function openExerciseSettings() {
+    const planItem = state.clusterMode
+        ? state.activeCluster.exercises[state.clusterIdx]
+        : state.workouts[state.type][state.exIdx];
+    _editingRestEx = planItem;
+
+    document.getElementById('ex-settings-title').innerText = `הגדרות: ${state.currentExName}`;
+    document.getElementById('target-weight-input').value = planItem.targetWeight || '';
+    document.getElementById('target-reps-input').value = planItem.targetReps || '';
+    document.getElementById('target-rir-input').value = planItem.targetRIR || '';
+    document.getElementById('rest-time-display').innerText = (planItem.restTime || 90) + 's';
+    document.getElementById('exercise-settings-modal').style.display = 'flex';
+}
+
+function changeRestTime(delta) {
+    if (!_editingRestEx) return;
+    _editingRestEx.restTime = Math.max(15, (_editingRestEx.restTime || 90) + delta);
+    document.getElementById('rest-time-display').innerText = _editingRestEx.restTime + 's';
+}
+
+function saveExerciseSettings() {
+    if (!_editingRestEx) return;
+    const tw = document.getElementById('target-weight-input').value;
+    const tr = document.getElementById('target-reps-input').value;
+    const trir = document.getElementById('target-rir-input').value;
+    if (tw) { _editingRestEx.targetWeight = parseFloat(tw); state.currentEx.targetWeight = parseFloat(tw); }
+    if (tr) { _editingRestEx.targetReps = parseInt(tr); state.currentEx.targetReps = parseInt(tr); }
+    if (trir) { _editingRestEx.targetRIR = parseFloat(trir); state.currentEx.targetRIR = parseFloat(trir); }
+    StorageManager.saveSessionState();
+    closeExerciseSettings();
+    initPickers();
+}
+
+function closeExerciseSettings() { document.getElementById('exercise-settings-modal').style.display = 'none'; }
+
+// ─── RESET ─────────────────────────────────────────────────────────────────
+
+function resetToFactorySettings() {
+    showConfirm("האם לאפס את כל הנתונים? פעולה זו בלתי הפיכה.", () => {
+        StorageManager.resetToFactory();
+        showAlert("האפליקציה אופסה. טוען מחדש...", () => {
+            window.location.reload();
+        });
+    });
+}

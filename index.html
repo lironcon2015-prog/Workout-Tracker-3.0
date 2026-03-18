@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 14.1.1</title>
+    <title>GymPro Elite 14.2.0</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Heebo:wght@300;400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="glass-overlay"></div>
@@ -131,6 +131,27 @@
         </div>
     </div>
 
+    <!-- Custom Alert Modal -->
+    <div id="custom-alert-modal" class="modal-overlay">
+        <div class="modal-content custom-dialog">
+            <p id="custom-alert-msg" class="custom-dialog-msg"></p>
+            <div class="custom-dialog-btns">
+                <button id="custom-alert-ok" class="btn-main primary-gradient">אישור</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="modal-overlay">
+        <div class="modal-content custom-dialog">
+            <p id="custom-confirm-msg" class="custom-dialog-msg"></p>
+            <div class="custom-dialog-btns">
+                <button id="custom-confirm-ok" class="btn-main primary-gradient">אישור</button>
+                <button id="custom-confirm-cancel" class="btn-text">ביטול</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Bottom Sheet -->
     <div id="sheet-overlay" class="bottom-sheet-overlay" onclick="closeDayDrawer()"></div>
     <div id="sheet-modal" class="bottom-sheet">
@@ -145,8 +166,27 @@
             </button>
             <div class="brand-logo">GYMPRO <span>ELITE</span></div>
             <div class="d-flex" style="gap:5px;">
-                <button id="btn-sound" class="settings-btn" onclick="initAudio()">🔇</button>
-                <button id="btn-settings" class="settings-btn" onclick="openSettings()">⚙️</button>
+                <!-- Sound button: muted by default, waves appear on activation -->
+                <button id="btn-sound" class="settings-btn" onclick="initAudio()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                        <g class="sound-muted-lines">
+                            <line x1="23" y1="9" x2="17" y2="15"/>
+                            <line x1="17" y1="9" x2="23" y2="15"/>
+                        </g>
+                        <g class="sound-active-waves">
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                        </g>
+                    </svg>
+                </button>
+                <!-- Settings button: gear SVG -->
+                <button id="btn-settings" class="settings-btn" onclick="openSettings()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </button>
             </div>
         </header>
 
@@ -156,7 +196,6 @@
             <div id="ui-week" class="screen active">
                 <div class="hero-analytics-card mt-xs" id="hero-card">
                     <h2>מוכן לאימון?</h2>
-                    <!-- Last workout info (replaces streak badge) -->
                     <div class="hero-last-workout" id="hero-last-workout"></div>
                     <div class="hero-stats-row" id="hero-stats-row">
                         <div class="hero-stat" id="hero-stat-0"><div class="hero-stat-val">—</div><div class="hero-stat-lbl">—</div></div>
@@ -177,7 +216,7 @@
                     <h3 class="color-type-free m-0">אימון Freestyle</h3>
                     <p>בחר תרגילים חופשי</p>
                 </button>
-                <div class="version-footer">GymPro Elite v14.1.1</div>
+                <div class="version-footer">GymPro Elite v14.2.0</div>
             </div>
 
             <!-- SETTINGS -->
@@ -193,7 +232,7 @@
                 </button>
                 <div class="glass-card">
                     <h3 class="mt-0">ניהול נתונים</h3>
-                    <p class="color-dim text-sm mb-0">גרסה V14.1.1</p>
+                    <p class="color-dim text-sm mb-0">גרסה V14.2.0</p>
                     <button class="btn-text color-danger border-danger rounded-md mb-lg" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     <div class="border-top pt-md">
                         <label class="color-dim text-xs d-block mb-sm">ניהול תבניות (ללא היסטוריה)</label>
@@ -417,7 +456,7 @@
                 <div class="hero-section"><h2>סיכום אימון</h2></div>
                 <input type="text" id="summary-note" class="minimal-input mb-lg" placeholder="הערות כלליות לאימון (אופציונלי)">
                 <div id="summary-area" class="summary-card"></div>
-                <button class="btn-main primary-gradient" onclick="copyResult()">העתק וסגור</button>
+                <button class="btn-main primary-gradient" onclick="copyResult()">שמור וסגור</button>
             </div>
 
             <div id="ui-archive" class="screen">
@@ -466,7 +505,7 @@
             <div id="ui-analytics" class="screen">
                 <div class="flex-between mt-xs mb-sm">
                     <h2 class="m-0" style="font-size:1.4em;font-weight:800;">אנליטיקה</h2>
-                    <button class="tool-btn" onclick="openAnalyticsSettings()">⚙ הגדרות</button>
+                    <button class="tool-btn" onclick="openAnalyticsSettings()">הגדרות</button>
                 </div>
 
                 <div class="segmented-control" id="analytics-seg" style="position:sticky;top:0;z-index:10;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);">
@@ -591,11 +630,13 @@
                     <div class="pr-expand-card" id="pr-expand-card">
                         <div class="pr-expand-header" onclick="togglePRCard()">
                             <div>
-                                <div style="font-size:0.62em;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">🏆 שיא אישי</div>
+                                <div style="font-size:0.62em;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">שיא אישי</div>
                                 <div id="pr-card-weight" style="font-size:1.75em;font-weight:800;letter-spacing:-0.5px;">—</div>
                                 <div id="pr-card-date" style="font-size:0.76em;color:var(--text-dim);margin-top:2px;"></div>
                             </div>
-                            <div class="pr-expand-arrow" id="pr-expand-arrow">⌄</div>
+                            <div class="pr-expand-arrow" id="pr-expand-arrow">
+                                <div class="chevron-down-icon"></div>
+                            </div>
                         </div>
                         <div class="pr-expand-body" id="pr-expand-body">
                             <div class="pr-expand-inner">

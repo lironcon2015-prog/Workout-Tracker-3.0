@@ -1,59 +1,61 @@
 /**
  * GYMPRO ELITE - EDITOR & MANAGER LOGIC
- * Version: 13.1.0 (Phase 2: Refactored Inline Styles to Utility Classes)
- * Includes: Workout Editor, Exercise Database Manager, Settings, Workout Menu.
+ * Version: 14.2.0
+ * Fixes: showAlert/showConfirm replace all native alert/confirm.
  */
 
-// --- DYNAMIC MAIN MENU ---
+// ─── DYNAMIC MAIN MENU ─────────────────────────────────────────────────────
+
 function renderWorkoutMenu() {
     const container = document.getElementById('workout-menu-container');
-    if(!container) return;
-    
+    if (!container) return;
+
     container.innerHTML = "";
     const title = document.getElementById('workout-week-title');
-    
+
     if (state.week === 'deload') {
         title.innerText = "שבוע דילואוד";
         const keys = Object.keys(state.workouts);
         const deloadWorkouts = keys.filter(k => {
-             const meta = state.workoutMeta[k];
-             return meta && meta.availableInDeload === true;
+            const meta = state.workoutMeta[k];
+            return meta && meta.availableInDeload === true;
         });
 
-        if(deloadWorkouts.length === 0) {
+        if (deloadWorkouts.length === 0) {
             container.innerHTML = `<p class="text-center color-dim">בחר Freestyle או סמן תוכנית כדילואוד בעורך</p>`;
         } else {
-             deloadWorkouts.forEach(key => {
+            deloadWorkouts.forEach(key => {
                 const btn = document.createElement('button');
                 btn.className = "menu-card tall";
                 const meta = state.workoutMeta[key];
-                
-                // Using utility classes where possible. Specific custom borders/padding kept minimal.
-                const badge = (meta && meta.isDeloadOnly) ? `<span class="text-xs color-type-free rounded-md" style="border:1px solid var(--type-free); padding:2px 6px;">Deload Only</span>` : '';
-                
+
+                const badge = (meta && meta.isDeloadOnly)
+                    ? `<span class="text-xs color-type-free rounded-md" style="border:1px solid var(--type-free); padding:2px 6px;">Deload Only</span>`
+                    : '';
+
                 let count = 0;
                 const w = state.workouts[key];
-                if(Array.isArray(w)) {
-                    w.forEach(item => { if(item.type === 'cluster') count += item.exercises.length; else count++; });
+                if (Array.isArray(w)) {
+                    w.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
                 }
 
                 btn.innerHTML = `<div class="flex-between w-100"><h3>${key}</h3>${badge}</div><p>${count} תרגילים</p>`;
-                btn.onclick = () => selectWorkout(key); // selectWorkout is in workout-core.js
+                btn.onclick = () => selectWorkout(key);
                 container.appendChild(btn);
-             });
+            });
         }
     } else {
         title.innerText = `שבוע ${state.week} - בחר אימון`;
         Object.keys(state.workouts).forEach(key => {
             const meta = state.workoutMeta[key];
-            if (meta && meta.isDeloadOnly) return; 
+            if (meta && meta.isDeloadOnly) return;
 
             const btn = document.createElement('button');
             btn.className = "menu-card tall";
             let count = 0;
             const w = state.workouts[key];
-            if(Array.isArray(w)) {
-                w.forEach(item => { if(item.type === 'cluster') count += item.exercises.length; else count++; });
+            if (Array.isArray(w)) {
+                w.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
             }
             btn.innerHTML = `<h3>${key}</h3><p>${count} תרגילים</p>`;
             btn.onclick = () => selectWorkout(key);
@@ -62,22 +64,23 @@ function renderWorkoutMenu() {
     }
 }
 
-// --- WORKOUT MANAGER ---
+// ─── WORKOUT MANAGER ───────────────────────────────────────────────────────
+
 function openWorkoutManager() { renderManagerList(); navigate('ui-workout-manager'); }
 
 function renderManagerList() {
     const list = document.getElementById('manager-list'); list.innerHTML = "";
     const keys = Object.keys(state.workouts);
-    if(keys.length === 0) { list.innerHTML = `<p class="text-center color-dim">אין תוכניות שמורות</p>`; return; }
+    if (keys.length === 0) { list.innerHTML = `<p class="text-center color-dim">אין תוכניות שמורות</p>`; return; }
 
     keys.forEach(key => {
         const wo = state.workouts[key];
         const el = document.createElement('div');
         el.className = "manager-item";
-        el.onclick = () => editWorkout(key); 
+        el.onclick = () => editWorkout(key);
         let count = 0;
-        if(Array.isArray(wo)) {
-             wo.forEach(item => { if(item.type === 'cluster') count += item.exercises.length; else count++; });
+        if (Array.isArray(wo)) {
+            wo.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
         }
 
         el.innerHTML = `
@@ -92,28 +95,23 @@ function renderManagerList() {
 }
 
 function deleteWorkout(key) {
-    if(confirm(`האם למחוק את תוכנית ${key}?`)) {
+    showConfirm(`האם למחוק את תוכנית ${key}?`, () => {
         delete state.workouts[key];
         if (state.workoutMeta[key]) delete state.workoutMeta[key];
-        
         StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
         StorageManager.saveData(StorageManager.KEY_META, state.workoutMeta);
-        
-        renderManagerList(); renderWorkoutMenu(); 
-    }
+        renderManagerList(); renderWorkoutMenu();
+    });
 }
 
 function duplicateWorkout(key) {
     const newName = key + " Copy";
-    if (state.workouts[newName]) { alert("שם התוכנית כבר קיים"); return; }
-    const source = state.workouts[key];
-    const copy = JSON.parse(JSON.stringify(source));
-    
+    if (state.workouts[newName]) { showAlert("שם התוכנית כבר קיים"); return; }
+    const copy = JSON.parse(JSON.stringify(state.workouts[key]));
     if (state.workoutMeta[key]) {
         state.workoutMeta[newName] = JSON.parse(JSON.stringify(state.workoutMeta[key]));
         StorageManager.saveData(StorageManager.KEY_META, state.workoutMeta);
     }
-    
     state.workouts[newName] = copy;
     StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
     renderManagerList(); renderWorkoutMenu();
@@ -121,13 +119,13 @@ function duplicateWorkout(key) {
 
 function createNewWorkout() {
     managerState.originalName = ''; managerState.currentName = 'New Plan';
-    managerState.exercises =[];
+    managerState.exercises = [];
     openEditorUI();
 }
 
 function editWorkout(key) {
     managerState.originalName = key; managerState.currentName = key;
-    managerState.exercises = JSON.parse(JSON.stringify(state.workouts[key])); 
+    managerState.exercises = JSON.parse(JSON.stringify(state.workouts[key]));
     openEditorUI();
 }
 
@@ -135,12 +133,13 @@ function openEditorUI() {
     document.getElementById('editor-workout-name').value = managerState.currentName;
     const meta = state.workoutMeta[managerState.currentName] || {};
     document.getElementById('editor-deload-check').checked = !!meta.availableInDeload;
-    document.getElementById('editor-deload-only-check').checked = !!meta.isDeloadOnly; 
+    document.getElementById('editor-deload-only-check').checked = !!meta.isDeloadOnly;
     renderEditorList();
     navigate('ui-workout-editor');
 }
 
-// --- EXERCISE MANAGER (CREATE / EDIT) ---
+// ─── EXERCISE MANAGER (CREATE / EDIT) ──────────────────────────────────────
+
 function openExerciseCreator() {
     document.getElementById('ex-config-title').innerText = "יצירת תרגיל חדש";
     document.getElementById('conf-ex-name').value = "";
@@ -149,10 +148,10 @@ function openExerciseCreator() {
     document.getElementById('conf-ex-step').value = "2.5";
     document.getElementById('conf-ex-min').value = "";
     document.getElementById('conf-ex-max').value = "";
-    document.getElementById('conf-ex-uni').checked = false; 
-    
-    document.getElementById('btn-delete-ex').style.display = 'none';
-    
+    document.getElementById('conf-ex-uni').checked = false;
+
+    document.getElementById('btn-delete-ex').classList.add('d-none');
+
     document.getElementById('ex-config-modal').dataset.mode = "create";
     document.getElementById('ex-config-modal').style.display = 'flex';
 }
@@ -164,17 +163,16 @@ function openExerciseEditor(exName) {
     document.getElementById('ex-config-title').innerText = "עריכת תרגיל";
     document.getElementById('conf-ex-name').value = ex.name;
     document.getElementById('conf-ex-name').disabled = false;
-    
+
     let muscleVal = ex.muscles[0] || "חזה";
     if (ex.muscles.includes('biceps')) muscleVal = "יד קדמית";
     else if (ex.muscles.includes('triceps')) muscleVal = "יד אחורית";
-    else if (ex.muscles.includes('בטן')) muscleVal = "בטן"; 
-    
+    else if (ex.muscles.includes('בטן')) muscleVal = "בטן";
+
     document.getElementById('conf-ex-muscle').value = muscleVal;
     document.getElementById('conf-ex-step').value = ex.step || "2.5";
-    
     document.getElementById('conf-ex-uni').checked = !!ex.isUnilateral;
-    
+
     if (ex.manualRange) {
         document.getElementById('conf-ex-base').value = ex.manualRange.base || "";
         document.getElementById('conf-ex-min').value = ex.manualRange.min || "";
@@ -185,18 +183,20 @@ function openExerciseEditor(exName) {
         document.getElementById('conf-ex-max').value = ex.maxW || "";
     }
 
-    document.getElementById('btn-delete-ex').style.display = 'block';
+    document.getElementById('btn-delete-ex').classList.remove('d-none');
     document.getElementById('ex-config-modal').dataset.mode = "edit";
     document.getElementById('ex-config-modal').dataset.target = exName;
     document.getElementById('ex-config-modal').style.display = 'flex';
 }
 
-// --- EXERCISE DATABASE MANAGER ---
+// ─── EXERCISE DATABASE MANAGER ─────────────────────────────────────────────
+
 function openExerciseDatabase() {
     managerState.dbFilter = 'all';
     document.querySelectorAll('#ui-exercise-db .chip').forEach(c => c.classList.remove('active'));
-    document.querySelector('#ui-exercise-db .chip').classList.add('active');
-    
+    const firstChip = document.querySelector('#ui-exercise-db .chip');
+    if (firstChip) firstChip.classList.add('active');
+
     navigate('ui-exercise-db');
     document.getElementById('db-search').value = '';
     renderExerciseDatabase();
@@ -213,16 +213,16 @@ function renderExerciseDatabase() {
     const list = document.getElementById('db-list');
     list.innerHTML = "";
     const searchVal = document.getElementById('db-search').value.toLowerCase();
-    
-    const sorted = [...state.exercises].sort((a,b) => a.name.localeCompare(b.name));
-    
+
+    const sorted = [...state.exercises].sort((a, b) => a.name.localeCompare(b.name));
+
     const filtered = sorted.filter(ex => {
         if (managerState.dbFilter !== 'all') {
-            const muscleMap = { 'יד קדמית': 'biceps', 'יד אחורית': 'triceps', 'ידיים': 'ידיים' }; 
+            const muscleMap = { 'יד קדמית': 'biceps', 'יד אחורית': 'triceps', 'ידיים': 'ידיים' };
             if (managerState.dbFilter === 'ידיים') {
                 if (!ex.muscles.includes('ידיים') && !ex.muscles.includes('biceps') && !ex.muscles.includes('triceps')) return false;
             } else {
-                 if (!ex.muscles.includes(managerState.dbFilter) && !ex.muscles.includes(muscleMap[managerState.dbFilter])) return false;
+                if (!ex.muscles.includes(managerState.dbFilter) && !ex.muscles.includes(muscleMap[managerState.dbFilter])) return false;
             }
         }
         return ex.name.toLowerCase().includes(searchVal);
@@ -237,7 +237,7 @@ function renderExerciseDatabase() {
         const row = document.createElement('div');
         row.className = "selector-item-row";
         row.onclick = () => openExerciseEditor(ex.name);
-        
+
         row.innerHTML = `
             <div class="selector-item-info">
                 <div class="font-semi text-base">${ex.name}</div>
@@ -254,26 +254,26 @@ function renderExerciseDatabase() {
 function saveExerciseConfig() {
     const mode = document.getElementById('ex-config-modal').dataset.mode;
     const name = document.getElementById('conf-ex-name').value.trim();
-    const muscleSelect = document.getElementById('conf-ex-muscle').value; 
+    const muscleSelect = document.getElementById('conf-ex-muscle').value;
     const step = parseFloat(document.getElementById('conf-ex-step').value);
     const base = parseFloat(document.getElementById('conf-ex-base').value);
     const min = parseFloat(document.getElementById('conf-ex-min').value);
     const max = parseFloat(document.getElementById('conf-ex-max').value);
     const isUni = document.getElementById('conf-ex-uni').checked;
 
-    if (!name) { alert("נא להזין שם תרגיל"); return; }
+    if (!name) { showAlert("נא להזין שם תרגיל"); return; }
 
     let musclesArr = [muscleSelect];
-    if (muscleSelect === 'יד קדמית') musclesArr =['ידיים', 'biceps'];
-    if (muscleSelect === 'יד אחורית') musclesArr =['ידיים', 'triceps'];
+    if (muscleSelect === 'יד קדמית') musclesArr = ['ידיים', 'biceps'];
+    if (muscleSelect === 'יד אחורית') musclesArr = ['ידיים', 'triceps'];
 
     if (mode === 'create') {
-        if (state.exercises.find(e => e.name === name)) { alert("שם תרגיל כבר קיים"); return; }
-        
+        if (state.exercises.find(e => e.name === name)) { showAlert("שם תרגיל כבר קיים"); return; }
+
         const newEx = {
-            name: name,
+            name,
             muscles: musclesArr,
-            step: step,
+            step,
             isUnilateral: isUni,
             manualRange: {
                 base: isNaN(base) ? undefined : base,
@@ -283,57 +283,63 @@ function saveExerciseConfig() {
         };
         state.exercises.push(newEx);
         StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, state.exercises);
-        
         closeExConfigModal();
-        alert("התרגיל נוצר בהצלחה!");
-        
+        showAlert("התרגיל נוצר בהצלחה!");
+
     } else {
         const targetName = document.getElementById('ex-config-modal').dataset.target;
         const exIndex = state.exercises.findIndex(e => e.name === targetName);
         if (exIndex === -1) return;
 
         if (targetName !== name) {
-            if (state.exercises.find(e => e.name === name)) { alert("שם זה כבר קיים במערכת"); return; }
-            
-            if (confirm(`שינית את שם התרגיל מ-"${targetName}" ל-"${name}".\nהשינוי יעדכן את כל התוכניות הקיימות.\nהאם להמשיך?`)) {
-                for (let key in state.workouts) {
-                    const wo = state.workouts[key];
-                    if (Array.isArray(wo)) {
-                        wo.forEach(item => {
-                            if (item.type === 'cluster') {
-                                item.exercises.forEach(sub => { if(sub.name === targetName) sub.name = name; });
-                            } else {
-                                if(item.name === targetName) item.name = name;
-                            }
-                        });
+            if (state.exercises.find(e => e.name === name)) { showAlert("שם זה כבר קיים במערכת"); return; }
+
+            showConfirm(
+                `שינית את שם התרגיל מ-"${targetName}" ל-"${name}".\nהשינוי יעדכן את כל התוכניות הקיימות.\nהאם להמשיך?`,
+                () => {
+                    for (let key in state.workouts) {
+                        const wo = state.workouts[key];
+                        if (Array.isArray(wo)) {
+                            wo.forEach(item => {
+                                if (item.type === 'cluster') {
+                                    item.exercises.forEach(sub => { if (sub.name === targetName) sub.name = name; });
+                                } else {
+                                    if (item.name === targetName) item.name = name;
+                                }
+                            });
+                        }
                     }
+                    StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
+
+                    const lastW = StorageManager.getLastWeight(targetName);
+                    if (lastW) StorageManager.saveWeight(name, lastW);
+
+                    state.exercises[exIndex].name = name;
+                    _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max);
                 }
-                StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
-
-                const lastW = StorageManager.getLastWeight(targetName);
-                if(lastW) StorageManager.saveWeight(name, lastW);
-
-                state.exercises[exIndex].name = name;
-            } else {
-                return; 
-            }
+            );
+            return;
         }
 
-        state.exercises[exIndex].muscles = musclesArr;
-        state.exercises[exIndex].step = step;
-        state.exercises[exIndex].isUnilateral = isUni;
-        
-        if (!state.exercises[exIndex].manualRange) state.exercises[exIndex].manualRange = {};
-        state.exercises[exIndex].manualRange.base = isNaN(base) ? undefined : base;
-        state.exercises[exIndex].manualRange.min = isNaN(min) ? undefined : min;
-        state.exercises[exIndex].manualRange.max = isNaN(max) ? undefined : max;
-        
-        if (!isNaN(min)) delete state.exercises[exIndex].minW;
-        if (!isNaN(max)) delete state.exercises[exIndex].maxW;
-
-        StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, state.exercises);
-        closeExConfigModal();
+        _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max);
     }
+}
+
+function _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max) {
+    state.exercises[exIndex].muscles = musclesArr;
+    state.exercises[exIndex].step = step;
+    state.exercises[exIndex].isUnilateral = isUni;
+
+    if (!state.exercises[exIndex].manualRange) state.exercises[exIndex].manualRange = {};
+    state.exercises[exIndex].manualRange.base = isNaN(base) ? undefined : base;
+    state.exercises[exIndex].manualRange.min = isNaN(min) ? undefined : min;
+    state.exercises[exIndex].manualRange.max = isNaN(max) ? undefined : max;
+
+    if (!isNaN(min)) delete state.exercises[exIndex].minW;
+    if (!isNaN(max)) delete state.exercises[exIndex].maxW;
+
+    StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, state.exercises);
+    closeExConfigModal();
 
     if (document.getElementById('ui-exercise-db').classList.contains('active')) {
         renderExerciseDatabase();
@@ -346,7 +352,7 @@ function deleteExercise() {
     const targetName = document.getElementById('ex-config-modal').dataset.target;
     if (!targetName) return;
 
-    let usedIn =[];
+    let usedIn = [];
     for (let key in state.workouts) {
         const wo = state.workouts[key];
         if (Array.isArray(wo)) {
@@ -363,32 +369,34 @@ function deleteExercise() {
     }
 
     if (usedIn.length > 0) {
-        alert(`לא ניתן למחוק את התרגיל!\nהוא נמצא בשימוש בתוכניות הבאות:\n- ${usedIn.join('\n- ')}\n\nיש להסיר אותו מהתוכניות קודם.`);
+        showAlert(`לא ניתן למחוק את התרגיל!\nהוא נמצא בשימוש בתוכניות הבאות:\n- ${usedIn.join('\n- ')}\n\nיש להסיר אותו מהתוכניות קודם.`);
         return;
     }
 
-    if (confirm(`האם למחוק את התרגיל "${targetName}" לצמיתות?`)) {
+    showConfirm(`האם למחוק את התרגיל "${targetName}" לצמיתות?`, () => {
         const exIndex = state.exercises.findIndex(e => e.name === targetName);
         if (exIndex > -1) {
             state.exercises.splice(exIndex, 1);
             StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, state.exercises);
-            alert("התרגיל נמחק.");
-            closeExConfigModal();
-            renderExerciseDatabase();
+            showAlert("התרגיל נמחק.", () => {
+                closeExConfigModal();
+                renderExerciseDatabase();
+            });
         }
-    }
+    });
 }
 
 function closeExConfigModal() {
     document.getElementById('ex-config-modal').style.display = 'none';
-    document.getElementById('conf-ex-name').disabled = false; 
+    document.getElementById('conf-ex-name').disabled = false;
 }
 
-// --- WORKOUT EDITOR & CLUSTER SUPPORT ---
+// ─── WORKOUT EDITOR & CLUSTER SUPPORT ─────────────────────────────────────
+
 function renderEditorList() {
     const list = document.getElementById('editor-list');
     list.innerHTML = "";
-    
+
     managerState.exercises.forEach((item, idx) => {
         if (item.type === 'cluster') {
             renderClusterItem(item, idx, list);
@@ -396,14 +404,14 @@ function renderEditorList() {
             renderRegularItem(item, idx, list);
         }
     });
-    
+
     StorageManager.saveSessionState();
 }
 
 function renderRegularItem(item, idx, list) {
     const row = document.createElement('div');
     row.className = "editor-row";
-    
+
     let setControls = '';
     if (!item.isMain) {
         setControls = `
@@ -433,7 +441,7 @@ function renderRegularItem(item, idx, list) {
 function renderClusterItem(cluster, idx, list) {
     const box = document.createElement('div');
     box.className = "cluster-box";
-    
+
     let html = `
     <div class="cluster-header">
         <div class="cluster-title">סבב / מעגל (Cluster)</div>
@@ -467,9 +475,9 @@ function renderClusterItem(cluster, idx, list) {
     cluster.exercises.forEach((ex, internalIdx) => {
         html += `
         <div class="editor-row p-sm" style="background:rgba(255,255,255,0.05);">
-            <div class="row-info" onclick="openRestTimerModal(${idx}, ${internalIdx})">${internalIdx+1}. ${ex.name}</div>
+            <div class="row-info" onclick="openRestTimerModal(${idx}, ${internalIdx})">${internalIdx + 1}. ${ex.name}</div>
             <div class="editor-controls">
-                 <button class="control-icon-btn" style="width:24px; height:24px;" onclick="removeExFromCluster(${idx}, ${internalIdx})">✕</button>
+                <button class="control-icon-btn" style="width:24px; height:24px;" onclick="removeExFromCluster(${idx}, ${internalIdx})">✕</button>
             </div>
         </div>`;
     });
@@ -483,32 +491,32 @@ function renderClusterItem(cluster, idx, list) {
 }
 
 function toggleMainStatus(idx) { managerState.exercises[idx].isMain = !managerState.exercises[idx].isMain; renderEditorList(); }
-function changeSetCount(idx, delta) { let current = managerState.exercises[idx].sets; current += delta; if(current < 1) current = 1; managerState.exercises[idx].sets = current; renderEditorList(); }
-function moveExInEditor(idx, dir) { if(idx + dir < 0 || idx + dir >= managerState.exercises.length) return; const temp = managerState.exercises[idx]; managerState.exercises[idx] = managerState.exercises[idx + dir]; managerState.exercises[idx + dir] = temp; renderEditorList(); }
+function changeSetCount(idx, delta) { let c = managerState.exercises[idx].sets + delta; if (c < 1) c = 1; managerState.exercises[idx].sets = c; renderEditorList(); }
+function moveExInEditor(idx, dir) { if (idx + dir < 0 || idx + dir >= managerState.exercises.length) return; const t = managerState.exercises[idx]; managerState.exercises[idx] = managerState.exercises[idx + dir]; managerState.exercises[idx + dir] = t; renderEditorList(); }
 function removeExFromEditor(idx) { managerState.exercises.splice(idx, 1); renderEditorList(); }
-function changeClusterRounds(idx, delta) { let val = managerState.exercises[idx].rounds + delta; if(val < 1) val = 1; managerState.exercises[idx].rounds = val; renderEditorList(); }
-function changeClusterRest(idx, delta) { let val = managerState.exercises[idx].clusterRest + delta; if(val < 0) val = 0; managerState.exercises[idx].clusterRest = val; renderEditorList(); }
-function addClusterToEditor() { managerState.exercises.push({ type: 'cluster', rounds: 3, clusterRest: 120, exercises:[] }); renderEditorList(); }
+function changeClusterRounds(idx, delta) { let v = managerState.exercises[idx].rounds + delta; if (v < 1) v = 1; managerState.exercises[idx].rounds = v; renderEditorList(); }
+function changeClusterRest(idx, delta) { let v = managerState.exercises[idx].clusterRest + delta; if (v < 0) v = 0; managerState.exercises[idx].clusterRest = v; renderEditorList(); }
+function addClusterToEditor() { managerState.exercises.push({ type: 'cluster', rounds: 3, clusterRest: 120, exercises: [] }); renderEditorList(); }
 function removeExFromCluster(clusterIdx, exIdx) { managerState.exercises[clusterIdx].exercises.splice(exIdx, 1); renderEditorList(); }
 
 function saveWorkoutChanges() {
     const newName = document.getElementById('editor-workout-name').value.trim();
-    if (!newName) { alert("נא להזין שם לתוכנית"); return; }
-    if (managerState.exercises.length === 0) { alert("התוכנית ריקה!"); return; }
+    if (!newName) { showAlert("נא להזין שם לתוכנית"); return; }
+    if (managerState.exercises.length === 0) { showAlert("התוכנית ריקה!"); return; }
 
     if (newName !== managerState.originalName) {
-        if (state.workouts[newName]) { alert("שם תוכנית זה כבר קיים"); return; }
+        if (state.workouts[newName]) { showAlert("שם תוכנית זה כבר קיים"); return; }
         if (managerState.originalName) {
             delete state.workouts[managerState.originalName];
             delete state.workoutMeta[managerState.originalName];
         }
     }
-    
+
     if (!state.workoutMeta[newName]) state.workoutMeta[newName] = {};
-    
+
     const isDeloadOnly = document.getElementById('editor-deload-only-check').checked;
     state.workoutMeta[newName].isDeloadOnly = isDeloadOnly;
-    
+
     if (isDeloadOnly) {
         state.workoutMeta[newName].availableInDeload = true;
     } else {
@@ -519,78 +527,70 @@ function saveWorkoutChanges() {
 
     state.workouts[newName] = managerState.exercises;
     StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
-    
+
     haptic('success');
-    
+
     state.historyStack.pop();
     navigate('ui-workout-manager');
     renderManagerList();
-    renderWorkoutMenu(); 
+    renderWorkoutMenu();
 }
 
-// --- REST TIMER & DEFAULTS EDITING ---
+// ─── REST TIMER & DEFAULTS EDITING ─────────────────────────────────────────
+
 function openRestTimerModal(idx, internalIdx = null) {
     let ex;
-    if (internalIdx !== null) { 
-        ex = managerState.exercises[idx].exercises[internalIdx]; 
-        managerState.editingTimerEx = { idx, internalIdx }; 
-    } else { 
-        ex = managerState.exercises[idx]; 
-        managerState.editingTimerEx = { idx, internalIdx: null }; 
+    if (internalIdx !== null) {
+        ex = managerState.exercises[idx].exercises[internalIdx];
+        managerState.editingTimerEx = { idx, internalIdx };
+    } else {
+        ex = managerState.exercises[idx];
+        managerState.editingTimerEx = { idx, internalIdx: null };
     }
-    
+
     document.getElementById('ex-settings-title').innerText = ex.name;
-    
-    // Load Defaults
     document.getElementById('target-weight-input').value = ex.targetWeight || "";
     document.getElementById('target-reps-input').value = ex.targetReps || "";
     document.getElementById('target-rir-input').value = ex.targetRIR || "";
 
     const time = ex.restTime || (ex.isMain ? 120 : 90);
     document.getElementById('rest-time-display').innerText = time + "s";
-    
+
     document.getElementById('exercise-settings-modal').style.display = 'flex';
 }
 
-function changeRestTime(delta) { 
-    const display = document.getElementById('rest-time-display'); 
-    let current = parseInt(display.innerText.replace('s', '')); 
-    current += delta; 
-    if(current < 0) current = 0; 
-    display.innerText = current + "s"; 
+function changeRestTime(delta) {
+    const display = document.getElementById('rest-time-display');
+    let current = parseInt(display.innerText.replace('s', ''));
+    current += delta;
+    if (current < 0) current = 0;
+    display.innerText = current + "s";
 }
 
 function saveExerciseSettings() {
     const val = parseInt(document.getElementById('rest-time-display').innerText.replace('s', ''));
-    
-    // Capture Defaults
     const tWeight = parseFloat(document.getElementById('target-weight-input').value);
     const tReps = parseInt(document.getElementById('target-reps-input').value);
     const tRIR = parseFloat(document.getElementById('target-rir-input').value);
 
     const { idx, internalIdx } = managerState.editingTimerEx;
-    let targetEx;
+    const targetEx = internalIdx !== null
+        ? managerState.exercises[idx].exercises[internalIdx]
+        : managerState.exercises[idx];
 
-    if (internalIdx !== null) {
-        targetEx = managerState.exercises[idx].exercises[internalIdx];
-    } else {
-        targetEx = managerState.exercises[idx];
-    }
-    
     targetEx.restTime = val;
     targetEx.targetWeight = isNaN(tWeight) ? undefined : tWeight;
     targetEx.targetReps = isNaN(tReps) ? undefined : tReps;
     targetEx.targetRIR = isNaN(tRIR) ? undefined : tRIR;
 
-    closeExerciseSettings(); 
+    closeExerciseSettings();
     renderEditorList();
 }
 
 function closeExerciseSettings() { document.getElementById('exercise-settings-modal').style.display = 'none'; managerState.editingTimerEx = null; }
-function openSettings() { navigate('ui-settings'); }
-function resetToFactorySettings() { StorageManager.resetFactory(); }
 
-// --- SMART EXERCISE SELECTOR ---
+// ─── SMART EXERCISE SELECTOR ───────────────────────────────────────────────
+
 function openExerciseSelector() { managerState.activeClusterRef = null; prepareSelector(); }
 function openExerciseSelectorForCluster(clusterIdx) { managerState.activeClusterRef = clusterIdx; prepareSelector(); }
 
@@ -603,17 +603,19 @@ function prepareSelector() {
 }
 
 function setSelectorFilter(filter, btn) { managerState.selectorFilter = filter; updateSelectorChips(); renderSelectorList(); }
+
 function updateSelectorChips() {
     document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
     const btns = document.querySelectorAll('#ui-exercise-selector .chip');
-    btns.forEach(b => { if(b.getAttribute('onclick').includes(`'${managerState.selectorFilter}'`)) b.classList.add('active'); });
+    btns.forEach(b => { if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${managerState.selectorFilter}'`)) b.classList.add('active'); });
 }
+
 function filterSelector() { renderSelectorList(); }
 
 function renderSelectorList() {
     const list = document.getElementById('selector-list'); list.innerHTML = "";
     const searchVal = document.getElementById('selector-search').value.toLowerCase();
-    
+
     const filtered = state.exercises.filter(ex => {
         const matchesFilter = managerState.selectorFilter === 'all' || ex.muscles.includes(managerState.selectorFilter);
         const matchesSearch = ex.name.toLowerCase().includes(searchVal);
@@ -623,7 +625,7 @@ function renderSelectorList() {
     filtered.forEach(ex => {
         const row = document.createElement('div');
         row.className = "selector-item-row";
-        
+
         row.innerHTML = `
             <div class="selector-item-info" onclick="selectExerciseFromList('${ex.name.replace(/'/g, "\\'")}')">${ex.name}</div>
             <div class="selector-item-actions">
@@ -642,8 +644,65 @@ function selectExerciseFromList(exName) {
     } else {
         managerState.exercises.push(newExObj);
     }
-    
+
     state.historyStack.pop();
     navigate('ui-workout-editor');
     renderEditorList();
+}
+
+// ─── IMPORT / EXPORT ───────────────────────────────────────────────────────
+
+function exportData() {
+    const data = StorageManager.getAllData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `gympro_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function triggerImport() { document.getElementById('import-file').click(); }
+
+function importData(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            StorageManager.restoreData(data);
+            showAlert("הנתונים יובאו בהצלחה!", () => { window.location.reload(); });
+        } catch (err) {
+            showAlert("שגיאה בקריאת הקובץ");
+        }
+    };
+    reader.readAsText(file);
+    input.value = "";
+}
+
+function triggerConfigImport() { document.getElementById('import-config-file').click(); }
+
+function processConfigImport(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            StorageManager.importConfiguration(data);
+        } catch (err) {
+            showAlert("שגיאה בקריאת קובץ התבנית");
+        }
+    };
+    reader.readAsText(file);
+    input.value = "";
+}
+
+// ─── ARCHIVE HELPERS ───────────────────────────────────────────────────────
+
+function openArchiveFromDrawer(wo) {
+    closeDayDrawer();
+    setTimeout(() => {
+        const archive = StorageManager.getArchive();
+        const idx = archive.findIndex(a => a.timestamp === wo.timestamp);
+        if (idx !== -1) openArchiveDetail(idx);
+    }, 350);
 }

@@ -266,9 +266,8 @@ function openArchiveDetail(idx) {
     deleteBtn.onclick = () => {
         showConfirm("האם למחוק אימון זה מהארכיון?", () => {
             StorageManager.deleteFromArchive(item.timestamp);
-            navigate('ui-archive', true);
-            openArchive();
             haptic('warning');
+            window.location.reload();
         });
     };
 

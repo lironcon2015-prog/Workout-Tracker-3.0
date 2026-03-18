@@ -231,13 +231,22 @@ function navigate(id, clearStack = false) {
     const tabBar = document.querySelector('.tab-bar');
     if (tabBar) tabBar.style.display = WORKOUT_SCREENS.includes(id) ? 'none' : 'flex';
 
+    // Hide header buttons during workout
+    const settingsBtn = document.getElementById('btn-settings');
+    const soundBtn    = document.getElementById('btn-sound');
+    const inWorkout   = WORKOUT_SCREENS.includes(id);
+    if (settingsBtn) settingsBtn.style.display = inWorkout ? 'none' : 'flex';
+    if (soundBtn)    soundBtn.style.display    = inWorkout ? 'none' : 'flex';
+
     if (clearStack) {
         state.historyStack = [id];
     } else {
         if (state.historyStack[state.historyStack.length - 1] !== id) state.historyStack.push(id);
     }
 
-    document.getElementById('global-back').style.visibility = (id === 'ui-week') ? 'hidden' : 'visible';
+    // Back button hidden on main tab screens
+    const NO_BACK = ['ui-week', 'ui-analytics', 'ui-archive'];
+    document.getElementById('global-back').style.visibility = NO_BACK.includes(id) ? 'hidden' : 'visible';
 }
 
 function handleBackClick() {
@@ -1380,25 +1389,24 @@ function copyResult() {
     const note = (document.getElementById('summary-note') ? document.getElementById('summary-note').value.trim() : '');
     _saveToArchive(note);
 
-    // Navigate cleanly without reload
-    state.log = [];
-    state.completedExInSession = [];
-    state.isFreestyle = false;
-    state.isExtraPhase = false;
-    state.isInterruption = false;
-    state.clusterMode = false;
-    state.activeCluster = null;
-    state.currentEx = null;
-    state.currentExName = '';
-    state.workoutStartTime = null;
-    state.lastLoggedSet = null;
+    // Copy summary to clipboard
+    const archive = StorageManager.getArchive();
+    if (archive.length > 0) {
+        const summaryText = archive[0].summary || '';
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(summaryText).catch(() => {});
+        } else {
+            try {
+                const el = document.createElement('textarea');
+                el.value = summaryText;
+                document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+            } catch (e) {}
+        }
+    }
 
     StorageManager.clearSessionState();
-
-    if (typeof renderHeroCard === 'function') renderHeroCard();
-
-    navigate('ui-week', true);
     haptic('success');
+    window.location.reload();
 }
 
 function _saveToArchive(note) {
@@ -1491,8 +1499,47 @@ function openSessionLog() {
 }
 
 function openHistoryDrawer() {
-    navigate('ui-confirm');
-    if (typeof getLastPerformance === 'function') showConfirmScreen(state.currentExName);
+    if (!state.currentExName) return;
+    const history = (typeof getLastPerformance === 'function') ? getLastPerformance(state.currentExName) : null;
+    const content = document.getElementById('sheet-content');
+    const overlay = document.getElementById('sheet-overlay');
+    const drawer  = document.getElementById('sheet-modal');
+
+    let html = `<h3 style="margin:0 0 10px;">${state.currentExName}</h3>`;
+
+    if (!history || !history.sets || history.sets.length === 0) {
+        html += `<p class="color-dim text-sm">אין ביצוע קודם בארכיון</p>`;
+    } else {
+        html += `<div class="text-xs color-dim mb-sm">ביצוע אחרון: ${history.date}</div>`;
+        html += `<div class="history-card-container">
+            <div class="history-header"><div>סט</div><div>משקל</div><div>חזרות</div><div>RIR</div></div>
+            <div class="history-list">`;
+        history.sets.forEach((setStr, idx) => {
+            let weight = '-', reps = '-', rir = '-';
+            try {
+                const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
+                const parts = core.split('x');
+                if (parts.length > 1) {
+                    weight = parts[0].replace('kg', '').trim();
+                    const rirMatch = parts[1].match(/\(RIR (.*?)\)/);
+                    reps = parts[1].split('(')[0].trim();
+                    if (rirMatch) rir = rirMatch[1];
+                }
+            } catch (e) {}
+            html += `<div class="history-row">
+                <div class="history-col set-idx">#${idx + 1}</div>
+                <div class="history-col">${weight}</div>
+                <div class="history-col">${reps}</div>
+                <div class="history-col rir-note">${rir}</div>
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    content.innerHTML = html;
+    overlay.style.display = 'block';
+    drawer.classList.add('open');
+    haptic('light');
 }
 
 let _editSetRealIdx = -1;

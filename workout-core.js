@@ -65,6 +65,7 @@ window.onload = () => {
     StorageManager.initDB();
     if(typeof renderWorkoutMenu === 'function') renderWorkoutMenu(); 
     checkRecovery();
+    if(typeof renderHeroCard === 'function') renderHeroCard();
 };
 
 function checkRecovery() {
@@ -185,6 +186,9 @@ function navigate(id, clearStack = false) {
     document.getElementById(id).classList.add('active');
     
     if (id !== 'ui-main') stopRestTimer();
+    const WORKOUT_SCREENS = ['ui-workout-type','ui-confirm','ui-main','ui-1rm','ui-cluster-rest','ui-variation','ui-swap-list','ui-ask-extra','ui-summary'];
+const tabBar = document.querySelector('.tab-bar');
+if (tabBar) tabBar.style.display = WORKOUT_SCREENS.includes(id) ? 'none' : 'flex';
 
     if (clearStack) {
         state.historyStack = [id];
@@ -240,6 +244,7 @@ function handleBackClick() {
     if (currentScreen === 'ui-cluster-rest') {
         if(!confirm("האם לצאת ממצב Cluster?")) return;
         state.clusterMode = false;
+        document.getElementById('ui-main').classList.remove('cluster');
     }
 
     if (currentScreen === 'ui-workout-editor') { 
@@ -597,6 +602,11 @@ function initPickers() {
     const existingQueue = document.querySelector('.cluster-queue-container');
     if (existingQueue) existingQueue.remove();
 
+    // Compact mode for cluster
+    const uiMain = document.getElementById('ui-main');
+    if (state.clusterMode) uiMain.classList.add('cluster');
+    else uiMain.classList.remove('cluster');
+
     if (state.clusterMode) {
         const queueDiv = document.createElement('div');
         queueDiv.className = 'cluster-queue-container';
@@ -690,7 +700,7 @@ function initPickers() {
     const timerArea = document.getElementById('timer-area');
     if (state.clusterMode && state.timerInterval) {
         timerArea.style.visibility = 'visible';
-    } else if (state.setIdx > 0 && !document.getElementById('action-panel').classList.contains('is-visible')) { 
+    } else if (state.setIdx > 0 && document.getElementById('action-panel').style.display === 'none') { 
         timerArea.style.visibility = 'visible'; 
     } else { 
         timerArea.style.visibility = 'hidden'; 
@@ -925,7 +935,7 @@ function startNextRound() {
 }
 
 function addExtraRound() { state.activeCluster.rounds++; renderClusterRestUI(); StorageManager.saveSessionState(); }
-function finishCluster() { state.clusterMode = false; state.activeCluster = null; state.exIdx++; checkFlow(); }
+function finishCluster() { state.clusterMode = false; state.activeCluster = null; document.getElementById('ui-main').classList.remove('cluster'); state.exIdx++; checkFlow(); }
 
 function skipCurrentExercise() {
     if(confirm("לדלג על תרגיל זה ולעבור לבא?")) {

@@ -1411,14 +1411,17 @@ function copyResult() {
 
 function _saveToArchive(note) {
     const now = new Date();
-    const dateStr = now.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    const dateStr = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`;
     const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    const archiveDateStr = now.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
+    // Build ordered exMap preserving log insertion order
+    const exOrder = [];
     const exMap = {};
     state.log.forEach(entry => {
         if (entry.isWarmup) return;
         const key = entry.exName;
-        if (!exMap[key]) exMap[key] = { sets: [], skips: 0 };
+        if (!exMap[key]) { exMap[key] = { sets: [], skips: 0, isMain: false }; exOrder.push(key); }
         if (!entry.skip) {
             const rir = entry.rir !== undefined ? entry.rir : '—';
             const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
@@ -1428,13 +1431,31 @@ function _saveToArchive(note) {
         }
     });
 
-    const details = {};
-    let summaryLines = [`[${state.type}] ${dateStr} ${timeStr} — ${state.workoutDurationMins} דקות`];
-    if (note) summaryLines.push(`הערה: ${note}`);
-    summaryLines.push('');
+    // Detect "Main" (isCalc) exercises from plan
+    if (state.workouts && state.workouts[state.type]) {
+        state.workouts[state.type].forEach(item => {
+            if (item.isMain && exMap[item.name]) exMap[item.name].isMain = true;
+        });
+    }
 
+    // Determine week label
+    const weekLabel = state.week === 'deload' ? 'Deload' :
+                      state.isFreestyle       ? 'Freestyle' :
+                                                `Week ${state.week}`;
+
+    const details = {};
     let totalVol = 0;
-    Object.entries(exMap).forEach(([exName, data]) => {
+
+    // Header
+    const summaryLines = [
+        'GYMPRO ELITE SUMMARY',
+        `${state.type} | ${weekLabel} | ${dateStr} | ${state.workoutDurationMins}m`,
+        ''
+    ];
+    if (note) { summaryLines.push(`הערה: ${note}`); summaryLines.push(''); }
+
+    exOrder.forEach(exName => {
+        const data = exMap[exName];
         let exVol = 0;
         data.sets.forEach(setStr => {
             const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
@@ -1448,23 +1469,21 @@ function _saveToArchive(note) {
         });
         totalVol += exVol;
         const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
-        summaryLines.push(`• ${exName} (${volStr})`);
-        data.sets.forEach((s, i) => summaryLines.push(`  סט ${i + 1}: ${s}`));
-        if (data.skips > 0) summaryLines.push(`  [דולג x${data.skips}]`);
+        const mainTag = data.isMain ? ' (Main)' : '';
+        summaryLines.push(`${exName}${mainTag} (Vol: ${volStr}):`);
+        data.sets.forEach(s => summaryLines.push(s));
+        if (data.skips > 0) summaryLines.push('(Skipped)');
+        summaryLines.push('');
         details[exName] = { sets: data.sets, vol: exVol };
     });
 
-    const totalVolStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
-    summaryLines.push('');
-    summaryLines.push(`סה"כ נפח: ${totalVolStr}`);
-
     const archiveEntry = {
         timestamp: Date.now(),
-        date: dateStr,
+        date: archiveDateStr,
         time: timeStr,
         type: state.type,
         duration: state.workoutDurationMins,
-        summary: summaryLines.join('\n'),
+        summary: summaryLines.join('\n').trimEnd(),
         details,
         note
     };

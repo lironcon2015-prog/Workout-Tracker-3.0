@@ -207,6 +207,25 @@
                     <button class="btn-text color-accent p-0 mt-sm text-sm" style="width:auto;text-align:right;" onclick="openHeroSettings()">ערוך תצוגה</button>
                 </div>
 
+                <!-- WORKOUT PREVIEW CARD -->
+                <div class="preview-card mt-md" id="preview-card">
+                    <div class="preview-card-top">
+                        <span class="preview-card-lbl">תצוגה מקדימה</span>
+                        <button class="preview-collapse-btn" id="preview-collapse-btn" onclick="togglePreviewCard()">סגור ▲</button>
+                    </div>
+                    <div class="preview-wo-chips" id="preview-wo-chips"></div>
+                    <div class="preview-body open" id="preview-card-body">
+                        <div class="preview-week-row">
+                            <button class="preview-week-chip" id="pwk-1" onclick="setPreviewWeek(1,this)">שבוע 1</button>
+                            <button class="preview-week-chip active" id="pwk-2" onclick="setPreviewWeek(2,this)">שבוע 2</button>
+                            <button class="preview-week-chip" id="pwk-3" onclick="setPreviewWeek(3,this)">שבוע 3</button>
+                            <button class="preview-week-chip deload-chip" id="pwk-d" onclick="setPreviewWeek('deload',this)">דילואוד</button>
+                        </div>
+                        <div id="preview-ex-content"><p class="preview-empty">בחר אימון לתצוגה מקדימה</p></div>
+                        <button class="btn-main primary-gradient" id="preview-start-btn" style="display:none;" onclick="startFromPreview()">התחל אימון זה</button>
+                    </div>
+                </div>
+
                 <div class="section-label mt-lg">בחר תוכנית שבועית</div>
                 <div class="grid-menu grid-2-cols mt-sm">
                     <button class="menu-card" onclick="selectWeek(1)"><span>שבוע 1</span><div class="chevron"></div></button>
@@ -291,6 +310,10 @@
                     <div class="flex-between border-top pt-sm mt-xs">
                         <span class="text-sm color-type-free">מופיע בדילואוד בלבד?</span>
                         <input type="checkbox" id="editor-deload-only-check" class="archive-checkbox">
+                    </div>
+                    <div class="flex-between border-top pt-sm mt-xs">
+                        <span class="text-sm color-dim">הסתר מרשימת האימונים</span>
+                        <input type="checkbox" id="editor-hidden-check" class="archive-checkbox">
                     </div>
                 </div>
                 <div class="section-label">רשימת תרגילים</div>

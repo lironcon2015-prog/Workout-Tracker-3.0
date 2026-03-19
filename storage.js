@@ -169,7 +169,8 @@ const StorageManager = {
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
-            meta: this.getData(this.KEY_META)
+            meta: this.getData(this.KEY_META),
+            aliases: (this.getData(this.KEY_ANALYTICS) || {}).workoutAliases || {}
         };
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([JSON.stringify(configData, null, 2)], { type: "application/json" }));
@@ -186,6 +187,11 @@ const StorageManager = {
             this.saveData(this.KEY_DB_WORKOUTS, data.workouts);
             this.saveData(this.KEY_DB_EXERCISES, data.exercises);
             if (data.meta) this.saveData(this.KEY_META, data.meta);
+            if (data.aliases) {
+                const prefs = this.getAnalyticsPrefs();
+                prefs.workoutAliases = data.aliases;
+                this.saveAnalyticsPrefs(prefs);
+            }
             showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
         });
     },

@@ -879,7 +879,7 @@ function parseSetsFromStrings(sets) {
             const parts = core.split('x'); if (parts.length < 2) return null;
             const w = parseFloat(parts[0].replace('kg', '').replace('(יד אחת)', '').trim());
             const repsMatch = parts[1].match(/\d+/); const r = repsMatch ? parseInt(repsMatch[0]) : 1;
-            const rirMatch = core.match(/RIR\s*([^)]+)/); const rir = rirMatch ? rirMatch[1].trim() : '—';
+            const rirMatch = core.match(/RIR\s*(\S+)/); const rir = rirMatch ? rirMatch[1] : '—';
             if (isNaN(w)) return null; return { w, r, rir };
         } catch (e) { return null; }
     }).filter(Boolean);
@@ -1004,4 +1004,185 @@ function saveHeroSettings() {
     const checked = [...document.querySelectorAll('#hero-metric-picker input:checked')].map(i => i.value);
     if (checked.length !== 3) { showAlert('יש לבחור בדיוק 3 מדדים'); return; }
     const p = getAnalyticsPrefs(); p.heroMetrics = checked; saveAnalyticsPrefs(p); closeHeroSettings(); renderHeroCard(); haptic('success');
+}
+
+// ─── HOME PR CARD ──────────────────────────────────────────────────────────
+
+const HOME_PR_EXERCISES = {
+    bench: 'Bench Press (Main)',
+    ohp:   'Overhead Press (Main)'
+};
+const HOME_PR_COLORS = { bench: '#0A84FF', ohp: '#FF9F0A' };
+
+let _homePRCurrent = 'bench';
+let _homePRSelectedIdx = null;
+let _homePRSessions = { bench: [], ohp: [] };
+
+function renderHomePRCard() {
+    const card = document.getElementById('home-pr-card');
+    if (!card) return;
+
+    const prefs = getAnalyticsPrefs();
+    const archive = getArchiveClean();
+
+    // Build sessions for both exercises
+    ['bench', 'ohp'].forEach(key => {
+        const exName = HOME_PR_EXERCISES[key];
+        const sessions = [];
+
+        // Walk archive chronologically (archive is newest-first, so reverse)
+        [...archive].reverse().forEach(w => {
+            if (!w.details || !w.details[exName]) return;
+            const sets = parseSetsFromStrings(w.details[exName].sets || []);
+            if (!sets.length) return;
+            const bestE1RM = Math.max(...sets.map(s => calc1RM(s.w, s.r, prefs.formula)));
+            const bestSet  = sets.reduce((b, s) => calc1RM(s.w, s.r, prefs.formula) > calc1RM(b.w, b.r, prefs.formula) ? s : b, sets[0]);
+            sessions.push({
+                e1rm: Math.round(bestE1RM * 10) / 10,
+                set:  `${bestSet.w}kg × ${bestSet.r}`,
+                date: w.date || '',
+                timestamp: w.timestamp
+            });
+        });
+
+        _homePRSessions[key] = sessions;
+    });
+
+    // Default: select PR point (highest e1rm)
+    _homePRSelectedIdx = _homePRBestIdx(_homePRCurrent);
+    _homePRRender();
+}
+
+function _homePRBestIdx(key) {
+    const s = _homePRSessions[key];
+    if (!s.length) return 0;
+    let best = 0;
+    s.forEach((x, i) => { if (x.e1rm > s[best].e1rm) best = i; });
+    return best;
+}
+
+function switchHomePR(key, btn) {
+    _homePRCurrent = key;
+    document.querySelectorAll('.home-pr-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    _homePRSelectedIdx = _homePRBestIdx(key);
+    _homePRRender();
+}
+
+function _homePRSelectDot(idx) {
+    _homePRSelectedIdx = idx;
+    _homePRRenderInfo();
+    _homePRDrawChart();
+}
+
+function _homePRRender() {
+    _homePRRenderInfo();
+    _homePRDrawChart();
+}
+
+function _homePRRenderInfo() {
+    const sessions = _homePRSessions[_homePRCurrent];
+    const col = HOME_PR_COLORS[_homePRCurrent];
+    const numEl   = document.getElementById('home-pr-num');
+    const setEl   = document.getElementById('home-pr-set');
+    const dateEl  = document.getElementById('home-pr-date');
+    const deltaEl = document.getElementById('home-pr-delta');
+    if (!numEl) return;
+
+    if (!sessions.length) {
+        numEl.textContent = '—'; numEl.style.color = col;
+        setEl.textContent = 'אין נתונים בארכיון';
+        dateEl.textContent = '';
+        deltaEl.textContent = ''; deltaEl.className = 'home-pr-delta';
+        return;
+    }
+
+    const idx = Math.max(0, Math.min(_homePRSelectedIdx, sessions.length - 1));
+    const s = sessions[idx];
+
+    numEl.textContent = s.e1rm.toFixed(1);
+    numEl.style.color = col;
+    setEl.textContent = s.set;
+    dateEl.textContent = s.date;
+
+    if (idx > 0) {
+        const prev = sessions[idx - 1];
+        const diff = Math.round((s.e1rm - prev.e1rm) * 10) / 10;
+        const sign = diff > 0 ? '↑' : diff < 0 ? '↓' : '=';
+        const cls  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
+        deltaEl.textContent = `${sign} ${Math.abs(diff).toFixed(1)} kg`;
+        deltaEl.className = `home-pr-delta ${cls}`;
+    } else {
+        deltaEl.textContent = 'ראשון';
+        deltaEl.className = 'home-pr-delta same';
+    }
+}
+
+function _homePRDrawChart() {
+    const svg = document.getElementById('home-pr-svg');
+    if (!svg) return;
+    const sessions = _homePRSessions[_homePRCurrent];
+    const col = HOME_PR_COLORS[_homePRCurrent];
+
+    if (sessions.length < 2) {
+        svg.innerHTML = `<text x="90" y="36" text-anchor="middle" fill="rgba(255,255,255,0.2)"
+            font-size="11" font-family="-apple-system,sans-serif">אין מספיק נתונים</text>`;
+        return;
+    }
+
+    const vals = sessions.map(s => s.e1rm);
+    const n = vals.length;
+    const W = 180, H = 68, pT = 20, pB = 8, pL = 6, pR = 8;
+    const spread = Math.max(...vals) - Math.min(...vals);
+    const mn = Math.min(...vals) - spread * 0.18;
+    const mx = Math.max(...vals) + spread * 0.18;
+
+    const px = i => pL + (i / (n - 1)) * (W - pL - pR);
+    const py = v => pT + (H - pT - pB) * (1 - (v - mn) / ((mx - mn) || 1));
+    const pts = vals.map((v, i) => [px(i), py(v)]);
+
+    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+    const area = line + ` L${pts[n-1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H} Z`;
+
+    // PR index (highest value)
+    const prIdx = vals.indexOf(Math.max(...vals));
+    const prPt  = pts[prIdx];
+    // label positioned ABOVE dot with enough clearance
+    const labelY  = Math.max(prPt[1] - 14, pT - 2);
+    const labelX  = Math.min(Math.max(prPt[0], 18), W - 18);
+    const colAlpha = col === '#0A84FF' ? 'rgba(10,132,255,0.22)' : 'rgba(255,159,10,0.22)';
+    const gradId   = 'hprg_' + _homePRCurrent;
+
+    // Dots — onclick calls global helper
+    const dotsHtml = pts.map((p, i) => {
+        const isSel = i === _homePRSelectedIdx;
+        const r     = isSel ? 5 : 3.5;
+        const fill  = isSel ? col : 'rgba(28,28,30,0.9)';
+        const sw    = isSel ? 0 : 1.5;
+        return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}"
+            r="${r}" fill="${fill}" stroke="${col}" stroke-width="${sw}"
+            style="cursor:pointer" onclick="_homePRSelectDot(${i})"/>`;
+    }).join('');
+
+    // PR label — only on highest point, behind a solid rect so line never crosses it
+    const prLabel = `
+        <rect x="${(labelX - 17).toFixed(1)}" y="${(labelY - 10).toFixed(1)}"
+            width="34" height="13" rx="4"
+            fill="rgba(22,22,24,0.95)" stroke="${col}" stroke-width="0.7" stroke-opacity="0.55"/>
+        <text x="${labelX.toFixed(1)}" y="${(labelY + 0.5).toFixed(1)}"
+            fill="${col}" font-size="8" text-anchor="middle"
+            font-weight="700" font-family="-apple-system,sans-serif">${vals[prIdx].toFixed(1)}</text>`;
+
+    svg.innerHTML = `
+        <defs>
+            <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${colAlpha}"/>
+                <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+            </linearGradient>
+        </defs>
+        <path d="${area}" fill="url(#${gradId})"/>
+        <path d="${line}" fill="none" stroke="${col}" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+        ${prLabel}
+        ${dotsHtml}`;
 }

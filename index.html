@@ -207,22 +207,28 @@
                     <button class="btn-text color-accent p-0 mt-sm text-sm" style="width:auto;text-align:right;" onclick="openHeroSettings()">ערוך תצוגה</button>
                 </div>
 
-                <!-- WORKOUT PREVIEW CARD -->
-                <div class="preview-card mt-md" id="preview-card">
-                    <div class="preview-card-top">
-                        <span class="preview-card-lbl">תצוגה מקדימה</span>
-                        <button class="preview-collapse-btn" id="preview-collapse-btn" onclick="togglePreviewCard()">סגור ▲</button>
-                    </div>
-                    <div class="preview-wo-chips" id="preview-wo-chips"></div>
-                    <div class="preview-body open" id="preview-card-body">
-                        <div class="preview-week-row">
-                            <button class="preview-week-chip" id="pwk-1" onclick="setPreviewWeek(1,this)">שבוע 1</button>
-                            <button class="preview-week-chip active" id="pwk-2" onclick="setPreviewWeek(2,this)">שבוע 2</button>
-                            <button class="preview-week-chip" id="pwk-3" onclick="setPreviewWeek(3,this)">שבוע 3</button>
-                            <button class="preview-week-chip deload-chip" id="pwk-d" onclick="setPreviewWeek('deload',this)">דילואוד</button>
+                <!-- PR CARD -->
+                <div class="home-pr-card mt-md" id="home-pr-card">
+                    <div class="home-pr-top">
+                        <span class="home-pr-lbl">שיא אישי — E1RM</span>
+                        <div class="home-pr-toggle">
+                            <button class="home-pr-btn active" id="home-pr-bench" onclick="switchHomePR('bench',this)">Bench Press</button>
+                            <button class="home-pr-btn" id="home-pr-ohp" onclick="switchHomePR('ohp',this)">Overhead Press</button>
                         </div>
-                        <div id="preview-ex-content"><p class="preview-empty">בחר אימון לתצוגה מקדימה</p></div>
-                        <button class="btn-main primary-gradient" id="preview-start-btn" style="display:none;" onclick="startFromPreview()">התחל אימון זה</button>
+                    </div>
+                    <div class="home-pr-body">
+                        <div class="home-pr-left">
+                            <div class="home-pr-num-row">
+                                <span class="home-pr-num" id="home-pr-num">—</span>
+                                <span class="home-pr-unit">kg</span>
+                            </div>
+                            <div class="home-pr-set" id="home-pr-set">—</div>
+                            <div class="home-pr-date" id="home-pr-date"></div>
+                            <div class="home-pr-delta" id="home-pr-delta"></div>
+                        </div>
+                        <div class="home-pr-chart">
+                            <svg id="home-pr-svg" viewBox="0 0 180 68" style="display:block;overflow:visible;width:100%"></svg>
+                        </div>
                     </div>
                 </div>
 

@@ -879,7 +879,7 @@ function parseSetsFromStrings(sets) {
             const parts = core.split('x'); if (parts.length < 2) return null;
             const w = parseFloat(parts[0].replace('kg', '').replace('(יד אחת)', '').trim());
             const repsMatch = parts[1].match(/\d+/); const r = repsMatch ? parseInt(repsMatch[0]) : 1;
-            const rirMatch = core.match(/RIR\s*(\S+)/); const rir = rirMatch ? rirMatch[1] : '—';
+            const rirMatch = core.match(/RIR\s*([^)]+)/); const rir = rirMatch ? rirMatch[1].trim() : '—';
             if (isNaN(w)) return null; return { w, r, rir };
         } catch (e) { return null; }
     }).filter(Boolean);

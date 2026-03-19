@@ -1302,7 +1302,17 @@ function calcWarmup() {
         row.innerHTML = `<span>סט ${idx + 1}</span><span>${w}kg x ${reps}</span>`;
         list.appendChild(row);
     });
-    document.getElementById('warmup-modal').style.display = 'flex';
+
+    // Restore warmup-specific title and buttons
+    const modal = document.getElementById('warmup-modal');
+    const titleEl = modal.querySelector('h3');
+    if (titleEl) titleEl.textContent = 'חימום מומלץ';
+    const mainBtn = modal.querySelector('.btn-main');
+    const dangerBtn = modal.querySelector('.btn-text.color-danger');
+    if (mainBtn) { mainBtn.textContent = 'סיימתי חימום'; mainBtn.onclick = markWarmupDone; }
+    if (dangerBtn) dangerBtn.style.display = '';
+
+    modal.style.display = 'flex';
 }
 
 function closeWarmup() { document.getElementById('warmup-modal').style.display = 'none'; }
@@ -1499,21 +1509,58 @@ function openSessionLog() {
     const list = document.getElementById('warmup-list');
     list.innerHTML = "";
 
-    if (state.log.length === 0) {
+    const realSets = state.log.filter(l => !l.skip && !l.isWarmup);
+
+    if (realSets.length === 0) {
         list.innerHTML = '<p class="text-center color-dim">טרם נרשמו סטים</p>';
     } else {
-        const realSets = state.log.filter(l => !l.skip && !l.isWarmup);
+        // Group sets by exercise name, preserving insertion order
+        const exOrder = [];
+        const exGroups = {};
         realSets.forEach((entry, i) => {
-            const row = document.createElement('div');
-            row.className = 'warmup-row';
-            row.setAttribute('data-idx', i);
-            row.innerHTML = `<span style="font-weight:600;">${entry.exName}</span><span style="cursor:pointer;color:var(--accent);" onclick="openEditSetModal(${i})">${entry.w}kg x ${entry.r} • RIR ${entry.rir}</span>`;
-            list.appendChild(row);
+            if (!exGroups[entry.exName]) {
+                exGroups[entry.exName] = [];
+                exOrder.push(entry.exName);
+            }
+            exGroups[entry.exName].push({ entry, globalIdx: i });
+        });
+
+        const dotColors = ['var(--accent)', 'var(--type-b)', 'var(--type-c)', 'var(--type-free)'];
+
+        exOrder.forEach((exName, colorIdx) => {
+            const dot = dotColors[colorIdx % dotColors.length];
+
+            // Group header
+            const header = document.createElement('div');
+            header.style.cssText = `display:flex;align-items:center;gap:8px;padding:10px 0 6px;${colorIdx > 0 ? 'border-top:0.5px solid rgba(255,255,255,0.08);margin-top:4px;' : ''}`;
+            header.innerHTML = `<div style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;"></div><span style="font-size:0.9em;font-weight:600;color:var(--text);">${exName}</span>`;
+            list.appendChild(header);
+
+            // Set rows under this group
+            exGroups[exName].forEach(({ entry, globalIdx }, setNum) => {
+                const row = document.createElement('div');
+                row.className = 'warmup-row';
+                row.setAttribute('data-idx', globalIdx);
+                row.style.paddingRight = '15px';
+                row.innerHTML = `
+                    <span style="font-size:0.8em;color:var(--text-dim);min-width:36px;flex-shrink:0;">סט ${setNum + 1}</span>
+                    <span style="flex:1;font-size:0.88em;color:var(--text-dim);">${entry.w}kg × ${entry.r} • RIR ${entry.rir}${entry.note ? ' · ' + entry.note : ''}</span>
+                    <span style="font-size:0.82em;color:var(--accent);cursor:pointer;flex-shrink:0;" onclick="openEditSetModal(${globalIdx})">ערוך</span>`;
+                list.appendChild(row);
+            });
         });
     }
 
+    // Update title
     const titleEl = modal.querySelector('h3');
     if (titleEl) titleEl.textContent = 'יומן אימון';
+
+    // Override buttons for log context
+    const mainBtn = modal.querySelector('.btn-main');
+    const dangerBtn = modal.querySelector('.btn-text.color-danger');
+    if (mainBtn) { mainBtn.textContent = 'סגור יומן'; mainBtn.onclick = closeWarmup; }
+    if (dangerBtn) dangerBtn.style.display = 'none';
+
     modal.style.display = 'flex';
 }
 

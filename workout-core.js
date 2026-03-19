@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 14.2.0
+ * Version: 14.4.0
  * Fixes: custom modals (no confirm/alert), checkFlow while-loop, navigate-after-save, safe-area toast.
  */
 
@@ -248,6 +248,8 @@ function navigate(id, clearStack = false) {
     // Back button hidden on main tab screens
     const NO_BACK = ['ui-week', 'ui-analytics', 'ui-archive'];
     document.getElementById('global-back').style.visibility = NO_BACK.includes(id) ? 'hidden' : 'visible';
+
+    updatePlanFloatBtn(id);
 }
 
 function handleBackClick() {
@@ -338,6 +340,218 @@ function _doBack(currentScreen) {
 }
 
 function openSettings() { navigate('ui-settings'); }
+
+// ─── WORKOUT PLAN SHEET ────────────────────────────────────────────────────
+
+// פיצ'ר 1: מסך בחירת אימון — רשימה סטטית לפי שם תוכנית
+function openWorkoutPlanSheet(workoutName) {
+    const workoutList = state.workouts[workoutName];
+    if (!workoutList) return;
+
+    const body = document.getElementById('workout-plan-sheet-body');
+    let html = `
+        <div class="plan-sheet-header">
+            <div class="plan-sheet-title">תרגילים מתוכננים</div>
+            <div class="plan-sheet-subtitle">${workoutName}</div>
+        </div>`;
+
+    let num = 0;
+    workoutList.forEach(item => {
+        if (item.type === 'cluster') {
+            // Cluster — מציג כותרת סבב ואז תרגילים
+            html += `<div class="plan-section-label">סבב (${item.rounds} פעמים)</div>`;
+            item.exercises.forEach(ex => {
+                num++;
+                const exData = state.exercises.find(e => e.name === ex.name);
+                const setsStr = exData && exData.sets ? `${exData.sets.length}×${exData.sets[0].r}` : '';
+                const muscles = exData ? (exData.muscles || []).join(', ') : '';
+                html += `
+                    <div class="plan-ex-item">
+                        <div class="plan-ex-num">${num}</div>
+                        <div class="plan-ex-dot dot-upcoming"></div>
+                        <div class="plan-ex-info">
+                            <div class="plan-ex-name">${ex.name} <span class="plan-ex-sets-str">${setsStr}</span></div>
+                            ${muscles ? `<div class="plan-ex-meta">${muscles}</div>` : ''}
+                        </div>
+                    </div>`;
+            });
+        } else {
+            num++;
+            const isMain = item.isMain;
+            const exData = state.exercises.find(e => e.name === item.name);
+            const setsStr = isMain ? '1RM' : (item.sets > 0 ? `${item.sets}×` + (exData && exData.sets && exData.sets[0] ? exData.sets[0].r : '?') : '');
+            const muscles = exData ? (exData.muscles || []).join(', ') : '';
+            html += `
+                <div class="plan-ex-item ${isMain ? 'plan-main' : ''}">
+                    <div class="plan-ex-num">${num}</div>
+                    <div class="plan-ex-dot ${isMain ? 'dot-main' : 'dot-upcoming'}"></div>
+                    <div class="plan-ex-info">
+                        <div class="plan-ex-name">${item.name} <span class="plan-ex-sets-str">${setsStr}</span></div>
+                        ${muscles ? `<div class="plan-ex-meta">${muscles}</div>` : ''}
+                    </div>
+                    <div class="plan-ex-right">
+                        ${isMain ? '<span class="plan-main-badge">MAIN</span>' : ''}
+                    </div>
+                </div>`;
+        }
+    });
+
+    body.innerHTML = html;
+
+    // כפתור סגירה — מוסיפים אחרי התוכן
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'plan-sheet-close';
+    closeBtn.textContent = 'סגור';
+    closeBtn.onclick = closePlanSheet;
+    body.appendChild(closeBtn);
+
+    document.getElementById('workout-plan-overlay').style.display = 'block';
+    requestAnimationFrame(() => {
+        document.getElementById('workout-plan-sheet').classList.add('open');
+    });
+    haptic('light');
+}
+
+// פיצ'ר 2: בתוך הפלואו — רשימה דינמית עם מצב נוכחי
+function openCurrentPlanSheet() {
+    if (!state.type || !state.workouts[state.type]) return;
+
+    const workoutList = state.workouts[state.type];
+
+    // בניית מפה: כמה סטים הושלמו לכל תרגיל
+    const setsCountMap = {};
+    state.log.forEach(entry => {
+        if (entry.isWarmup || entry.skip) return;
+        setsCountMap[entry.exName] = (setsCountMap[entry.exName] || 0) + 1;
+    });
+
+    // ספירת תרגילים שהושלמו
+    const doneCount = state.completedExInSession.length;
+    let totalCount = 0;
+    workoutList.forEach(item => {
+        if (item.type === 'cluster') totalCount += item.exercises.length;
+        else totalCount++;
+    });
+
+    const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+    const body = document.getElementById('workout-plan-sheet-body');
+    let html = `
+        <div class="plan-sheet-header">
+            <div class="plan-sheet-title">תרגילים באימון</div>
+            <div class="plan-sheet-subtitle">${state.type}</div>
+        </div>
+        <div class="plan-progress-row">
+            <span class="plan-progress-label">${doneCount} / ${totalCount} הושלמו</span>
+            <div class="plan-progress-bg">
+                <div class="plan-progress-fill" style="width:${progressPct}%"></div>
+            </div>
+        </div>`;
+
+    let num = 0;
+    let shownCurrent = false;
+    let shownUpcoming = false;
+
+    workoutList.forEach(item => {
+        const exercises = item.type === 'cluster' ? item.exercises : [item];
+
+        exercises.forEach(ex => {
+            num++;
+            const exName = ex.name;
+            const isDone = state.completedExInSession.includes(exName);
+            const isCurrent = (exName === state.currentExName) && !isDone;
+            const isMain = item.isMain && item.type !== 'cluster';
+            const exData = state.exercises.find(e => e.name === exName);
+            const totalSets = isMain
+                ? (exData && exData.sets ? exData.sets.length : (item.sets || 0))
+                : (item.type === 'cluster' ? 1 : (item.sets || (exData && exData.sets ? exData.sets.length : 0)));
+            const doneSets = setsCountMap[exName] || 0;
+            const muscles = exData ? (exData.muscles || []).join(', ') : '';
+
+            // כותרת מקטע
+            if (isDone && num === 1) html += `<div class="plan-section-label">הושלמו</div>`;
+            if (isCurrent && !shownCurrent) { html += `<div class="plan-section-label">עכשיו</div>`; shownCurrent = true; }
+            if (!isDone && !isCurrent && !shownUpcoming) { html += `<div class="plan-section-label">הבאים</div>`; shownUpcoming = true; }
+
+            let dotClass = 'dot-upcoming';
+            let itemClass = '';
+            let rightHtml = '';
+
+            if (isDone) {
+                dotClass = 'dot-done';
+                itemClass = 'plan-done';
+                rightHtml = `<span class="plan-done-check">✓</span><span class="plan-sets-done">${doneSets} סטים</span>`;
+            } else if (isCurrent) {
+                dotClass = 'dot-current';
+                itemClass = 'plan-current';
+                rightHtml = doneSets > 0
+                    ? `<span class="plan-sets-done">סט ${doneSets + 1}/${totalSets}</span>`
+                    : `<span class="plan-sets-done">${totalSets} סטים</span>`;
+            } else {
+                if (isMain) { dotClass = 'dot-main'; itemClass = 'plan-main'; }
+                rightHtml = `<span class="plan-sets-done">${totalSets} סטים</span>`;
+            }
+
+            html += `
+                <div class="plan-ex-item ${itemClass}">
+                    <div class="plan-ex-num">${num}</div>
+                    <div class="plan-ex-dot ${dotClass}"></div>
+                    <div class="plan-ex-info">
+                        <div class="plan-ex-name ${isDone ? 'name-done' : ''}">${exName}</div>
+                        ${muscles ? `<div class="plan-ex-meta">${muscles}</div>` : ''}
+                    </div>
+                    <div class="plan-ex-right">
+                        ${isMain && !isDone ? '<span class="plan-main-badge">MAIN</span>' : ''}
+                        ${rightHtml}
+                    </div>
+                </div>`;
+        });
+    });
+
+    body.innerHTML = html;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'plan-sheet-close';
+    closeBtn.textContent = 'סגור';
+    closeBtn.onclick = closePlanSheet;
+    body.appendChild(closeBtn);
+
+    document.getElementById('workout-plan-overlay').style.display = 'block';
+    requestAnimationFrame(() => {
+        document.getElementById('workout-plan-sheet').classList.add('open');
+    });
+    haptic('light');
+}
+
+// סגירת ה-sheet
+function closePlanSheet() {
+    document.getElementById('workout-plan-sheet').classList.remove('open');
+    document.getElementById('workout-plan-overlay').style.display = 'none';
+}
+
+// הצגה/הסתרה של הכפתור הצף לפי המסך הנוכחי
+function updatePlanFloatBtn(screenId) {
+    const FLOW_SCREENS = ['ui-confirm', 'ui-main', 'ui-cluster-rest', 'ui-ask-extra'];
+    const btn = document.getElementById('btn-plan-float');
+    if (!btn) return;
+
+    const isFlow = FLOW_SCREENS.includes(screenId) && state.type && state.workouts[state.type];
+    btn.style.display = isFlow ? 'inline-flex' : 'none';
+
+    if (isFlow) {
+        // עדכון badge — מספר תרגילים כולל
+        let total = 0;
+        const workoutList = state.workouts[state.type];
+        if (workoutList) {
+            workoutList.forEach(item => {
+                if (item.type === 'cluster') total += item.exercises.length;
+                else total++;
+            });
+        }
+        const badge = document.getElementById('plan-float-badge');
+        if (badge) badge.textContent = total;
+    }
+}
 
 // ─── WEEK / WORKOUT SELECTION ──────────────────────────────────────────────
 

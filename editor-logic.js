@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - EDITOR & MANAGER LOGIC
- * Version: 14.2.0
+ * Version: 14.4.0
  * Fixes: showAlert/showConfirm replace all native alert/confirm.
  */
 
@@ -39,7 +39,15 @@ function renderWorkoutMenu() {
                     w.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
                 }
 
-                btn.innerHTML = `<div class="flex-between w-100"><h3>${key}</h3>${badge}</div><p>${count} תרגילים</p>`;
+                btn.innerHTML = `
+                    <div class="flex-between w-100 mb-xs"><h3>${key}</h3>${badge}</div>
+                    <div class="flex-between w-100">
+                        <p style="margin:0;">${count} תרגילים</p>
+                        <button class="btn-exercises-pill" onclick="event.stopPropagation(); openWorkoutPlanSheet('${key.replace(/'/g, "\\'")}')">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                            תרגילים
+                        </button>
+                    </div>`;
                 btn.onclick = () => selectWorkout(key);
                 container.appendChild(btn);
             });
@@ -58,7 +66,15 @@ function renderWorkoutMenu() {
             if (Array.isArray(w)) {
                 w.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
             }
-            btn.innerHTML = `<h3>${key}</h3><p>${count} תרגילים</p>`;
+            btn.innerHTML = `
+                <div class="flex-between w-100 mb-xs"><h3>${key}</h3></div>
+                <div class="flex-between w-100">
+                    <p style="margin:0;">${count} תרגילים</p>
+                    <button class="btn-exercises-pill" onclick="event.stopPropagation(); openWorkoutPlanSheet('${key.replace(/'/g, "\\'")}')">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                        תרגילים
+                    </button>
+                </div>`;
             btn.onclick = () => selectWorkout(key);
             container.appendChild(btn);
         });

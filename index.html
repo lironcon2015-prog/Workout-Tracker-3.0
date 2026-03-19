@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 14.2.0</title>
+    <title>GymPro Elite 14.4.0</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
@@ -243,7 +243,7 @@
                     <h3 class="color-type-free m-0">אימון Freestyle</h3>
                     <p>בחר תרגילים חופשי</p>
                 </button>
-                <div class="version-footer">GymPro Elite v14.2.0</div>
+                <div class="version-footer">GymPro Elite v14.4.0</div>
             </div>
 
             <!-- SETTINGS -->
@@ -259,7 +259,7 @@
                 </button>
                 <div class="glass-card">
                     <h3 class="mt-0">ניהול נתונים</h3>
-                    <p class="color-dim text-sm mb-0">גרסה V14.2.0</p>
+                    <p class="color-dim text-sm mb-0">גרסה V14.4.0</p>
                     <button class="btn-text color-danger border-danger rounded-md mb-lg" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     <div class="border-top pt-md">
                         <label class="color-dim text-xs d-block mb-sm">ניהול תבניות (ללא היסטוריה)</label>
@@ -730,6 +730,23 @@
         <div class="sheet-handle"></div>
         <div id="alias-sheet-body"></div>
     </div>
+
+    <!-- WORKOUT PLAN SHEET -->
+    <div id="workout-plan-overlay" class="bottom-sheet-overlay" onclick="closePlanSheet()"></div>
+    <div id="workout-plan-sheet" class="bottom-sheet plan-sheet">
+        <div class="sheet-handle"></div>
+        <div id="workout-plan-sheet-body" class="plan-sheet-body"></div>
+    </div>
+
+    <!-- FLOATING PLAN BUTTON (shown in workout flow) -->
+    <button id="btn-plan-float" class="btn-plan-float" onclick="openCurrentPlanSheet()" style="display:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        תרגילים
+        <span id="plan-float-badge" class="plan-float-badge">0</span>
+    </button>
 
     <script src="data.js"></script>
     <script src="storage.js"></script>

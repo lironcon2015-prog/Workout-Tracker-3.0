@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 14.8.0
+ * Version: 14.9.0
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v14.8.0';
+const CACHE_VERSION = 'gympro-v14.9.0';
 
 const FILES_TO_CACHE = [
     './index.html',
@@ -17,7 +17,6 @@ const FILES_TO_CACHE = [
     './manifest.json'
 ];
 
-// התקנה — שמירת כל הקבצים ב-cache
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_VERSION).then(cache => {
@@ -27,7 +26,6 @@ self.addEventListener('install', event => {
     self.skipWaiting();
 });
 
-// הפעלה — מחיקת cache ישן
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys =>
@@ -41,7 +39,6 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// בקשות רשת — Cache First (מה-cache, ואם אין — מהרשת)
 self.addEventListener('fetch', event => {
     event.respondWith(
         caches.match(event.request).then(cached => {

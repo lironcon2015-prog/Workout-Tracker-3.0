@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 14.8.0</title>
+    <title>GymPro Elite 14.9.0</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
@@ -167,6 +167,13 @@
             </button>
             <div class="brand-logo">GYMPRO <span>ELITE</span></div>
             <div class="d-flex" style="gap:5px;">
+                <!-- Reload button: visible only outside workout flow -->
+                <button id="btn-reload" class="settings-btn" onclick="window.location.reload()" title="רענון">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                </button>
                 <!-- Sound button: muted by default, waves appear on activation -->
                 <button id="btn-sound" class="settings-btn" onclick="initAudio()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -241,7 +248,7 @@
                     <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="chevron"></div></button>
                     <button class="menu-card deload-card" onclick="selectWeek('deload')"><span>דילואוד</span><div class="chevron"></div></button>
                 </div>
-                <div class="version-footer">GymPro Elite v14.8.0</div>
+                <div class="version-footer">GymPro Elite v14.9.0</div>
             </div>
 
             <!-- SETTINGS -->
@@ -261,7 +268,7 @@
                 </button>
                 <div class="glass-card">
                     <h3 class="mt-0">ניהול נתונים</h3>
-                    <p class="color-dim text-sm mb-0">גרסה V14.8.0</p>
+                    <p class="color-dim text-sm mb-0">גרסה V14.9.0</p>
                     <button class="btn-text color-danger border-danger rounded-md mb-lg" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     <div class="border-top pt-md">
                         <label class="color-dim text-xs d-block mb-sm">ניהול תבניות (ללא היסטוריה)</label>
@@ -384,8 +391,11 @@
             </div>
 
             <div id="ui-swap-list" class="screen">
-                <h2 class="section-title">אפשרויות החלפה</h2>
-                <div id="swap-container" class="vertical-stack"></div>
+                <div class="sticky-header">
+                    <h2 class="section-title mb-sm">אפשרויות החלפה</h2>
+                    <input type="text" id="swap-search" class="search-input" placeholder="חפש תרגיל..." oninput="_renderSwapMenu(this.value)">
+                </div>
+                <div id="swap-container" class="vertical-stack pt-sm"></div>
                 <button class="btn-text" onclick="handleBackClick()">ביטול</button>
             </div>
 

@@ -1,7 +1,7 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 14.8.0
- * שדרוגים: הסרת חימום מוחלטת, יומן אימון ב-modal ייעודי, רצועת טיימר בתחתית.
+ * Version: 14.9.0
+ * שדרוגים: החלפת תרגיל חופשית, חזרה מבחר אימון, פידבק סיום, כפתור רענון, תיקוני חוב.
  */
 
 // ─── CUSTOM MODAL SYSTEM ───────────────────────────────────────────────────
@@ -267,9 +267,11 @@ function navigate(id, clearStack = false) {
     // Hide header buttons during workout
     const settingsBtn = document.getElementById('btn-settings');
     const soundBtn    = document.getElementById('btn-sound');
+    const reloadBtn   = document.getElementById('btn-reload');
     const inWorkout   = WORKOUT_SCREENS.includes(id);
     if (settingsBtn) settingsBtn.style.display = inWorkout ? 'none' : 'flex';
     if (soundBtn)    soundBtn.style.display    = inWorkout ? 'none' : 'flex';
+    if (reloadBtn)   reloadBtn.style.display   = inWorkout ? 'none' : 'flex';
 
     if (clearStack) {
         state.historyStack = [id];
@@ -341,6 +343,17 @@ function handleBackClick() {
             _doBack(currentScreen);
         });
         return;
+    }
+
+    if (currentScreen === 'ui-workout-type') {
+        if (StorageManager.hasActiveSession()) {
+            showConfirm("האם לצאת מהאימון? הנתונים לא יישמרו.", () => {
+                StorageManager.clearSessionState();
+                stopSessionTimer();
+                window.location.reload();
+            });
+            return;
+        }
     }
 
     if (currentScreen === 'ui-workout-editor') {
@@ -560,6 +573,7 @@ function updatePlanFloatBtn(screenId) {
     if (!FLOW_SCREENS.includes(screenId)) return;
     if (!state.type || !state.workouts[state.type]) return;
     if (state.isExtraPhase && state.clusterMode) return;
+    if (state.isFreestyle) return;
 
     if (screenId === 'ui-main') {
         const toolsRow = document.querySelector('#ui-main .header-tools');
@@ -1542,16 +1556,23 @@ function renderFreestyleList() {
 // ─── SWAP MENU ─────────────────────────────────────────────────────────────
 
 function openSwapMenu() {
+    _renderSwapMenu('');
+    navigate('ui-swap-list');
+    StorageManager.saveSessionState();
+}
+
+function _renderSwapMenu(searchVal) {
     const container = document.getElementById('swap-container');
     container.innerHTML = "";
 
-    const workoutList = state.workouts[state.type]; if (!workoutList) return;
+    const workoutList = state.workouts[state.type];
 
+    // ── מומלצים: וריאציות מהקבוצות הקיימות ──
     const variations = getSubstitutes(state.currentExName).filter(name => !state.completedExInSession.includes(name));
     if (variations.length > 0) {
         const titleVar = document.createElement('div');
         titleVar.className = "section-label";
-        titleVar.innerText = `וריאציות (מחליף את הנוכחי)`;
+        titleVar.innerText = "מחליפים מומלצים";
         container.appendChild(titleVar);
         variations.forEach(vName => {
             const btn = document.createElement('button');
@@ -1566,36 +1587,64 @@ function openSwapMenu() {
         });
     }
 
-    const titleOrder = document.createElement('div');
-    titleOrder.className = "section-label mt-lg";
-    titleOrder.innerText = `שאר האימון (החלף סדר)`;
-    container.appendChild(titleOrder);
-
-    const remaining = workoutList.map((item, idx) => ({ item, idx })).filter(({ idx }) => idx > state.exIdx);
-
-    if (remaining.length === 0) {
-        const empty = document.createElement('p');
-        empty.className = "text-center color-dim";
-        empty.innerText = 'אין תרגילים נוספים להחלפה';
-        container.appendChild(empty);
-    } else {
-        remaining.forEach(({ item, idx }) => {
-            const btn = document.createElement('button');
-            btn.className = "menu-card";
-            btn.innerHTML = `<span>${item.name}</span><div class="chevron"></div>`;
-            btn.onclick = () => {
-                const currentItem = state.workouts[state.type][state.exIdx];
-                state.workouts[state.type][state.exIdx] = state.workouts[state.type][idx];
-                state.workouts[state.type][idx] = currentItem;
-                state.historyStack.pop();
-                showConfirmScreen();
-            };
-            container.appendChild(btn);
-        });
+    // ── החלפת סדר ──
+    if (workoutList) {
+        const remaining = workoutList.map((item, idx) => ({ item, idx })).filter(({ idx }) => idx > state.exIdx);
+        if (remaining.length > 0) {
+            const titleOrder = document.createElement('div');
+            titleOrder.className = "section-label mt-md";
+            titleOrder.innerText = "החלף סדר עם תרגיל אחר";
+            container.appendChild(titleOrder);
+            remaining.forEach(({ item, idx }) => {
+                const btn = document.createElement('button');
+                btn.className = "menu-card";
+                btn.innerHTML = `<span>${item.name}</span><div class="chevron"></div>`;
+                btn.onclick = () => {
+                    const currentItem = state.workouts[state.type][state.exIdx];
+                    state.workouts[state.type][state.exIdx] = state.workouts[state.type][idx];
+                    state.workouts[state.type][idx] = currentItem;
+                    state.historyStack.pop();
+                    showConfirmScreen();
+                };
+                container.appendChild(btn);
+            });
+        }
     }
 
-    navigate('ui-swap-list');
-    StorageManager.saveSessionState();
+    // ── כל התרגילים (חיפוש חופשי) ──
+    const titleAll = document.createElement('div');
+    titleAll.className = "section-label mt-md";
+    titleAll.innerText = "כל התרגילים";
+    container.appendChild(titleAll);
+
+    const sv = (searchVal || '').toLowerCase();
+    const allFiltered = state.exercises
+        .filter(ex => ex.name !== state.currentExName && !state.completedExInSession.includes(ex.name))
+        .filter(ex => !sv || ex.name.toLowerCase().includes(sv))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    allFiltered.forEach(ex => {
+        const btn = document.createElement('button');
+        btn.className = "menu-card";
+        btn.innerHTML = `<span>${ex.name}</span><div class="chevron"></div>`;
+        btn.onclick = () => {
+            state.currentExName = ex.name;
+            state.currentEx = JSON.parse(JSON.stringify(ex));
+            if (!state.currentEx.sets || state.currentEx.sets.length === 0) {
+                state.currentEx.sets = [{ w: 20, r: 10 }, { w: 20, r: 10 }, { w: 20, r: 10 }];
+            }
+            state.historyStack.pop();
+            showConfirmScreen(ex.name);
+        };
+        container.appendChild(btn);
+    });
+
+    if (allFiltered.length === 0 && sv) {
+        const p = document.createElement('p');
+        p.className = "text-center color-dim";
+        p.innerText = "לא נמצאו תרגילים";
+        container.appendChild(p);
+    }
 }
 
 // ─── FINISH WORKOUT & SUMMARY ──────────────────────────────────────────────
@@ -1682,7 +1731,7 @@ function copyResult() {
     StorageManager.clearSessionState();
     stopSessionTimer();
     haptic('success');
-    window.location.reload();
+    showAlert("האימון נשמר! הסיכום הועתק ללוח.", () => { window.location.reload(); });
 }
 
 function _saveToArchive(note) {

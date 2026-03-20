@@ -1,7 +1,7 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
- * Version: 14.8.0
- * שדרוג 3: העתקה לפי טווח (חודש / שבועות ראשון–שבת).
+ * Version: 14.9.0
+ * שדרוג 3: העתקה לפי טווח. תיקון ב׳: openDayDrawer משתמש ב-workoutMeta.color.
  */
 
 // ─── ANALYTICS PREFS HELPERS ──────────────────────────────────────────────
@@ -325,10 +325,8 @@ function openDayDrawer(workouts, day, monthName) {
     } else {
         html += `<p class="color-dim text-sm">נמצאו ${workouts.length} אימונים:</p>`;
         workouts.forEach(wo => {
-            let dotColor = '#BF5AF2';
-            if (wo.type && wo.type.includes('A')) dotColor = '#0A84FF';
-            else if (wo.type && wo.type.includes('B')) dotColor = '#32D74B';
-            else if (wo.type && wo.type.includes('C')) dotColor = '#FF9F0A';
+            const woMeta = state.workoutMeta[wo.type];
+            const dotColor = (woMeta && woMeta.color) ? woMeta.color : 'var(--type-free)';
             html += `<div class="mini-workout-item" onclick='openArchiveFromDrawer(${JSON.stringify(wo).replace(/'/g, "&#39;")})'>
                 <div class="mini-dot" style="background:${dotColor}"></div>
                 <div style="flex-grow:1;"><div class="font-semi text-base">${wo.type}</div><div class="text-xs color-dim">${wo.duration} דק'</div></div>

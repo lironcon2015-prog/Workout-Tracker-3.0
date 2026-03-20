@@ -1460,3 +1460,7 @@ body {
 /* ─── MANAGER HIDDEN ITEM ────────────────────────────────────────────────── */
 
 .manager-item--hidden { opacity: 0.45; }
+
+/* ─── v14.9.0 additions ──────────────────────────────────────────────────── */
+/* swap-search uses existing .search-input — no new rules needed              */
+/* btn-reload uses existing .settings-btn — no new rules needed               */

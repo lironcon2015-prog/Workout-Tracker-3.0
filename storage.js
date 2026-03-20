@@ -1,6 +1,6 @@
 /**
  * GymPro Elite - Storage Manager
- * Version: 14.6.0
+ * Version: 14.9.0
  * Handles all LocalStorage operations. No native alert/confirm.
  */
 
@@ -167,7 +167,7 @@ const StorageManager = {
         const prefs = this.getAnalyticsPrefs();
         const configData = {
             type: 'config_only',
-            version: '14.6.0',
+            version: '14.9.0',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),

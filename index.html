@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 14.6.0</title>
+    <title>GymPro Elite 14.7.0</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
@@ -19,9 +19,8 @@
         <div class="modal-content">
             <h3>חימום מומלץ</h3>
             <div id="warmup-list" class="vertical-stack my-lg"></div>
-            <button id="btn-warmup-done" class="btn-main primary-gradient" onclick="markWarmupDone()">סיימתי חימום</button>
-            <button id="btn-warmup-cancel" class="btn-text color-danger" onclick="closeWarmup()">סגור ללא רישום</button>
-            <button id="btn-log-close" class="btn-text" style="display:none" onclick="closeSessionLog()">סגור</button>
+            <button class="btn-main primary-gradient" onclick="markWarmupDone()">סיימתי חימום</button>
+            <button class="btn-text color-danger" onclick="closeWarmup()">סגור ללא רישום</button>
         </div>
     </div>
 
@@ -243,7 +242,7 @@
                     <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="chevron"></div></button>
                     <button class="menu-card deload-card" onclick="selectWeek('deload')"><span>דילואוד</span><div class="chevron"></div></button>
                 </div>
-                <div class="version-footer">GymPro Elite v14.6.0</div>
+                <div class="version-footer">GymPro Elite v14.7.0</div>
             </div>
 
             <!-- SETTINGS -->
@@ -259,7 +258,7 @@
                 </button>
                 <div class="glass-card">
                     <h3 class="mt-0">ניהול נתונים</h3>
-                    <p class="color-dim text-sm mb-0">גרסה V14.6.0</p>
+                    <p class="color-dim text-sm mb-0">גרסה V14.7.0</p>
                     <button class="btn-text color-danger border-danger rounded-md mb-lg" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     <div class="border-top pt-md">
                         <label class="color-dim text-xs d-block mb-sm">ניהול תבניות (ללא היסטוריה)</label>
@@ -320,6 +319,10 @@
                     <div class="flex-between border-top pt-sm mt-xs">
                         <span class="text-sm color-dim">הסתר מרשימת האימונים</span>
                         <input type="checkbox" id="editor-hidden-check" class="archive-checkbox">
+                    </div>
+                    <div class="border-top pt-sm mt-xs">
+                        <span class="text-sm color-dim d-block mb-sm">צבע זיהוי</span>
+                        <div id="editor-color-swatches" class="color-swatches-row"></div>
                     </div>
                 </div>
                 <div class="section-label">רשימת תרגילים</div>
@@ -479,8 +482,15 @@
                     <div class="vertical-stack">
                         <button class="btn-text" onclick="finish()">לא, סיים אימון</button>
                         <button class="btn-main primary-gradient" onclick="startExtraPhase()">כן, הוסף תרגילים</button>
+                        <button class="btn-text" style="border:1px solid var(--border);border-radius:var(--ios-radius);padding:14px;" onclick="startExtraCluster()">הוסף סבב קיים</button>
                     </div>
                 </div>
+            </div>
+
+            <div id="ui-extra-cluster" class="screen">
+                <div class="hero-section"><h2>בחר סבב להוספה</h2></div>
+                <div id="extra-cluster-list" class="vertical-stack"></div>
+                <button class="btn-text mt-lg" onclick="handleBackClick()">ביטול</button>
             </div>
 
             <div id="ui-summary" class="screen">

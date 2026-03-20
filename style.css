@@ -13,7 +13,7 @@
     --type-a: #0A84FF;
     --type-b: #32D74B;
     --type-c: #FF9F0A;
-    --type-free: #BF5AF2;
+    --type-free: #5E5CE6;
     --danger: #ff453a;
 
     /* Design System: Spacing */
@@ -570,32 +570,27 @@ body {
 .custom-dialog-btns .btn-main { margin-top: 0; }
 .custom-dialog-btns .btn-text { padding: 12px; margin-top: 0; }
 
+/* ── Workout Color Swatches (editor) ── */
+.color-swatches-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 4px 0; }
+.color-swatch {
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+.color-swatch:active { transform: scale(0.9); }
+.color-swatch.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
+    transform: scale(1.15);
+}
+
 .warmup-row {
     display: flex; justify-content: space-between; padding: 10px;
     border-bottom: 1px solid rgba(255,255,255,0.05);
     font-size: 0.95em;
 }
 .warmup-row:last-child { border-bottom: none; }
-
-/* ── Session Log (יומן אימון) ── */
-.log-ex-header {
-    font-size: 0.72em; font-weight: 700; color: var(--text-dim);
-    text-transform: uppercase; letter-spacing: 0.5px;
-    padding: 6px 2px 5px; border-bottom: 1px solid rgba(255,255,255,0.08);
-    margin-top: 8px;
-}
-.log-ex-header:first-child { margin-top: 0; }
-.log-set-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.04);
-    font-size: 0.88em; color: var(--text);
-}
-.log-set-row:last-of-type { border-bottom: none; }
-.btn-log-edit {
-    background: rgba(10,132,255,0.12); border: 1px solid rgba(10,132,255,0.3);
-    color: var(--accent); border-radius: 7px; padding: 3px 10px;
-    font-size: 0.8em; cursor: pointer; min-height: 28px; flex-shrink: 0;
-}
 
 .action-panel { display: none; }
 .action-panel.is-visible { display: block; animation: fadeIn 0.3s ease; }

@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - EDITOR & MANAGER LOGIC
- * Version: 14.4.0
+ * Version: 14.7.0
  * Fixes: showAlert/showConfirm replace all native alert/confirm.
  */
 
@@ -80,7 +80,6 @@ function renderWorkoutMenu() {
         });
     }
 
-    initPreviewCard();
 }
 
 // ─── WORKOUT MANAGER ───────────────────────────────────────────────────────
@@ -154,6 +153,7 @@ function openEditorUI() {
     document.getElementById('editor-deload-check').checked = !!meta.availableInDeload;
     document.getElementById('editor-deload-only-check').checked = !!meta.isDeloadOnly;
     document.getElementById('editor-hidden-check').checked = !!meta.isHidden;
+    _renderColorSwatches(meta.color || '');
     renderEditorList();
     navigate('ui-workout-editor');
 }
@@ -544,6 +544,7 @@ function saveWorkoutChanges() {
     }
 
     state.workoutMeta[newName].isHidden = document.getElementById('editor-hidden-check').checked;
+    state.workoutMeta[newName].color = _selectedEditorColor || '';
 
     StorageManager.saveData(StorageManager.KEY_META, state.workoutMeta);
 
@@ -729,132 +730,37 @@ function openArchiveFromDrawer(wo) {
     }, 350);
 }
 
-// ─── WORKOUT PREVIEW CARD ──────────────────────────────────────────────────
+// ─── WORKOUT COLOR SELECTION ───────────────────────────────────────────────
 
-let _previewCardOpen = true;
-let _previewSelectedWo = null;
-let _previewWeek = 2;
+const WORKOUT_COLORS = [
+    { hex: '#0A84FF', name: 'Cobalt'   },
+    { hex: '#30D158', name: 'Emerald'  },
+    { hex: '#FF9F0A', name: 'Amber'    },
+    { hex: '#FF6B6B', name: 'Coral'    },
+    { hex: '#5AC8FA', name: 'Teal'     },
+    { hex: '#5E5CE6', name: 'Indigo'   },
+    { hex: '#98989D', name: 'Graphite' }
+];
 
-function initPreviewCard() {
-    const chipsEl = document.getElementById('preview-wo-chips');
-    if (!chipsEl) return;
-    chipsEl.innerHTML = '';
+let _selectedEditorColor = '';
 
-    Object.keys(state.workouts).forEach(key => {
-        const meta = state.workoutMeta[key];
-        if (meta && meta.isHidden) return;
-        if (meta && meta.isDeloadOnly) return;
+function selectEditorColor(hex, el) {
+    _selectedEditorColor = hex;
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    if (el) el.classList.add('active');
+}
 
-        const chip = document.createElement('button');
-        chip.className = 'preview-wo-chip' + (_previewSelectedWo === key ? ' active' : '');
-        chip.textContent = key;
-        chip.onclick = () => selectPreviewWorkout(key, chip);
-        chipsEl.appendChild(chip);
+function _renderColorSwatches(currentColor) {
+    _selectedEditorColor = currentColor || '';
+    const container = document.getElementById('editor-color-swatches');
+    if (!container) return;
+    container.innerHTML = '';
+    WORKOUT_COLORS.forEach(c => {
+        const sw = document.createElement('div');
+        sw.className = 'color-swatch' + (c.hex === _selectedEditorColor ? ' active' : '');
+        sw.style.background = c.hex;
+        sw.title = c.name;
+        sw.onclick = () => selectEditorColor(c.hex, sw);
+        container.appendChild(sw);
     });
-
-    // If previously selected workout no longer exists/visible — reset
-    if (_previewSelectedWo && !state.workouts[_previewSelectedWo]) {
-        _previewSelectedWo = null;
-    }
-
-    renderPreviewContent();
-}
-
-function togglePreviewCard() {
-    _previewCardOpen = !_previewCardOpen;
-    const body = document.getElementById('preview-card-body');
-    const btn  = document.getElementById('preview-collapse-btn');
-    if (!body || !btn) return;
-    body.classList.toggle('open', _previewCardOpen);
-    btn.textContent = _previewCardOpen ? 'סגור ▲' : 'פתח ▼';
-}
-
-function setPreviewWeek(w, btn) {
-    _previewWeek = w;
-    document.querySelectorAll('.preview-week-chip').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    renderPreviewContent();
-}
-
-function selectPreviewWorkout(key, chip) {
-    if (_previewSelectedWo === key) {
-        _previewSelectedWo = null;
-        document.querySelectorAll('.preview-wo-chip').forEach(c => c.classList.remove('active'));
-        renderPreviewContent();
-        return;
-    }
-    _previewSelectedWo = key;
-    document.querySelectorAll('.preview-wo-chip').forEach(c => c.classList.remove('active'));
-    if (chip) chip.classList.add('active');
-    if (!_previewCardOpen) {
-        _previewCardOpen = true;
-        const body = document.getElementById('preview-card-body');
-        const btn  = document.getElementById('preview-collapse-btn');
-        if (body) body.classList.add('open');
-        if (btn) btn.textContent = 'סגור ▲';
-    }
-    renderPreviewContent();
-}
-
-function renderPreviewContent() {
-    const contentEl = document.getElementById('preview-ex-content');
-    const startBtn  = document.getElementById('preview-start-btn');
-    if (!contentEl) return;
-
-    if (!_previewSelectedWo || !state.workouts[_previewSelectedWo]) {
-        contentEl.innerHTML = '<p class="preview-empty">בחר אימון לתצוגה מקדימה</p>';
-        if (startBtn) startBtn.style.display = 'none';
-        return;
-    }
-
-    const plan = state.workouts[_previewSelectedWo];
-    const dotColors = ['var(--accent)', 'var(--type-b)', 'var(--type-c)', 'var(--type-free)'];
-    let totalSets = 0;
-    let exCount = 0;
-    let rowsHtml = '';
-
-    plan.forEach((item, i) => {
-        if (item.type === 'cluster') {
-            item.exercises.forEach((ex, ci) => {
-                const col = dotColors[(exCount) % dotColors.length];
-                rowsHtml += `<div class="preview-ex-row">
-                    <div class="preview-ex-dot" style="background:${col}"></div>
-                    <div class="preview-ex-name">${ex.name}</div>
-                    <div class="preview-ex-sets">Cluster</div>
-                </div>`;
-                exCount++; totalSets++;
-            });
-        } else {
-            const col = dotColors[exCount % dotColors.length];
-            const sets = item.sets || 3;
-            rowsHtml += `<div class="preview-ex-row">
-                <div class="preview-ex-dot" style="background:${col}"></div>
-                <div class="preview-ex-name">${item.name}${item.isMain ? ' ✦' : ''}</div>
-                <div class="preview-ex-sets">${sets} סטים</div>
-            </div>`;
-            exCount++; totalSets += sets;
-        }
-    });
-
-    const weekLabel = _previewWeek === 'deload' ? 'דילואוד' : `שבוע ${_previewWeek}`;
-
-    contentEl.innerHTML = `
-        <div class="preview-wo-header">
-            <div>
-                <div class="preview-wo-name">${_previewSelectedWo}</div>
-                <div class="preview-wo-meta">${exCount} תרגילים • ${totalSets} סטים</div>
-            </div>
-            <div class="preview-week-badge">${weekLabel}</div>
-        </div>
-        ${rowsHtml}`;
-
-    if (startBtn) startBtn.style.display = 'block';
-}
-
-function startFromPreview() {
-    if (!_previewSelectedWo) return;
-    selectWeek(_previewWeek);
-    // selectWeek navigates to ui-workout-type and calls renderWorkoutMenu
-    // then user picks the workout — or we can auto-select:
-    setTimeout(() => selectWorkout(_previewSelectedWo), 50);
 }

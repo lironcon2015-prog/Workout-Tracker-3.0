@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
-  * Version: 14.5.0
+  * Version: 14.7.0
  * Fixes: showAlert replaces alert, StorageManager.getAnalyticsPrefs/saveAnalyticsPrefs used.
  */
 
@@ -107,10 +107,8 @@ function createArchiveCard(item) {
     card.className = "menu-card mb-sm";
     card.style.flexDirection = 'column';
 
-    let typeColor = 'var(--type-free)';
-    if (item.type && item.type.includes('A')) typeColor = 'var(--type-a)';
-    else if (item.type && item.type.includes('B')) typeColor = 'var(--type-b)';
-    else if (item.type && item.type.includes('C')) typeColor = 'var(--type-c)';
+    const meta = state.workoutMeta[item.type];
+    const typeColor = (meta && meta.color) ? meta.color : 'var(--type-free)';
 
     const vol = getWorkoutVolume(item);
     const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : vol + 'kg';
@@ -305,11 +303,10 @@ function renderCalendar() {
             const dotsContainer = document.createElement('div'); dotsContainer.className = "dots-container";
             dailyWorkouts.forEach(wo => {
                 const dot = document.createElement('div');
-                let dotClass = 'type-free';
-                if (wo.type && wo.type.includes('A')) dotClass = 'type-a';
-                else if (wo.type && wo.type.includes('B')) dotClass = 'type-b';
-                else if (wo.type && wo.type.includes('C')) dotClass = 'type-c';
-                dot.className = `dot ${dotClass}`; dotsContainer.appendChild(dot);
+                const woMeta = state.workoutMeta[wo.type];
+                const dotColor = (woMeta && woMeta.color) ? woMeta.color : 'var(--type-free)';
+                dot.className = 'dot';
+                dot.style.backgroundColor = dotColor; dotsContainer.appendChild(dot);
             });
             cell.appendChild(dotsContainer);
             cell.onclick = () => openDayDrawer(dailyWorkouts, day, MONTH_NAMES_HE[month]);

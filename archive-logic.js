@@ -1,7 +1,7 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
-  * Version: 14.7.0
- * Fixes: showAlert replaces alert, StorageManager.getAnalyticsPrefs/saveAnalyticsPrefs used.
+ * Version: 14.8.0
+ * שדרוג 3: העתקה לפי טווח (חודש / שבועות ראשון–שבת).
  */
 
 // ─── ANALYTICS PREFS HELPERS ──────────────────────────────────────────────
@@ -1268,4 +1268,130 @@ function _homePRRenderAllTime(allSessions) {
 
     // מוסיף בסוף הכרטיס
     card.appendChild(div);
+}
+
+// ─── ARCHIVE RANGE COPY (שדרוג 3) ────────────────────────────────────────
+
+let _rangeTab = 'month';
+let _rangeSelectedMonth = null;
+let _rangeSelectedWeeks = null;
+
+function openRangeSheet() {
+    _rangeTab = 'month';
+    _rangeSelectedMonth = null;
+    _rangeSelectedWeeks = null;
+    _renderRangeMonthChips();
+    document.getElementById('range-panel-month').style.display = 'block';
+    document.getElementById('range-panel-weeks').style.display = 'none';
+    document.getElementById('range-seg-month').classList.add('active');
+    document.getElementById('range-seg-weeks').classList.remove('active');
+    _updateRangeCopyBtn();
+    document.getElementById('range-copy-overlay').style.display = 'block';
+    document.getElementById('range-copy-sheet').classList.add('open');
+    haptic('light');
+}
+
+function closeRangeSheet() {
+    document.getElementById('range-copy-overlay').style.display = 'none';
+    document.getElementById('range-copy-sheet').classList.remove('open');
+}
+
+function switchRangeTab(tab) {
+    _rangeTab = tab;
+    _rangeSelectedMonth = null;
+    _rangeSelectedWeeks = null;
+    document.getElementById('range-panel-month').style.display = tab === 'month' ? 'block' : 'none';
+    document.getElementById('range-panel-weeks').style.display = tab === 'weeks' ? 'block' : 'none';
+    document.getElementById('range-seg-month').classList.toggle('active', tab === 'month');
+    document.getElementById('range-seg-weeks').classList.toggle('active', tab === 'weeks');
+    if (tab === 'month') _renderRangeMonthChips();
+    _updateRangeCopyBtn();
+}
+
+function _renderRangeMonthChips() {
+    const container = document.getElementById('range-month-chips');
+    if (!container) return;
+    container.innerHTML = '';
+    const archive = StorageManager.getArchive();
+    const seen = new Set();
+    archive.forEach(item => {
+        const d = new Date(item.timestamp);
+        const key = d.getFullYear() + '-' + d.getMonth();
+        if (!seen.has(key)) {
+            seen.add(key);
+            const btn = document.createElement('button');
+            btn.className = 'range-chip';
+            btn.textContent = MONTH_NAMES_HE[d.getMonth()] + ' ' + d.getFullYear();
+            const yr = d.getFullYear(), mo = d.getMonth();
+            btn.onclick = function() { _selectRangeMonth(yr, mo, btn); };
+            container.appendChild(btn);
+        }
+    });
+    if (!seen.size) container.innerHTML = '<p class="color-dim text-sm">אין אימונים בארכיון</p>';
+}
+
+function _selectRangeMonth(year, month, btn) {
+    _rangeSelectedMonth = { year: year, month: month };
+    document.querySelectorAll('#range-month-chips .range-chip').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    _updateRangeCopyBtn();
+}
+
+function selectRangeWeeks(n, btn) {
+    _rangeSelectedWeeks = n;
+    document.querySelectorAll('#range-panel-weeks .range-chip').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    _updateRangeCopyBtn();
+}
+
+function _getWeeksStartDate(n) {
+    var today = new Date();
+    var dayOfWeek = today.getDay();
+    var startOfCurrentWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dayOfWeek);
+    return new Date(startOfCurrentWeek.getTime() - (n - 1) * 7 * 86400000);
+}
+
+function _getRangeItems() {
+    var archive = StorageManager.getArchive();
+    if (_rangeTab === 'month' && _rangeSelectedMonth) {
+        return archive.filter(function(item) {
+            var d = new Date(item.timestamp);
+            return d.getFullYear() === _rangeSelectedMonth.year && d.getMonth() === _rangeSelectedMonth.month;
+        });
+    }
+    if (_rangeTab === 'weeks' && _rangeSelectedWeeks) {
+        var startDate = _getWeeksStartDate(_rangeSelectedWeeks);
+        return archive.filter(function(item) { return new Date(item.timestamp) >= startDate; });
+    }
+    return [];
+}
+
+function _updateRangeCopyBtn() {
+    var btn = document.getElementById('btn-range-copy');
+    if (!btn) return;
+    var hasSelection = (_rangeTab === 'month' && _rangeSelectedMonth !== null) ||
+                       (_rangeTab === 'weeks' && _rangeSelectedWeeks !== null);
+    if (!hasSelection) {
+        btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = 'בחר טווח'; return;
+    }
+    var count = _getRangeItems().length;
+    btn.disabled = count === 0;
+    btn.style.opacity = count > 0 ? '1' : '0.5';
+    btn.textContent = count > 0 ? 'העתק ' + count + ' אימונים' : 'אין אימונים בטווח זה';
+}
+
+function executeCopyByRange() {
+    var items = _getRangeItems();
+    if (!items.length) { showAlert("אין אימונים בטווח שנבחר"); return; }
+    var text = items.map(function(item) { return item.summary; }).join("\n\n========================================\n\n");
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+            haptic('success'); closeRangeSheet(); showAlert('הועתקו ' + items.length + ' אימונים בהצלחה!');
+        });
+    } else {
+        var el = document.createElement("textarea");
+        el.value = text;
+        document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+        closeRangeSheet(); showAlert('הועתקו ' + items.length + ' אימונים בהצלחה!');
+    }
 }

@@ -1,7 +1,7 @@
 /**
  * GYMPRO ELITE - EDITOR & MANAGER LOGIC
- * Version: 14.7.0
- * Fixes: showAlert/showConfirm replace all native alert/confirm.
+ * Version: 14.8.0
+ * שדרוג 1: Toggle פעילים/מוסתרים בניהול תוכניות.
  */
 
 // ─── DYNAMIC MAIN MENU ─────────────────────────────────────────────────────
@@ -84,32 +84,64 @@ function renderWorkoutMenu() {
 
 // ─── WORKOUT MANAGER ───────────────────────────────────────────────────────
 
-function openWorkoutManager() { renderManagerList(); navigate('ui-workout-manager'); }
+let _managerTab = 'active';
+
+function openWorkoutManager() { _managerTab = 'active'; renderManagerList(); navigate('ui-workout-manager'); }
+
+function _setManagerTab(tab) {
+    _managerTab = tab;
+    renderManagerList();
+}
 
 function renderManagerList() {
-    const list = document.getElementById('manager-list'); list.innerHTML = "";
+    const list = document.getElementById('manager-list');
+    list.innerHTML = "";
+
     const keys = Object.keys(state.workouts);
-    if (keys.length === 0) { list.innerHTML = `<p class="text-center color-dim">אין תוכניות שמורות</p>`; return; }
 
-    keys.forEach(key => {
-        const wo = state.workouts[key];
-        const el = document.createElement('div');
-        el.className = "manager-item";
-        el.onclick = () => editWorkout(key);
-        let count = 0;
-        if (Array.isArray(wo)) {
-            wo.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
-        }
+    // Segmented control
+    const seg = document.createElement('div');
+    seg.className = 'segmented-control mb-md';
+    seg.innerHTML = `
+        <button class="segment-btn ${_managerTab === 'active' ? 'active' : ''}" onclick="_setManagerTab('active')">פעילים</button>
+        <button class="segment-btn ${_managerTab === 'hidden' ? 'active' : ''}" onclick="_setManagerTab('hidden')">מוסתרים</button>
+    `;
+    list.appendChild(seg);
 
-        el.innerHTML = `
-            <div class="manager-info"><h3>${key}</h3><p>${count} תרגילים</p></div>
-            <div class="manager-actions">
-                <button class="btn-text-action" onclick="event.stopPropagation(); duplicateWorkout('${key}')">שכפל</button>
-                <button class="btn-text-action delete" onclick="event.stopPropagation(); deleteWorkout('${key}')">מחק</button>
-            </div>
-        `;
-        list.appendChild(el);
-    });
+    const activeKeys = keys.filter(k => { const m = state.workoutMeta[k]; return !m || !m.isHidden; });
+    const hiddenKeys = keys.filter(k => { const m = state.workoutMeta[k]; return m && m.isHidden; });
+    const displayKeys = _managerTab === 'active' ? activeKeys : hiddenKeys;
+
+    if (displayKeys.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'text-center color-dim';
+        empty.textContent = _managerTab === 'active' ? 'אין תוכניות פעילות' : 'אין תוכניות מוסתרות';
+        list.appendChild(empty);
+    } else {
+        displayKeys.forEach(key => {
+            const wo = state.workouts[key];
+            const el = document.createElement('div');
+            el.className = 'manager-item';
+            if (_managerTab === 'hidden') el.style.opacity = '0.55';
+            el.onclick = () => editWorkout(key);
+            let count = 0;
+            if (Array.isArray(wo)) {
+                wo.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
+            }
+            el.innerHTML = `
+                <div class="manager-info"><h3>${key}</h3><p>${count} תרגילים</p></div>
+                <div class="manager-actions">
+                    <button class="btn-text-action" onclick="event.stopPropagation(); duplicateWorkout('${key}')">שכפל</button>
+                    <button class="btn-text-action delete" onclick="event.stopPropagation(); deleteWorkout('${key}')">מחק</button>
+                </div>
+            `;
+            list.appendChild(el);
+        });
+    }
+
+    // Show/hide create button — only in active tab
+    const createBtn = document.getElementById('btn-create-workout');
+    if (createBtn) createBtn.style.display = _managerTab === 'active' ? '' : 'none';
 }
 
 function deleteWorkout(key) {

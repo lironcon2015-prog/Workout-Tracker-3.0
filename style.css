@@ -474,12 +474,7 @@ body {
 .badge-row { display: flex; gap: 8px; margin-bottom: 5px; align-items: center; }
 .ios-badge { background: var(--accent); padding: 4px 8px; border-radius: 6px; font-size: 0.7em; font-weight: 800; }
 .uni-badge { background: #ff9f0a; color: black; padding: 4px 8px; border-radius: 6px; font-size: 0.7em; font-weight: 800; display: none; }
-.warmup-badge { 
-    background: #ff3b30; color: white; padding: 4px 10px; border: none;
-    border-radius: 6px; font-size: 0.7em; font-weight: 800; 
-    display: none; cursor: pointer; animation: pulseRed 2s infinite;
-}
-@keyframes pulseRed { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
 
 /* =========================================
    SUMMARY SCREEN UI CARDS (Phase 3)
@@ -529,10 +524,7 @@ body {
     padding-right: 25px; margin-top: -2px; margin-bottom: 6px; 
 }
 
-.summary-tag-warmup { 
-    color: var(--text-dim); font-size: 0.85em; margin-bottom: 5px; 
-    border: 1px solid var(--border); display: inline-block; padding: 2px 6px; border-radius: 4px; 
-}
+
 .summary-tag-skip { color: var(--text-dim); font-size: 0.85em; margin-bottom: 5px; font-style: italic; }
 .summary-cluster-round { 
     color: var(--type-free); font-weight: 700; font-size: 0.9em; 
@@ -585,12 +577,7 @@ body {
     transform: scale(1.15);
 }
 
-.warmup-row {
-    display: flex; justify-content: space-between; padding: 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    font-size: 0.95em;
-}
-.warmup-row:last-child { border-bottom: none; }
+
 
 .action-panel { display: none; }
 .action-panel.is-visible { display: block; animation: fadeIn 0.3s ease; }
@@ -1231,10 +1218,7 @@ body {
     border-radius: 8px; padding: 4px 10px; font-size: 0.75em; color: #d1d1d6;
 }
 
-#warmup-list {
-    overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: none;
-}
-#warmup-list::-webkit-scrollbar { display: none; }
+
 
 /* ──────────────────────────────────────────
    HOME PR CARD (ui-week)
@@ -1438,3 +1422,41 @@ body {
     color: #FFD60A; border-radius: 6px; padding: 2px 6px; white-space: nowrap;
 }
 .home-pr-alltime-date { font-size: 0.58em; color: var(--text-dim); margin-top: 3px; }
+
+/* ─── SESSION LOG MODAL ─────────────────────────────────────────────────── */
+
+#session-log-list {
+    overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: none;
+}
+#session-log-list::-webkit-scrollbar { display: none; }
+
+.log-ex-header {
+    font-size: 0.85em; font-weight: 700; color: var(--text);
+    padding: 10px 0 5px; border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-top: 10px;
+}
+.log-ex-header:first-child { margin-top: 0; }
+
+.log-set-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.9em;
+}
+.log-set-row:last-of-type { border-bottom: none; }
+
+.btn-log-edit {
+    font-size: 0.72em; color: var(--accent);
+    background: rgba(10,132,255,0.1); border: 1px solid rgba(10,132,255,0.28);
+    border-radius: 6px; padding: 4px 8px; cursor: pointer; font-family: inherit;
+    white-space: nowrap; flex-shrink: 0;
+}
+
+/* ─── SESSION TIMER STRIP ────────────────────────────────────────────────── */
+
+.session-timer-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #30D158; flex-shrink: 0;
+}
+
+/* ─── MANAGER HIDDEN ITEM ────────────────────────────────────────────────── */
+
+.manager-item--hidden { opacity: 0.45; }

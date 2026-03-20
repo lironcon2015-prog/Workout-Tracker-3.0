@@ -211,9 +211,12 @@
                 <div class="home-pr-card mt-md" id="home-pr-card">
                     <div class="home-pr-top">
                         <span class="home-pr-lbl">שיא אישי — E1RM</span>
-                        <div class="home-pr-toggle">
-                            <button class="home-pr-btn active" id="home-pr-bench" onclick="switchHomePR('bench',this)">Bench Press</button>
-                            <button class="home-pr-btn" id="home-pr-ohp" onclick="switchHomePR('ohp',this)">Overhead Press</button>
+                        <div style="display:flex;align-items:center;gap:5px;">
+                            <div id="home-pr-range-chips-inline" class="home-pr-range-chips" style="margin-bottom:0;"></div>
+                            <div class="home-pr-toggle">
+                                <button class="home-pr-btn active" id="home-pr-bench" onclick="switchHomePR('bench',this)">Bench Press</button>
+                                <button class="home-pr-btn" id="home-pr-ohp" onclick="switchHomePR('ohp',this)">Overhead Press</button>
+                            </div>
                         </div>
                     </div>
                     <div class="home-pr-body">
@@ -239,10 +242,6 @@
                     <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="chevron"></div></button>
                     <button class="menu-card deload-card" onclick="selectWeek('deload')"><span>דילואוד</span><div class="chevron"></div></button>
                 </div>
-                <button class="menu-card freestyle-card w-100 mt-sm" onclick="startFreestyle()">
-                    <h3 class="color-type-free m-0">אימון Freestyle</h3>
-                    <p>בחר תרגילים חופשי</p>
-                </button>
                 <div class="version-footer">GymPro Elite v14.5.0</div>
             </div>
 

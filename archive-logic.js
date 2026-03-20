@@ -1054,26 +1054,21 @@ function renderHomePRCard() {
 }
 
 function _homePRRenderRangeChips() {
-    // מחפש את אזור ה-top של הכרטיס ומוסיף שורת chips לפני home-pr-body
-    const body = document.querySelector('.home-pr-body');
-    if (!body) return;
-    // הסרת chips קיים אם יש
-    const existing = document.querySelector('.home-pr-range-chips');
-    if (existing) existing.remove();
+    const container = document.getElementById('home-pr-range-chips-inline');
+    if (!container) return;
+    container.innerHTML = '';
 
     const prefs = getAnalyticsPrefs();
     const activeRange = prefs.homePRRange || 8;
 
-    const chipsDiv = document.createElement('div');
-    chipsDiv.className = 'home-pr-range-chips';
     [8, 16, 0].forEach(n => {
         const btn = document.createElement('button');
-        btn.className = 'home-pr-range-chip' + (activeRange === (n || 9999) || (n === 0 && activeRange === 9999) ? ' active' : '');
+        const val = n === 0 ? 9999 : n;
+        btn.className = 'home-pr-range-chip' + (activeRange === val ? ' active' : '');
         btn.textContent = n === 0 ? 'הכל' : String(n);
-        btn.onclick = () => setHomePRRange(n === 0 ? 9999 : n, btn);
-        chipsDiv.appendChild(btn);
+        btn.onclick = () => setHomePRRange(val, btn);
+        container.appendChild(btn);
     });
-    body.parentNode.insertBefore(chipsDiv, body);
 }
 
 function setHomePRRange(n, btn) {

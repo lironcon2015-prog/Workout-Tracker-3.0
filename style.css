@@ -1389,12 +1389,12 @@ body {
 
 /* ─── HOME PR CARD — ALL TIME ROW + RANGE CHIPS (v14.5.0) ────────────────── */
 .home-pr-range-chips {
-    display: flex; gap: 5px; margin-bottom: 10px;
+    display: flex; gap: 4px; margin-bottom: 0;
 }
 .home-pr-range-chip {
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px; padding: 4px 10px;
-    font-size: 0.65em; font-weight: 700; font-family: inherit;
+    border-radius: 7px; padding: 3px 8px;
+    font-size: 0.6em; font-weight: 700; font-family: inherit;
     color: var(--text-dim); cursor: pointer; transition: all 0.15s;
 }
 .home-pr-range-chip.active {
@@ -1403,8 +1403,8 @@ body {
 }
 .home-pr-alltime {
     border-top: 1px solid rgba(255,255,255,0.07);
-    padding-top: 10px; margin-top: 2px;
-    display: flex; align-items: center; gap: 10px;
+    padding-top: 7px; margin-top: 2px;
+    display: flex; align-items: center; gap: 8px;
 }
 .home-pr-alltime-icon { font-size: 1em; flex-shrink: 0; }
 .home-pr-alltime-info { flex: 1; }

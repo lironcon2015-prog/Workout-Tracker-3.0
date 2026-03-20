@@ -141,9 +141,9 @@ body {
 }
 
 /* Header */
-.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; position: relative; }
 .back-btn { background: none; border: none; padding: 8px; visibility: hidden; cursor: pointer; display: flex; align-items: center; }
-.brand-logo { font-weight: 800; font-size: 1.2em; letter-spacing: -0.5px; }
+.brand-logo { font-weight: 800; font-size: 1.2em; letter-spacing: -0.5px; position: absolute; left: 50%; transform: translateX(-50%); }
 .brand-logo span { color: var(--accent); }
 
 /* ── SVG Icon Buttons ── */

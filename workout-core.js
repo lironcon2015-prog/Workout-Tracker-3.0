@@ -352,8 +352,10 @@ function handleBackClick() {
                 stopSessionTimer();
                 window.location.reload();
             });
-            return;
+        } else {
+            navigate('ui-week', true);
         }
+        return;
     }
 
     if (currentScreen === 'ui-workout-editor') {

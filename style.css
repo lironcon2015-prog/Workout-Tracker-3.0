@@ -556,6 +556,7 @@ body {
     padding: 25px; border-radius: var(--ios-radius); width: 85%;
     text-align: center;
     box-shadow: inset 0 1px 0 var(--border-hi), 0 8px 48px rgba(0,0,0,0.5);
+    max-height: 82vh; display: flex; flex-direction: column; overflow: hidden;
 }
 
 /* ── Custom Alert / Confirm Dialogs ── */
@@ -1215,10 +1216,6 @@ body {
     border-radius: 8px; padding: 4px 10px; font-size: 0.75em; color: #d1d1d6;
 }
 
-/* ── Modal scroll fix (warmup-modal / session log) ── */
-.modal-content {
-    max-height: 82vh; display: flex; flex-direction: column;
-}
 #warmup-list {
     overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: none;
 }
@@ -1288,37 +1285,7 @@ body {
 .btn-exercises-pill:active { background: rgba(10,132,255,0.25); transform: scale(0.95); }
 .btn-exercises-pill svg { flex-shrink: 0; }
 
-/* Floating button inside workout flow screens */
-.btn-plan-float {
-    position: fixed;
-    left: 16px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
-    display: inline-flex; align-items: center; gap: 7px;
-    background: rgba(10,132,255,0.15);
-    border: 1px solid rgba(10,132,255,0.38);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border-radius: 28px;
-    padding: 9px 15px;
-    color: var(--accent);
-    font-size: 0.78em; font-weight: 700; font-family: inherit;
-    cursor: pointer; letter-spacing: 0.2px;
-    box-shadow: 0 4px 24px rgba(10,132,255,0.22);
-    transition: transform 0.15s, background 0.15s;
-    z-index: 500;
-}
-.btn-plan-float:active { transform: scale(0.95); background: rgba(10,132,255,0.28); }
-
-/* Badge on floating button */
-.plan-float-badge {
-    background: var(--accent);
-    color: #fff;
-    border-radius: 10px;
-    padding: 1px 6px;
-    font-size: 0.78em; font-weight: 800;
-    min-width: 18px; text-align: center;
-    line-height: 1.5;
-}
+/* Floating plan button removed in v14.5.0 — replaced by tool-btn */
 
 /* Plan sheet container */
 .plan-sheet { max-height: 82vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
@@ -1419,3 +1386,40 @@ body {
     color: var(--text-dim); font-size: 0.82em; font-weight: 600;
     font-family: inherit; cursor: pointer;
 }
+
+/* ─── HOME PR CARD — ALL TIME ROW + RANGE CHIPS (v14.5.0) ────────────────── */
+.home-pr-range-chips {
+    display: flex; gap: 5px; margin-bottom: 10px;
+}
+.home-pr-range-chip {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; padding: 4px 10px;
+    font-size: 0.65em; font-weight: 700; font-family: inherit;
+    color: var(--text-dim); cursor: pointer; transition: all 0.15s;
+}
+.home-pr-range-chip.active {
+    background: rgba(10,132,255,0.18); border-color: rgba(10,132,255,0.4);
+    color: var(--accent);
+}
+.home-pr-alltime {
+    border-top: 1px solid rgba(255,255,255,0.07);
+    padding-top: 10px; margin-top: 2px;
+    display: flex; align-items: center; gap: 10px;
+}
+.home-pr-alltime-icon { font-size: 1em; flex-shrink: 0; }
+.home-pr-alltime-info { flex: 1; }
+.home-pr-alltime-label {
+    font-size: 0.58em; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px;
+}
+.home-pr-alltime-val {
+    font-size: 0.88em; font-weight: 800; color: #FFD60A; letter-spacing: -0.3px;
+}
+.home-pr-alltime-set { font-size: 0.62em; color: var(--text-dim); margin-top: 1px; }
+.home-pr-alltime-right { text-align: left; flex-shrink: 0; }
+.home-pr-alltime-badge {
+    font-size: 0.56em; font-weight: 700;
+    background: rgba(255,214,10,0.12); border: 1px solid rgba(255,214,10,0.28);
+    color: #FFD60A; border-radius: 6px; padding: 2px 6px; white-space: nowrap;
+}
+.home-pr-alltime-date { font-size: 0.58em; color: var(--text-dim); margin-top: 3px; }

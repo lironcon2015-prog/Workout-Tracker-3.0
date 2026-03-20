@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
- * Version: 14.2.0
+  * Version: 14.5.0
  * Fixes: showAlert replaces alert, StorageManager.getAnalyticsPrefs/saveAnalyticsPrefs used.
  */
 
@@ -353,7 +353,7 @@ function closeDayDrawer() {
 // ─── HERO CARD ────────────────────────────────────────────────────────────
 
 const HERO_METRIC_DEFS = {
-    days:     (a) => { if (!a.length) return { val: '—', lbl: 'ימים מאז\nאחרון' }; const now = new Date(); const lastDate = new Date(a[0].timestamp); const d = Math.round((new Date(now.getFullYear(),now.getMonth(),now.getDate()) - new Date(lastDate.getFullYear(),lastDate.getMonth(),lastDate.getDate())) / 86400000); return { val: d, lbl: 'ימים מאז\nאחרון' }; },
+    days:     (a) => { const d = a.length ? Math.floor((Date.now() - a[0].timestamp) / 86400000) : '—'; return { val: d, lbl: 'ימים מאז\nאחרון' }; },
     vol:      (a) => { const v = a.length ? getWorkoutVolume(a[0]) : 0; return { val: v ? v + 'kg' : '—', lbl: 'נפח\nאחרון' }; },
     duration: (a) => ({ val: (a.length && a[0].duration) ? a[0].duration + 'm' : '—', lbl: 'משך\nאחרון' }),
     avg_vol:  (a) => { const s = a.slice(0, 4); const avg = s.length ? Math.round(s.reduce((t, x) => t + getWorkoutVolume(x), 0) / s.length) : 0; return { val: avg ? avg + 'kg' : '—', lbl: 'ממוצע נפח\n4 אימונים' }; },
@@ -365,10 +365,8 @@ function renderHeroCard() {
     const lastWoEl = document.getElementById('hero-last-workout');
     if (lastWoEl) {
         if (archive.length > 0) {
-const last = archive[0];
-const now = new Date(); const lastDate = new Date(last.timestamp);
-const days = Math.round((new Date(now.getFullYear(),now.getMonth(),now.getDate()) - new Date(lastDate.getFullYear(),lastDate.getMonth(),lastDate.getDate())) / 86400000);
-const daysStr = days === 0 ? 'היום' : days === 1 ? 'אתמול' : `לפני ${days} ימים`;
+            const last = archive[0], days = Math.floor((Date.now() - last.timestamp) / 86400000);
+            const daysStr = days === 0 ? 'היום' : days === 1 ? 'אתמול' : `לפני ${days} ימים`;
             lastWoEl.textContent = `${last.type} • ${daysStr}`;
         } else { lastWoEl.textContent = 'טרם בוצעו אימונים'; }
     }
@@ -1027,12 +1025,10 @@ function renderHomePRCard() {
     const prefs = getAnalyticsPrefs();
     const archive = getArchiveClean();
 
-    // Build sessions for both exercises
+    // Build sessions for both exercises (full data — never sliced here)
     ['bench', 'ohp'].forEach(key => {
         const exName = HOME_PR_EXERCISES[key];
         const sessions = [];
-
-        // Walk archive chronologically (archive is newest-first, so reverse)
         [...archive].reverse().forEach(w => {
             if (!w.details || !w.details[exName]) return;
             const sets = parseSetsFromStrings(w.details[exName].sets || []);
@@ -1046,20 +1042,62 @@ function renderHomePRCard() {
                 timestamp: w.timestamp
             });
         });
-
         _homePRSessions[key] = sessions;
     });
 
-    // Default: select PR point (highest e1rm)
+    // Render range chips (once, if not already present)
+    _homePRRenderRangeChips();
+
+    // Default: select PR point (highest e1rm) in current window
+    _homePRSelectedIdx = _homePRBestIdx(_homePRCurrent);
+    _homePRRender();
+}
+
+function _homePRRenderRangeChips() {
+    // מחפש את אזור ה-top של הכרטיס ומוסיף שורת chips לפני home-pr-body
+    const body = document.querySelector('.home-pr-body');
+    if (!body) return;
+    // הסרת chips קיים אם יש
+    const existing = document.querySelector('.home-pr-range-chips');
+    if (existing) existing.remove();
+
+    const prefs = getAnalyticsPrefs();
+    const activeRange = prefs.homePRRange || 8;
+
+    const chipsDiv = document.createElement('div');
+    chipsDiv.className = 'home-pr-range-chips';
+    [8, 16, 0].forEach(n => {
+        const btn = document.createElement('button');
+        btn.className = 'home-pr-range-chip' + (activeRange === (n || 9999) || (n === 0 && activeRange === 9999) ? ' active' : '');
+        btn.textContent = n === 0 ? 'הכל' : String(n);
+        btn.onclick = () => setHomePRRange(n === 0 ? 9999 : n, btn);
+        chipsDiv.appendChild(btn);
+    });
+    body.parentNode.insertBefore(chipsDiv, body);
+}
+
+function setHomePRRange(n, btn) {
+    const prefs = getAnalyticsPrefs();
+    prefs.homePRRange = n;
+    saveAnalyticsPrefs(prefs);
+    document.querySelectorAll('.home-pr-range-chip').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
     _homePRSelectedIdx = _homePRBestIdx(_homePRCurrent);
     _homePRRender();
 }
 
 function _homePRBestIdx(key) {
-    const s = _homePRSessions[key];
-    if (!s.length) return 0;
+    const prefs = getAnalyticsPrefs();
+    const range = prefs.homePRRange || 8;
+    const all = _homePRSessions[key];
+    const windowed = (range >= all.length) ? all : all.slice(-range);
+    return _homePRBestIdxFromArr(windowed);
+}
+
+function _homePRBestIdxFromArr(arr) {
+    if (!arr.length) return 0;
     let best = 0;
-    s.forEach((x, i) => { if (x.e1rm > s[best].e1rm) best = i; });
+    arr.forEach((x, i) => { if (x.e1rm > arr[best].e1rm) best = i; });
     return best;
 }
 
@@ -1073,17 +1111,28 @@ function switchHomePR(key, btn) {
 
 function _homePRSelectDot(idx) {
     _homePRSelectedIdx = idx;
-    _homePRRenderInfo();
-    _homePRDrawChart();
+    _homePRRender();
 }
 
 function _homePRRender() {
-    _homePRRenderInfo();
-    _homePRDrawChart();
+    const prefs = getAnalyticsPrefs();
+    const range = prefs.homePRRange || 8;
+    const all = _homePRSessions[_homePRCurrent];
+    const windowed = (range >= all.length) ? all : all.slice(-range);
+    // clamp selected index to windowed length
+    if (_homePRSelectedIdx >= windowed.length) _homePRSelectedIdx = _homePRBestIdxFromArr(windowed);
+    _homePRRenderInfo(windowed, all);
+    _homePRDrawChart(windowed, all);
+    _homePRRenderAllTime(all);
 }
 
-function _homePRRenderInfo() {
-    const sessions = _homePRSessions[_homePRCurrent];
+function _homePRRenderInfo(sessions, _all) {
+    if (!sessions) {
+        const prefs = getAnalyticsPrefs();
+        const range = prefs.homePRRange || 8;
+        const all = _homePRSessions[_homePRCurrent];
+        sessions = (range >= all.length) ? all : all.slice(-range);
+    }
     const col = HOME_PR_COLORS[_homePRCurrent];
     const numEl   = document.getElementById('home-pr-num');
     const setEl   = document.getElementById('home-pr-set');
@@ -1120,10 +1169,15 @@ function _homePRRenderInfo() {
     }
 }
 
-function _homePRDrawChart() {
+function _homePRDrawChart(sessions, _all) {
     const svg = document.getElementById('home-pr-svg');
     if (!svg) return;
-    const sessions = _homePRSessions[_homePRCurrent];
+    if (!sessions) {
+        const prefs = getAnalyticsPrefs();
+        const range = prefs.homePRRange || 8;
+        const all = _homePRSessions[_homePRCurrent];
+        sessions = (range >= all.length) ? all : all.slice(-range);
+    }
     const col = HOME_PR_COLORS[_homePRCurrent];
 
     if (sessions.length < 2) {
@@ -1187,4 +1241,39 @@ function _homePRDrawChart() {
             stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
         ${prLabel}
         ${dotsHtml}`;
+}
+
+function _homePRRenderAllTime(allSessions) {
+    // מאתר אלמנט all-time קיים או יוצר אחד חדש
+    const card = document.getElementById('home-pr-card');
+    if (!card) return;
+
+    const col = HOME_PR_COLORS[_homePRCurrent];
+
+    // הסרת שורה קיימת
+    const existing = card.querySelector('.home-pr-alltime');
+    if (existing) existing.remove();
+
+    if (!allSessions || !allSessions.length) return;
+
+    // מציאת השיא מכל הזמנים
+    const atIdx = allSessions.reduce((b, _, i) => allSessions[i].e1rm > allSessions[b].e1rm ? i : b, 0);
+    const at = allSessions[atIdx];
+
+    const div = document.createElement('div');
+    div.className = 'home-pr-alltime';
+    div.innerHTML = `
+        <div class="home-pr-alltime-icon">🏆</div>
+        <div class="home-pr-alltime-info">
+            <div class="home-pr-alltime-label">שיא כל הזמנים</div>
+            <div class="home-pr-alltime-val" style="color:${col === '#0A84FF' ? '#FFD60A' : '#FFD60A'}">${at.e1rm.toFixed(1)} kg</div>
+            <div class="home-pr-alltime-set">${at.set}</div>
+        </div>
+        <div class="home-pr-alltime-right">
+            <div class="home-pr-alltime-badge">ALL TIME PR</div>
+            <div class="home-pr-alltime-date">${at.date}</div>
+        </div>`;
+
+    // מוסיף בסוף הכרטיס
+    card.appendChild(div);
 }

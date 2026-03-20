@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 14.4.0
+  * Version: 14.5.0
  * Fixes: custom modals (no confirm/alert), checkFlow while-loop, navigate-after-save, safe-area toast.
  */
 
@@ -531,25 +531,40 @@ function closePlanSheet() {
 
 // הצגה/הסתרה של הכפתור הצף לפי המסך הנוכחי
 function updatePlanFloatBtn(screenId) {
+    // מסיר כפתור tool-btn קודם מכל המסכים
+    document.querySelectorAll('.plan-tool-btn-row').forEach(el => el.remove());
+
     const FLOW_SCREENS = ['ui-confirm', 'ui-main', 'ui-cluster-rest', 'ui-ask-extra'];
-    const btn = document.getElementById('btn-plan-float');
-    if (!btn) return;
+    if (!FLOW_SCREENS.includes(screenId)) return;
+    if (!state.type || !state.workouts[state.type]) return;
 
-    const isFlow = FLOW_SCREENS.includes(screenId) && state.type && state.workouts[state.type];
-    btn.style.display = isFlow ? 'inline-flex' : 'none';
-
-    if (isFlow) {
-        // עדכון badge — מספר תרגילים כולל
-        let total = 0;
-        const workoutList = state.workouts[state.type];
-        if (workoutList) {
-            workoutList.forEach(item => {
-                if (item.type === 'cluster') total += item.exercises.length;
-                else total++;
-            });
+    if (screenId === 'ui-main') {
+        // מצטרף לשורת header-tools הקיימת
+        const toolsRow = document.querySelector('#ui-main .header-tools');
+        if (toolsRow && !toolsRow.querySelector('.plan-exercises-btn')) {
+            const btn = document.createElement('button');
+            btn.className = 'tool-btn plan-exercises-btn';
+            btn.textContent = 'תרגילים';
+            btn.onclick = openCurrentPlanSheet;
+            toolsRow.appendChild(btn);
         }
-        const badge = document.getElementById('plan-float-badge');
-        if (badge) badge.textContent = total;
+    } else {
+        // מסכי מעבר — שורת header-tools חדשה בראש המסך
+        const screen = document.getElementById(screenId);
+        if (!screen) return;
+        const scrollArea = screen.querySelector('.confirm-fixed-top') || screen.firstElementChild;
+        if (!scrollArea) return;
+        // בדיקה שלא הוסף כבר
+        if (screen.querySelector('.plan-tool-btn-row')) return;
+        const row = document.createElement('div');
+        row.className = 'header-tools plan-tool-btn-row';
+        row.style.marginBottom = '12px';
+        const btn = document.createElement('button');
+        btn.className = 'tool-btn plan-exercises-btn';
+        btn.textContent = 'תרגילים';
+        btn.onclick = openCurrentPlanSheet;
+        row.appendChild(btn);
+        scrollArea.insertBefore(row, scrollArea.firstChild);
     }
 }
 

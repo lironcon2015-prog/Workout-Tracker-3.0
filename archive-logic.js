@@ -353,7 +353,7 @@ function closeDayDrawer() {
 // ─── HERO CARD ────────────────────────────────────────────────────────────
 
 const HERO_METRIC_DEFS = {
-    days:     (a) => { const d = a.length ? Math.floor((Date.now() - a[0].timestamp) / 86400000) : '—'; return { val: d, lbl: 'ימים מאז\nאחרון' }; },
+    days:     (a) => { if (!a.length) return { val: '—', lbl: 'ימים מאז\nאחרון' }; const now = new Date(); const lastDate = new Date(a[0].timestamp); const d = Math.round((new Date(now.getFullYear(),now.getMonth(),now.getDate()) - new Date(lastDate.getFullYear(),lastDate.getMonth(),lastDate.getDate())) / 86400000); return { val: d, lbl: 'ימים מאז\nאחרון' }; },
     vol:      (a) => { const v = a.length ? getWorkoutVolume(a[0]) : 0; return { val: v ? v + 'kg' : '—', lbl: 'נפח\nאחרון' }; },
     duration: (a) => ({ val: (a.length && a[0].duration) ? a[0].duration + 'm' : '—', lbl: 'משך\nאחרון' }),
     avg_vol:  (a) => { const s = a.slice(0, 4); const avg = s.length ? Math.round(s.reduce((t, x) => t + getWorkoutVolume(x), 0) / s.length) : 0; return { val: avg ? avg + 'kg' : '—', lbl: 'ממוצע נפח\n4 אימונים' }; },
@@ -365,8 +365,10 @@ function renderHeroCard() {
     const lastWoEl = document.getElementById('hero-last-workout');
     if (lastWoEl) {
         if (archive.length > 0) {
-            const last = archive[0], days = Math.floor((Date.now() - last.timestamp) / 86400000);
-            const daysStr = days === 0 ? 'היום' : days === 1 ? 'אתמול' : `לפני ${days} ימים`;
+const last = archive[0];
+const now = new Date(); const lastDate = new Date(last.timestamp);
+const days = Math.round((new Date(now.getFullYear(),now.getMonth(),now.getDate()) - new Date(lastDate.getFullYear(),lastDate.getMonth(),lastDate.getDate())) / 86400000);
+const daysStr = days === 0 ? 'היום' : days === 1 ? 'אתמול' : `לפני ${days} ימים`;
             lastWoEl.textContent = `${last.type} • ${daysStr}`;
         } else { lastWoEl.textContent = 'טרם בוצעו אימונים'; }
     }

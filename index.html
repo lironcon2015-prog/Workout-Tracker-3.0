@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 14.5.0</title>
+    <title>GymPro Elite 14.6.0</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
@@ -19,8 +19,9 @@
         <div class="modal-content">
             <h3>חימום מומלץ</h3>
             <div id="warmup-list" class="vertical-stack my-lg"></div>
-            <button class="btn-main primary-gradient" onclick="markWarmupDone()">סיימתי חימום</button>
-            <button class="btn-text color-danger" onclick="closeWarmup()">סגור ללא רישום</button>
+            <button id="btn-warmup-done" class="btn-main primary-gradient" onclick="markWarmupDone()">סיימתי חימום</button>
+            <button id="btn-warmup-cancel" class="btn-text color-danger" onclick="closeWarmup()">סגור ללא רישום</button>
+            <button id="btn-log-close" class="btn-text" style="display:none" onclick="closeSessionLog()">סגור</button>
         </div>
     </div>
 
@@ -242,7 +243,7 @@
                     <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="chevron"></div></button>
                     <button class="menu-card deload-card" onclick="selectWeek('deload')"><span>דילואוד</span><div class="chevron"></div></button>
                 </div>
-                <div class="version-footer">GymPro Elite v14.5.0</div>
+                <div class="version-footer">GymPro Elite v14.6.0</div>
             </div>
 
             <!-- SETTINGS -->
@@ -258,7 +259,7 @@
                 </button>
                 <div class="glass-card">
                     <h3 class="mt-0">ניהול נתונים</h3>
-                    <p class="color-dim text-sm mb-0">גרסה V14.5.0</p>
+                    <p class="color-dim text-sm mb-0">גרסה V14.6.0</p>
                     <button class="btn-text color-danger border-danger rounded-md mb-lg" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     <div class="border-top pt-md">
                         <label class="color-dim text-xs d-block mb-sm">ניהול תבניות (ללא היסטוריה)</label>

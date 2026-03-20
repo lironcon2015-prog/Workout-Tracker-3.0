@@ -1,6 +1,6 @@
 /**
  * GymPro Elite - Storage Manager
- * Version: 14.5.0
+ * Version: 14.6.0
  * Handles all LocalStorage operations. No native alert/confirm.
  */
 
@@ -164,14 +164,28 @@ const StorageManager = {
     // ── Configuration Export / Import ────────────────────────────────────
 
     exportConfiguration() {
+        const prefs = this.getAnalyticsPrefs();
         const configData = {
             type: 'config_only',
-            version: '14.5.0',
+            version: '14.6.0',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
             meta: this.getData(this.KEY_META),
-            aliases: (this.getData(this.KEY_ANALYTICS) || {}).workoutAliases || {}
+            aliases: prefs.workoutAliases || {},
+            analyticsPrefs: {
+                heroMetrics:       prefs.heroMetrics,
+                volumeRange:       prefs.volumeRange,
+                muscleRange:       prefs.muscleRange,
+                consistencyRange:  prefs.consistencyRange,
+                microPoints:       prefs.microPoints,
+                microAxis:         prefs.microAxis,
+                microOrder:        prefs.microOrder,
+                formula:           prefs.formula,
+                units:             prefs.units,
+                name:              prefs.name,
+                homePRRange:       prefs.homePRRange
+            }
         };
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([JSON.stringify(configData, null, 2)], { type: "application/json" }));
@@ -188,11 +202,24 @@ const StorageManager = {
             this.saveData(this.KEY_DB_WORKOUTS, data.workouts);
             this.saveData(this.KEY_DB_EXERCISES, data.exercises);
             if (data.meta) this.saveData(this.KEY_META, data.meta);
-            if (data.aliases) {
-                const prefs = this.getAnalyticsPrefs();
-                prefs.workoutAliases = data.aliases;
-                this.saveAnalyticsPrefs(prefs);
+            // מיזוג prefs — מעדכן שדות ספציפיים בלי לדרוס שדות שאינם בקובץ
+            const prefs = this.getAnalyticsPrefs();
+            if (data.aliases)        prefs.workoutAliases    = data.aliases;
+            if (data.analyticsPrefs) {
+                const ap = data.analyticsPrefs;
+                if (ap.heroMetrics      !== undefined) prefs.heroMetrics      = ap.heroMetrics;
+                if (ap.volumeRange      !== undefined) prefs.volumeRange      = ap.volumeRange;
+                if (ap.muscleRange      !== undefined) prefs.muscleRange      = ap.muscleRange;
+                if (ap.consistencyRange !== undefined) prefs.consistencyRange = ap.consistencyRange;
+                if (ap.microPoints      !== undefined) prefs.microPoints      = ap.microPoints;
+                if (ap.microAxis        !== undefined) prefs.microAxis        = ap.microAxis;
+                if (ap.microOrder       !== undefined) prefs.microOrder       = ap.microOrder;
+                if (ap.formula          !== undefined) prefs.formula          = ap.formula;
+                if (ap.units            !== undefined) prefs.units            = ap.units;
+                if (ap.name             !== undefined) prefs.name             = ap.name;
+                if (ap.homePRRange      !== undefined) prefs.homePRRange      = ap.homePRRange;
             }
+            this.saveAnalyticsPrefs(prefs);
             showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
         });
     },

@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
-  * Version: 14.5.0
+  * Version: 14.6.0
  * Fixes: custom modals (no confirm/alert), checkFlow while-loop, navigate-after-save, safe-area toast.
  */
 
@@ -1726,25 +1726,59 @@ function _saveToArchive(note) {
 
 function openSessionLog() {
     const modal = document.getElementById('warmup-modal');
-    const list = document.getElementById('warmup-list');
-    list.innerHTML = "";
+    const list  = document.getElementById('warmup-list');
+    list.innerHTML = '';
 
-    if (state.log.length === 0) {
-        list.innerHTML = '<p class="text-center color-dim">טרם נרשמו סטים</p>';
-    } else {
-        const realSets = state.log.filter(l => !l.skip && !l.isWarmup);
-        realSets.forEach((entry, i) => {
-            const row = document.createElement('div');
-            row.className = 'warmup-row';
-            row.setAttribute('data-idx', i);
-            row.innerHTML = `<span style="font-weight:600;">${entry.exName}</span><span style="cursor:pointer;color:var(--accent);" onclick="openEditSetModal(${i})">${entry.w}kg x ${entry.r} • RIR ${entry.rir}</span>`;
-            list.appendChild(row);
-        });
-    }
+    // הסתר כפתורי חימום, הצג כפתור סגירה ייעודי
+    document.getElementById('btn-warmup-done').style.display   = 'none';
+    document.getElementById('btn-warmup-cancel').style.display = 'none';
+    document.getElementById('btn-log-close').style.display     = '';
 
     const titleEl = modal.querySelector('h3');
     if (titleEl) titleEl.textContent = 'יומן אימון';
+
+    const realSets = state.log.filter(l => !l.skip && !l.isWarmup);
+
+    if (realSets.length === 0) {
+        list.innerHTML = '<p class="text-center color-dim">טרם נרשמו סטים</p>';
+    } else {
+        // קיבוץ לפי שם תרגיל (שמירת סדר הופעה ראשוני)
+        const groups  = [];
+        const groupMap = {};
+        realSets.forEach((entry, i) => {
+            if (!groupMap[entry.exName]) {
+                groupMap[entry.exName] = [];
+                groups.push(entry.exName);
+            }
+            groupMap[entry.exName].push({ entry, realIdx: i });
+        });
+
+        groups.forEach(exName => {
+            const header = document.createElement('div');
+            header.className = 'log-ex-header';
+            header.textContent = exName;
+            list.appendChild(header);
+
+            groupMap[exName].forEach(({ entry, realIdx }, setNum) => {
+                const noteStr = entry.note ? ` · ${entry.note}` : '';
+                const row = document.createElement('div');
+                row.className = 'log-set-row';
+                row.innerHTML = `<span>סט ${setNum + 1} — ${entry.w}kg × ${entry.r} · RIR ${entry.rir}${noteStr}</span><button class="btn-log-edit" onclick="openEditSetModal(${realIdx})">ערוך</button>`;
+                list.appendChild(row);
+            });
+        });
+    }
+
     modal.style.display = 'flex';
+}
+
+function closeSessionLog() {
+    document.getElementById('btn-warmup-done').style.display   = '';
+    document.getElementById('btn-warmup-cancel').style.display = '';
+    document.getElementById('btn-log-close').style.display     = 'none';
+    const titleEl = document.getElementById('warmup-modal').querySelector('h3');
+    if (titleEl) titleEl.textContent = 'חימום מומלץ';
+    document.getElementById('warmup-modal').style.display = 'none';
 }
 
 function openHistoryDrawer() {
@@ -1791,6 +1825,7 @@ function openHistoryDrawer() {
     haptic('light');
 }
 
+let _editFromLog    = false;
 let _editSetRealIdx = -1;
 
 function openEditSetModal(realIdx) {
@@ -1798,6 +1833,10 @@ function openEditSetModal(realIdx) {
     const realSets = state.log.filter(l => !l.skip && !l.isWarmup);
     const entry = realSets[realIdx];
     if (!entry) return;
+
+    // בדוק אם הגענו מיומן (btn-log-close גלוי)
+    const logCloseBtn = document.getElementById('btn-log-close');
+    _editFromLog = logCloseBtn && logCloseBtn.style.display !== 'none';
 
     document.getElementById('warmup-modal').style.display = 'none';
     document.getElementById('edit-weight').value = entry.w;
@@ -1817,6 +1856,7 @@ function saveSetEdit() {
     entry.note = document.getElementById('edit-note').value.trim();
     closeEditModal();
     StorageManager.saveSessionState();
+    if (_editFromLog) { _editFromLog = false; openSessionLog(); }
 }
 
 function deleteSetFromLog() {
@@ -1827,6 +1867,7 @@ function deleteSetFromLog() {
     if (logIdx !== -1) state.log.splice(logIdx, 1);
     closeEditModal();
     StorageManager.saveSessionState();
+    if (_editFromLog) { _editFromLog = false; openSessionLog(); }
 }
 
 function closeEditModal() { document.getElementById('edit-set-modal').style.display = 'none'; }

@@ -577,6 +577,26 @@ body {
 }
 .warmup-row:last-child { border-bottom: none; }
 
+/* ── Session Log (יומן אימון) ── */
+.log-ex-header {
+    font-size: 0.72em; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 6px 2px 5px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-top: 8px;
+}
+.log-ex-header:first-child { margin-top: 0; }
+.log-set-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.88em; color: var(--text);
+}
+.log-set-row:last-of-type { border-bottom: none; }
+.btn-log-edit {
+    background: rgba(10,132,255,0.12); border: 1px solid rgba(10,132,255,0.3);
+    color: var(--accent); border-radius: 7px; padding: 3px 10px;
+    font-size: 0.8em; cursor: pointer; min-height: 28px; flex-shrink: 0;
+}
+
 .action-panel { display: none; }
 .action-panel.is-visible { display: block; animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

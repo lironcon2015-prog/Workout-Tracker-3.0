@@ -1464,3 +1464,19 @@ body {
 /* ─── v14.9.0 additions ──────────────────────────────────────────────────── */
 /* swap-search uses existing .search-input — no new rules needed              */
 /* btn-reload uses existing .settings-btn — no new rules needed               */
+
+/* ─── v14.10.0 additions ─────────────────────────────────────────────────── */
+
+/* alias color swatch — כמו color-swatch, בתוך bottom-sheet */
+.alias-color-swatch {
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+.alias-color-swatch:active { transform: scale(0.9); }
+.alias-color-swatch.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
+    transform: scale(1.15);
+}

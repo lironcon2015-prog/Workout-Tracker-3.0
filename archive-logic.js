@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
- * Version: 14.9.0
+ * Version: 14.10.0
  * שדרוג 3: העתקה לפי טווח. תיקון ב׳: openDayDrawer משתמש ב-workoutMeta.color.
  */
 
@@ -81,7 +81,9 @@ function getMuscleSetCounts(archive, range) {
     let filtered = archive;
     if (range && range !== 'all') {
         const now = Date.now();
-        const ms = range === '1m' ? 30 * 86400000 : range === '3m' ? 90 * 86400000 : 0;
+        const ms = range === '1w' ? 7 * 86400000
+                 : range === '1m' ? 30 * 86400000
+                 : range === '3m' ? 90 * 86400000 : 0;
         if (ms > 0) filtered = archive.filter(a => now - a.timestamp < ms);
     }
     const map = {};
@@ -393,6 +395,13 @@ function renderAnalyticsDashboard() {
     renderConsistencyTrack(archive, prefs.consistencyRange);
     populateMicroSelector(archive);
     syncVolMuscleChips(prefs.volumeMuscle || 'all');
+    // סנכרון muscle-chips עם הפרפס השמור (כולל '1w')
+    const mr = prefs.muscleRange || '1m';
+    document.querySelectorAll('#muscle-chips .range-chip').forEach(b => {
+        const onclick = b.getAttribute('onclick') || '';
+        const match = onclick.match(/setMuscleRange\('([^']+)'/);
+        b.classList.toggle('active', match ? match[1] === mr : false);
+    });
 }
 
 function syncVolMuscleChips(muscle) {
@@ -477,6 +486,7 @@ function renderWorkoutTypeChart(archive) {
     const el = document.getElementById('workout-type-chart'); if (!el) return;
     const prefs = getAnalyticsPrefs();
     const aliases = prefs.workoutAliases || {};
+    const aliasColors = prefs.workoutAliasColors || {};
     const entries = buildNormalizedTypeData(archive, aliases);
 
     if (!entries.length) { el.innerHTML = '<p class="color-dim text-sm text-center">אין נתונים</p>'; return; }
@@ -485,7 +495,8 @@ function renderWorkoutTypeChart(archive) {
 
     el.innerHTML = entries.map((e, i) => {
         const pct = (e.avg / maxAvg * 100).toFixed(1);
-        const color = COLORS[i % COLORS.length];
+        // אימונים מקובצים — צבע מוגדר; אחרים — COLORS רציקלי
+        const color = (e.aliased && aliasColors[e.display]) ? aliasColors[e.display] : COLORS[i % COLORS.length];
         const label = e.avg >= 1000 ? (e.avg / 1000).toFixed(1) + 't' : e.avg + 'kg';
         const groupedCls = e.aliased ? ' grouped' : '';
         const gdot = e.aliased ? '<span class="hbar-gdot"></span>' : '';
@@ -516,11 +527,13 @@ let _aliasSelected = new Set();
 let _aliasGroupName = '';
 let _aliasStep = 1;
 let _aliasEditingGroup = null;
+let _aliasSelectedColor = '';
 
 function openAliasSheet() {
     _aliasSelected = new Set();
     _aliasGroupName = '';
     _aliasEditingGroup = null;
+    _aliasSelectedColor = '';
     _renderAliasStep1();
     document.getElementById('alias-overlay').style.display = 'block';
     document.getElementById('alias-sheet').classList.add('open');
@@ -606,6 +619,7 @@ function _toggleAliasSelect(name) {
 function _deleteAliasGroup(g) {
     const prefs = getAnalyticsPrefs();
     delete prefs.workoutAliases[g];
+    if (prefs.workoutAliasColors) delete prefs.workoutAliasColors[g];
     saveAnalyticsPrefs(prefs);
     renderWorkoutTypeChart(getArchiveClean());
     _renderAliasStep1();
@@ -618,6 +632,7 @@ function _editAliasGroup(g) {
     _aliasSelected = new Set(members);
     _aliasGroupName = g;
     _aliasEditingGroup = g;
+    _aliasSelectedColor = (prefs.workoutAliasColors || {})[g] || '';
     delete prefs.workoutAliases[g];
     saveAnalyticsPrefs(prefs);
     _renderAliasStep2();
@@ -628,9 +643,22 @@ function _renderAliasStep2() {
     const selArr = [..._aliasSelected];
     const suggested = _aliasGroupName || selArr.reduce((a, b) => a.length <= b.length ? a : b, selArr[0] || '');
 
-    const html = `<div class="sh-title">שם לקבוצה</div>
+    // צבע נוכחי לקבוצה (אם קיים מעריכה)
+    const prefs = getAnalyticsPrefs();
+    const aliasColors = prefs.workoutAliasColors || {};
+    const currentColor = _aliasEditingGroup ? (aliasColors[_aliasEditingGroup] || '') : (_aliasGroupName ? (aliasColors[_aliasGroupName] || '') : '');
+    if (!_aliasSelectedColor) _aliasSelectedColor = currentColor;
+
+    const swatchesHtml = WORKOUT_COLORS.map(c =>
+        `<div class="color-swatch alias-color-swatch${_aliasSelectedColor === c.hex ? ' active' : ''}"
+            style="background:${c.hex};"
+            title="${c.name}"
+            onclick="_selectAliasColor('${c.hex}',this)"></div>`
+    ).join('');
+
+    const html = `<div class="sh-title">שם וצבע לקבוצה</div>
         <div class="sheet-content" style="font-size:0.78em;color:var(--text-dim);margin-bottom:18px;line-height:1.5;">
-            בחר שם קצר שיופיע בגרף
+            בחר שם קצר וצבע שיופיעו בגרף
         </div>
         <div class="alias-name-field">
             <div class="alias-name-lbl">שם תצוגה בגרף</div>
@@ -639,6 +667,10 @@ function _renderAliasStep2() {
                 placeholder="לדוגמה: חזה"
                 oninput="_onAliasNameInput(this.value)"
                 onkeydown="if(event.key==='Enter')_renderAliasStep3()">
+        </div>
+        <div class="alias-name-field" style="margin-top:14px;">
+            <div class="alias-name-lbl">צבע בגרף (אופציונלי)</div>
+            <div class="color-swatches-row" style="margin-top:8px;">${swatchesHtml}</div>
         </div>
         <div class="alias-preview-box">
             <div class="alias-preview-lbl">אימונים שיאוחדו</div>
@@ -659,6 +691,14 @@ function _onAliasNameInput(v) {
     _aliasGroupName = v.trim();
     const btn = document.getElementById('alias-btn-step3');
     if (btn) btn.disabled = _aliasGroupName.length < 1;
+}
+
+function _selectAliasColor(hex, el) {
+    // toggle — לחיצה שנייה על אותו צבע מבטלת בחירה
+    _aliasSelectedColor = (_aliasSelectedColor === hex) ? '' : hex;
+    document.querySelectorAll('.alias-color-swatch').forEach(s => s.classList.remove('active'));
+    if (_aliasSelectedColor && el) el.classList.add('active');
+    haptic('light');
 }
 
 function _renderAliasStep3() {
@@ -692,7 +732,13 @@ function _renderAliasStep3() {
 function _saveAliasGroup() {
     const prefs = getAnalyticsPrefs();
     if (!prefs.workoutAliases) prefs.workoutAliases = {};
+    if (!prefs.workoutAliasColors) prefs.workoutAliasColors = {};
     prefs.workoutAliases[_aliasGroupName] = [..._aliasSelected];
+    if (_aliasSelectedColor) {
+        prefs.workoutAliasColors[_aliasGroupName] = _aliasSelectedColor;
+    } else {
+        delete prefs.workoutAliasColors[_aliasGroupName];
+    }
     saveAnalyticsPrefs(prefs);
     renderWorkoutTypeChart(getArchiveClean());
     closeAliasSheet();
@@ -733,15 +779,24 @@ function renderConsistencyTrack(archive, n) {
     const data = archive.slice(0, n);
     if (data.length < 2) { el.innerHTML = '<p class="color-dim text-sm">נדרשים לפחות 2 אימונים</p>'; return; }
 
-    let medianGap = 7;
-    if (archive.length >= 3) {
-        const gaps = [];
-        for (let i = 1; i < archive.length; i++) gaps.push((archive[i - 1].timestamp - archive[i].timestamp) / 86400000);
-        gaps.sort((a, b) => a - b);
-        medianGap = gaps[Math.floor(gaps.length / 2)];
+    const prefs = getAnalyticsPrefs();
+
+    // סף ימים — מותאם אישית אם קיים, אחרת חישוב אוטומטי מ-median
+    let greenT, orangeT;
+    if (prefs.consistencyGreen && prefs.consistencyOrange) {
+        greenT = prefs.consistencyGreen;
+        orangeT = prefs.consistencyOrange;
+    } else {
+        let medianGap = 7;
+        if (archive.length >= 3) {
+            const gaps = [];
+            for (let i = 1; i < archive.length; i++) gaps.push((archive[i - 1].timestamp - archive[i].timestamp) / 86400000);
+            gaps.sort((a, b) => a - b);
+            medianGap = gaps[Math.floor(gaps.length / 2)];
+        }
+        greenT = Math.max(2, Math.round(medianGap * 1.25));
+        orangeT = Math.max(greenT + 1, Math.round(medianGap * 1.75));
     }
-    const greenT = Math.max(2, Math.round(medianGap * 1.25));
-    const orangeT = Math.max(greenT + 1, Math.round(medianGap * 1.75));
 
     const legendEl = document.getElementById('cons-legend');
     if (legendEl) legendEl.innerHTML = `
@@ -963,6 +1018,9 @@ function openAnalyticsSettings() {
     document.getElementById('pref-name').value = p.name || '';
     document.getElementById('pref-units').value = p.units || 'kg';
     document.getElementById('pref-formula').value = p.formula || 'epley';
+    // שדות עקביות — ריק = אוטומטי
+    document.getElementById('pref-cons-green').value = p.consistencyGreen || '';
+    document.getElementById('pref-cons-orange').value = p.consistencyOrange || '';
     document.getElementById('analytics-settings-overlay').style.display = 'block';
     document.getElementById('analytics-settings-sheet').classList.add('open');
     haptic('light');
@@ -973,6 +1031,16 @@ function saveAnalyticsSettingsPrefs() {
     p.name = document.getElementById('pref-name').value.trim();
     p.units = document.getElementById('pref-units').value;
     p.formula = document.getElementById('pref-formula').value;
+    // סף ימים עקביות — ריק = אוטומטי (delete מהפרפס)
+    const gVal = parseInt(document.getElementById('pref-cons-green').value);
+    const oVal = parseInt(document.getElementById('pref-cons-orange').value);
+    if (gVal > 0 && oVal > gVal) {
+        p.consistencyGreen = gVal;
+        p.consistencyOrange = oVal;
+    } else {
+        delete p.consistencyGreen;
+        delete p.consistencyOrange;
+    }
     saveAnalyticsPrefs(p); closeAnalyticsSettings(); renderAnalyticsDashboard(); renderHeroCard(); haptic('success');
 }
 

@@ -1,6 +1,6 @@
 /**
  * GymPro Elite - Storage Manager
- * Version: 14.9.0
+ * Version: 14.10.0
  * Handles all LocalStorage operations. No native alert/confirm.
  */
 
@@ -137,7 +137,9 @@ const StorageManager = {
             units: 'kg',
             name: '',
             workoutAliases: {},
+            workoutAliasColors: {},
             homePRRange: 8
+            // consistencyGreen / consistencyOrange — נשמרים רק אם הוגדרו ידנית
         };
     },
 
@@ -167,24 +169,27 @@ const StorageManager = {
         const prefs = this.getAnalyticsPrefs();
         const configData = {
             type: 'config_only',
-            version: '14.9.0',
+            version: '14.10.0',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
             meta: this.getData(this.KEY_META),
             aliases: prefs.workoutAliases || {},
             analyticsPrefs: {
-                heroMetrics:       prefs.heroMetrics,
-                volumeRange:       prefs.volumeRange,
-                muscleRange:       prefs.muscleRange,
-                consistencyRange:  prefs.consistencyRange,
-                microPoints:       prefs.microPoints,
-                microAxis:         prefs.microAxis,
-                microOrder:        prefs.microOrder,
-                formula:           prefs.formula,
-                units:             prefs.units,
-                name:              prefs.name,
-                homePRRange:       prefs.homePRRange
+                heroMetrics:        prefs.heroMetrics,
+                volumeRange:        prefs.volumeRange,
+                muscleRange:        prefs.muscleRange,
+                consistencyRange:   prefs.consistencyRange,
+                consistencyGreen:   prefs.consistencyGreen,
+                consistencyOrange:  prefs.consistencyOrange,
+                microPoints:        prefs.microPoints,
+                microAxis:          prefs.microAxis,
+                microOrder:         prefs.microOrder,
+                formula:            prefs.formula,
+                units:              prefs.units,
+                name:               prefs.name,
+                homePRRange:        prefs.homePRRange,
+                workoutAliasColors: prefs.workoutAliasColors || {}
             }
         };
         const a = document.createElement('a');
@@ -211,6 +216,8 @@ const StorageManager = {
                 if (ap.volumeRange      !== undefined) prefs.volumeRange      = ap.volumeRange;
                 if (ap.muscleRange      !== undefined) prefs.muscleRange      = ap.muscleRange;
                 if (ap.consistencyRange !== undefined) prefs.consistencyRange = ap.consistencyRange;
+                if (ap.consistencyGreen  !== undefined) prefs.consistencyGreen  = ap.consistencyGreen;
+                if (ap.consistencyOrange !== undefined) prefs.consistencyOrange = ap.consistencyOrange;
                 if (ap.microPoints      !== undefined) prefs.microPoints      = ap.microPoints;
                 if (ap.microAxis        !== undefined) prefs.microAxis        = ap.microAxis;
                 if (ap.microOrder       !== undefined) prefs.microOrder       = ap.microOrder;
@@ -218,6 +225,7 @@ const StorageManager = {
                 if (ap.units            !== undefined) prefs.units            = ap.units;
                 if (ap.name             !== undefined) prefs.name             = ap.name;
                 if (ap.homePRRange      !== undefined) prefs.homePRRange      = ap.homePRRange;
+                if (ap.workoutAliasColors !== undefined) prefs.workoutAliasColors = ap.workoutAliasColors;
             }
             this.saveAnalyticsPrefs(prefs);
             showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });

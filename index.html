@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 14.9.0</title>
+    <title>GymPro Elite 14.10.0</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
@@ -248,7 +248,7 @@
                     <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="chevron"></div></button>
                     <button class="menu-card deload-card" onclick="selectWeek('deload')"><span>דילואוד</span><div class="chevron"></div></button>
                 </div>
-                <div class="version-footer">GymPro Elite v14.9.0</div>
+                <div class="version-footer">GymPro Elite v14.10.0</div>
             </div>
 
             <!-- SETTINGS -->
@@ -268,7 +268,7 @@
                 </button>
                 <div class="glass-card">
                     <h3 class="mt-0">ניהול נתונים</h3>
-                    <p class="color-dim text-sm mb-0">גרסה V14.9.0</p>
+                    <p class="color-dim text-sm mb-0">גרסה V14.10.0</p>
                     <button class="btn-text color-danger border-danger rounded-md mb-lg" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     <div class="border-top pt-md">
                         <label class="color-dim text-xs d-block mb-sm">ניהול תבניות (ללא היסטוריה)</label>
@@ -611,6 +611,7 @@
                         <div class="analytics-card-label">
                             <span>התפלגות שרירים</span>
                             <div class="range-chips" id="muscle-chips">
+                                <button class="range-chip" onclick="setMuscleRange('1w',this)">שבוע</button>
                                 <button class="range-chip active" onclick="setMuscleRange('1m',this)">חודש</button>
                                 <button class="range-chip" onclick="setMuscleRange('3m',this)">3 חודשים</button>
                                 <button class="range-chip" onclick="setMuscleRange('all',this)">הכל</button>
@@ -720,6 +721,20 @@
             <div><label class="input-label">שם המתאמן</label><input type="text" id="pref-name" class="minimal-input m-0" placeholder="למשל: לירון"></div>
             <div class="flex-between border-bottom pb-sm"><label class="input-label m-0">יחידות</label><select id="pref-units" class="minimal-input m-0 bg-card" style="width:auto;"><option value="kg">kg</option><option value="lbs">lbs</option></select></div>
             <div class="flex-between"><label class="input-label m-0">נוסחת 1RM</label><select id="pref-formula" class="minimal-input m-0 bg-card" style="width:auto;"><option value="epley">Epley</option><option value="brzycki">Brzycki</option><option value="lombardi">Lombardi</option></select></div>
+            <div class="border-top pt-sm">
+                <div class="input-label mb-xs" style="color:var(--text-dim);font-size:0.72em;text-transform:uppercase;letter-spacing:0.4px;">סף ימים — עקביות</div>
+                <p class="color-dim text-xs mt-0 mb-sm">השאר ריק לחישוב אוטומטי לפי הרגלי האימון שלך</p>
+                <div class="input-grid grid-2-cols" style="gap:10px;">
+                    <div>
+                        <label class="input-label" style="font-size:0.75em;">🟢 ירוק — עד (ימים)</label>
+                        <input type="number" id="pref-cons-green" class="minimal-input m-0" min="1" max="30" placeholder="אוטומטי">
+                    </div>
+                    <div>
+                        <label class="input-label" style="font-size:0.75em;">🟠 כתום — עד (ימים)</label>
+                        <input type="number" id="pref-cons-orange" class="minimal-input m-0" min="1" max="60" placeholder="אוטומטי">
+                    </div>
+                </div>
+            </div>
         </div>
         <button class="btn-main primary-gradient" onclick="saveAnalyticsSettingsPrefs()">שמור</button>
         <button class="btn-text" onclick="closeAnalyticsSettings()">ביטול</button>

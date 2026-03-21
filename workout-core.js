@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 14.9.0
+ * Version: 14.10.0
  * שדרוגים: החלפת תרגיל חופשית, חזרה מבחר אימון, פידבק סיום, כפתור רענון, תיקוני חוב.
  */
 
@@ -97,27 +97,33 @@ let wakeLock = null;
 // ─── SESSION TIMER ─────────────────────────────────────────────────────────
 
 let _sessionTimerInterval = null;
-let _sessionElapsedSec = 0;
+let _sessionTimerStart = null;   // timestamp של תחילת ה-interval הנוכחי
+let _sessionTimerOffset = 0;     // שניות שעברו לפני ה-interval הנוכחי
 
 function startSessionTimer(fromTimestamp) {
     stopSessionTimer();
-    _sessionElapsedSec = fromTimestamp ? Math.floor((Date.now() - fromTimestamp) / 1000) : 0;
+    // חישוב offset: כמה שניות כבר עברו מתחילת האימון
+    _sessionTimerOffset = fromTimestamp ? Math.floor((Date.now() - fromTimestamp) / 1000) : 0;
+    _sessionTimerStart = Date.now();
     _updateSessionTimerDisplay();
-    _sessionTimerInterval = setInterval(() => {
-        _sessionElapsedSec++;
-        _updateSessionTimerDisplay();
-    }, 1000);
+    // interval ב-500ms לדיוק — כמו טיימר המנוחה
+    _sessionTimerInterval = setInterval(_updateSessionTimerDisplay, 500);
 }
 
 function stopSessionTimer() {
     if (_sessionTimerInterval) { clearInterval(_sessionTimerInterval); _sessionTimerInterval = null; }
+    _sessionTimerStart = null;
 }
 
 function _updateSessionTimerDisplay() {
     const el = document.getElementById('session-timer-text');
     if (!el) return;
-    const m = Math.floor(_sessionElapsedSec / 60);
-    const s = _sessionElapsedSec % 60;
+    // חישוב בזמן אמת מ-Date.now() — ממשיך לספור נכון גם ברקע
+    const elapsed = _sessionTimerStart
+        ? _sessionTimerOffset + Math.floor((Date.now() - _sessionTimerStart) / 1000)
+        : _sessionTimerOffset;
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
     el.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
 }
 
@@ -1686,6 +1692,9 @@ function buildSummaryUI() {
         <div class="summary-overview-col"><div class="summary-overview-val">${dateStr}</div><div class="summary-overview-label">${timeStr}</div></div>
     </div>`;
 
+    // בניית מיפוי realIdx לכל סט (אינדקס ב-realSets)
+    const realSets = state.log.filter(l => !l.skip);
+
     Object.entries(exMap).forEach(([exName, data]) => {
         if (data.sets.length === 0) return;
         let exVol = 0;
@@ -1693,9 +1702,11 @@ function buildSummaryUI() {
         data.sets.forEach((s, i) => {
             const vol = s.w * s.r;
             exVol += vol;
+            const realIdx = realSets.indexOf(s);
             setRows += `<div class="summary-set-row">
                 <div class="summary-set-num">${i + 1}</div>
                 <div class="summary-set-details">${s.w}kg x ${s.r} (RIR ${s.rir}${s.note ? ` | ${s.note}` : ''})</div>
+                <button class="btn-log-edit" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
             </div>`;
         });
         totalVol += exVol;
@@ -1911,15 +1922,32 @@ function openHistoryDrawer() {
 
 let _editSetRealIdx = -1;
 let _editFromLog = false;
+let _editFromSummary = false;
 
 function openEditSetModal(realIdx) {
     _editSetRealIdx = realIdx;
     _editFromLog = true;
+    _editFromSummary = false;
     const realSets = state.log.filter(l => !l.skip);
     const entry = realSets[realIdx];
     if (!entry) return;
 
     document.getElementById('session-log-modal').style.display = 'none';
+    document.getElementById('edit-weight').value = entry.w;
+    document.getElementById('edit-reps').value = entry.r;
+    document.getElementById('edit-rir').value = entry.rir;
+    document.getElementById('edit-note').value = entry.note || '';
+    document.getElementById('edit-set-modal').style.display = 'flex';
+}
+
+function openSummaryEditSetModal(realIdx) {
+    _editSetRealIdx = realIdx;
+    _editFromLog = false;
+    _editFromSummary = true;
+    const realSets = state.log.filter(l => !l.skip);
+    const entry = realSets[realIdx];
+    if (!entry) return;
+
     document.getElementById('edit-weight').value = entry.w;
     document.getElementById('edit-reps').value = entry.r;
     document.getElementById('edit-rir').value = entry.rir;
@@ -1935,9 +1963,11 @@ function saveSetEdit() {
     entry.r = parseInt(document.getElementById('edit-reps').value);
     entry.rir = document.getElementById('edit-rir').value;
     entry.note = document.getElementById('edit-note').value.trim();
+    const fromLog = _editFromLog, fromSummary = _editFromSummary;
     closeEditModal();
     StorageManager.saveSessionState();
-    if (_editFromLog) { _editFromLog = false; openSessionLog(); }
+    if (fromLog) { openSessionLog(); }
+    else if (fromSummary) { buildSummaryUI(); }
 }
 
 function deleteSetFromLog() {
@@ -1946,14 +1976,17 @@ function deleteSetFromLog() {
     if (!entry) return;
     const logIdx = state.log.indexOf(entry);
     if (logIdx !== -1) state.log.splice(logIdx, 1);
+    const fromLog = _editFromLog, fromSummary = _editFromSummary;
     closeEditModal();
     StorageManager.saveSessionState();
-    if (_editFromLog) { _editFromLog = false; openSessionLog(); }
+    if (fromLog) { openSessionLog(); }
+    else if (fromSummary) { buildSummaryUI(); }
 }
 
 function closeEditModal() {
     document.getElementById('edit-set-modal').style.display = 'none';
     _editFromLog = false;
+    _editFromSummary = false;
 }
 
 // ─── EXERCISE SETTINGS ─────────────────────────────────────────────────────

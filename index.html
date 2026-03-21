@@ -139,30 +139,17 @@
     <div id="firebase-config-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>הגדרת חיבור Firebase</h3>
-            <p class="sub-text" style="margin-bottom:16px;">הזן את פרטי הפרויקט שלך מ-Firebase Console. הפרטים נשמרים רק בדפדפן שלך.</p>
-            <div class="fb-field">
-                <label>API Key <span style="color:var(--danger)">*</span></label>
-                <input type="text" id="fb-api-key" class="minimal-input m-0" placeholder="AIzaSy...">
-            </div>
-            <div class="fb-field">
-                <label>Auth Domain</label>
-                <input type="text" id="fb-auth-domain" class="minimal-input m-0" placeholder="project-id.firebaseapp.com">
-            </div>
-            <div class="fb-field">
-                <label>Project ID <span style="color:var(--danger)">*</span></label>
-                <input type="text" id="fb-project-id" class="minimal-input m-0" placeholder="my-gympro-project">
-            </div>
-            <div class="fb-field">
-                <label>Storage Bucket</label>
-                <input type="text" id="fb-storage-bucket" class="minimal-input m-0" placeholder="project-id.appspot.com">
-            </div>
-            <div class="fb-field">
-                <label>Messaging Sender ID</label>
-                <input type="text" id="fb-messaging-id" class="minimal-input m-0" placeholder="123456789">
-            </div>
+            <p class="sub-text" style="margin-bottom:16px;">העתק והדבק את כל בלוק ה-<code style="color:var(--accent);font-size:0.9em;">firebaseConfig</code> מ-Firebase Console. הפרטים נשמרים רק בדפדפן שלך.</p>
             <div class="fb-field" style="margin-bottom:20px;">
-                <label>App ID</label>
-                <input type="text" id="fb-app-id" class="minimal-input m-0" placeholder="1:123:web:abc">
+                <label>Firebase Config — הדבק כאן</label>
+                <textarea id="fb-config-paste" class="minimal-input m-0" rows="9" style="resize:none;font-family:monospace;font-size:0.78em;line-height:1.6;" placeholder='const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "project.firebaseapp.com",
+  projectId: "project-id",
+  storageBucket: "project.appspot.com",
+  messagingSenderId: "123456",
+  appId: "1:123:web:abc"
+};'></textarea>
             </div>
             <button class="btn-main primary-gradient" onclick="saveFirebaseConfig()">שמור חיבור</button>
             <button id="btn-clear-firebase" class="btn-text color-danger" style="display:none;" onclick="confirmClearFirebase()">נתק Firebase</button>

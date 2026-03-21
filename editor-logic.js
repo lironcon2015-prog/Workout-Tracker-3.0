@@ -803,12 +803,15 @@ function _renderColorSwatches(currentColor) {
 
 function openFirebaseConfigModal() {
     const cfg = FirebaseManager.getFirebaseConfig() || {};
-    document.getElementById('fb-api-key').value            = cfg.apiKey             || '';
-    document.getElementById('fb-auth-domain').value        = cfg.authDomain         || '';
-    document.getElementById('fb-project-id').value         = cfg.projectId          || '';
-    document.getElementById('fb-storage-bucket').value     = cfg.storageBucket      || '';
-    document.getElementById('fb-messaging-id').value       = cfg.messagingSenderId  || '';
-    document.getElementById('fb-app-id').value             = cfg.appId              || '';
+    const ta = document.getElementById('fb-config-paste');
+    if (ta) {
+        if (cfg.apiKey) {
+            // הצג את הקונפיג הקיים בפורמט קריא
+            ta.value = `const firebaseConfig = {\n  apiKey: "${cfg.apiKey}",\n  authDomain: "${cfg.authDomain || ''}",\n  projectId: "${cfg.projectId || ''}",\n  storageBucket: "${cfg.storageBucket || ''}",\n  messagingSenderId: "${cfg.messagingSenderId || ''}",\n  appId: "${cfg.appId || ''}"\n};`;
+        } else {
+            ta.value = '';
+        }
+    }
     const btnClear = document.getElementById('btn-clear-firebase');
     if (btnClear) btnClear.style.display = FirebaseManager.isConfigured() ? '' : 'none';
     document.getElementById('firebase-config-modal').style.display = 'flex';
@@ -819,20 +822,34 @@ function closeFirebaseConfigModal() {
 }
 
 function saveFirebaseConfig() {
-    const cfg = {
-        apiKey:            document.getElementById('fb-api-key').value.trim(),
-        authDomain:        document.getElementById('fb-auth-domain').value.trim(),
-        projectId:         document.getElementById('fb-project-id').value.trim(),
-        storageBucket:     document.getElementById('fb-storage-bucket').value.trim(),
-        messagingSenderId: document.getElementById('fb-messaging-id').value.trim(),
-        appId:             document.getElementById('fb-app-id').value.trim()
-    };
-    if (!cfg.apiKey || !cfg.projectId) {
-        showAlert('API Key ו-Project ID הם שדות חובה.');
+    const raw = (document.getElementById('fb-config-paste').value || '').trim();
+    if (!raw) { showAlert('יש להדביק את בלוק ה-firebaseConfig.'); return; }
+
+    // חילוץ תוכן ה-object מתוך הטקסט — תומך בפורמט const firebaseConfig = {...} וגם ב-{...} ישיר
+    let jsonStr = raw;
+    // הסר const firebaseConfig = ו-; בסוף אם קיימים
+    jsonStr = jsonStr.replace(/^[\s\S]*?=\s*/, '').replace(/;?\s*$/, '').trim();
+    // המר מ-JS object literal ל-JSON: הוסף מרכאות למפתחות
+    jsonStr = jsonStr.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+    // המר single quotes ל-double quotes בערכים
+    jsonStr = jsonStr.replace(/:\s*'([^']*)'/g, ': "$1"');
+    // הסר פסיק אחרון לפני סגירת סוגריים
+    jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
+
+    let cfg;
+    try {
+        cfg = JSON.parse(jsonStr);
+    } catch(e) {
+        showAlert('פורמט לא תקין. ודא שהדבקת את הבלוק המלא מ-Firebase Console.');
         return;
     }
+
+    if (!cfg.apiKey || !cfg.projectId) {
+        showAlert('חסרים apiKey או projectId. ודא שהדבקת את הבלוק המלא.');
+        return;
+    }
+
     FirebaseManager.saveFirebaseConfig(cfg);
-    // force re-init on next use (firebase.apps כבר קיים — ישתמש בו)
     FirebaseManager._initialized = false;
     FirebaseManager._db = null;
     closeFirebaseConfigModal();

@@ -796,3 +796,140 @@ function _renderColorSwatches(currentColor) {
         container.appendChild(sw);
     });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIREBASE CONFIG UI  (v14.11.0)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function openFirebaseConfigModal() {
+    const cfg = FirebaseManager.getFirebaseConfig() || {};
+    document.getElementById('fb-api-key').value            = cfg.apiKey             || '';
+    document.getElementById('fb-auth-domain').value        = cfg.authDomain         || '';
+    document.getElementById('fb-project-id').value         = cfg.projectId          || '';
+    document.getElementById('fb-storage-bucket').value     = cfg.storageBucket      || '';
+    document.getElementById('fb-messaging-id').value       = cfg.messagingSenderId  || '';
+    document.getElementById('fb-app-id').value             = cfg.appId              || '';
+    const btnClear = document.getElementById('btn-clear-firebase');
+    if (btnClear) btnClear.style.display = FirebaseManager.isConfigured() ? '' : 'none';
+    document.getElementById('firebase-config-modal').style.display = 'flex';
+}
+
+function closeFirebaseConfigModal() {
+    document.getElementById('firebase-config-modal').style.display = 'none';
+}
+
+function saveFirebaseConfig() {
+    const cfg = {
+        apiKey:            document.getElementById('fb-api-key').value.trim(),
+        authDomain:        document.getElementById('fb-auth-domain').value.trim(),
+        projectId:         document.getElementById('fb-project-id').value.trim(),
+        storageBucket:     document.getElementById('fb-storage-bucket').value.trim(),
+        messagingSenderId: document.getElementById('fb-messaging-id').value.trim(),
+        appId:             document.getElementById('fb-app-id').value.trim()
+    };
+    if (!cfg.apiKey || !cfg.projectId) {
+        showAlert('API Key ו-Project ID הם שדות חובה.');
+        return;
+    }
+    FirebaseManager.saveFirebaseConfig(cfg);
+    // force re-init on next use (firebase.apps כבר קיים — ישתמש בו)
+    FirebaseManager._initialized = false;
+    FirebaseManager._db = null;
+    closeFirebaseConfigModal();
+    updateFirebaseStatus();
+    showAlert('חיבור Firebase נשמר! בצע רענון לאפליקציה כדי להפעיל.');
+}
+
+function confirmClearFirebase() {
+    showConfirm('לנתק את Firebase ולמחוק את פרטי החיבור?', () => {
+        FirebaseManager.clearFirebaseConfig();
+        closeFirebaseConfigModal();
+        updateFirebaseStatus();
+    });
+}
+
+function updateFirebaseStatus() {
+    const el = document.getElementById('firebase-status');
+    if (!el) return;
+    if (FirebaseManager.isConfigured()) {
+        const cfg = FirebaseManager.getFirebaseConfig();
+        el.innerHTML = `<span style="color:var(--type-b);font-weight:700;">&#9679; מחובר</span> <span style="color:var(--text-dim);font-size:0.85em;">${cfg.projectId}</span>`;
+    } else {
+        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
+    }
+}
+
+// ─── גיבוי ידני (מקומי + ענן) ────────────────────────────────────────────────
+
+function manualBackupArchive() {
+    // גיבוי מקומי
+    const data = StorageManager.getAllData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `gympro_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    // גיבוי ענן
+    if (FirebaseManager.isConfigured()) {
+        FirebaseManager.saveArchiveToCloud().then(ok => {
+            showAlert(ok ? 'גיבוי הורד + הועלה לענן!' : 'גיבוי הורד. שגיאה בשמירה לענן.');
+        });
+    } else {
+        showAlert('גיבוי הורד מקומית! (Firebase לא מוגדר)');
+    }
+}
+
+function manualBackupConfig() {
+    // גיבוי מקומי (קונפיג)
+    StorageManager.exportConfiguration();
+    // גיבוי ענן
+    if (FirebaseManager.isConfigured()) {
+        FirebaseManager.saveConfigToCloud().then(ok => {
+            showAlert(ok ? 'קונפיג הורד + הועלה לענן!' : 'קונפיג הורד. שגיאה בשמירה לענן.');
+        });
+    } else {
+        showAlert('קונפיג הורד מקומית! (Firebase לא מוגדר)');
+    }
+}
+
+function saveWorkoutManagerToCloud() {
+    if (!FirebaseManager.isConfigured()) {
+        showAlert('Firebase לא מוגדר. הגדר חיבור בהגדרות.');
+        return;
+    }
+    FirebaseManager.saveConfigToCloud().then(ok => {
+        showAlert(ok ? 'הקונפיגורציה נשמרה בענן!' : 'שגיאה בשמירה לענן. בדוק חיבור.');
+    });
+}
+
+// ─── בדיקת עדכון גרסה ──────────────────────────────────────────────────────
+
+async function checkForUpdate() {
+    try {
+        const res = await fetch('./version.json?t=' + Date.now());
+        if (!res.ok) throw new Error('network error');
+        const data = await res.json();
+        const currentVersion = '14.11.0-1';
+        if (data.version && data.version !== currentVersion) {
+            showConfirm(
+                `עדכון זמין (${data.version}). לנקות cache ולרענן?`,
+                async () => {
+                    if ('caches' in window) {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map(k => caches.delete(k)));
+                    }
+                    window.location.reload(true);
+                }
+            );
+        } else {
+            showAlert('האפליקציה מעודכנת (v' + currentVersion + ')');
+        }
+    } catch(e) {
+        showAlert('לא ניתן לבדוק עדכונים. בדוק חיבור לאינטרנט.');
+    }
+}
+
+// קריאה ראשונית לסטטוס Firebase כשה-DOM מוכן
+document.addEventListener('DOMContentLoaded', () => {
+    updateFirebaseStatus();
+});

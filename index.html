@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 14.10.0</title>
+    <title>GymPro Elite 14.11.0</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Heebo:wght@300;400;600;800&display=swap" rel="stylesheet">
     <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');</script>
+    <!-- Firebase SDK (Compat) — Firestore only -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <div class="glass-overlay"></div>
@@ -132,6 +135,41 @@
         </div>
     </div>
 
+    <!-- Firebase Config Modal -->
+    <div id="firebase-config-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>הגדרת חיבור Firebase</h3>
+            <p class="sub-text" style="margin-bottom:16px;">הזן את פרטי הפרויקט שלך מ-Firebase Console. הפרטים נשמרים רק בדפדפן שלך.</p>
+            <div class="fb-field">
+                <label>API Key <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="fb-api-key" class="minimal-input m-0" placeholder="AIzaSy...">
+            </div>
+            <div class="fb-field">
+                <label>Auth Domain</label>
+                <input type="text" id="fb-auth-domain" class="minimal-input m-0" placeholder="project-id.firebaseapp.com">
+            </div>
+            <div class="fb-field">
+                <label>Project ID <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="fb-project-id" class="minimal-input m-0" placeholder="my-gympro-project">
+            </div>
+            <div class="fb-field">
+                <label>Storage Bucket</label>
+                <input type="text" id="fb-storage-bucket" class="minimal-input m-0" placeholder="project-id.appspot.com">
+            </div>
+            <div class="fb-field">
+                <label>Messaging Sender ID</label>
+                <input type="text" id="fb-messaging-id" class="minimal-input m-0" placeholder="123456789">
+            </div>
+            <div class="fb-field" style="margin-bottom:20px;">
+                <label>App ID</label>
+                <input type="text" id="fb-app-id" class="minimal-input m-0" placeholder="1:123:web:abc">
+            </div>
+            <button class="btn-main primary-gradient" onclick="saveFirebaseConfig()">שמור חיבור</button>
+            <button id="btn-clear-firebase" class="btn-text color-danger" style="display:none;" onclick="confirmClearFirebase()">נתק Firebase</button>
+            <button class="btn-text" onclick="closeFirebaseConfigModal()">ביטול</button>
+        </div>
+    </div>
+
     <!-- Custom Alert Modal -->
     <div id="custom-alert-modal" class="modal-overlay">
         <div class="modal-content custom-dialog">
@@ -248,7 +286,7 @@
                     <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="chevron"></div></button>
                     <button class="menu-card deload-card" onclick="selectWeek('deload')"><span>דילואוד</span><div class="chevron"></div></button>
                 </div>
-                <div class="version-footer">GymPro Elite v14.10.0</div>
+                <div class="version-footer">GymPro Elite v14.11.0</div>
             </div>
 
             <!-- SETTINGS -->
@@ -268,7 +306,7 @@
                 </button>
                 <div class="glass-card">
                     <h3 class="mt-0">ניהול נתונים</h3>
-                    <p class="color-dim text-sm mb-0">גרסה V14.10.0</p>
+                    <p class="color-dim text-sm mb-0">גרסה V14.11.0</p>
                     <button class="btn-text color-danger border-danger rounded-md mb-lg" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     <div class="border-top pt-md">
                         <label class="color-dim text-xs d-block mb-sm">ניהול תבניות (ללא היסטוריה)</label>
@@ -279,6 +317,28 @@
                     </div>
                 </div>
                 <input type="file" id="import-config-file" class="d-none" onchange="processConfigImport(this)">
+
+                <!-- סנכרון ענן -->
+                <div class="cloud-section">
+                    <h3>☁️ סנכרון ענן</h3>
+                    <p class="cloud-section-subtitle">גיבוי ושחזור דרך Firebase Firestore</p>
+                    <div id="firebase-status"></div>
+                    <div class="cloud-btn-grid">
+                        <button class="cloud-btn accent" onclick="openFirebaseConfigModal()">⚙ הגדר חיבור</button>
+                        <button class="cloud-btn upload full-w" onclick="FirebaseManager.uploadAllToCloud()">⬆ העלה הכל לענן (ראשוני)</button>
+                        <button class="cloud-btn success" onclick="manualBackupArchive()">💾 גבה היסטוריה</button>
+                        <button class="cloud-btn success" onclick="FirebaseManager.loadArchiveFromCloud()">⬇ שחזר היסטוריה</button>
+                        <button class="cloud-btn amber" onclick="manualBackupConfig()">💾 גבה קונפיג</button>
+                        <button class="cloud-btn amber" onclick="FirebaseManager.loadConfigFromCloud()">⬇ שחזר קונפיג</button>
+                    </div>
+                </div>
+
+                <!-- בדיקת עדכון -->
+                <div class="cloud-section" style="margin-top:10px;">
+                    <h3>🔄 עדכון אפליקציה</h3>
+                    <p class="cloud-section-subtitle">בדוק אם קיימת גרסה חדשה ב-GitHub</p>
+                    <button class="cloud-btn accent full-w" onclick="checkForUpdate()">בדוק עדכון</button>
+                </div>
             </div>
 
             <!-- EXERCISE DATABASE -->
@@ -308,6 +368,7 @@
                 <div id="manager-list" class="vertical-stack"></div>
                 <div class="mt-md">
                     <button id="btn-create-workout" class="btn-main primary-gradient" onclick="createNewWorkout()">+ צור תוכנית חדשה</button>
+                    <button class="btn-save-cloud" onclick="saveWorkoutManagerToCloud()">☁️ שמור קונפיגורציה לענן</button>
                     <button class="btn-text mt-md" onclick="navigate('ui-week', true)">חזרה ללוח הבקרה</button>
                 </div>
             </div>

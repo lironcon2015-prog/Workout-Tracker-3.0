@@ -1,6 +1,6 @@
 /**
  * GymPro Elite - Storage Manager
- * Version: 14.10.0
+ * Version: 14.11.0
  * Handles all LocalStorage operations. No native alert/confirm.
  */
 
@@ -169,7 +169,7 @@ const StorageManager = {
         const prefs = this.getAnalyticsPrefs();
         const configData = {
             type: 'config_only',
-            version: '14.10.0',
+            version: '14.11.0',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
@@ -240,5 +240,155 @@ const StorageManager = {
         localStorage.removeItem(this.KEY_META);
         localStorage.removeItem(this.KEY_SESSION);
         // Analytics prefs kept intentionally — only structural data is reset
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FirebaseManager — ניהול Firestore (סנכרון ענן)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FirebaseManager = {
+    KEY_FIREBASE_CONFIG: 'gympro_firebase_config',
+    _db: null,
+    _initialized: false,
+
+    // בודק אם Firebase מוגדר (יש config ב-LocalStorage)
+    isConfigured() {
+        const cfg = this.getFirebaseConfig();
+        return !!(cfg && cfg.apiKey && cfg.projectId);
+    },
+
+    getFirebaseConfig() {
+        try { return JSON.parse(localStorage.getItem(this.KEY_FIREBASE_CONFIG)); }
+        catch { return null; }
+    },
+
+    saveFirebaseConfig(cfg) {
+        localStorage.setItem(this.KEY_FIREBASE_CONFIG, JSON.stringify(cfg));
+    },
+
+    clearFirebaseConfig() {
+        localStorage.removeItem(this.KEY_FIREBASE_CONFIG);
+        this._db = null;
+        this._initialized = false;
+    },
+
+    // אתחול Firestore — נקרא lazily לפני כל פעולת ענן
+    init() {
+        if (this._initialized && this._db) return true;
+        if (typeof firebase === 'undefined') {
+            console.warn('GymPro: Firebase SDK not loaded');
+            return false;
+        }
+        const cfg = this.getFirebaseConfig();
+        if (!cfg || !cfg.apiKey || !cfg.projectId) return false;
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(cfg);
+            }
+            this._db = firebase.firestore();
+            this._initialized = true;
+            return true;
+        } catch(e) {
+            console.error('GymPro Firebase init error:', e);
+            return false;
+        }
+    },
+
+    // ── Archive ──────────────────────────────────────────────────────────────
+
+    async saveArchiveToCloud() {
+        if (!this.init()) return false;
+        try {
+            const archive = StorageManager.getArchive();
+            await this._db.collection('gympro_data').doc('archive').set({
+                items: archive,
+                updatedAt: Date.now()
+            });
+            return true;
+        } catch(e) {
+            console.error('GymPro saveArchive error:', e);
+            return false;
+        }
+    },
+
+    async loadArchiveFromCloud() {
+        if (!this.init()) {
+            showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.');
+            return;
+        }
+        try {
+            const doc = await this._db.collection('gympro_data').doc('archive').get();
+            if (!doc.exists || !doc.data().items) {
+                showAlert('לא נמצאו נתוני ארכיון בענן.');
+                return;
+            }
+            StorageManager.saveData(StorageManager.KEY_ARCHIVE, doc.data().items);
+            showAlert('הארכיון שוחזר מהענן!', () => { window.location.reload(); });
+        } catch(e) {
+            showAlert('שגיאה בטעינה מהענן: ' + e.message);
+        }
+    },
+
+    // ── Config ───────────────────────────────────────────────────────────────
+
+    async saveConfigToCloud() {
+        if (!this.init()) return false;
+        try {
+            const configData = {
+                workouts:       StorageManager.getData(StorageManager.KEY_DB_WORKOUTS),
+                exercises:      StorageManager.getData(StorageManager.KEY_DB_EXERCISES),
+                meta:           StorageManager.getData(StorageManager.KEY_META),
+                analyticsPrefs: StorageManager.getAnalyticsPrefs(),
+                updatedAt:      Date.now()
+            };
+            await this._db.collection('gympro_data').doc('config').set(configData);
+            return true;
+        } catch(e) {
+            console.error('GymPro saveConfig error:', e);
+            return false;
+        }
+    },
+
+    async loadConfigFromCloud() {
+        if (!this.init()) {
+            showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.');
+            return;
+        }
+        try {
+            const doc = await this._db.collection('gympro_data').doc('config').get();
+            if (!doc.exists) {
+                showAlert('לא נמצאו נתוני קונפיג בענן.');
+                return;
+            }
+            const data = doc.data();
+            if (data.workouts)       StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, data.workouts);
+            if (data.exercises)      StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, data.exercises);
+            if (data.meta)           StorageManager.saveData(StorageManager.KEY_META, data.meta);
+            if (data.analyticsPrefs) StorageManager.saveAnalyticsPrefs(data.analyticsPrefs);
+            showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
+        } catch(e) {
+            showAlert('שגיאה בטעינה מהענן: ' + e.message);
+        }
+    },
+
+    // ── Upload All (העלאה ראשונית) ────────────────────────────────────────────
+
+    async uploadAllToCloud() {
+        if (!this.init()) {
+            showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.');
+            return;
+        }
+        try {
+            const archiveOk = await this.saveArchiveToCloud();
+            const configOk  = await this.saveConfigToCloud();
+            if (archiveOk && configOk) {
+                showAlert('כל הנתונים הועלו לענן בהצלחה!');
+            } else {
+                showAlert('חלק מהנתונים לא הועלו. בדוק חיבור ונסה שוב.');
+            }
+        } catch(e) {
+            showAlert('שגיאה בהעלאה: ' + e.message);
+        }
     }
 };

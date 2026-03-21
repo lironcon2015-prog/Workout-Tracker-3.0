@@ -394,7 +394,10 @@ function _doBack(currentScreen) {
     document.getElementById('global-back').style.visibility = (prevScreen === 'ui-week') ? 'hidden' : 'visible';
 }
 
-function openSettings() { navigate('ui-settings'); }
+function openSettings() {
+    navigate('ui-settings');
+    if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
+}
 
 // ─── WORKOUT PLAN SHEET ────────────────────────────────────────────────────
 
@@ -1726,6 +1729,11 @@ function buildSummaryUI() {
 function copyResult() {
     const note = (document.getElementById('summary-note') ? document.getElementById('summary-note').value.trim() : '');
     _saveToArchive(note);
+
+    // גיבוי אוטומטי לענן אחרי שמירת אימון — fire and forget
+    if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
+        FirebaseManager.saveArchiveToCloud();
+    }
 
     const archive = StorageManager.getArchive();
     if (archive.length > 0) {

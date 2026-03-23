@@ -244,12 +244,13 @@ function copyBulkLog(mode) {
 /**
  * מחלץ את סדר התרגילים הנכון מתוך מחרוזת ה-summary השמורה.
  * מחפש שורות בפורמט: "ExName (Vol: Xkg):" או "ExName (Main) (Vol: Xkg):"
+ * שומר את (Main) כחלק מהשם כדי להתאים למפתחות ב-details.
  * מחזיר מערך שמות מסודר, או מערך ריק אם הפרסור נכשל.
  */
 function _parseExOrderFromSummary(summary) {
     if (!summary) return [];
     const order = [];
-    const lineRe = /^(.+?)\s*(?:\(Main\)\s*)?\(Vol:[^)]+\):$/;
+    const lineRe = /^(.+?)\s*\(Vol:[^)]+\):$/;
     summary.split('\n').forEach(line => {
         const m = line.trim().match(lineRe);
         if (m) order.push(m[1].trim());
@@ -289,6 +290,8 @@ function buildArchiveDetailHTML(item) {
         // סדר תרגילים — עדיפויות:
         // 1. item.exOrder — נשמר ישירות מהאימון (רשומות חדשות, מהימן 100%)
         // 2. _parseExOrderFromSummary — fallback לרשומות ישנות
+        //    תרגילים שלא הופיעו בפורמט (Vol:...) בsummary (למשל: תרגילי Cluster)
+        //    מוכנסים לפי סדרם ב-detailKeys, לפני/אחרי לפי מיקומם ב-details.
         // 3. Object.keys(details) — last resort
         const detailKeys = Object.keys(item.details);
         let exOrder;
@@ -299,10 +302,23 @@ function buildArchiveDetailHTML(item) {
             ];
         } else {
             const parsedOrder = _parseExOrderFromSummary(item.summary);
-            exOrder = parsedOrder.length > 0
-                ? [...parsedOrder.filter(n => item.details[n]),
-                   ...detailKeys.filter(n => !parsedOrder.includes(n))]
-                : detailKeys;
+            if (parsedOrder.length > 0) {
+                // תרגילים שנמצאו ב-summary — לפי סדר summary
+                // תרגילים שלא נמצאו (קלאסטר וכו') — לפי סדר detailKeys, שמור על מיקומם היחסי
+                const parsedSet = new Set(parsedOrder);
+                const missing = detailKeys.filter(n => !parsedSet.has(n));
+                // מיזוג: missing לפני parsed אם הם מופיעים ראשונים ב-detailKeys
+                const firstParsedIdx = detailKeys.findIndex(n => parsedSet.has(n));
+                const missingBefore = missing.filter(n => detailKeys.indexOf(n) < firstParsedIdx);
+                const missingAfter  = missing.filter(n => detailKeys.indexOf(n) >= firstParsedIdx);
+                exOrder = [
+                    ...missingBefore,
+                    ...parsedOrder.filter(n => item.details[n]),
+                    ...missingAfter
+                ];
+            } else {
+                exOrder = detailKeys;
+            }
         }
 
         exOrder.forEach(exName => {

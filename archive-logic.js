@@ -1,7 +1,7 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
- * Version: 14.10.0
- * שדרוג 3: העתקה לפי טווח. תיקון ב׳: openDayDrawer משתמש ב-workoutMeta.color.
+ * Version: 14.12.0
+ * שינויים: תצוגת פרטי אימון עשירה (כמו סיכום), חודש שוטף collapsible, סדר ברירת מחדל יציב בהתקדמות תרגיל
  */
 
 // ─── ANALYTICS PREFS HELPERS ──────────────────────────────────────────────
@@ -12,6 +12,9 @@ function saveAnalyticsPrefs(prefs) { StorageManager.saveAnalyticsPrefs(prefs); }
 // ─── ARCHIVE VIEW ─────────────────────────────────────────────────────────
 
 const MONTH_NAMES_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+// סדר ברירת מחדל לכרטיסיית התקדמות תרגיל
+const DEFAULT_MICRO_ORDER = ['Bench Press (Main)', 'Overhead Press (Main)', 'Leg Press'];
 
 let selectedArchiveIds = new Set();
 
@@ -167,39 +170,38 @@ function renderArchiveList() {
         }, 0);
         const volStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
 
-        if (group.isCurrentMonth) {
-            const header = document.createElement('div');
-            header.className = 'archive-month-header current';
-            header.innerHTML = `<span class="archive-month-title">${group.label}</span><span class="archive-month-meta">${group.items.length} אימונים • ${volStr}</span>`;
-            list.appendChild(header);
-            group.items.forEach(item => list.appendChild(createArchiveCard(item)));
-        } else {
-            const monthContainer = document.createElement('div');
-            monthContainer.className = 'archive-month-group';
+        // חודש שוטף וחודשים עבר — אותו תבנית collapsible.
+        // חודש שוטף: פתוח כברירת מחדל (open class, ללא collapsed על items).
+        const monthContainer = document.createElement('div');
+        monthContainer.className = 'archive-month-group';
 
-            const header = document.createElement('div');
-            header.className = 'archive-month-header collapsible';
-            header.innerHTML = `
-                <div class="archive-month-header-inner">
-                    <span class="archive-month-title">${group.label}</span>
-                    <span class="archive-month-meta">${group.items.length} אימונים • ${volStr}</span>
-                </div>
-                <div class="archive-month-arrow">›</div>`;
+        const header = document.createElement('div');
+        header.className = group.isCurrentMonth
+            ? 'archive-month-header collapsible open'
+            : 'archive-month-header collapsible';
+        header.innerHTML = `
+            <div class="archive-month-header-inner">
+                <span class="archive-month-title">${group.label}</span>
+                <span class="archive-month-meta">${group.items.length} אימונים • ${volStr}</span>
+            </div>
+            <div class="archive-month-arrow">›</div>`;
 
-            const itemsContainer = document.createElement('div');
-            itemsContainer.className = 'archive-month-items collapsed';
-            group.items.forEach(item => itemsContainer.appendChild(createArchiveCard(item)));
+        const itemsContainer = document.createElement('div');
+        // חודש שוטף — מתחיל פתוח; חודשים עבר — מתחיל סגור
+        itemsContainer.className = group.isCurrentMonth
+            ? 'archive-month-items'
+            : 'archive-month-items collapsed';
+        group.items.forEach(item => itemsContainer.appendChild(createArchiveCard(item)));
 
-            header.addEventListener('click', () => {
-                const isOpen = !itemsContainer.classList.contains('collapsed');
-                itemsContainer.classList.toggle('collapsed', isOpen);
-                header.classList.toggle('open', !isOpen);
-            });
+        header.addEventListener('click', () => {
+            const isOpen = !itemsContainer.classList.contains('collapsed');
+            itemsContainer.classList.toggle('collapsed', isOpen);
+            header.classList.toggle('open', !isOpen);
+        });
 
-            monthContainer.appendChild(header);
-            monthContainer.appendChild(itemsContainer);
-            list.appendChild(monthContainer);
-        }
+        monthContainer.appendChild(header);
+        monthContainer.appendChild(itemsContainer);
+        list.appendChild(monthContainer);
     });
 }
 
@@ -239,12 +241,73 @@ function copyBulkLog(mode) {
 
 // ─── ARCHIVE DETAIL ───────────────────────────────────────────────────────
 
+/**
+ * בונה HTML עשיר לפרטי אימון מהארכיון — בסגנון מסך סיכום האימון.
+ */
+function buildArchiveDetailHTML(item) {
+    const meta = state.workoutMeta[item.type];
+    const typeColor = (meta && meta.color) ? meta.color : 'var(--type-free)';
+    const totalVol = getWorkoutVolume(item);
+    const totalVolStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
+
+    let html = `<div class="summary-overview-card">
+        <div class="summary-overview-col">
+            <div class="summary-overview-val" style="color:${typeColor}">${item.type}</div>
+            <div class="summary-overview-label">סוג אימון</div>
+        </div>
+        <div class="summary-overview-col">
+            <div class="summary-overview-val">${item.duration || 0}m</div>
+            <div class="summary-overview-label">משך</div>
+        </div>
+        <div class="summary-overview-col">
+            <div class="summary-overview-val">${item.date || ''}</div>
+            <div class="summary-overview-label">${item.time || ''}</div>
+        </div>
+    </div>`;
+
+    if (item.note) {
+        html += `<div class="summary-ex-card" style="font-size:0.9em;color:var(--text-dim);margin-bottom:10px;">הערה: ${item.note}</div>`;
+    }
+
+    if (item.details) {
+        Object.entries(item.details).forEach(([exName, exData]) => {
+            const sets = exData.sets || [];
+            if (sets.length === 0) return;
+            const exVol = exData.vol || 0;
+            const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
+
+            let setRows = '';
+            sets.forEach((setStr, i) => {
+                setRows += `<div class="summary-set-row">
+                    <div class="summary-set-num">${i + 1}</div>
+                    <div class="summary-set-details">${setStr}</div>
+                </div>`;
+            });
+
+            html += `<div class="summary-ex-card">
+                <div class="summary-ex-header">
+                    <div class="summary-ex-title">${exName}</div>
+                    <div class="summary-ex-vol">${volStr}</div>
+                </div>
+                ${setRows}
+            </div>`;
+        });
+    }
+
+    html += `<div style="text-align:center;padding:12px 0 4px;font-size:0.8em;color:var(--text-dim);">נפח כולל: ${totalVolStr}</div>`;
+
+    return html;
+}
+
 function openArchiveDetail(idx) {
     const archive = StorageManager.getArchive();
     if (idx < 0 || idx >= archive.length) return;
     const item = archive[idx];
 
-    document.getElementById('archive-detail-content').innerText = item.summary || '';
+    const contentEl = document.getElementById('archive-detail-content');
+    // הסרת class summary-card (monospace/pre-wrap) והצגת HTML עשיר
+    contentEl.className = '';
+    contentEl.innerHTML = buildArchiveDetailHTML(item);
 
     const copyBtn = document.getElementById('btn-archive-copy');
     const deleteBtn = document.getElementById('btn-archive-delete');
@@ -837,14 +900,20 @@ function populateMicroSelector(archive) {
 
     let sorted;
     if (prefs.microOrder && prefs.microOrder.length > 0) {
+        // סדר מותאם אישית — מכבד בחירת המשתמש
         sorted = prefs.microOrder.filter(e => exMap[e]);
         Object.keys(exMap).forEach(e => { if (!sorted.includes(e)) sorted.push(e); });
     } else {
-        sorted = Object.keys(exMap).sort((a, b) => {
-            const da = exMap[a], db = exMap[b];
-            if (da.isCalc !== db.isCalc) return da.isCalc ? -1 : 1;
-            return da.lastSeenIdx - db.lastSeenIdx;
-        });
+        // ברירת מחדל: 3 תרגילים מנוסים ראשונים, אחר כך isCalc, אחר כך אלפבית (סדר יציב)
+        const pinned = DEFAULT_MICRO_ORDER.filter(e => exMap[e]);
+        const rest = Object.keys(exMap)
+            .filter(e => !pinned.includes(e))
+            .sort((a, b) => {
+                const da = exMap[a], db = exMap[b];
+                if (da.isCalc !== db.isCalc) return da.isCalc ? -1 : 1;
+                return a.localeCompare(b);
+            });
+        sorted = [...pinned, ...rest];
     }
 
     const current = sel.value;

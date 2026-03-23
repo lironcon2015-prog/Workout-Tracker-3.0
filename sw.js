@@ -4,7 +4,7 @@
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v14.11.0-6';
+const CACHE_VERSION = 'gympro-v14.11.0-7';
 
 const FILES_TO_CACHE = [
     './index.html',

@@ -242,6 +242,24 @@ function copyBulkLog(mode) {
 // ─── ARCHIVE DETAIL ───────────────────────────────────────────────────────
 
 /**
+ * מחלץ את סדר התרגילים הנכון מתוך מחרוזת ה-summary השמורה.
+ * מחפש שורות בפורמט: "ExName (Main) (Vol: Xkg):" או "ExName (Vol: Xkg):"
+ * מחזיר מערך שמות מסודר, או מערך ריק אם הפרסור נכשל.
+ */
+function _parseExOrderFromSummary(summary) {
+    if (!summary) return [];
+    const order = [];
+    const lines = summary.split('\n');
+    // פורמט: "ExName (Vol: Xkg):" או "ExName (Main) (Vol: Xkg):"
+    const lineRe = /^(.+?)\s*(?:\(Main\)\s*)?\(Vol:[^)]+\):$/;
+    lines.forEach(line => {
+        const m = line.trim().match(lineRe);
+        if (m) order.push(m[1].trim());
+    });
+    return order;
+}
+
+/**
  * בונה HTML עשיר לפרטי אימון מהארכיון — בסגנון מסך סיכום האימון.
  */
 function buildArchiveDetailHTML(item) {
@@ -270,7 +288,18 @@ function buildArchiveDetailHTML(item) {
     }
 
     if (item.details) {
-        Object.entries(item.details).forEach(([exName, exData]) => {
+        // סדר תרגילים — נקבע לפי summary (מקור האמת לסדר הביצוע).
+        // fallback: Object.keys אם הפרסור נכשל (אימון ללא summary).
+        const parsedOrder = _parseExOrderFromSummary(item.summary);
+        const detailKeys = Object.keys(item.details);
+        const exOrder = parsedOrder.length > 0
+            ? [...parsedOrder.filter(n => item.details[n]),
+               ...detailKeys.filter(n => !parsedOrder.includes(n))]
+            : detailKeys;
+
+        exOrder.forEach(exName => {
+            const exData = item.details[exName];
+            if (!exData) return;
             const sets = exData.sets || [];
             if (sets.length === 0) return;
             const exVol = exData.vol || 0;

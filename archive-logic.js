@@ -243,16 +243,14 @@ function copyBulkLog(mode) {
 
 /**
  * מחלץ את סדר התרגילים הנכון מתוך מחרוזת ה-summary השמורה.
- * מחפש שורות בפורמט: "ExName (Main) (Vol: Xkg):" או "ExName (Vol: Xkg):"
+ * מחפש שורות בפורמט: "ExName (Vol: Xkg):" או "ExName (Main) (Vol: Xkg):"
  * מחזיר מערך שמות מסודר, או מערך ריק אם הפרסור נכשל.
  */
 function _parseExOrderFromSummary(summary) {
     if (!summary) return [];
     const order = [];
-    const lines = summary.split('\n');
-    // פורמט: "ExName (Vol: Xkg):" או "ExName (Main) (Vol: Xkg):"
     const lineRe = /^(.+?)\s*(?:\(Main\)\s*)?\(Vol:[^)]+\):$/;
-    lines.forEach(line => {
+    summary.split('\n').forEach(line => {
         const m = line.trim().match(lineRe);
         if (m) order.push(m[1].trim());
     });
@@ -288,14 +286,24 @@ function buildArchiveDetailHTML(item) {
     }
 
     if (item.details) {
-        // סדר תרגילים — נקבע לפי summary (מקור האמת לסדר הביצוע).
-        // fallback: Object.keys אם הפרסור נכשל (אימון ללא summary).
-        const parsedOrder = _parseExOrderFromSummary(item.summary);
+        // סדר תרגילים — עדיפויות:
+        // 1. item.exOrder — נשמר ישירות מהאימון (רשומות חדשות, מהימן 100%)
+        // 2. _parseExOrderFromSummary — fallback לרשומות ישנות
+        // 3. Object.keys(details) — last resort
         const detailKeys = Object.keys(item.details);
-        const exOrder = parsedOrder.length > 0
-            ? [...parsedOrder.filter(n => item.details[n]),
-               ...detailKeys.filter(n => !parsedOrder.includes(n))]
-            : detailKeys;
+        let exOrder;
+        if (item.exOrder && item.exOrder.length > 0) {
+            exOrder = [
+                ...item.exOrder.filter(n => item.details[n]),
+                ...detailKeys.filter(n => !item.exOrder.includes(n))
+            ];
+        } else {
+            const parsedOrder = _parseExOrderFromSummary(item.summary);
+            exOrder = parsedOrder.length > 0
+                ? [...parsedOrder.filter(n => item.details[n]),
+                   ...detailKeys.filter(n => !parsedOrder.includes(n))]
+                : detailKeys;
+        }
 
         exOrder.forEach(exName => {
             const exData = item.details[exName];

@@ -1831,6 +1831,7 @@ function _saveToArchive(note) {
         duration: state.workoutDurationMins,
         summary: summaryLines.join('\n').trimEnd(),
         details,
+        exOrder,
         note
     };
 

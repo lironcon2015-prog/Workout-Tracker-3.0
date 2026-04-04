@@ -689,66 +689,71 @@
                 </div>
             </div>
 
-            <!-- =================== ANALYTICS =================== -->
+           <!-- =================== ANALYTICS =================== -->
             <div id="ui-analytics" class="screen">
                 <div class="flex-between mt-xs mb-sm">
-                    <h2 class="m-0" style="font-size:1.4em;font-weight:800;">אנליטיקה</h2>
+                    <h2 class="page-title font-headline italic-black" style="font-size:2.2rem; text-transform:uppercase;">אנליטיקה</h2>
                 </div>
 
-                <div class="segmented-control" id="analytics-seg" style="position:sticky;top:0;z-index:10;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);">
-                    <button class="segment-btn active" onclick="switchAnalyticsTab('macro',this)">סקירה כללית</button>
-                    <button class="segment-btn" onclick="switchAnalyticsTab('micro',this)">התקדמות תרגיל</button>
+                <div class="main-seg-control" id="analytics-seg">
+                    <button class="main-seg-btn active" onclick="switchAnalyticsTab('macro',this)">סקירה כללית</button>
+                    <button class="main-seg-btn" onclick="switchAnalyticsTab('micro',this)">התקדמות תרגיל</button>
                 </div>
 
                 <!-- MACRO TAB -->
-                <div id="analytics-macro">
-                    <div class="analytics-section-label">נתוני על</div>
-                    <div class="metrics-grid-2x2" id="hero-metrics-grid"></div>
+                <div id="analytics-macro" class="tab-content active">
+                    
+                    <div class="bento-grid" id="hero-metrics-grid">
+                        <!-- ירונדר דרך JS -->
+                    </div>
 
-                    <!-- Volume chart with muscle filter -->
-                    <div class="analytics-card">
-                        <div class="analytics-card-label">
-                            <span>נפח לאורך זמן <span id="vol-trend-badge"></span></span>
-                            <div class="range-chips" id="vol-chips">
-                                <button class="range-chip active" onclick="setVolRange(4,this)">4</button>
-                                <button class="range-chip" onclick="setVolRange(8,this)">8</button>
-                                <button class="range-chip" onclick="setVolRange(12,this)">12</button>
-                                <button class="range-chip" onclick="setVolRange(16,this)">16</button>
+                    <!-- Volume Chart -->
+                    <div class="analytics-card glass-highlight">
+                        <div class="card-header-flex">
+                            <div>
+                                <h3 class="card-title-neo font-headline italic-black">נפח לאורך זמן</h3>
+                                <div class="muscle-chips-row" id="vol-muscle-chips">
+                                    <button class="m-chip active" data-muscle="all" onclick="setVolMuscle('all',this)">הכל</button>
+                                    <button class="m-chip" data-muscle="חזה" onclick="setVolMuscle('חזה',this)">חזה</button>
+                                    <button class="m-chip" data-muscle="גב" onclick="setVolMuscle('גב',this)">גב</button>
+                                    <button class="m-chip" data-muscle="רגליים" onclick="setVolMuscle('רגליים',this)">רגליים</button>
+                                    <button class="m-chip" data-muscle="כתפיים" onclick="setVolMuscle('כתפיים',this)">כתפיים</button>
+                                    <button class="m-chip" data-muscle="ידיים" onclick="setVolMuscle('ידיים',this)">ידיים</button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="range-chips" id="vol-muscle-chips" style="margin-bottom:10px;flex-wrap:wrap;">
-                            <button class="range-chip active" data-muscle="all" onclick="setVolMuscle('all',this)">הכל</button>
-                            <button class="range-chip" data-muscle="חזה" onclick="setVolMuscle('חזה',this)">חזה</button>
-                            <button class="range-chip" data-muscle="גב" onclick="setVolMuscle('גב',this)">גב</button>
-                            <button class="range-chip" data-muscle="רגליים" onclick="setVolMuscle('רגליים',this)">רגליים</button>
-                            <button class="range-chip" data-muscle="כתפיים" onclick="setVolMuscle('כתפיים',this)">כתפיים</button>
-                            <button class="range-chip" data-muscle="ידיים" onclick="setVolMuscle('ידיים',this)">ידיים</button>
+                            <div class="mini-toggle" id="vol-chips">
+                                <button class="active" onclick="setVolRange(4,this)">4</button>
+                                <button onclick="setVolRange(8,this)">8</button>
+                                <button onclick="setVolRange(12,this)">12</button>
+                                <button onclick="setVolRange(16,this)">16</button>
+                            </div>
                         </div>
                         <div class="bar-chart-scroll"><div class="bar-chart-inner" id="vol-bar-chart"></div></div>
                     </div>
 
-                    <!-- Workout type horizontal bar chart -->
-                    <div class="analytics-card">
-                        <div class="analytics-card-label">
-                            <span>השוואת סוגי אימונים</span>
-                            <button class="tool-btn" style="font-size:0.85em;color:var(--accent);border-color:rgba(10,132,255,0.3);background:rgba(10,132,255,0.08);" onclick="openAliasSheet()">✎ קבץ</button>
+                    <!-- Workout Type Chart -->
+                    <div class="analytics-card glass-highlight">
+                        <div class="card-header-flex" style="align-items: center;">
+                            <h3 class="card-title-neo font-headline italic-black">השוואת סוגי אימונים</h3>
+                            <button class="tool-btn" style="font-size:0.75rem; border-color:var(--outline-dim); border-radius:9999px;" onclick="openAliasSheet()">✎ קבץ</button>
                         </div>
-                        <div style="font-size:0.66em;color:var(--text-dim);margin-bottom:10px;">ממוצע נפח לאימון — לחץ על שם לפרטים</div>
+                        <div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:16px;">ממוצע נפח לאימון — לחץ על שם לפרטים</div>
                         <div class="hbar-chart" id="workout-type-chart"></div>
-                        <div style="margin-top:8px;font-size:0.62em;color:var(--text-dim);">
-                            <span style="color:var(--type-b)">●</span> קבוצה מאוחדת
+                        <div style="margin-top:16px;font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;">
+                            <span style="color:var(--success)">●</span> קבוצה מאוחדת
                         </div>
                     </div>
                     <div class="wt-toast" id="wt-toast"></div>
 
-                    <div class="analytics-card">
-                        <div class="analytics-card-label">
-                            <span>התפלגות שרירים</span>
-                            <div class="range-chips" id="muscle-chips">
-                                <button class="range-chip" onclick="setMuscleRange('1w',this)">שבוע</button>
-                                <button class="range-chip active" onclick="setMuscleRange('1m',this)">חודש</button>
-                                <button class="range-chip" onclick="setMuscleRange('3m',this)">3 חודשים</button>
-                                <button class="range-chip" onclick="setMuscleRange('all',this)">הכל</button>
+                    <!-- Donut Chart -->
+                    <div class="analytics-card glass-highlight">
+                        <div class="card-header-flex">
+                            <h3 class="card-title-neo font-headline italic-black">התפלגות שרירים</h3>
+                            <div class="mini-toggle" id="muscle-chips">
+                                <button onclick="setMuscleRange('1w',this)">שבוע</button>
+                                <button class="active" onclick="setMuscleRange('1m',this)">חודש</button>
+                                <button onclick="setMuscleRange('3m',this)">3M</button>
+                                <button onclick="setMuscleRange('all',this)">הכל</button>
                             </div>
                         </div>
                         <div class="donut-layout">
@@ -760,77 +765,74 @@
                         </div>
                     </div>
 
-                    <div class="analytics-card">
-                        <div class="analytics-card-label">
-                            <span>עקביות</span>
-                            <div class="range-chips" id="cons-chips">
-                                <button class="range-chip active" onclick="setConsRange(8,this)">8</button>
-                                <button class="range-chip" onclick="setConsRange(12,this)">12</button>
-                                <button class="range-chip" onclick="setConsRange(16,this)">16</button>
+                    <!-- Consistency Track -->
+                    <div class="analytics-card glass-highlight">
+                        <div class="card-header-flex">
+                            <h3 class="card-title-neo font-headline italic-black">עקביות</h3>
+                            <div class="mini-toggle" id="cons-chips">
+                                <button class="active" onclick="setConsRange(8,this)">8</button>
+                                <button onclick="setConsRange(12,this)">12</button>
+                                <button onclick="setConsRange(16,this)">16</button>
                             </div>
                         </div>
-                        <div class="consistency-track" id="cons-track"></div>
-                        <div class="cons-legend" id="cons-legend">
-                            <span style="color:var(--type-b)">● ≤5 ימים</span>
-                            <span style="color:var(--type-c)">● 6–9 ימים</span>
-                            <span style="color:var(--danger)">● 10+ ימים</span>
-                        </div>
+                        <div class="cons-track-wrap" id="cons-track"></div>
                     </div>
                 </div>
 
                 <!-- MICRO TAB -->
-                <div id="analytics-micro" style="display:none;">
-                    <div class="analytics-section-label">בחר תרגיל</div>
-
-                    <!-- Selector + manual sort button -->
-                    <div class="micro-selector-row mb-md">
-                        <select id="micro-ex-selector" class="smart-exercise-select" onchange="loadMicroData(this.value)"></select>
-                        <button class="tool-btn" style="flex-shrink:0;" onclick="openMicroSortSheet()">✦ סדר</button>
+                <div id="analytics-micro" class="tab-content" style="display:none;">
+                    
+                    <div class="micro-selector-row glass-highlight">
+                        <select id="micro-ex-selector" onchange="loadMicroData(this.value)"></select>
+                        <button class="tool-btn" style="border:none;background:transparent;padding:0;color:var(--accent);" onclick="openMicroSortSheet()">
+                            <span class="material-symbols-outlined">swap_vert</span>
+                        </button>
                     </div>
 
-                    <div class="analytics-card">
-                        <div class="analytics-card-label">
-                            <span>E1RM התקדמות</span>
-                            <div class="range-chips" id="micro-pts-chips">
-                                <button class="range-chip active" onclick="setMicroPoints(4,this)">4</button>
-                                <button class="range-chip" onclick="setMicroPoints(6,this)">6</button>
-                                <button class="range-chip" onclick="setMicroPoints(8,this)">8</button>
-                                <button class="range-chip" onclick="setMicroPoints(12,this)">12</button>
+                    <div class="analytics-card glass-highlight" style="padding-bottom: 8px;">
+                        <div class="micro-hero">
+                            <div>
+                                <p class="micro-hero-lbl">הערכת התקדמות</p>
+                                <h2 id="intensity-score-val" class="micro-hero-val">—</h2>
+                                <div id="intensity-score-delta"></div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+                                <div class="mini-toggle" id="micro-axis-chips">
+                                    <button class="active" onclick="setMicroAxis('e1rm',this)">E1RM</button>
+                                    <button onclick="setMicroAxis('maxw',this)">MAX</button>
+                                    <button onclick="setMicroAxis('vol',this)">VOL</button>
+                                </div>
+                                <div class="mini-toggle" id="micro-pts-chips">
+                                    <button class="active" onclick="setMicroPoints(4,this)">4</button>
+                                    <button onclick="setMicroPoints(6,this)">6</button>
+                                    <button onclick="setMicroPoints(8,this)">8</button>
+                                    <button onclick="setMicroPoints(12,this)">12</button>
+                                </div>
                             </div>
                         </div>
-                        <div style="display:flex;gap:6px;margin-bottom:10px;" id="micro-axis-chips">
-                            <button class="range-chip active" onclick="setMicroAxis('e1rm',this)">E1RM</button>
-                            <button class="range-chip" onclick="setMicroAxis('maxw',this)">משקל מקסימלי</button>
-                            <button class="range-chip" onclick="setMicroAxis('vol',this)">נפח סט</button>
+
+                        <div class="line-chart-area">
+                            <svg id="micro-line-svg" viewBox="0 0 300 160"></svg>
                         </div>
-                        <svg id="micro-line-svg" viewBox="0 0 320 165" width="100%" style="display:block;overflow:visible;"></svg>
                     </div>
 
-                    <div class="analytics-card flex-between" id="intensity-card" style="align-items:center;gap:16px;">
-                        <div>
-                            <div class="analytics-card-label" style="margin-bottom:4px;">Intensity Score</div>
-                            <div id="intensity-score-val" style="font-size:2em;font-weight:800;color:var(--type-c);font-variant-numeric:tabular-nums;line-height:1;">—</div>
-                            <div id="intensity-score-delta" style="font-size:0.72em;color:var(--type-b);margin-top:4px;"></div>
-                        </div>
-                        <svg id="micro-sparkline" viewBox="0 0 140 52" width="140" height="52" style="flex-shrink:0;"></svg>
-                    </div>
-
+                    <!-- PR Highlight Card -->
                     <div class="pr-expand-card" id="pr-expand-card">
                         <div class="pr-expand-header" onclick="togglePRCard()">
-                            <div>
-                                <div style="font-size:0.62em;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">שיא אישי</div>
-                                <div id="pr-card-weight" style="font-size:1.75em;font-weight:800;letter-spacing:-0.5px;">—</div>
-                                <div id="pr-card-date" style="font-size:0.76em;color:var(--text-dim);margin-top:2px;"></div>
+                            <div style="display:flex; align-items:center; gap:16px;">
+                                <div class="pr-icon"><span class="material-symbols-outlined icon-fill">trophy</span></div>
+                                <div>
+                                    <h3 class="card-title-neo font-headline italic-black">שיא אישי</h3>
+                                    <div id="pr-card-date" style="font-size:0.75rem; color:rgba(229,226,225,0.5); font-weight:600; margin-top:2px;"></div>
+                                </div>
                             </div>
                             <div class="pr-expand-arrow" id="pr-expand-arrow">
-                                <div class="chevron-down-icon"></div>
+                                <span class="material-symbols-outlined" style="color:var(--text-dim);">expand_more</span>
                             </div>
                         </div>
                         <div class="pr-expand-body" id="pr-expand-body">
-                            <div class="pr-expand-inner">
-                                <div class="pr-stats-row" id="pr-stats-row"></div>
-                                <div id="pr-context-note" style="font-size:0.74em;color:var(--text-dim);text-align:center;margin-top:12px;"></div>
-                            </div>
+                            <div class="pr-stats-row" id="pr-stats-row"></div>
+                            <div id="pr-context-note" style="font-size:0.7rem;color:var(--text-dim);text-align:center;margin: 0 24px 16px;"></div>
                         </div>
                     </div>
                 </div>

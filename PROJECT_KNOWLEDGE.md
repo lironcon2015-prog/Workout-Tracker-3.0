@@ -30,19 +30,12 @@
 - RTL: ב-`flex-direction: row` — `flex-start` = ימין ויזואלית, `flex-end` = שמאל.
 - `align-self: flex-start` חובה על pill buttons בתוך flex-column (אחרת נמתחים לרוחב מלא).
 - `#vol-muscle-chips` — CSS ייעודי עם `flex-wrap: nowrap` + overflow-x scroll + chips קטנים (`0.75rem`). אין לשנות ל-wrap.
-- **`.hbar-label` מוגדר פעמיים בקובץ CSS** — ההגדרה השנייה (ב-v14.1.1) מנצחת. כל שינוי ב-hbar label צריך להיעשות בהגדרה השנייה. הגדרה ראשונה היא legacy.
-- `.bento-sub` — תת-כיתוב לbento card, מתחת ל-`.bento-val`. מוגדר ב-CSS. שימוש: `<div class="bento-sub">טקסט</div>`.
 
 ### Analytics
 - `switchAnalyticsTab()` מחפש `#analytics-seg .seg-btn` — ה-wrapper **חייב** להכיל `id="analytics-seg"`. ללא ה-ID, שניהם מקבלים `.active` ונראים אפורים. (תוקן ב-74)
 - גרף נפח לאורך זמן (`renderVolumeBarChart`): **אין להוסיף `.reverse()`** — ב-RTL האלמנט הראשון במערך מוצג מימין. archive מגיע חדש-ראשון, אז ללא reverse: חדש=ימין. (תוקן ב-74)
 - `.x-axis-lbls` חייב `direction: ltr` — ה-SVG מצייר LTR פיזית, התאריכים חייבים להתאים. (תוקן ב-74)
 - כרטיסיות "נפח כולל" ו-"שיא נפח" בסקירה — מוצגים בק"ג עם `toLocaleString('he-IL')`, **לא** בטון. (תוקן ב-74)
-- כרטיסיית "זמן כולל" — מוצגת בשעות (`h`). מתחתיה שורת `.bento-sub` עם ממוצע דקות. (74)
-- `renderWorkoutTypeChart` — משתמש ב-layout החדש: `hbar-row` (row) + `hbar-label` (שם מלא, עם wrap) + `hbar-track` עם `hbar-fill` ו-`hbar-val` (volume בלבן בתוך הפס). אין להחזיר את `hbar-top` / `hbar-val-text`. (74)
-
-### Cluster
-- `showConfirmScreen()` ללא `forceExName` ב-clusterIdx===0 חייבת לאפס `state.currentEx = null`.
 - `confirmExercise()` מזהה מסך מבוא סבב לפי `!state.currentEx` — לא לפי innerText (שביר). (תוקן ב-55)
 - `deepClone(undefined)` = SyntaxError שקט. תמיד null-guard לפני `deepClone`.
 

@@ -1998,6 +1998,7 @@ function copyResult() {
     }
 
     StorageManager.clearSessionState();
+    state.workoutStartTime = null; // מניעת שחזור רפאים בעת ריענון העמוד
     stopSessionTimer();
     haptic('success');
     showAlert("האימון נשמר! הסיכום הועתק ללוח.", () => { window.location.reload(); });

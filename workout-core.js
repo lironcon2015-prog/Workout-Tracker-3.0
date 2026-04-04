@@ -1836,7 +1836,7 @@ function finish() {
 }
 
 function buildSummaryUI() {
-    const area = document.getElementById('summary-area');
+    const area = document.getElementById('summary-content-area');
     if (!area) return;
 
     const now = new Date();
@@ -1844,6 +1844,7 @@ function buildSummaryUI() {
     const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
     const realSets = state.log.filter(l => !l.skip);
+    const setsCount = realSets.length;
 
     // בניית סגמנטים בסדר הביצוע (normal per-exercise, cluster per-block)
     const segments = [];
@@ -1865,11 +1866,7 @@ function buildSummaryUI() {
     });
 
     let totalVol = 0;
-    let html = `<div class="summary-overview-card">
-        <div class="summary-overview-col"><div class="summary-overview-val">${state.type}</div><div class="summary-overview-label">סוג אימון</div></div>
-        <div class="summary-overview-col"><div class="summary-overview-val">${state.workoutDurationMins}m</div><div class="summary-overview-label">משך</div></div>
-        <div class="summary-overview-col"><div class="summary-overview-val">${dateStr}</div><div class="summary-overview-label">${timeStr}</div></div>
-    </div>`;
+    let cardsHtml = '';
 
     segments.forEach(seg => {
         if (seg.type === 'normal') {
@@ -1877,18 +1874,23 @@ function buildSummaryUI() {
             seg.sets.forEach((s, i) => {
                 exVol += s.w * s.r;
                 const realIdx = realSets.indexOf(s);
-                setRows += `<div class="summary-set-row">
-                    <div class="summary-set-num">${i + 1}</div>
-                    <div class="summary-set-details">${s.w}kg x ${s.r} (RIR ${s.rir}${s.note ? ` | ${s.note}` : ''})</div>
-                    <button class="btn-log-edit" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
+                const noteStr = s.note ? ` | ${s.note}` : '';
+                const rirStr = s.rir !== undefined ? s.rir : '—';
+                setRows += `
+                <div class="set-row">
+                    <div class="set-num">${(i + 1).toString().padStart(2, '0')}</div>
+                    <div class="set-details">${s.w}kg × ${s.r} <span style="opacity:0.5;font-size:0.85em">(RIR ${rirStr}${noteStr})</span></div>
+                    <button class="set-edit-btn" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
                 </div>`;
             });
             totalVol += exVol;
             const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
-            html += `<div class="summary-ex-card">
-                <div class="summary-ex-header">
-                    <div class="summary-ex-title">${seg.exName}</div>
-                    <div class="summary-ex-vol">${volStr}</div>
+            
+            cardsHtml += `
+            <div class="obsidian-card">
+                <div class="card-header">
+                    <h3 class="card-title">${seg.exName}</h3>
+                    <span class="card-vol">${volStr}</span>
                 </div>
                 ${setRows}
             </div>`;
@@ -1903,28 +1905,69 @@ function buildSummaryUI() {
             Object.keys(byRound).sort((a, b) => +a - +b).forEach(roundNum => {
                 const roundSets = byRound[roundNum];
                 clusterVol += roundSets.reduce((sum, s) => sum + s.w * s.r, 0);
-                const exRows = roundSets.map(s => {
+                
+                roundRows += `<div class="summary-cluster-title">סבב ${roundNum}</div>`;
+                
+                roundSets.forEach((s, i) => {
                     const realIdx = realSets.indexOf(s);
-                    return `<div class="summary-set-row">
-                        <div class="summary-cluster-ex-name">${s.exName}</div>
-                        <div class="summary-set-details">${s.w}kg×${s.r} (RIR ${s.rir}${s.note ? ` | ${s.note}` : ''})</div>
-                        <button class="btn-log-edit" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
+                    const noteStr = s.note ? ` | ${s.note}` : '';
+                    const rirStr = s.rir !== undefined ? s.rir : '—';
+                    roundRows += `
+                    <div class="set-row">
+                        <div class="set-num">${(i + 1).toString().padStart(2, '0')}</div>
+                        <div class="set-details">
+                            <span style="color:var(--text-dim);font-size:0.85em;margin-left:6px;">${s.exName}</span><br>
+                            ${s.w}kg × ${s.r} <span style="opacity:0.5;font-size:0.85em">(RIR ${rirStr}${noteStr})</span>
+                        </div>
+                        <button class="set-edit-btn" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
                     </div>`;
-                }).join('');
-                roundRows += `<div class="summary-cluster-round">סבב ${roundNum}</div>${exRows}`;
+                });
             });
             totalVol += clusterVol;
             const clusterVolStr = clusterVol >= 1000 ? (clusterVol / 1000).toFixed(1) + 't' : clusterVol + 'kg';
             const exNames = [...new Set(seg.sets.map(s => s.exName))].join(' + ');
-            html += `<div class="summary-ex-card">
-                <div class="summary-ex-header">
-                    <div class="summary-ex-title">סבב: ${exNames}</div>
-                    <div class="summary-ex-vol">${clusterVolStr}</div>
+            
+            cardsHtml += `
+            <div class="obsidian-card">
+                <div class="card-header">
+                    <h3 class="card-title">סבב: ${exNames}</h3>
+                    <span class="card-vol">${clusterVolStr}</span>
                 </div>
                 ${roundRows}
             </div>`;
         }
     });
+
+    const totalVolStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
+
+    const html = `
+        <div class="summary-header">
+            <div class="summary-subtitle">${dateStr} • ${timeStr}</div>
+            <div class="summary-subtitle" style="color:var(--text-dim);margin-top:2px;text-transform:none;">${state.type}</div>
+            <h1 class="summary-title">סיימנו<br>להיום.</h1>
+        </div>
+
+        <div class="summary-stats-glass">
+            <div class="stat-col">
+                <div class="stat-val">${state.workoutDurationMins}<span style="font-size:0.9rem;opacity:0.6;">m</span></div>
+                <div class="stat-lbl">זמן אימון</div>
+            </div>
+            <div class="stat-col">
+                <div class="stat-val" style="color:var(--accent);">${totalVolStr}</div>
+                <div class="stat-lbl">נפח כולל</div>
+            </div>
+            <div class="stat-col">
+                <div class="stat-val">${setsCount}</div>
+                <div class="stat-lbl">סטים בוצעו</div>
+            </div>
+        </div>
+
+        <input type="text" id="summary-note" class="summary-note-input" placeholder="איך היה האימון? (הערה כללית לארכיון)...">
+
+        ${cardsHtml}
+
+        <button class="btn-main primary-gradient pulse" onclick="copyResult()" style="margin-top:10px;box-shadow: 0 15px 40px rgba(62,144,255,0.25), inset 0 1px 0 rgba(255,255,255,0.2);">שמור וסגור</button>
+    `;
 
     area.innerHTML = html;
 }

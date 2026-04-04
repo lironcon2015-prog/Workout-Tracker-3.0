@@ -586,7 +586,7 @@ function renderHeroMetricsGrid(archive) {
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">fitness_center</span>
             <div class="bento-lbl">נפח כולל</div>
-            <div class="bento-val font-headline italic-black">${(totalVol / 1000).toFixed(1)}<span class="inline-unit">t</span></div>
+            <div class="bento-val font-headline italic-black">${totalVol.toLocaleString('he-IL')}<span class="inline-unit">kg</span></div>
         </div>
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">schedule</span>
@@ -601,7 +601,7 @@ function renderHeroMetricsGrid(archive) {
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg" style="color:var(--warning);">emoji_events</span>
             <div class="bento-lbl" style="color:var(--warning);">שיא נפח</div>
-            <div class="bento-val font-headline italic-black" style="color:var(--warning);">${(bestVol / 1000).toFixed(1)}<span class="inline-unit">t</span></div>
+            <div class="bento-val font-headline italic-black" style="color:var(--warning);">${bestVol.toLocaleString('he-IL')}<span class="inline-unit">kg</span></div>
         </div>`;
 }
 
@@ -609,7 +609,8 @@ function renderHeroMetricsGrid(archive) {
 
 function renderVolumeBarChart(archive, n, muscleFilter) {
     const el = document.getElementById('vol-bar-chart'); if (!el) return;
-    const data = archive.slice(0, n).reverse();
+    // ב-RTL, האלמנט הראשון מוצג מימין — לכן לא הופכים (newest ראשון = ימין)
+    const data = archive.slice(0, n);
 
     if (!data.length) { el.innerHTML = '<p class="color-dim text-sm text-center w-100">אין נתונים</p>'; return; }
 

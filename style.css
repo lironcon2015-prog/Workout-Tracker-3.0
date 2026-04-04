@@ -160,7 +160,7 @@ body {
 }
 
 /* Header */
-.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; position: relative; }
+.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; position: relative; }
 .back-btn { background: none; border: none; padding: 8px; visibility: hidden; cursor: pointer; display: flex; align-items: center; }
 .brand-logo { font-weight: 900; font-size: 1.25em; letter-spacing: -0.05em; font-family: 'Heebo', sans-serif; text-transform: uppercase; font-style: italic; position: absolute; left: 50%; transform: translateX(-50%); }
 .brand-logo span { color: var(--accent); }
@@ -1056,15 +1056,6 @@ body {
    v14.1.1 — NEW COMPONENTS
    ========================================= */
 
-/* ── Hero Last Workout (replaces streak) ── */
-.hero-last-workout {
-    font-size: 0.82em;
-    color: rgba(255,255,255,0.55);
-    font-weight: 500;
-    margin-bottom: 14px;
-    letter-spacing: 0.1px;
-}
-
 /* ── Bar chart: padding-top to prevent value labels clipping ── */
 .bar-chart-scroll {
     padding-top: 20px;
@@ -1875,20 +1866,20 @@ body {
     position: relative;
     overflow: hidden;
     border-radius: 2rem;
-    padding: 22px 20px 18px;
-    min-height: 168px;
+    padding: 18px 18px 14px;
+    min-height: 140px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     background: linear-gradient(145deg, rgba(40, 40, 44, 0.65) 0%, rgba(15, 15, 18, 0.85) 100%);
     backdrop-filter: var(--glass); -webkit-backdrop-filter: var(--glass);
     border: 1px solid rgba(255,255,255,0.06); border-top-color: rgba(255,255,255,0.12);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 15px 35px rgba(0,0,0,0.5);
 }
 .hero-watermark {
-    position: absolute; bottom: -20px; right: -5px;
-    font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 6.5rem;
+    position: absolute; bottom: -15px; right: -5px;
+    font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 5.5rem;
     line-height: 0.8; letter-spacing: -0.06em; text-transform: uppercase;
     color: rgba(255, 255, 255, 0.025); pointer-events: none; user-select: none;
 }
@@ -1897,21 +1888,21 @@ body {
 .hero-analytics-card h2 {
     font-family: 'Heebo', sans-serif;
     font-weight: 900;
-    font-size: 1.75em;
+    font-size: 1.6em;
     letter-spacing: -0.04em;
     color: #fff;
-    margin: 0 0 8px;
+    margin: 0 0 4px;
 }
 .hero-last-workout {
     color: rgba(255,255,255,0.55);
     font-size: 0.8em;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     font-weight: 500;
 }
 .hero-stats-row {
     display: flex;
     border-top: 1px solid rgba(255,255,255,0.08);
-    padding-top: 14px;
+    padding-top: 10px;
 }
 .hero-stat {
     flex: 1;
@@ -1938,7 +1929,7 @@ body {
 /* מיקום מחודש לערוך תצוגה */
 .hero-edit-btn {
     position: absolute;
-    top: 20px; left: 20px; z-index: 2;
+    top: 16px; left: 16px; z-index: 2;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 50px;
@@ -1960,8 +1951,8 @@ body {
     box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.09);
     border: none;
     border-radius: 2rem;
-    padding: 14px 18px 12px;
-    margin-bottom: 24px;
+    padding: 12px 16px 10px;
+    margin-bottom: 14px;
     display: flex;
     flex-direction: column;
 }
@@ -1998,8 +1989,8 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 0 4px;
-    margin-top: 10px;
-    margin-bottom: 8px;
+    margin-top: 4px;
+    margin-bottom: 6px;
 }
 .home-pr-section-title {
     font-family: 'Heebo', sans-serif;
@@ -2032,7 +2023,7 @@ body {
 
 
 /* ── 4. Week Grid (UNCHANGED STYLES) ── */
-#ui-week .section-label { margin-top: 10px; margin-bottom: 8px; font-size: 1.05em; font-weight: 900; letter-spacing: -0.03em; font-family: 'Heebo', sans-serif; text-transform: uppercase; }
+#ui-week .section-label { margin-top: 6px; margin-bottom: 6px; font-size: 1.05em; font-weight: 900; letter-spacing: -0.03em; font-family: 'Heebo', sans-serif; text-transform: uppercase; }
 
 #ui-week .grid-menu { gap: 9px; }
 
@@ -2043,8 +2034,8 @@ body {
     box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.09);
     border: none;
     border-radius: 1.75rem;
-    padding: 10px 14px;
-    min-height: 64px;
+    padding: 8px 12px;
+    min-height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;

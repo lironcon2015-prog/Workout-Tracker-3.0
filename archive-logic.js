@@ -1,7 +1,7 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
- * Version: 14.12.0-71
- * שינויים: אנליטיקה - תצוגת Liquid Obsidian / Bento Grid, עקומות Bezier, ועקביות מתאריכים.
+ * Version: 14.12.0-72
+ * שינויים: אנליטיקה - תצוגת Stitch Perfect (Bento, Bezier, Liquid Obsidian).
  */
 
 // ─── ANALYTICS PREFS HELPERS ──────────────────────────────────────────────
@@ -12,7 +12,6 @@ function saveAnalyticsPrefs(prefs) { StorageManager.saveAnalyticsPrefs(prefs); }
 // ─── ARCHIVE VIEW ─────────────────────────────────────────────────────────
 
 const MONTH_NAMES_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-
 const DEFAULT_MICRO_ORDER = ['Bench Press (Main)', 'Overhead Press (Main)', 'Leg Press'];
 
 let selectedArchiveIds = new Set();
@@ -547,7 +546,7 @@ function switchMainTab(name) {
     haptic('light');
 }
 
-// ─── ANALYTICS DASHBOARD (LIQUID OBSIDIAN) ──────────────────────────────
+// ─── ANALYTICS DASHBOARD (STITCH PERFECT) ─────────────────────────────
 
 function renderAnalyticsDashboard() {
     const prefs = getAnalyticsPrefs(), archive = getArchiveClean();
@@ -568,7 +567,7 @@ function renderAnalyticsDashboard() {
 }
 
 function syncVolMuscleChips(muscle) {
-    document.querySelectorAll('#vol-muscle-chips .chip-new').forEach(b => {
+    document.querySelectorAll('#vol-muscle-chips .chip').forEach(b => {
         b.classList.toggle('active', b.dataset.muscle === muscle);
         b.classList.toggle('inactive', b.dataset.muscle !== muscle);
     });
@@ -586,34 +585,34 @@ function renderHeroMetricsGrid(archive) {
     el.innerHTML = `
         <div class="bento-card glass-highlight">
             <span class="material-symbols-outlined bento-icon-bg">fitness_center</span>
-            <p class="bento-lbl">נפח כולל</p>
+            <p class="bento-lbl font-headline italic-black tracking-widest">נפח כולל</p>
             <div>
-                <h2 class="bento-val">${(totalVol / 1000).toFixed(1)}</h2>
-                <p class="bento-sub">טון (Tonnes)</p>
+                <h2 class="bento-val font-headline italic-black">${(totalVol / 1000).toFixed(1)}</h2>
+                <p class="bento-sub font-label tracking-widest">טון (Tonnes)</p>
             </div>
         </div>
         <div class="bento-card glass-highlight">
             <span class="material-symbols-outlined bento-icon-bg">schedule</span>
-            <p class="bento-lbl">זמן כולל</p>
+            <p class="bento-lbl font-headline italic-black tracking-widest">זמן כולל</p>
             <div>
-                <h2 class="bento-val" style="color:var(--text);">${Math.round(totalDurMins / 60)}</h2>
-                <p class="bento-sub" style="color:var(--text-dim);">שעות (ממוצע ${avgDur} דק')</p>
+                <h2 class="bento-val font-headline italic-black" style="color:var(--text-main);">${Math.round(totalDurMins / 60)}</h2>
+                <p class="bento-sub font-label tracking-widest" style="color:rgba(229,226,225,0.5);">שעות (ממוצע ${avgDur} דק')</p>
             </div>
         </div>
         <div class="bento-card glass-highlight">
             <span class="material-symbols-outlined bento-icon-bg">calendar_today</span>
-            <p class="bento-lbl">אימונים</p>
+            <p class="bento-lbl font-headline italic-black tracking-widest">אימונים</p>
             <div>
-                <h2 class="bento-val" style="color:var(--text);">${total}</h2>
-                <p class="bento-sub" style="color:var(--text-dim);">סך הכל הושלמו</p>
+                <h2 class="bento-val font-headline italic-black" style="color:var(--text-main);">${total}</h2>
+                <p class="bento-sub font-label tracking-widest" style="color:rgba(229,226,225,0.5);">סך הכל הושלמו</p>
             </div>
         </div>
-        <div class="bento-card glass-highlight" style="border-color:rgba(255,184,104,0.3); background:rgba(255,184,104,0.06);">
-            <span class="material-symbols-outlined bento-icon-bg" style="color:var(--warning);">emoji_events</span>
-            <p class="bento-lbl" style="color:var(--warning);">שיא נפח</p>
+        <div class="bento-card glass-highlight">
+            <span class="material-symbols-outlined bento-icon-bg" style="color:#ffb868;">emoji_events</span>
+            <p class="bento-lbl font-headline italic-black tracking-widest" style="color:#ffb868;">שיא נפח</p>
             <div>
-                <h2 class="bento-val" style="color:var(--warning);">${(bestVol / 1000).toFixed(1)}</h2>
-                <p class="bento-sub" style="color:rgba(229,226,225,0.6);">טון לאימון בודד</p>
+                <h2 class="bento-val font-headline italic-black" style="color:#ffb868;">${(bestVol / 1000).toFixed(1)}</h2>
+                <p class="bento-sub font-label tracking-widest" style="color:rgba(229,226,225,0.5);">טון לאימון בודד</p>
             </div>
         </div>`;
 }
@@ -622,26 +621,27 @@ function renderHeroMetricsGrid(archive) {
 
 function renderVolumeBarChart(archive, n, muscleFilter) {
     const el = document.getElementById('vol-bar-chart'); if (!el) return;
-    const data = archive.slice(0, n);
+    const data = archive.slice(0, n).reverse();
 
     if (!data.length) { el.innerHTML = '<p class="color-dim text-sm text-center w-100">אין נתונים</p>'; return; }
 
     const vols = data.map(a => getWorkoutVolumeFiltered(a, muscleFilter));
     const maxV = Math.max(...vols) || 1;
 
-    el.innerHTML = data.map((a, i) => {
-        const pct = Math.max(10, (vols[i] / maxV * 95)).toFixed(1);
-        const isPeak = vols[i] === maxV;
-        const dt = (a.date || '').slice(0, 5);
-        const label = vols[i] >= 1000 ? (vols[i] / 1000).toFixed(1) + 't' : vols[i] + 'kg';
-        return `<div class="bar-col-wrap">
-            <div class="bar-col-track">
-                <div class="bar-col-val">${label}</div>
-                <div class="bar-col-fill${isPeak ? ' peak' : ''}" style="height:${pct}%"></div>
-            </div>
-            <div class="bar-col-date">${dt}</div>
-        </div>`;
-    }).join('');
+    el.innerHTML = `
+        <div class="bar-grid-lines"><div></div><div></div><div></div><div></div></div>
+        ${data.map((a, i) => {
+            const pct = Math.max(10, (vols[i] / maxV * 95)).toFixed(1);
+            const isPeak = vols[i] === maxV;
+            const dt = (a.date || '').slice(0, 5);
+            const label = vols[i] >= 1000 ? (vols[i] / 1000).toFixed(1) + 't' : vols[i] + 'k';
+            return `<div class="bar-col-wrap">
+                <div class="bar-lbl-top">${label}</div>
+                <div class="bar${isPeak ? ' peak' : ''}" style="height:${pct}%;"></div>
+                <div class="bar-lbl-btm">${dt}</div>
+            </div>`;
+        }).join('')}
+    `;
 }
 
 // ─── WORKOUT TYPE CHART ───────────────────────────────────────────────────
@@ -678,19 +678,18 @@ function renderWorkoutTypeChart(archive) {
 
     if (!entries.length) { el.innerHTML = '<p class="color-dim text-sm text-center">אין נתונים</p>'; return; }
     const maxAvg = Math.max(...entries.map(e => e.avg)) || 1;
-    const COLORS = ['var(--type-a)', 'var(--type-b)', 'var(--type-c)', 'var(--type-free)', 'var(--accent)'];
+    const COLORS = ['#0A84FF', '#47e266', '#ffb868', '#5E5CE6', '#ff453a'];
 
     el.innerHTML = entries.map((e, i) => {
         const pct = (e.avg / maxAvg * 100).toFixed(1);
         const color = (e.aliased && aliasColors[e.display]) ? aliasColors[e.display] : COLORS[i % COLORS.length];
         const label = e.avg >= 1000 ? (e.avg / 1000).toFixed(1) + 't' : e.avg + 'kg';
         const groupedCls = e.aliased ? ' grouped' : '';
-        const gdot = e.aliased ? '<span class="hbar-gdot"></span>' : '';
         const tooltipData = e.aliased ? `data-members="${e.rawNames.join('|')}"` : '';
         return `<div class="hbar-row">
-            <div class="hbar-label${groupedCls}" ${tooltipData} onclick="showWTToast('${e.display.replace(/'/g, "\\'")}','${e.rawNames.join(", ").replace(/'/g, "\\'")}',${e.count})">${gdot}${e.display}</div>
+            <div class="hbar-label${groupedCls}" ${tooltipData} onclick="showWTToast('${e.display.replace(/'/g, "\\'")}','${e.rawNames.join(", ").replace(/'/g, "\\'")}',${e.count})">${e.display}</div>
             <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color};"></div><span class="hbar-val">${label}</span></div>
-            <div class="hbar-count">${e.count}×</div>
+            <div class="hbar-count font-headline italic-black" style="font-size:0.8rem;color:var(--text-dim);width:24px;text-align:left;">${e.count}</div>
         </div>`;
     }).join('');
 }
@@ -932,7 +931,7 @@ function _saveAliasGroup() {
 
 // ─── DONUT CHART ──────────────────────────────────────────────────────────
 
-const DONUT_COLORS = ['#0A84FF', '#32D74B', '#FF9F0A', '#BF5AF2', '#ff453a', '#AEAEB2'];
+const DONUT_COLORS = ['#0A84FF', '#47e266', '#ffb868', '#BF5AF2', '#ff453a', '#AEAEB2'];
 
 function renderDonutChart(archive, range) {
     const svgEl = document.getElementById('donut-svg-el');
@@ -944,30 +943,30 @@ function renderDonutChart(archive, range) {
     const total = entries.reduce((s, e) => s + e[1], 0);
     
     if (!total) { 
-        svgEl.innerHTML = '<circle cx="60" cy="60" r="45" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="16"/>'; 
-        centerEl.innerHTML = '<div class="val">—</div>'; 
-        legendEl.innerHTML = '<div class="color-dim text-sm">אין נתונים</div>'; 
+        svgEl.innerHTML = '<circle cx="50" cy="50" r="40" fill="none" stroke="#353534" stroke-width="12"/>'; 
+        centerEl.innerHTML = '<p class="val font-headline italic-black">—</p><p class="lbl font-label tracking-widest">סטים</p>'; 
+        legendEl.innerHTML = '<div class="color-dim text-sm text-center">אין נתונים</div>'; 
         return; 
     }
     
-    const r = 45, ci = 2 * Math.PI * r;
+    const r = 40, ci = 2 * Math.PI * r;
     let offset = 0, circles = '', legendHtml = '';
     entries.forEach(([name, sets], i) => {
         const da = (sets / total * ci).toFixed(2), gap = (ci - parseFloat(da)).toFixed(2);
-        circles += `<circle cx="60" cy="60" r="${r}" fill="none" stroke="${DONUT_COLORS[i]}" stroke-width="16" stroke-linecap="round" stroke-dasharray="${da} ${gap}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
+        circles += `<circle cx="50" cy="50" r="${r}" fill="none" stroke="${DONUT_COLORS[i]}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${da} ${gap}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
         const pct = Math.round((sets / total) * 100);
         legendHtml += `
             <div class="legend-row">
                 <div class="legend-left">
                     <div class="legend-dot" style="background:${DONUT_COLORS[i]}"></div>
-                    <span class="legend-name">${name}</span>
+                    <span class="legend-name font-bold text-xs" style="opacity:0.8; text-transform:uppercase;">${name}</span>
                 </div>
-                <span class="legend-val">${pct}%</span>
+                <span class="legend-val font-headline italic-black" style="font-size:0.75rem;">${pct}%</span>
             </div>`;
         offset += parseFloat(da);
     });
-    svgEl.innerHTML = `<circle cx="60" cy="60" r="${r}" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="16"/>${circles}`;
-    centerEl.innerHTML = `<div class="val">${total}</div><div class="lbl">סטים</div>`;
+    svgEl.innerHTML = `<circle cx="50" cy="50" r="${r}" fill="none" stroke="#353534" stroke-width="12"/>${circles}`;
+    centerEl.innerHTML = `<p class="val font-headline italic-black">${total}</p><p class="lbl font-label tracking-widest">סטים</p>`;
     legendEl.innerHTML = legendHtml;
 }
 
@@ -975,7 +974,7 @@ function renderDonutChart(archive, range) {
 
 function renderConsistencyTrack(archive, n) {
     const el = document.getElementById('cons-track'); if (!el) return;
-    const data = archive.slice(0, n);
+    const data = archive.slice(0, n).reverse();
     if (data.length < 2) { el.innerHTML = '<p class="color-dim text-sm text-center w-100">נדרשים לפחות 2 אימונים למעקב</p>'; return; }
 
     const prefs = getAnalyticsPrefs();
@@ -997,25 +996,25 @@ function renderConsistencyTrack(archive, n) {
 
     const legendEl = document.getElementById('cons-legend');
     if (legendEl) legendEl.innerHTML = `
-        <span style="color:var(--success)">● ≤${greenT} ימים</span>
-        <span style="color:var(--warning)">● ${greenT + 1}–${orangeT} ימים</span>
-        <span style="color:var(--danger)">● ${orangeT + 1}+ ימים</span>`;
+        <span style="color:#47e266; font-size:0.7rem; font-weight:700;">● ≤${greenT} ימים</span>
+        <span style="color:#ffb868; font-size:0.7rem; font-weight:700; margin:0 8px;">● ${greenT + 1}–${orangeT} ימים</span>
+        <span style="color:#ff453a; font-size:0.7rem; font-weight:700;">● ${orangeT + 1}+ ימים</span>`;
 
-    let html = `<div class="cons-line-bg"></div>`;
+    let html = `<div class="cons-line"></div>`;
     data.forEach((w, i) => {
         const dt = new Date(w.timestamp).toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit'});
         let iconHtml = '', wrapCls = '';
         if (i < data.length - 1) {
-            const days = Math.round((data[i].timestamp - data[i + 1].timestamp) / 86400000);
+            const days = Math.round((data[i + 1].timestamp - data[i].timestamp) / 86400000);
             if (days <= greenT) { wrapCls = 'ok'; iconHtml = '<span class="material-symbols-outlined icon-fill">check_circle</span>'; }
             else if (days <= orangeT) { wrapCls = 'warn'; iconHtml = '<span class="material-symbols-outlined icon-fill">warning</span>'; }
-            else { wrapCls = 'danger'; iconHtml = '<span class="material-symbols-outlined icon-fill">error</span>'; }
+            else { wrapCls = 'empty'; iconHtml = ''; }
         } else {
-            wrapCls = 'ok'; iconHtml = '<span class="material-symbols-outlined icon-fill">flag</span>';
+            wrapCls = 'ok'; iconHtml = '<span class="material-symbols-outlined icon-fill">check_circle</span>';
         }
-        html += `<div class="cons-node-new">
+        html += `<div class="cons-node">
             <div class="cons-icon-wrap ${wrapCls}">${iconHtml}</div>
-            <span class="cons-day">${dt}</span>
+            <span class="cons-day font-headline italic-black">${dt}</span>
         </div>`;
     });
     el.innerHTML = html;
@@ -1054,7 +1053,6 @@ function populateMicroSelector(archive) {
     sel.innerHTML = sorted.map(e => `<option value="${e}">${e}</option>`).join('');
     if (current && exMap[current]) sel.value = current;
     
-    // Set custom display text
     const display = document.getElementById('micro-ex-display');
     if (sel.options.length > 0) {
         if (!sel.value) sel.value = sel.options[0].value;
@@ -1124,7 +1122,7 @@ function loadMicroData(exName) {
         .reverse();
         
     if (!relevant.length) {
-        document.getElementById('micro-line-svg').innerHTML = '<text x="200" y="80" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="14">אין מספיק נתונים לתרגיל זה</text>';
+        document.getElementById('micro-line-svg').innerHTML = '<text x="200" y="80" text-anchor="middle" fill="rgba(229,226,225,0.3)" font-size="14" font-family="Inter">אין נתונים לתרגיל זה</text>';
         return;
     }
     
@@ -1136,7 +1134,7 @@ function loadMicroData(exName) {
     });
     
     const heroEl = document.getElementById('micro-hero-e1rm');
-    if (heroEl) heroEl.textContent = Math.round(vals[vals.length - 1]);
+    if (heroEl) heroEl.innerHTML = `${Math.round(vals[vals.length - 1])}<span style="font-size:1.25rem; font-family:'Inter'; font-style:normal; opacity:0.5; margin-right:4px;">kg</span>`;
     
     drawMicroLineChart(vals, relevant.map(w => new Date(w.timestamp).toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit'})));
     renderIntensityScore(vals);
@@ -1186,7 +1184,7 @@ function drawMicroLineChart(vals, dates) {
     
     const n = vals.length;
     if (n < 2) { 
-        svg.innerHTML = '<text x="200" y="80" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="14">אין מספיק נתונים לגרף מגמה</text>'; 
+        svg.innerHTML = '<text x="200" y="80" text-anchor="middle" fill="rgba(229,226,225,0.3)" font-size="14" font-family="Inter">אין מספיק נתונים למגמה</text>'; 
         datesEl.innerHTML = '';
         return; 
     }
@@ -1204,18 +1202,19 @@ function drawMicroLineChart(vals, dates) {
     const linePath = getSmoothPath(pts);
     const areaPath = linePath + ` L${pts[n - 1][0]},${H} L${pts[0][0]},${H} Z`;
     
-    const dots = pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="var(--bg-lowest)" stroke="var(--accent)" stroke-width="2.5"/>`).join('');
+    const lastPt = pts[n - 1];
     
     svg.innerHTML = `
         <defs>
             <linearGradient id="chart-grad" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="var(--accent)"></stop>
-                <stop offset="100%" stop-color="rgba(10,132,255,0)"></stop>
+                <stop offset="0%" stop-color="#0A84FF"></stop>
+                <stop offset="100%" stop-color="transparent"></stop>
             </linearGradient>
         </defs>
-        <path d="${areaPath}" fill="url(#chart-grad)" opacity="0.25"></path>
-        <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"></path>
-        ${dots}
+        <path d="${areaPath}" fill="url(#chart-grad)" opacity="0.15"></path>
+        <path d="${linePath}" fill="none" stroke="#0A84FF" stroke-width="4" stroke-linecap="round"></path>
+        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="6" fill="#0A84FF"></circle>
+        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="10" fill="none" stroke="#0A84FF" stroke-width="2" opacity="0.3"></circle>
     `;
     
     datesEl.innerHTML = dates.map(d => `<span>${d}</span>`).join('');
@@ -1234,14 +1233,22 @@ function renderIntensityScore(vals) {
     const last = vals[vals.length - 1];
     const prev = vals.length > 1 ? vals[vals.length - 2] : last;
     const delta = (last - prev);
+    const avg = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
     
     valEl.textContent = (last * 0.85).toFixed(1);
-    avgVolEl.textContent = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) + 'kg';
+    avgVolEl.innerHTML = `${avg}<span style="font-size:0.75rem; font-family:'Inter'; font-style:normal; opacity:0.4; margin-right:4px;">kg</span>`;
     
     if (trendEl) {
         trendEl.className = 'i-trend ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat');
         iconEl.textContent = delta > 0 ? 'trending_up' : delta < 0 ? 'trending_down' : 'horizontal_rule';
         textEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
+        if(delta === 0) {
+            trendEl.style.color = "var(--text-dim)";
+        } else if(delta > 0) {
+            trendEl.style.color = "#47e266";
+        } else {
+            trendEl.style.color = "#ffb4ab";
+        }
     }
     
     if (sparkEl && vals.length >= 2) {
@@ -1249,10 +1256,9 @@ function renderIntensityScore(vals) {
         const spx = i => (i / (n - 1)) * W, spy = v => H - 4 - ((v - mn) / ((mx - mn) || 1)) * (H - 8);
         const spts = vals.map((v, i) => [spx(i), spy(v)]);
         const path = spts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ');
-        const lp = spts[n - 1];
+        
         sparkEl.innerHTML = `
-            <path d="${path}" fill="none" stroke="var(--text-dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="${lp[0]}" cy="${lp[1]}" r="3" fill="var(--text)"/>
+            <path d="${path}" fill="none" stroke="#47e266" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         `;
     }
 }
@@ -1285,10 +1291,10 @@ function togglePRCard() {
 }
 
 function switchAnalyticsTab(name, btn) {
-    document.querySelectorAll('#analytics-seg .seg-btn-new').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#analytics-seg .seg-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     
-    document.querySelectorAll('#ui-analytics .tab-content-new').forEach(el => {
+    document.querySelectorAll('#ui-analytics .tab-content').forEach(el => {
         el.style.display = 'none';
         el.classList.remove('active');
     });
@@ -1303,7 +1309,7 @@ function switchAnalyticsTab(name, btn) {
 function _updateChipGroup(id, btn) { const c = document.getElementById(id); if (c) c.querySelectorAll('button').forEach(b => b.classList.remove('active')); if (btn) btn.classList.add('active'); }
 
 function setVolRange(n, btn) { _updateChipGroup('vol-chips', btn); const p = getAnalyticsPrefs(); p.volumeRange = n; saveAnalyticsPrefs(p); renderVolumeBarChart(getArchiveClean(), n, p.volumeMuscle || 'all'); }
-function setVolMuscle(muscle, btn) { document.querySelectorAll('#vol-muscle-chips .chip-new').forEach(b => { b.classList.remove('active'); b.classList.add('inactive'); }); if (btn) { btn.classList.add('active'); btn.classList.remove('inactive'); } const p = getAnalyticsPrefs(); p.volumeMuscle = muscle; saveAnalyticsPrefs(p); renderVolumeBarChart(getArchiveClean(), p.volumeRange, muscle); }
+function setVolMuscle(muscle, btn) { document.querySelectorAll('#vol-muscle-chips .chip').forEach(b => { b.classList.remove('active'); b.classList.add('inactive'); }); if (btn) { btn.classList.add('active'); btn.classList.remove('inactive'); } const p = getAnalyticsPrefs(); p.volumeMuscle = muscle; saveAnalyticsPrefs(p); renderVolumeBarChart(getArchiveClean(), p.volumeRange, muscle); }
 function setMuscleRange(r, btn) { _updateChipGroup('muscle-chips', btn); const p = getAnalyticsPrefs(); p.muscleRange = r; saveAnalyticsPrefs(p); renderDonutChart(getArchiveClean(), r); }
 function setConsRange(n, btn) { _updateChipGroup('cons-chips', btn); const p = getAnalyticsPrefs(); p.consistencyRange = n; saveAnalyticsPrefs(p); renderConsistencyTrack(getArchiveClean(), n); }
 function setMicroPoints(n, btn) { _updateChipGroup('micro-pts-chips', btn); const p = getAnalyticsPrefs(); p.microPoints = n; saveAnalyticsPrefs(p); const s = document.getElementById('micro-ex-selector'); if (s && s.value) loadMicroData(s.value); }

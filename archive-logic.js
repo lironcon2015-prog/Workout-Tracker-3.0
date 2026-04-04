@@ -1,7 +1,7 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
- * Version: 14.12.0
- * שינויים: תצוגת פרטי אימון עשירה (כמו סיכום), חודש שוטף collapsible, סדר ברירת מחדל יציב בהתקדמות תרגיל
+ * Version: 14.12.0-71
+ * שינויים: אנליטיקה - תצוגת Liquid Obsidian / Bento Grid, עקומות Bezier, ועקביות מתאריכים.
  */
 
 // ─── ANALYTICS PREFS HELPERS ──────────────────────────────────────────────
@@ -13,7 +13,6 @@ function saveAnalyticsPrefs(prefs) { StorageManager.saveAnalyticsPrefs(prefs); }
 
 const MONTH_NAMES_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 
-// סדר ברירת מחדל לכרטיסיית התקדמות תרגיל
 const DEFAULT_MICRO_ORDER = ['Bench Press (Main)', 'Overhead Press (Main)', 'Leg Press'];
 
 let selectedArchiveIds = new Set();
@@ -170,8 +169,6 @@ function renderArchiveList() {
         }, 0);
         const volStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
 
-        // חודש שוטף וחודשים עבר — אותו תבנית collapsible.
-        // חודש שוטף: פתוח כברירת מחדל (open class, ללא collapsed על items).
         const monthContainer = document.createElement('div');
         monthContainer.className = 'archive-month-group';
 
@@ -187,7 +184,6 @@ function renderArchiveList() {
             <div class="archive-month-arrow">›</div>`;
 
         const itemsContainer = document.createElement('div');
-        // חודש שוטף — מתחיל פתוח; חודשים עבר — מתחיל סגור
         itemsContainer.className = group.isCurrentMonth
             ? 'archive-month-items'
             : 'archive-month-items collapsed';
@@ -244,12 +240,6 @@ function copyBulkLog(mode) {
 
 // ─── ARCHIVE DETAIL ───────────────────────────────────────────────────────
 
-/**
- * מחלץ את סדר התרגילים הנכון מתוך מחרוזת ה-summary השמורה.
- * מחפש שורות בפורמט: "ExName (Vol: Xkg):" או "ExName (Main) (Vol: Xkg):"
- * שומר את (Main) כחלק מהשם כדי להתאים למפתחות ב-details.
- * מחזיר מערך שמות מסודר, או מערך ריק אם הפרסור נכשל.
- */
 function _parseExOrderFromSummary(summary) {
     if (!summary) return [];
     const order = [];
@@ -261,9 +251,6 @@ function _parseExOrderFromSummary(summary) {
     return order;
 }
 
-/**
- * בונה HTML עשיר לפרטי אימון מהארכיון — בסגנון מסך סיכום האימון.
- */
 function buildArchiveDetailHTML(item) {
     const meta = state.workoutMeta[item.type];
     const typeColor = (meta && meta.color) ? meta.color : 'var(--type-free)';
@@ -290,7 +277,6 @@ function buildArchiveDetailHTML(item) {
     }
 
     if (item.log && item.log.length > 0) {
-        // ── Segment-based rendering (new entries with stored log) ──
         const segs = [];
         item.log.filter(l => !l.skip).forEach(entry => {
             const last = segs[segs.length - 1];
@@ -325,7 +311,6 @@ function buildArchiveDetailHTML(item) {
                     ${setRows}
                 </div>`;
             } else {
-                // cluster — group by round
                 const byRound = {};
                 seg.sets.forEach(entry => {
                     const rn = entry.round || 1;
@@ -357,7 +342,6 @@ function buildArchiveDetailHTML(item) {
             }
         });
     } else if (item.details) {
-        // ── Fallback: flat display for old entries without log field ──
         const detailKeys = Object.keys(item.details);
         let exOrder;
         if (item.exOrder && item.exOrder.length > 0) {
@@ -404,7 +388,6 @@ function buildArchiveDetailHTML(item) {
     }
 
     html += `<div style="text-align:center;padding:12px 0 4px;font-size:0.8em;color:var(--text-dim);">נפח כולל: ${totalVolStr}</div>`;
-
     return html;
 }
 
@@ -414,7 +397,6 @@ function openArchiveDetail(idx) {
     const item = archive[idx];
 
     const contentEl = document.getElementById('archive-detail-content');
-    // הסרת class summary-card (monospace/pre-wrap) והצגת HTML עשיר
     contentEl.className = '';
     contentEl.innerHTML = buildArchiveDetailHTML(item);
 
@@ -528,7 +510,7 @@ function closeDayDrawer() {
     setTimeout(() => { overlay.style.display = 'none'; }, 300);
 }
 
-// ─── HERO CARD ────────────────────────────────────────────────────────────
+// ─── HERO CARD (HOME) ──────────────────────────────────────────────────────
 
 const HERO_METRIC_DEFS = {
     days:     (a) => { const d = a.length ? Math.floor((Date.now() - a[0].timestamp) / 86400000) : '—'; return { val: d, lbl: 'ימים מאז\nאחרון' }; },
@@ -565,7 +547,7 @@ function switchMainTab(name) {
     haptic('light');
 }
 
-// ─── ANALYTICS DASHBOARD ─────────────────────────────────────────────────
+// ─── ANALYTICS DASHBOARD (LIQUID OBSIDIAN) ──────────────────────────────
 
 function renderAnalyticsDashboard() {
     const prefs = getAnalyticsPrefs(), archive = getArchiveClean();
@@ -576,9 +558,9 @@ function renderAnalyticsDashboard() {
     renderConsistencyTrack(archive, prefs.consistencyRange);
     populateMicroSelector(archive);
     syncVolMuscleChips(prefs.volumeMuscle || 'all');
-    // סנכרון muscle-chips עם הפרפס השמור (כולל '1w')
+    
     const mr = prefs.muscleRange || '1m';
-    document.querySelectorAll('#muscle-chips .range-chip').forEach(b => {
+    document.querySelectorAll('#muscle-chips button').forEach(b => {
         const onclick = b.getAttribute('onclick') || '';
         const match = onclick.match(/setMuscleRange\('([^']+)'/);
         b.classList.toggle('active', match ? match[1] === mr : false);
@@ -586,8 +568,9 @@ function renderAnalyticsDashboard() {
 }
 
 function syncVolMuscleChips(muscle) {
-    document.querySelectorAll('#vol-muscle-chips .range-chip').forEach(b => {
+    document.querySelectorAll('#vol-muscle-chips .chip-new').forEach(b => {
         b.classList.toggle('active', b.dataset.muscle === muscle);
+        b.classList.toggle('inactive', b.dataset.muscle !== muscle);
     });
 }
 
@@ -597,12 +580,42 @@ function renderHeroMetricsGrid(archive) {
     const totalDurMins = archive.reduce((s, a) => s + (a.duration || 0), 0);
     const bestVol = archive.reduce((mx, a) => Math.max(mx, getWorkoutVolume(a)), 0);
     const avgDur = total ? Math.round(totalDurMins / total) : 0;
+    
     const el = document.getElementById('hero-metrics-grid'); if (!el) return;
+    
     el.innerHTML = `
-        <div class="metric-tile"><div class="metric-tile-lbl">נפח כולל</div><div class="metric-tile-val" style="color:var(--accent)">${(totalVol / 1000).toFixed(1)}t</div><div class="metric-tile-sub">${total} אימונים</div></div>
-        <div class="metric-tile"><div class="metric-tile-lbl">זמן כולל</div><div class="metric-tile-val">${Math.round(totalDurMins / 60)}h</div><div class="metric-tile-sub">ממוצע ${avgDur}m</div></div>
-        <div class="metric-tile"><div class="metric-tile-lbl">אימונים</div><div class="metric-tile-val">${total}</div><div class="metric-tile-sub">&nbsp;</div></div>
-        <div class="metric-tile highlight"><div class="metric-tile-lbl" style="color:var(--type-b)">שיא נפח</div><div class="metric-tile-val" style="color:var(--type-b)">${(bestVol / 1000).toFixed(1)}t</div><div class="metric-tile-sub">&nbsp;</div></div>`;
+        <div class="bento-card glass-highlight">
+            <span class="material-symbols-outlined bento-icon-bg">fitness_center</span>
+            <p class="bento-lbl">נפח כולל</p>
+            <div>
+                <h2 class="bento-val">${(totalVol / 1000).toFixed(1)}</h2>
+                <p class="bento-sub">טון (Tonnes)</p>
+            </div>
+        </div>
+        <div class="bento-card glass-highlight">
+            <span class="material-symbols-outlined bento-icon-bg">schedule</span>
+            <p class="bento-lbl">זמן כולל</p>
+            <div>
+                <h2 class="bento-val" style="color:var(--text);">${Math.round(totalDurMins / 60)}</h2>
+                <p class="bento-sub" style="color:var(--text-dim);">שעות (ממוצע ${avgDur} דק')</p>
+            </div>
+        </div>
+        <div class="bento-card glass-highlight">
+            <span class="material-symbols-outlined bento-icon-bg">calendar_today</span>
+            <p class="bento-lbl">אימונים</p>
+            <div>
+                <h2 class="bento-val" style="color:var(--text);">${total}</h2>
+                <p class="bento-sub" style="color:var(--text-dim);">סך הכל הושלמו</p>
+            </div>
+        </div>
+        <div class="bento-card glass-highlight" style="border-color:rgba(255,184,104,0.3); background:rgba(255,184,104,0.06);">
+            <span class="material-symbols-outlined bento-icon-bg" style="color:var(--warning);">emoji_events</span>
+            <p class="bento-lbl" style="color:var(--warning);">שיא נפח</p>
+            <div>
+                <h2 class="bento-val" style="color:var(--warning);">${(bestVol / 1000).toFixed(1)}</h2>
+                <p class="bento-sub" style="color:rgba(229,226,225,0.6);">טון לאימון בודד</p>
+            </div>
+        </div>`;
 }
 
 // ─── VOLUME BAR CHART ─────────────────────────────────────────────────────
@@ -611,30 +624,23 @@ function renderVolumeBarChart(archive, n, muscleFilter) {
     const el = document.getElementById('vol-bar-chart'); if (!el) return;
     const data = archive.slice(0, n);
 
-    const trendEl = document.getElementById('vol-trend-badge');
-    if (trendEl) {
-        if (data.length >= 4) {
-            const half = Math.floor(data.length / 2);
-            const recentAvg = data.slice(0, half).reduce((s, a) => s + getWorkoutVolumeFiltered(a, muscleFilter), 0) / half;
-            const olderAvg = data.slice(half).reduce((s, a) => s + getWorkoutVolumeFiltered(a, muscleFilter), 0) / (data.length - half);
-            if (olderAvg > 0) {
-                const pct = Math.round((recentAvg - olderAvg) / olderAvg * 100);
-                trendEl.innerHTML = `<span style="color:${pct >= 0 ? 'var(--type-b)' : 'var(--danger)'};font-size:0.85em;font-weight:700;">${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
-            } else trendEl.innerHTML = '';
-        } else trendEl.innerHTML = '';
-    }
-
-    if (!data.length) { el.innerHTML = '<p class="color-dim text-sm text-center mt-md">אין נתונים</p>'; return; }
+    if (!data.length) { el.innerHTML = '<p class="color-dim text-sm text-center w-100">אין נתונים</p>'; return; }
 
     const vols = data.map(a => getWorkoutVolumeFiltered(a, muscleFilter));
     const maxV = Math.max(...vols) || 1;
 
     el.innerHTML = data.map((a, i) => {
-        const pct = (vols[i] / maxV * 88).toFixed(1);
+        const pct = Math.max(10, (vols[i] / maxV * 95)).toFixed(1);
         const isPeak = vols[i] === maxV;
         const dt = (a.date || '').slice(0, 5);
         const label = vols[i] >= 1000 ? (vols[i] / 1000).toFixed(1) + 't' : vols[i] + 'kg';
-        return `<div class="bar-col-wrap"><div class="bar-col-track"><div class="bar-col-val">${label}</div><div class="bar-col-fill${isPeak ? ' peak' : ''}" style="height:${pct}%"></div></div><div class="bar-col-date">${dt}</div></div>`;
+        return `<div class="bar-col-wrap">
+            <div class="bar-col-track">
+                <div class="bar-col-val">${label}</div>
+                <div class="bar-col-fill${isPeak ? ' peak' : ''}" style="height:${pct}%"></div>
+            </div>
+            <div class="bar-col-date">${dt}</div>
+        </div>`;
     }).join('');
 }
 
@@ -676,7 +682,6 @@ function renderWorkoutTypeChart(archive) {
 
     el.innerHTML = entries.map((e, i) => {
         const pct = (e.avg / maxAvg * 100).toFixed(1);
-        // אימונים מקובצים — צבע מוגדר; אחרים — COLORS רציקלי
         const color = (e.aliased && aliasColors[e.display]) ? aliasColors[e.display] : COLORS[i % COLORS.length];
         const label = e.avg >= 1000 ? (e.avg / 1000).toFixed(1) + 't' : e.avg + 'kg';
         const groupedCls = e.aliased ? ' grouped' : '';
@@ -743,13 +748,13 @@ function _renderAliasStep1() {
     const rawToGroup = {};
     Object.entries(aliases).forEach(([g, ms]) => ms.forEach(m => rawToGroup[m] = g));
 
-    let html = `<div class="sh-title">קיבוץ סוגי אימונים</div>
+    let html = `<div class="sh-title">קיבוץ תוכניות</div>
         <div class="sheet-content" style="font-size:0.78em;color:var(--text-dim);margin-bottom:18px;line-height:1.5;">
-            סמן אימונים שהם למעשה אותו אימון — שמות שהשתנו על פני זמן
+            סמן אימונים שהם למעשה אותה תוכנית — לאיחוד נתונים בגרף.
         </div>`;
 
     if (Object.keys(aliases).length > 0) {
-        html += `<div style="font-size:0.62em;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">קבוצות קיימות</div>`;
+        html += `<div style="font-size:0.62em;color:var(--text-dim);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">קבוצות קיימות</div>`;
         Object.entries(aliases).forEach(([g, ms]) => {
             html += `<div class="alias-existing-row" onclick="_editAliasGroup('${g.replace(/'/g, "\\'")}')">
                 <div class="alias-eg-dot"></div>
@@ -763,7 +768,7 @@ function _renderAliasStep1() {
         html += `<div style="height:1px;background:rgba(255,255,255,0.07);margin:14px 0;"></div>`;
     }
 
-    html += `<div style="font-size:0.62em;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">קבוצה חדשה — בחר אימונים</div>`;
+    html += `<div style="font-size:0.62em;color:var(--text-dim);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">קבוצה חדשה — בחר אימונים לאיחוד</div>`;
 
     const rawNames = Object.keys(rawMap).sort();
     rawNames.forEach(t => {
@@ -824,7 +829,6 @@ function _renderAliasStep2() {
     const selArr = [..._aliasSelected];
     const suggested = _aliasGroupName || selArr.reduce((a, b) => a.length <= b.length ? a : b, selArr[0] || '');
 
-    // צבע נוכחי לקבוצה (אם קיים מעריכה)
     const prefs = getAnalyticsPrefs();
     const aliasColors = prefs.workoutAliasColors || {};
     const currentColor = _aliasEditingGroup ? (aliasColors[_aliasEditingGroup] || '') : (_aliasGroupName ? (aliasColors[_aliasGroupName] || '') : '');
@@ -837,12 +841,12 @@ function _renderAliasStep2() {
             onclick="_selectAliasColor('${c.hex}',this)"></div>`
     ).join('');
 
-    const html = `<div class="sh-title">שם וצבע לקבוצה</div>
+    const html = `<div class="sh-title">שם וצבע</div>
         <div class="sheet-content" style="font-size:0.78em;color:var(--text-dim);margin-bottom:18px;line-height:1.5;">
-            בחר שם קצר וצבע שיופיעו בגרף
+            בחר שם וצבע שייצגו את הקבוצה בגרף.
         </div>
         <div class="alias-name-field">
-            <div class="alias-name-lbl">שם תצוגה בגרף</div>
+            <div class="alias-name-lbl">שם תצוגה מקוצר</div>
             <input class="alias-name-input" id="alias-name-inp" type="text"
                 value="${suggested}"
                 placeholder="לדוגמה: חזה"
@@ -850,7 +854,7 @@ function _renderAliasStep2() {
                 onkeydown="if(event.key==='Enter')_renderAliasStep3()">
         </div>
         <div class="alias-name-field" style="margin-top:14px;">
-            <div class="alias-name-lbl">צבע בגרף (אופציונלי)</div>
+            <div class="alias-name-lbl">צבע מזהה (אופציונלי)</div>
             <div class="color-swatches-row" style="margin-top:8px;">${swatchesHtml}</div>
         </div>
         <div class="alias-preview-box">
@@ -875,7 +879,6 @@ function _onAliasNameInput(v) {
 }
 
 function _selectAliasColor(hex, el) {
-    // toggle — לחיצה שנייה על אותו צבע מבטלת בחירה
     _aliasSelectedColor = (_aliasSelectedColor === hex) ? '' : hex;
     document.querySelectorAll('.alias-color-swatch').forEach(s => s.classList.remove('active'));
     if (_aliasSelectedColor && el) el.classList.add('active');
@@ -894,18 +897,18 @@ function _renderAliasStep3() {
     const avgVol = totalCount > 0 ? Math.round(totalVol / totalCount) : 0;
     const avgStr = avgVol >= 1000 ? (avgVol / 1000).toFixed(1) + 't' : avgVol + 'kg';
 
-    const html = `<div class="sh-title">אישור קיבוץ</div>
-        <div class="sheet-content" style="font-size:0.78em;color:var(--text-dim);margin-bottom:18px;">כך ייראה הגרף לאחר האיחוד</div>
+    const html = `<div class="sh-title">אישור איחוד</div>
+        <div class="sheet-content" style="font-size:0.78em;color:var(--text-dim);margin-bottom:18px;">כך זה ייראה לאחר השמירה:</div>
         <div class="alias-confirm-box">
             <div class="alias-confirm-name">${_aliasGroupName}</div>
             <div style="font-size:0.72em;color:var(--text-dim);margin-bottom:6px;">${totalCount} אימונים · ממוצע ${avgStr}</div>
-            <div class="alias-confirm-arrow">יאחד את ↓</div>
+            <div class="alias-confirm-arrow">מכיל ↓</div>
             <div class="alias-confirm-tags">
                 ${selArr.map(n => `<span class="alias-confirm-tag">${n}</span>`).join('')}
             </div>
         </div>
-        <button class="btn-main success-gradient" onclick="_saveAliasGroup()">✓ שמור קיבוץ</button>
-        <button class="btn-text" onclick="_renderAliasStep2()">⟵ ערוך שם</button>`;
+        <button class="btn-main success-gradient" onclick="_saveAliasGroup()">✓ שמור קבוצה</button>
+        <button class="btn-text" onclick="_renderAliasStep2()">⟵ חזור</button>`;
 
     document.getElementById('alias-sheet-body').innerHTML = html;
 }
@@ -939,17 +942,32 @@ function renderDonutChart(archive, range) {
     const map = getMuscleSetCounts(archive, range);
     const entries = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const total = entries.reduce((s, e) => s + e[1], 0);
-    if (!total) { svgEl.innerHTML = ''; centerEl.innerHTML = '<div class="donut-center-val">—</div>'; legendEl.innerHTML = '<div class="color-dim text-sm">אין נתונים</div>'; return; }
-    const r = 46, ci = 2 * Math.PI * r;
+    
+    if (!total) { 
+        svgEl.innerHTML = '<circle cx="60" cy="60" r="45" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="16"/>'; 
+        centerEl.innerHTML = '<div class="val">—</div>'; 
+        legendEl.innerHTML = '<div class="color-dim text-sm">אין נתונים</div>'; 
+        return; 
+    }
+    
+    const r = 45, ci = 2 * Math.PI * r;
     let offset = 0, circles = '', legendHtml = '';
     entries.forEach(([name, sets], i) => {
         const da = (sets / total * ci).toFixed(2), gap = (ci - parseFloat(da)).toFixed(2);
-        circles += `<circle cx="60" cy="60" r="${r}" fill="none" stroke="${DONUT_COLORS[i]}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${da} ${gap}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
-        legendHtml += `<div class="donut-legend-row"><div class="donut-legend-dot" style="background:${DONUT_COLORS[i]}"></div><div class="donut-legend-name">${name}</div><div class="donut-legend-pct">${sets} סטים</div></div>`;
+        circles += `<circle cx="60" cy="60" r="${r}" fill="none" stroke="${DONUT_COLORS[i]}" stroke-width="16" stroke-linecap="round" stroke-dasharray="${da} ${gap}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
+        const pct = Math.round((sets / total) * 100);
+        legendHtml += `
+            <div class="legend-row">
+                <div class="legend-left">
+                    <div class="legend-dot" style="background:${DONUT_COLORS[i]}"></div>
+                    <span class="legend-name">${name}</span>
+                </div>
+                <span class="legend-val">${pct}%</span>
+            </div>`;
         offset += parseFloat(da);
     });
-    svgEl.innerHTML = `<circle cx="60" cy="60" r="${r}" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="14"/>${circles}`;
-    centerEl.innerHTML = `<div class="donut-center-val">${total}</div><div class="donut-center-sub">סטים</div>`;
+    svgEl.innerHTML = `<circle cx="60" cy="60" r="${r}" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="16"/>${circles}`;
+    centerEl.innerHTML = `<div class="val">${total}</div><div class="lbl">סטים</div>`;
     legendEl.innerHTML = legendHtml;
 }
 
@@ -958,11 +976,9 @@ function renderDonutChart(archive, range) {
 function renderConsistencyTrack(archive, n) {
     const el = document.getElementById('cons-track'); if (!el) return;
     const data = archive.slice(0, n);
-    if (data.length < 2) { el.innerHTML = '<p class="color-dim text-sm">נדרשים לפחות 2 אימונים</p>'; return; }
+    if (data.length < 2) { el.innerHTML = '<p class="color-dim text-sm text-center w-100">נדרשים לפחות 2 אימונים למעקב</p>'; return; }
 
     const prefs = getAnalyticsPrefs();
-
-    // סף ימים — מותאם אישית אם קיים, אחרת חישוב אוטומטי מ-median
     let greenT, orangeT;
     if (prefs.consistencyGreen && prefs.consistencyOrange) {
         greenT = prefs.consistencyGreen;
@@ -981,20 +997,26 @@ function renderConsistencyTrack(archive, n) {
 
     const legendEl = document.getElementById('cons-legend');
     if (legendEl) legendEl.innerHTML = `
-        <span style="color:var(--type-b)">● ≤${greenT} ימים</span>
-        <span style="color:var(--type-c)">● ${greenT + 1}–${orangeT} ימים</span>
+        <span style="color:var(--success)">● ≤${greenT} ימים</span>
+        <span style="color:var(--warning)">● ${greenT + 1}–${orangeT} ימים</span>
         <span style="color:var(--danger)">● ${orangeT + 1}+ ימים</span>`;
 
-    let html = '';
+    let html = `<div class="cons-line-bg"></div>`;
     data.forEach((w, i) => {
-        let cls = 'today', label = '●';
+        const dt = new Date(w.timestamp).toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit'});
+        let iconHtml = '', wrapCls = '';
         if (i < data.length - 1) {
             const days = Math.round((data[i].timestamp - data[i + 1].timestamp) / 86400000);
-            cls = days <= greenT ? 'green' : days <= orangeT ? 'orange' : 'red';
-            label = days + 'd';
+            if (days <= greenT) { wrapCls = 'ok'; iconHtml = '<span class="material-symbols-outlined icon-fill">check_circle</span>'; }
+            else if (days <= orangeT) { wrapCls = 'warn'; iconHtml = '<span class="material-symbols-outlined icon-fill">warning</span>'; }
+            else { wrapCls = 'danger'; iconHtml = '<span class="material-symbols-outlined icon-fill">error</span>'; }
+        } else {
+            wrapCls = 'ok'; iconHtml = '<span class="material-symbols-outlined icon-fill">flag</span>';
         }
-        html += `<div class="cons-node-wrap"><div class="cons-node ${cls}">${label}</div><div class="cons-node-date">${(w.date || '').slice(0, 5)}</div></div>`;
-        if (i < data.length - 1) html += `<div class="cons-connector"></div>`;
+        html += `<div class="cons-node-new">
+            <div class="cons-icon-wrap ${wrapCls}">${iconHtml}</div>
+            <span class="cons-day">${dt}</span>
+        </div>`;
     });
     el.innerHTML = html;
 }
@@ -1014,11 +1036,9 @@ function populateMicroSelector(archive) {
 
     let sorted;
     if (prefs.microOrder && prefs.microOrder.length > 0) {
-        // סדר מותאם אישית — מכבד בחירת המשתמש
         sorted = prefs.microOrder.filter(e => exMap[e]);
         Object.keys(exMap).forEach(e => { if (!sorted.includes(e)) sorted.push(e); });
     } else {
-        // ברירת מחדל: 3 תרגילים מנוסים ראשונים, אחר כך isCalc, אחר כך אלפבית (סדר יציב)
         const pinned = DEFAULT_MICRO_ORDER.filter(e => exMap[e]);
         const rest = Object.keys(exMap)
             .filter(e => !pinned.includes(e))
@@ -1033,7 +1053,16 @@ function populateMicroSelector(archive) {
     const current = sel.value;
     sel.innerHTML = sorted.map(e => `<option value="${e}">${e}</option>`).join('');
     if (current && exMap[current]) sel.value = current;
-    if (sel.value) loadMicroData(sel.value);
+    
+    // Set custom display text
+    const display = document.getElementById('micro-ex-display');
+    if (sel.options.length > 0) {
+        if (!sel.value) sel.value = sel.options[0].value;
+        if (display) display.textContent = sel.value;
+        loadMicroData(sel.value);
+    } else {
+        if (display) display.textContent = "אין נתונים בארכיון";
+    }
 }
 
 // ─── MICRO SORT SHEET ─────────────────────────────────────────────────────
@@ -1085,19 +1114,31 @@ function closeMicroSortSheet() {
 
 function loadMicroData(exName) {
     if (!exName) return;
+    const display = document.getElementById('micro-ex-display');
+    if (display) display.textContent = exName;
+    
     const prefs = getAnalyticsPrefs(), archive = getArchiveClean();
     const relevant = archive
         .filter(w => w.details && w.details[exName] && w.details[exName].sets && w.details[exName].sets.length)
         .slice(0, prefs.microPoints)
         .reverse();
-    if (!relevant.length) return;
+        
+    if (!relevant.length) {
+        document.getElementById('micro-line-svg').innerHTML = '<text x="200" y="80" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="14">אין מספיק נתונים לתרגיל זה</text>';
+        return;
+    }
+    
     const vals = relevant.map(w => {
         const parsed = parseSetsFromStrings(w.details[exName].sets); if (!parsed.length) return 0;
         if (prefs.microAxis === 'vol') return w.details[exName].vol || 0;
         if (prefs.microAxis === 'maxw') return Math.max(...parsed.map(s => s.w));
         return Math.max(...parsed.map(s => calc1RM(s.w, s.r, prefs.formula)));
     });
-    drawMicroLineChart(vals, relevant.map(w => w.date || ''));
+    
+    const heroEl = document.getElementById('micro-hero-e1rm');
+    if (heroEl) heroEl.textContent = Math.round(vals[vals.length - 1]);
+    
+    drawMicroLineChart(vals, relevant.map(w => new Date(w.timestamp).toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit'})));
     renderIntensityScore(vals);
     renderPRCard(exName, relevant, prefs);
 }
@@ -1122,41 +1163,97 @@ function parseSetsFromStrings(sets) {
     }).filter(Boolean);
 }
 
+function getSmoothPath(points) {
+    if (points.length === 0) return '';
+    if (points.length === 1) return `M ${points[0][0]},${points[0][1]}`;
+    let path = `M ${points[0][0]},${points[0][1]} `;
+    for (let i = 0; i < points.length - 1; i++) {
+        const x0 = points[i][0], y0 = points[i][1];
+        const x1 = points[i + 1][0], y1 = points[i + 1][1];
+        const cp1x = x0 + (x1 - x0) / 2;
+        const cp1y = y0;
+        const cp2x = x0 + (x1 - x0) / 2;
+        const cp2y = y1;
+        path += `C ${cp1x},${cp1y} ${cp2x},${cp2y} ${x1},${y1} `;
+    }
+    return path;
+}
+
 function drawMicroLineChart(vals, dates) {
-    const svg = document.getElementById('micro-line-svg'); if (!svg) return;
+    const svg = document.getElementById('micro-line-svg'); 
+    const datesEl = document.getElementById('micro-line-dates');
+    if (!svg || !datesEl) return;
+    
     const n = vals.length;
-    if (n < 2) { svg.innerHTML = '<text x="160" y="82" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-family="-apple-system,sans-serif" font-size="12">אין מספיק נתונים</text>'; return; }
-    const W = 320, H = 165, pad = { t: 22, r: 20, b: 28, l: 40 };
+    if (n < 2) { 
+        svg.innerHTML = '<text x="200" y="80" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="14">אין מספיק נתונים לגרף מגמה</text>'; 
+        datesEl.innerHTML = '';
+        return; 
+    }
+    
+    const W = 400, H = 160, pad = { t: 20, b: 15, l: 20, r: 20 };
     const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
-    const mn = Math.min(...vals) * 0.965, mx = Math.max(...vals) * 1.035;
-    const px = i => pad.l + (i / (n - 1)) * cW, py = v => pad.t + cH - ((v - mn) / ((mx - mn) || 1)) * cH;
+    const spread = Math.max(...vals) - Math.min(...vals);
+    const mn = Math.min(...vals) - (spread > 0 ? spread * 0.2 : 10);
+    const mx = Math.max(...vals) + (spread > 0 ? spread * 0.2 : 10);
+    
+    const px = i => pad.l + (i / (n - 1)) * cW;
+    const py = v => pad.t + cH - ((v - mn) / ((mx - mn) || 1)) * cH;
     const pts = vals.map((v, i) => [px(i), py(v)]);
-    const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
-    const areaPath = linePath + ` L${pts[n - 1][0].toFixed(1)},${(pad.t + cH).toFixed(1)} L${pts[0][0].toFixed(1)},${(pad.t + cH).toFixed(1)} Z`;
-    const yL = [mn, (mn + mx) / 2, mx].map(v => `<text x="${pad.l - 5}" y="${py(v) + 4}" fill="rgba(255,255,255,0.28)" font-size="8.5" text-anchor="end" font-family="-apple-system,sans-serif">${Math.round(v)}</text>`).join('');
-    const xL = dates.map((d, i) => i % 2 === 0 ? `<text x="${px(i).toFixed(1)}" y="${H - 5}" fill="rgba(255,255,255,0.28)" font-size="8" text-anchor="middle" font-family="-apple-system,sans-serif">${d.slice(0, 5)}</text>` : '').join('');
-    const dots = pts.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.5" fill="#000" stroke="#32D74B" stroke-width="2.5"/>`).join('');
-    const lp = pts[n - 1], tx = lp[0] > W - 72 ? lp[0] - 52 : lp[0] + 6;
-    const tip = `<rect x="${tx}" y="${lp[1] - 22}" width="50" height="18" rx="5" fill="rgba(50,215,75,0.18)" stroke="rgba(50,215,75,0.45)" stroke-width="0.5"/><text x="${(tx + 25).toFixed(1)}" y="${lp[1] - 9}" fill="#32D74B" font-size="9.5" text-anchor="middle" font-weight="700" font-family="-apple-system,sans-serif">${Math.round(vals[n - 1])}</text>`;
-    svg.innerHTML = `<defs><linearGradient id="lcGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#32D74B" stop-opacity="0.3"/><stop offset="100%" stop-color="#32D74B" stop-opacity="0"/></linearGradient></defs>
-        <path d="${areaPath}" fill="url(#lcGrad)"/>
-        <path d="${linePath}" fill="none" stroke="#32D74B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 6px rgba(50,215,75,0.5))"/>
-        ${yL}${xL}${dots}${tip}`;
+    
+    const linePath = getSmoothPath(pts);
+    const areaPath = linePath + ` L${pts[n - 1][0]},${H} L${pts[0][0]},${H} Z`;
+    
+    const dots = pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="var(--bg-lowest)" stroke="var(--accent)" stroke-width="2.5"/>`).join('');
+    
+    svg.innerHTML = `
+        <defs>
+            <linearGradient id="chart-grad" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="var(--accent)"></stop>
+                <stop offset="100%" stop-color="rgba(10,132,255,0)"></stop>
+            </linearGradient>
+        </defs>
+        <path d="${areaPath}" fill="url(#chart-grad)" opacity="0.25"></path>
+        <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"></path>
+        ${dots}
+    `;
+    
+    datesEl.innerHTML = dates.map(d => `<span>${d}</span>`).join('');
 }
 
 function renderIntensityScore(vals) {
-    const valEl = document.getElementById('intensity-score-val'), deltaEl = document.getElementById('intensity-score-delta'), sparkEl = document.getElementById('micro-sparkline');
+    const valEl = document.getElementById('intensity-score-val');
+    const trendEl = document.getElementById('intensity-score-trend');
+    const iconEl = document.getElementById('i-trend-icon');
+    const textEl = document.getElementById('i-trend-text');
+    const avgVolEl = document.getElementById('micro-avg-vol');
+    const sparkEl = document.getElementById('micro-sparkline');
+    
     if (!valEl || !vals.length) return;
-    const last = vals[vals.length - 1], prev = vals.length > 1 ? vals[vals.length - 2] : last, delta = (last - prev).toFixed(1);
+    
+    const last = vals[vals.length - 1];
+    const prev = vals.length > 1 ? vals[vals.length - 2] : last;
+    const delta = (last - prev);
+    
     valEl.textContent = (last * 0.85).toFixed(1);
-    if (deltaEl) { deltaEl.textContent = (parseFloat(delta) >= 0 ? '↑ ' : '↓ ') + Math.abs(delta) + ' מהפעם הקודמת'; deltaEl.style.color = parseFloat(delta) >= 0 ? '#32D74B' : '#ff453a'; }
+    avgVolEl.textContent = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) + 'kg';
+    
+    if (trendEl) {
+        trendEl.className = 'i-trend ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat');
+        iconEl.textContent = delta > 0 ? 'trending_up' : delta < 0 ? 'trending_down' : 'horizontal_rule';
+        textEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
+    }
+    
     if (sparkEl && vals.length >= 2) {
-        const n = vals.length, W = 140, H = 52, mn = Math.min(...vals), mx = Math.max(...vals);
+        const n = vals.length, W = 100, H = 40, mn = Math.min(...vals), mx = Math.max(...vals);
         const spx = i => (i / (n - 1)) * W, spy = v => H - 4 - ((v - mn) / ((mx - mn) || 1)) * (H - 8);
         const spts = vals.map((v, i) => [spx(i), spy(v)]);
-        const path = spts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+        const path = spts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ');
         const lp = spts[n - 1];
-        sparkEl.innerHTML = `<path d="${path}" fill="none" stroke="rgba(255,159,10,0.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lp[0].toFixed(1)}" cy="${lp[1].toFixed(1)}" r="3.5" fill="#FF9F0A"/>`;
+        sparkEl.innerHTML = `
+            <path d="${path}" fill="none" stroke="var(--text-dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="${lp[0]}" cy="${lp[1]}" r="3" fill="var(--text)"/>
+        `;
     }
 }
 
@@ -1166,13 +1263,16 @@ function renderPRCard(exName, relevant, prefs) {
         if (!w.details || !w.details[exName]) return;
         parseSetsFromStrings(w.details[exName].sets).forEach(s => {
             const e1rm = calc1RM(s.w, s.r, prefs.formula);
-            if (e1rm > bestE1RM) { bestE1RM = e1rm; prW = s.w; prR = s.r; prRIR = s.rir; prDate = w.date || ''; }
+            if (e1rm > bestE1RM) { bestE1RM = e1rm; prW = s.w; prR = s.r; prRIR = s.rir; prDate = new Date(w.timestamp).toLocaleDateString('he-IL'); }
         });
     });
-    const wEl = document.getElementById('pr-card-weight'), dEl = document.getElementById('pr-card-date'), gEl = document.getElementById('pr-stats-row'), nEl = document.getElementById('pr-context-note');
-    if (wEl) wEl.textContent = prW ? prW + ' kg' : '—';
-    if (dEl) dEl.textContent = prDate;
-    if (gEl) gEl.innerHTML = `<div><div class="pr-stat-val">${prR}</div><div class="pr-stat-lbl">חזרות</div></div><div><div class="pr-stat-val">RIR ${prRIR}</div><div class="pr-stat-lbl">RIR</div></div><div><div class="pr-stat-val">${prW ? Math.round(bestE1RM) : '—'}</div><div class="pr-stat-lbl">1RM משוער</div></div>`;
+    
+    document.getElementById('pr-card-weight').textContent = prW ? prW : '—';
+    document.getElementById('pr-card-date').textContent = prDate ? 'נקבע ב-' + prDate : 'טרם נקבע';
+    document.getElementById('pr-card-reps').textContent = prW ? prR : '—';
+    document.getElementById('pr-card-rir').textContent = prW ? prRIR : '—';
+    
+    const nEl = document.getElementById('pr-context-note');
     if (nEl) nEl.textContent = prW ? `שיא E1RM בתרגיל: ${exName}` : '';
 }
 
@@ -1181,31 +1281,39 @@ function togglePRCard() {
     if (!body) return;
     const isOpen = body.classList.contains('open');
     body.classList.toggle('open', !isOpen);
-    if (arrow) arrow.classList.toggle('open', !isOpen);
+    if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
 }
 
 function switchAnalyticsTab(name, btn) {
-    document.querySelectorAll('#analytics-seg .segment-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#analytics-seg .seg-btn-new').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    document.getElementById('analytics-macro').style.display = name === 'macro' ? 'block' : 'none';
-    document.getElementById('analytics-micro').style.display = name === 'micro' ? 'block' : 'none';
+    
+    document.querySelectorAll('#ui-analytics .tab-content-new').forEach(el => {
+        el.style.display = 'none';
+        el.classList.remove('active');
+    });
+    
+    const target = document.getElementById('analytics-' + name);
+    if (target) {
+        target.style.display = 'block';
+        target.classList.add('active');
+    }
 }
 
-function _updateChipGroup(id, btn) { const c = document.getElementById(id); if (c) c.querySelectorAll('.range-chip').forEach(b => b.classList.remove('active')); if (btn) btn.classList.add('active'); }
+function _updateChipGroup(id, btn) { const c = document.getElementById(id); if (c) c.querySelectorAll('button').forEach(b => b.classList.remove('active')); if (btn) btn.classList.add('active'); }
 
 function setVolRange(n, btn) { _updateChipGroup('vol-chips', btn); const p = getAnalyticsPrefs(); p.volumeRange = n; saveAnalyticsPrefs(p); renderVolumeBarChart(getArchiveClean(), n, p.volumeMuscle || 'all'); }
-function setVolMuscle(muscle, btn) { document.querySelectorAll('#vol-muscle-chips .range-chip').forEach(b => b.classList.remove('active')); if (btn) btn.classList.add('active'); const p = getAnalyticsPrefs(); p.volumeMuscle = muscle; saveAnalyticsPrefs(p); renderVolumeBarChart(getArchiveClean(), p.volumeRange, muscle); }
+function setVolMuscle(muscle, btn) { document.querySelectorAll('#vol-muscle-chips .chip-new').forEach(b => { b.classList.remove('active'); b.classList.add('inactive'); }); if (btn) { btn.classList.add('active'); btn.classList.remove('inactive'); } const p = getAnalyticsPrefs(); p.volumeMuscle = muscle; saveAnalyticsPrefs(p); renderVolumeBarChart(getArchiveClean(), p.volumeRange, muscle); }
 function setMuscleRange(r, btn) { _updateChipGroup('muscle-chips', btn); const p = getAnalyticsPrefs(); p.muscleRange = r; saveAnalyticsPrefs(p); renderDonutChart(getArchiveClean(), r); }
 function setConsRange(n, btn) { _updateChipGroup('cons-chips', btn); const p = getAnalyticsPrefs(); p.consistencyRange = n; saveAnalyticsPrefs(p); renderConsistencyTrack(getArchiveClean(), n); }
 function setMicroPoints(n, btn) { _updateChipGroup('micro-pts-chips', btn); const p = getAnalyticsPrefs(); p.microPoints = n; saveAnalyticsPrefs(p); const s = document.getElementById('micro-ex-selector'); if (s && s.value) loadMicroData(s.value); }
-function setMicroAxis(ax, btn) { const c = document.getElementById('micro-axis-chips'); if (c) c.querySelectorAll('.range-chip').forEach(b => b.classList.remove('active')); if (btn) btn.classList.add('active'); const p = getAnalyticsPrefs(); p.microAxis = ax; saveAnalyticsPrefs(p); const s = document.getElementById('micro-ex-selector'); if (s && s.value) loadMicroData(s.value); }
+function setMicroAxis(ax, btn) { _updateChipGroup('micro-axis-chips', btn); const p = getAnalyticsPrefs(); p.microAxis = ax; saveAnalyticsPrefs(p); const s = document.getElementById('micro-ex-selector'); if (s && s.value) loadMicroData(s.value); }
 
 function openAnalyticsSettings() {
     const p = getAnalyticsPrefs();
     document.getElementById('pref-name').value = p.name || '';
     document.getElementById('pref-units').value = p.units || 'kg';
     document.getElementById('pref-formula').value = p.formula || 'epley';
-    // שדות עקביות — ריק = אוטומטי
     document.getElementById('pref-cons-green').value = p.consistencyGreen || '';
     document.getElementById('pref-cons-orange').value = p.consistencyOrange || '';
     document.getElementById('analytics-settings-overlay').style.display = 'block';
@@ -1218,7 +1326,6 @@ function saveAnalyticsSettingsPrefs() {
     p.name = document.getElementById('pref-name').value.trim();
     p.units = document.getElementById('pref-units').value;
     p.formula = document.getElementById('pref-formula').value;
-    // סף ימים עקביות — ריק = אוטומטי (delete מהפרפס)
     const gVal = parseInt(document.getElementById('pref-cons-green').value);
     const oVal = parseInt(document.getElementById('pref-cons-orange').value);
     if (gVal > 0 && oVal > gVal) {
@@ -1275,7 +1382,6 @@ function renderHomePRCard() {
     const prefs = getAnalyticsPrefs();
     const archive = getArchiveClean();
 
-    // Build sessions for both exercises (full data — never sliced here)
     ['bench', 'ohp'].forEach(key => {
         const exName = HOME_PR_EXERCISES[key];
         const sessions = [];
@@ -1295,10 +1401,7 @@ function renderHomePRCard() {
         _homePRSessions[key] = sessions;
     });
 
-    // Render range chips (once, if not already present)
     _homePRRenderRangeChips();
-
-    // Default: select PR point (highest e1rm) in current window
     _homePRSelectedIdx = _homePRBestIdx(_homePRCurrent);
     _homePRRender();
 }
@@ -1364,11 +1467,9 @@ function _homePRRender() {
     const range = prefs.homePRRange || 8;
     const all = _homePRSessions[_homePRCurrent];
     const windowed = (range >= all.length) ? all : all.slice(-range);
-    // clamp selected index to windowed length
     if (_homePRSelectedIdx >= windowed.length) _homePRSelectedIdx = _homePRBestIdxFromArr(windowed);
     _homePRRenderInfo(windowed, all);
     _homePRDrawChart(windowed, all);
-    _homePRRenderAllTime(all);
 }
 
 function _homePRRenderInfo(sessions, _all) {
@@ -1445,16 +1546,13 @@ function _homePRDrawChart(sessions, _all) {
     const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
     const area = line + ` L${pts[n-1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H} Z`;
 
-    // PR index (highest value)
     const prIdx = vals.indexOf(Math.max(...vals));
     const prPt  = pts[prIdx];
-    // label positioned ABOVE dot with enough clearance
     const labelY  = Math.max(prPt[1] - 14, pT - 2);
     const labelX  = Math.min(Math.max(prPt[0], 18), W - 18);
     const colAlpha = col === '#0A84FF' ? 'rgba(10,132,255,0.22)' : 'rgba(255,159,10,0.22)';
     const gradId   = 'hprg_' + _homePRCurrent;
 
-    // Dots — onclick calls global helper
     const dotsHtml = pts.map((p, i) => {
         const isSel = i === _homePRSelectedIdx;
         const r     = isSel ? 5 : 3.5;
@@ -1465,7 +1563,6 @@ function _homePRDrawChart(sessions, _all) {
             style="cursor:pointer" onclick="_homePRSelectDot(${i})"/>`;
     }).join('');
 
-    // PR label — only on highest point, behind a solid rect so line never crosses it
     const prLabel = `
         <rect x="${(labelX - 17).toFixed(1)}" y="${(labelY - 10).toFixed(1)}"
             width="34" height="13" rx="4"
@@ -1488,42 +1585,7 @@ function _homePRDrawChart(sessions, _all) {
         ${dotsHtml}`;
 }
 
-function _homePRRenderAllTime(allSessions) {
-    // מאתר אלמנט all-time קיים או יוצר אחד חדש
-    const card = document.getElementById('home-pr-card');
-    if (!card) return;
-
-    const col = HOME_PR_COLORS[_homePRCurrent];
-
-    // הסרת שורה קיימת
-    const existing = card.querySelector('.home-pr-alltime');
-    if (existing) existing.remove();
-
-    if (!allSessions || !allSessions.length) return;
-
-    // מציאת השיא מכל הזמנים
-    const atIdx = allSessions.reduce((b, _, i) => allSessions[i].e1rm > allSessions[b].e1rm ? i : b, 0);
-    const at = allSessions[atIdx];
-
-    const div = document.createElement('div');
-    div.className = 'home-pr-alltime';
-    div.innerHTML = `
-        <div class="home-pr-alltime-icon">🏆</div>
-        <div class="home-pr-alltime-info">
-            <div class="home-pr-alltime-label">שיא כל הזמנים</div>
-            <div class="home-pr-alltime-val" style="color:${col === '#0A84FF' ? '#FFD60A' : '#FFD60A'}">${at.e1rm.toFixed(1)} kg</div>
-            <div class="home-pr-alltime-set">${at.set}</div>
-        </div>
-        <div class="home-pr-alltime-right">
-            <div class="home-pr-alltime-badge">ALL TIME PR</div>
-            <div class="home-pr-alltime-date">${at.date}</div>
-        </div>`;
-
-    // מוסיף בסוף הכרטיס
-    card.appendChild(div);
-}
-
-// ─── ARCHIVE RANGE COPY (שדרוג 3) ────────────────────────────────────────
+// ─── ARCHIVE RANGE COPY ──────────────────────────────────────────────────
 
 let _rangeTab = 'month';
 let _rangeSelectedMonth = null;

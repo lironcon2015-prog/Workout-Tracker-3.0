@@ -162,7 +162,8 @@ body {
 /* Header */
 .app-header { 
     display: flex; justify-content: space-between; align-items: center; 
-    margin-bottom: 22px; padding-top: 6px; position: relative; 
+    margin-bottom: 32px; /* ← הוגדל מ-22 ל-32 כדי לדחוף את הכרטיסייה למטה */
+    padding-top: 6px; position: relative; 
 }
 .back-btn { background: none; border: none; padding: 8px; visibility: hidden; cursor: pointer; display: flex; align-items: center; }
 .brand-logo { font-weight: 900; font-size: 1.25em; letter-spacing: -0.05em; font-family: 'Heebo', sans-serif; text-transform: uppercase; font-style: italic; position: absolute; left: 50%; transform: translateX(-50%); }

@@ -586,13 +586,12 @@ function renderHeroMetricsGrid(archive) {
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">fitness_center</span>
             <div class="bento-lbl">נפח כולל</div>
-            <div class="bento-val font-headline italic-black">${(totalVol / 1000).toFixed(1)}<span class="inline-unit">t</span></div>
+            <div class="bento-val font-headline italic-black">${totalVol.toLocaleString('he-IL')}<span class="inline-unit">kg</span></div>
         </div>
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">schedule</span>
             <div class="bento-lbl">זמן כולל</div>
             <div class="bento-val font-headline italic-black" style="color:var(--text);">${Math.round(totalDurMins / 60)}<span class="inline-unit">h</span></div>
-            <div class="bento-sub">ממוצע ${avgDur} דק'</div>
         </div>
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">calendar_today</span>
@@ -602,7 +601,7 @@ function renderHeroMetricsGrid(archive) {
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg" style="color:var(--warning);">emoji_events</span>
             <div class="bento-lbl" style="color:var(--warning);">שיא נפח</div>
-            <div class="bento-val font-headline italic-black" style="color:var(--warning);">${(bestVol / 1000).toFixed(1)}<span class="inline-unit">t</span></div>
+            <div class="bento-val font-headline italic-black" style="color:var(--warning);">${bestVol.toLocaleString('he-IL')}<span class="inline-unit">kg</span></div>
         </div>`;
 }
 
@@ -610,7 +609,8 @@ function renderHeroMetricsGrid(archive) {
 
 function renderVolumeBarChart(archive, n, muscleFilter) {
     const el = document.getElementById('vol-bar-chart'); if (!el) return;
-    const data = archive.slice(0, n).reverse();
+    // ב-RTL, האלמנט הראשון מוצג מימין — לכן לא הופכים (newest ראשון = ימין)
+    const data = archive.slice(0, n);
 
     if (!data.length) { el.innerHTML = '<p class="color-dim text-sm text-center w-100">אין נתונים</p>'; return; }
 
@@ -671,15 +671,15 @@ function renderWorkoutTypeChart(archive) {
     el.innerHTML = entries.map((e, i) => {
         const pct = (e.avg / maxAvg * 100).toFixed(1);
         const color = (e.aliased && aliasColors[e.display]) ? aliasColors[e.display] : COLORS[i % COLORS.length];
-        const val = e.avg >= 1000 ? (e.avg / 1000).toFixed(1) + 't' : e.avg + 'kg';
+        const val = e.avg >= 1000 ? (e.avg / 1000).toFixed(1) : e.avg;
+        const unit = e.avg >= 1000 ? 't' : 'kg';
         const tooltipData = e.aliased ? `data-members="${e.rawNames.join('|')}"` : '';
         return `<div class="hbar-row" ${tooltipData} onclick="showWTToast('${e.display.replace(/'/g, "\\'")}','${e.rawNames.join(", ").replace(/'/g, "\\'")}',${e.count})">
-            <span class="hbar-label">${e.display}</span>
-            <div class="hbar-track">
-                <div class="hbar-fill" style="width:${pct}%;background:${color};box-shadow:0 0 10px ${color}80;"></div>
-                <div class="hbar-val" style="color:#fff;">${val}</div>
+            <div class="hbar-top">
+                <span class="hbar-label">${e.display}</span>
+                <span class="hbar-val-text" style="color:${color}">${val}<span class="inline-unit" style="margin:0;opacity:0.7;">${unit}</span></span>
             </div>
-            <span class="hbar-count">${e.count}פ'</span>
+            <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color};box-shadow:0 0 10px ${color}80;"></div></div>
         </div>`;
     }).join('');
 }

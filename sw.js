@@ -1,6 +1,6 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 14.12.0-70
+ * Version: 14.12.0-71
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 

@@ -597,7 +597,7 @@ function renderHeroMetricsGrid(archive) {
             <span class="material-symbols-outlined bento-icon-bg">schedule</span>
             <div class="bento-lbl">זמן כולל</div>
             <div class="bento-val font-headline italic-black" style="color:var(--text);">${Math.round(totalDurMins / 60)}<span class="inline-unit">שעות</span></div>
-            ${avgDur ? `<div class="bento-sub">ממוצע ${avgDur} דקות</div>` : ''}
+            ${avgDur ? `<div class="bento-sub" style="color:#47e266;">ממוצע ${avgDur} דקות</div>` : ''}
         </div>
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">calendar_today</span>

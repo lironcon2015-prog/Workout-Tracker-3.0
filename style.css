@@ -1013,7 +1013,7 @@ body {
 .bento-icon-bg { position: absolute; bottom: -8px; left: -8px; font-size: 72px; opacity: 0.04; pointer-events: none; }
 .bento-lbl { font-size: 0.95rem; color: rgba(255,255,255,0.85); margin: 0; text-transform: uppercase; font-weight: 900; letter-spacing: -0.01em; text-align: right; font-family: 'Heebo', 'Inter', sans-serif; font-style: italic; line-height: 1.1; }
 .bento-val { font-size: 2rem; line-height: 1; margin: 8px 0 0; display: flex; align-items: baseline; justify-content: flex-start; direction: ltr; flex-direction: row-reverse; }
-.bento-sub { font-size: 0.6rem; color: rgba(255,255,255,0.35); font-weight: 700; margin: 5px 0 0; text-align: right; letter-spacing: 0.03em; }
+.bento-sub { font-size: 0.58rem; font-weight: 700; text-align: right; letter-spacing: 0.03em; position: absolute; bottom: 14px; right: 20px; }
 .inline-unit { font-size: 0.45em; font-family: 'Heebo', 'Inter', sans-serif; font-weight: 800; font-style: normal; opacity: 0.65; margin-right: 3px; letter-spacing: -0.01em; }
 .bento-glow-blue { border-right: 4px solid rgba(10,132,255,0.85); }
 .bento-glow-blue .bento-val { text-shadow: 0 0 20px rgba(10,132,255,0.35); }

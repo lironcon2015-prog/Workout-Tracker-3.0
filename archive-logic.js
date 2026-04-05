@@ -580,15 +580,15 @@ function renderHeroMetricsGrid(archive) {
     const bestVol = archive.reduce((mx, a) => Math.max(mx, getWorkoutVolume(a)), 0);
     const avgDur = total ? Math.round(totalDurMins / total) : 0;
 
-    // פורמט טון — מציג בטון אם ≥1000kg, אחרת kg
+    // פורמט טון — מציג בטון אם ≥1000kg, אחרת ק"ג
     const fmtVol = (kg) => kg >= 1000
-        ? `${(kg / 1000).toFixed(1)}<span class="inline-unit">t</span>`
-        : `${kg.toLocaleString('he-IL')}<span class="inline-unit">kg</span>`;
+        ? `${(kg / 1000).toFixed(1)}<span class="inline-unit">טון</span>`
+        : `${kg.toLocaleString('he-IL')}<span class="inline-unit">ק"ג</span>`;
 
     const el = document.getElementById('hero-metrics-grid'); if (!el) return;
 
     el.innerHTML = `
-        <div class="bento-card glass-card m-0" style="margin:0;">
+        <div class="bento-card glass-card m-0 bento-glow-blue" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">fitness_center</span>
             <div class="bento-lbl">נפח כולל</div>
             <div class="bento-val font-headline italic-black">${fmtVol(totalVol)}</div>
@@ -596,15 +596,15 @@ function renderHeroMetricsGrid(archive) {
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">schedule</span>
             <div class="bento-lbl">זמן כולל</div>
-            <div class="bento-val font-headline italic-black" style="color:var(--text);">${Math.round(totalDurMins / 60)}<span class="inline-unit">h</span></div>
-            ${avgDur ? `<div class="bento-sub">ממוצע ${avgDur}m</div>` : ''}
+            <div class="bento-val font-headline italic-black" style="color:var(--text);">${Math.round(totalDurMins / 60)}<span class="inline-unit">שע'</span></div>
+            ${avgDur ? `<div class="bento-sub">ממוצע ${avgDur}ד'</div>` : ''}
         </div>
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">calendar_today</span>
             <div class="bento-lbl">אימונים</div>
             <div class="bento-val font-headline italic-black" style="color:var(--text);">${total}</div>
         </div>
-        <div class="bento-card glass-card m-0" style="margin:0;">
+        <div class="bento-card glass-card m-0 bento-glow-orange" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg" style="color:var(--warning);">emoji_events</span>
             <div class="bento-lbl" style="color:var(--warning);">שיא נפח</div>
             <div class="bento-val font-headline italic-black" style="color:var(--warning);">${fmtVol(bestVol)}</div>
@@ -630,7 +630,7 @@ function renderVolumeBarChart(archive, n, muscleFilter) {
             const isPeak = vols[i] === maxV;
             const dt = (a.date || '').slice(0, 5);
             const val = vols[i] >= 1000 ? (vols[i] / 1000).toFixed(1) : vols[i];
-            const unit = vols[i] >= 1000 ? 't' : 'kg';
+            const unit = vols[i] >= 1000 ? 'טון' : 'ק"ג';
             return `<div class="bar-col-wrap">
                 <div class="bar-lbl-top">${val}<span class="inline-unit" style="margin:0;">${unit}</span></div>
                 <div class="bar${isPeak ? ' peak' : ''}" style="height:${pct}%;"></div>

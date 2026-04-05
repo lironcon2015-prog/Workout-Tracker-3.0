@@ -289,48 +289,38 @@
 
             <!-- SETTINGS -->
             <div id="ui-settings" class="screen">
-                <h2 class="section-title">הגדרות</h2>
+
+                <!-- Hero heading -->
+                <div class="stg-hero">
+                    <h2 class="stg-hero-title">הגדרות</h2>
+                    <div class="stg-hero-bar"></div>
+                </div>
                 <p class="color-dim text-xs text-center mb-md" id="app-version-label">GymPro Elite</p>
 
                 <!-- I. ניהול תוכנית -->
                 <div class="settings-group">
                     <div class="settings-group-label">ניהול תוכנית</div>
-                    <div class="settings-card">
-                        <button class="settings-nav-row" onclick="openWorkoutManager()">
-                            <div class="settings-nav-left">
-                                <div class="settings-nav-icon" style="background:rgba(10,132,255,0.15);">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0A84FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                </div>
-                                <div>
-                                    <p class="settings-nav-title">תוכניות אימון</p>
-                                    <p class="settings-nav-sub">ערוך, צור או מחק תוכניות</p>
-                                </div>
+                    <div class="stg-bento">
+                        <button class="stg-nav-row" onclick="openWorkoutManager()">
+                            <div class="stg-icon" style="background:rgba(10,132,255,0.15);">
+                                <span class="material-symbols-outlined" style="color:#0A84FF;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">fitness_center</span>
                             </div>
-                            <span class="settings-chevron">›</span>
+                            <span class="stg-row-title">תוכניות אימון</span>
+                            <span class="material-symbols-outlined stg-chevron">chevron_left</span>
                         </button>
-                        <button class="settings-nav-row" onclick="openExerciseDatabase()">
-                            <div class="settings-nav-left">
-                                <div class="settings-nav-icon" style="background:rgba(71,226,102,0.12);">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#47e266" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                                </div>
-                                <div>
-                                    <p class="settings-nav-title">מאגר תרגילים</p>
-                                    <p class="settings-nav-sub">יצירה, עריכה וניהול תרגילים</p>
-                                </div>
+                        <button class="stg-nav-row" onclick="openExerciseDatabase()">
+                            <div class="stg-icon" style="background:rgba(71,226,102,0.12);">
+                                <span class="material-symbols-outlined" style="color:#47e266;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">exercise</span>
                             </div>
-                            <span class="settings-chevron">›</span>
+                            <span class="stg-row-title">מאגר תרגילים</span>
+                            <span class="material-symbols-outlined stg-chevron">chevron_left</span>
                         </button>
-                        <button class="settings-nav-row" onclick="openAnalyticsSettings()">
-                            <div class="settings-nav-left">
-                                <div class="settings-nav-icon" style="background:rgba(255,159,10,0.12);">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF9F0A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-                                </div>
-                                <div>
-                                    <p class="settings-nav-title">הגדרות אנליטיקה</p>
-                                    <p class="settings-nav-sub">מדדים, פורמולה, שם מתאמן</p>
-                                </div>
+                        <button class="stg-nav-row stg-nav-row--last" onclick="openAnalyticsSettings()">
+                            <div class="stg-icon" style="background:rgba(255,159,10,0.12);">
+                                <span class="material-symbols-outlined" style="color:#FF9F0A;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">analytics</span>
                             </div>
-                            <span class="settings-chevron">›</span>
+                            <span class="stg-row-title">הגדרות אנליטיקה</span>
+                            <span class="material-symbols-outlined stg-chevron">chevron_left</span>
                         </button>
                     </div>
                 </div>
@@ -338,41 +328,55 @@
                 <!-- II. סנכרון ענן -->
                 <div class="settings-group">
                     <div class="settings-group-label">סנכרון ענן</div>
-                    <div class="settings-card">
-                        <!-- חיבור + status -->
-                        <button class="settings-nav-row" onclick="openFirebaseConfigModal()">
-                            <div class="settings-nav-left">
-                                <div class="settings-nav-icon" style="background:rgba(10,132,255,0.12);">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0A84FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-                                </div>
-                                <div>
-                                    <p class="settings-nav-title">הגדר חיבור Firebase</p>
-                                    <div id="firebase-status" style="font-size:0.7rem; margin:2px 0 0;"></div>
-                                </div>
+                    <div class="stg-bento">
+                        <button class="stg-firebase-row" onclick="openFirebaseConfigModal()">
+                            <div>
+                                <div class="stg-row-title">חיבור Firebase</div>
+                                <div id="firebase-status" style="font-size:0.7rem;margin:4px 0 0;"></div>
                             </div>
-                            <span class="settings-chevron">›</span>
+                            <span class="material-symbols-outlined" style="color:#0A84FF;font-size:2rem;font-variation-settings:'FILL' 0,'wght' 300">cloud_done</span>
                         </button>
-                        <!-- העלאה ראשונית -->
-                        <div style="padding:10px 16px 4px;">
+                        <div class="stg-cloud-upload">
                             <button class="cloud-btn upload full-w" style="border-radius:12px;" onclick="FirebaseManager.uploadAllToCloud()">⬆ העלה הכל לענן (ראשוני)</button>
                         </div>
-                        <!-- היסטוריה -->
-                        <div class="settings-divider-label">היסטוריה</div>
-                        <div class="cloud-btn-grid" style="padding:4px 16px 8px;">
-                            <button class="cloud-btn success" onclick="manualBackupArchive()">💾 גבה</button>
-                            <button class="cloud-btn success" onclick="FirebaseManager.loadArchiveFromCloud()">⬇ שחזר</button>
+                        <div class="stg-cloud-row">
+                            <span class="stg-cloud-label">היסטוריה</span>
+                            <div class="stg-cloud-btns">
+                                <button class="stg-cloud-btn" onclick="manualBackupArchive()">
+                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
+                                    <span>גבה</span>
+                                </button>
+                                <button class="stg-cloud-btn" onclick="FirebaseManager.loadArchiveFromCloud()">
+                                    <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
+                                    <span>שחזר</span>
+                                </button>
+                            </div>
                         </div>
-                        <!-- קונפיגורציה -->
-                        <div class="settings-divider-label">קונפיגורציה</div>
-                        <div class="cloud-btn-grid" style="padding:4px 16px 8px;">
-                            <button class="cloud-btn amber" onclick="manualBackupConfig()">💾 גבה</button>
-                            <button class="cloud-btn amber" onclick="FirebaseManager.loadConfigFromCloud()">⬇ שחזר</button>
+                        <div class="stg-cloud-row">
+                            <span class="stg-cloud-label">קונפיגורציה</span>
+                            <div class="stg-cloud-btns">
+                                <button class="stg-cloud-btn" onclick="manualBackupConfig()">
+                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
+                                    <span>גבה</span>
+                                </button>
+                                <button class="stg-cloud-btn" onclick="FirebaseManager.loadConfigFromCloud()">
+                                    <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
+                                    <span>שחזר</span>
+                                </button>
+                            </div>
                         </div>
-                        <!-- שיחות AI -->
-                        <div class="settings-divider-label">שיחות AI</div>
-                        <div class="cloud-btn-grid" style="padding:4px 16px 14px;">
-                            <button class="cloud-btn purple" onclick="FirebaseManager.saveAIHistoryToCloud().then(ok=>showAlert(ok?'היסטוריה גובתה לענן!':'שגיאה בגיבוי.'))">💾 גבה</button>
-                            <button class="cloud-btn purple" onclick="FirebaseManager.loadAIHistoryFromCloud()">⬇ שחזר</button>
+                        <div class="stg-cloud-row stg-cloud-row--last">
+                            <span class="stg-cloud-label">שיחות AI</span>
+                            <div class="stg-cloud-btns">
+                                <button class="stg-cloud-btn" onclick="FirebaseManager.saveAIHistoryToCloud().then(ok=>showAlert(ok?'היסטוריה גובתה לענן!':'שגיאה בגיבוי.'))">
+                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
+                                    <span>גבה</span>
+                                </button>
+                                <button class="stg-cloud-btn" onclick="FirebaseManager.loadAIHistoryFromCloud()">
+                                    <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
+                                    <span>שחזר</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -380,20 +384,18 @@
                 <!-- III. AI Coach -->
                 <div class="settings-group">
                     <div class="settings-group-label">AI Coach</div>
-                    <div class="settings-card">
-                        <div id="ai-status" style="padding:10px 16px 0; font-size:0.82em; min-height:18px;"></div>
-                        <div style="padding:10px 16px 4px;">
-                            <label class="input-label">Gemini API Key</label>
-                            <input type="password" id="ai-api-key-input" class="minimal-input mb-sm" placeholder="הדבק API Key מ-Google AI Studio" autocomplete="off">
-                            <label class="input-label">מודלים (מופרדים בפסיק)</label>
-                            <input type="text" id="ai-models-input" class="minimal-input" placeholder="gemini-2.5-flash, gemini-2.5-flash-lite">
+                    <div class="stg-bento stg-ai-bento">
+                        <div id="ai-status" style="min-height:18px;font-size:0.82em;"></div>
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">GEMINI API KEY</label>
+                            <input type="password" id="ai-api-key-input" class="stg-ai-input" placeholder="הדבק API Key מ-Google AI Studio" autocomplete="off">
                         </div>
-                        <div class="cloud-btn-grid" style="padding:8px 16px 4px;">
-                            <button class="cloud-btn accent full-w" onclick="saveAISettings()">שמור הגדרות AI</button>
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">MODELS</label>
+                            <input type="text" id="ai-models-input" class="stg-ai-input" placeholder="gemini-2.5-flash, gemini-2.5-flash-lite">
                         </div>
-                        <div class="cloud-btn-grid" style="padding:4px 16px 14px;">
-                            <button class="cloud-btn full-w" style="color:var(--danger);border-color:rgba(255,69,58,0.3);background:rgba(255,69,58,0.06);" onclick="clearAIHistory()">מחק היסטוריית שיחות</button>
-                        </div>
+                        <button class="stg-ai-save" onclick="saveAISettings()">שמור הגדרות AI</button>
+                        <button class="cloud-btn full-w" style="margin-top:4px;color:var(--danger);border-color:rgba(255,69,58,0.3);background:rgba(255,69,58,0.06);border-radius:12px;" onclick="clearAIHistory()">מחק היסטוריית שיחות</button>
                     </div>
                     <div class="ai-security-note" style="margin-top:6px;">המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן. מומלץ להגביל אותו ל-GitHub Pages שלך ב-Google Cloud Console.</div>
                 </div>
@@ -401,36 +403,42 @@
                 <!-- IV. מערכת -->
                 <div class="settings-group">
                     <div class="settings-group-label">מערכת</div>
-                    <div class="settings-card">
-                        <!-- כלים: 3 בשורה -->
-                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding:12px 16px 8px;">
-                            <button id="btn-reload" class="cloud-btn" style="border-radius:12px;" onclick="window.location.reload()">🔄 רענן</button>
-                            <button id="btn-sound" class="settings-btn cloud-btn" style="border-radius:12px; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="initAudio()">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
-                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                                    <g class="sound-muted-lines"><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></g>
-                                    <g class="sound-active-waves"><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></g>
-                                </svg>
-                                צלילים
-                            </button>
-                            <button class="cloud-btn accent" style="border-radius:12px;" onclick="checkForUpdate()">בדוק עדכון</button>
+                    <div class="stg-bento">
+                        <div class="stg-sys-bar">
+                            <div class="stg-sys-btns">
+                                <button id="btn-reload" class="stg-sys-btn" onclick="window.location.reload()">
+                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:1.1rem;">refresh</span>
+                                    <span>רענן</span>
+                                </button>
+                                <div class="stg-sys-sep"></div>
+                                <button id="btn-sound" class="stg-sys-btn settings-btn" onclick="initAudio()">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                        <g class="sound-muted-lines"><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></g>
+                                        <g class="sound-active-waves"><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></g>
+                                    </svg>
+                                    <span>צלילים</span>
+                                </button>
+                            </div>
+                            <span class="stg-sys-tag">SYSTEM CONTROL</span>
                         </div>
-                        <!-- ניהול תבניות -->
-                        <div class="settings-divider-label">ניהול תבניות</div>
-                        <div class="cloud-btn-grid" style="padding:4px 16px 8px;">
-                            <button class="cloud-btn accent" onclick="StorageManager.exportConfiguration()">שמור תבנית</button>
-                            <button class="cloud-btn success" onclick="triggerConfigImport()">טען תבנית</button>
-                        </div>
-                        <!-- גרסה + איפוס -->
-                        <div class="settings-divider-label">מידע ואיפוס</div>
-                        <div class="settings-info-row">
-                            <span>גרסה</span>
-                            <span id="settings-version-inline">v14.12.0-77</span>
-                        </div>
-                        <div class="cloud-btn-grid" style="padding:4px 16px 14px;">
-                            <button class="cloud-btn full-w" style="color:var(--danger);border-color:rgba(255,69,58,0.3);background:rgba(255,69,58,0.06);" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
-                        </div>
+                        <button class="stg-nav-row stg-nav-row--plain" onclick="checkForUpdate()">
+                            <span class="stg-row-title">בדוק עדכון</span>
+                            <span class="stg-version-badge" id="settings-version-inline">v14.12.0-85</span>
+                        </button>
+                        <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportConfiguration()">
+                            <span class="stg-row-title">ייצוא תבנית</span>
+                            <span class="material-symbols-outlined stg-chevron">file_upload</span>
+                        </button>
+                        <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="triggerConfigImport()">
+                            <span class="stg-row-title">ייבוא תבנית</span>
+                            <span class="material-symbols-outlined stg-chevron">file_download</span>
+                        </button>
                     </div>
+                    <button class="stg-reset-btn" onclick="resetToFactorySettings()">
+                        <span class="material-symbols-outlined">restart_alt</span>
+                        איפוס להגדרות יצרן
+                    </button>
                 </div>
 
                 <input type="file" id="import-config-file" class="d-none" onchange="processConfigImport(this)">
@@ -732,7 +740,7 @@
                             <button class="month-nav-btn" onclick="changeMonth(1)">❯</button>
                         </div>
                         <div class="calendar-grid">
-                            <div class="day-name">א'</div><div class="day-name">ב'</div><div class="day-name">ג'</div><div class="day-name">ד'</div><div class="day-name">ה'</div><div class="day-name">ו'</div><div class="day-name">ש'</div>
+                            <div class="day-name">א</div><div class="day-name">ב</div><div class="day-name">ג</div><div class="day-name">ד</div><div class="day-name">ה</div><div class="day-name">ו</div><div class="day-name">ש</div>
                         </div>
                         <div id="calendar-days" class="calendar-grid"></div>
                         <div id="cal-summary-card" class="cal-summary-card" style="display:none;"></div>

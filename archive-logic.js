@@ -579,19 +579,25 @@ function renderHeroMetricsGrid(archive) {
     const totalDurMins = archive.reduce((s, a) => s + (a.duration || 0), 0);
     const bestVol = archive.reduce((mx, a) => Math.max(mx, getWorkoutVolume(a)), 0);
     const avgDur = total ? Math.round(totalDurMins / total) : 0;
-    
+
+    // פורמט טון — מציג בטון אם ≥1000kg, אחרת kg
+    const fmtVol = (kg) => kg >= 1000
+        ? `${(kg / 1000).toFixed(1)}<span class="inline-unit">t</span>`
+        : `${kg.toLocaleString('he-IL')}<span class="inline-unit">kg</span>`;
+
     const el = document.getElementById('hero-metrics-grid'); if (!el) return;
-    
+
     el.innerHTML = `
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">fitness_center</span>
             <div class="bento-lbl">נפח כולל</div>
-            <div class="bento-val font-headline italic-black">${totalVol.toLocaleString('he-IL')}<span class="inline-unit">kg</span></div>
+            <div class="bento-val font-headline italic-black">${fmtVol(totalVol)}</div>
         </div>
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">schedule</span>
             <div class="bento-lbl">זמן כולל</div>
             <div class="bento-val font-headline italic-black" style="color:var(--text);">${Math.round(totalDurMins / 60)}<span class="inline-unit">h</span></div>
+            ${avgDur ? `<div class="bento-sub">ממוצע ${avgDur}m</div>` : ''}
         </div>
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">calendar_today</span>
@@ -601,7 +607,7 @@ function renderHeroMetricsGrid(archive) {
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg" style="color:var(--warning);">emoji_events</span>
             <div class="bento-lbl" style="color:var(--warning);">שיא נפח</div>
-            <div class="bento-val font-headline italic-black" style="color:var(--warning);">${bestVol.toLocaleString('he-IL')}<span class="inline-unit">kg</span></div>
+            <div class="bento-val font-headline italic-black" style="color:var(--warning);">${fmtVol(bestVol)}</div>
         </div>`;
 }
 
@@ -673,13 +679,16 @@ function renderWorkoutTypeChart(archive) {
         const color = (e.aliased && aliasColors[e.display]) ? aliasColors[e.display] : COLORS[i % COLORS.length];
         const val = e.avg >= 1000 ? (e.avg / 1000).toFixed(1) : e.avg;
         const unit = e.avg >= 1000 ? 't' : 'kg';
-        const tooltipData = e.aliased ? `data-members="${e.rawNames.join('|')}"` : '';
-        return `<div class="hbar-row" ${tooltipData} onclick="showWTToast('${e.display.replace(/'/g, "\\'")}','${e.rawNames.join(", ").replace(/'/g, "\\'")}',${e.count})">
-            <div class="hbar-top">
+        return `<div class="hbar-row" onclick="showWTToast('${e.display.replace(/'/g, "\\'")}','${e.rawNames.join(", ").replace(/'/g, "\\'")}',${e.count})">
+            <div class="hbar-name-row">
                 <span class="hbar-label">${e.display}</span>
-                <span class="hbar-val-text" style="color:${color}">${val}<span class="inline-unit" style="margin:0;opacity:0.7;">${unit}</span></span>
+                <span class="hbar-count">${e.count} אימונים</span>
             </div>
-            <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color};box-shadow:0 0 10px ${color}80;"></div></div>
+            <div class="hbar-track">
+                <div class="hbar-fill" style="width:${pct}%;background:${color};box-shadow:0 0 10px ${color}40;position:relative;overflow:hidden;">
+                    <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);color:#fff;font-weight:700;font-size:0.75em;white-space:nowrap;line-height:1;">${val}${unit}</span>
+                </div>
+            </div>
         </div>`;
     }).join('');
 }
@@ -1106,48 +1115,70 @@ function closeMicroSortSheet() {
 
 // ─── MICRO: LOAD DATA ─────────────────────────────────────────────────────
 
+// ─── MICRO: מצב בחירת נקודה אינטראקטיבית ──────────────────────────────────
+let _microVals = [];
+let _microDates = [];
+let _microRelevant = [];
+let _microSelectedPt = -1;
+
 function loadMicroData(exName) {
     if (!exName) return;
     const display = document.getElementById('micro-ex-display');
     if (display) display.textContent = exName;
-    
+
+    _microSelectedPt = -1; // איפוס בחירה בעת מעבר תרגיל
+
     const prefs = getAnalyticsPrefs(), archive = getArchiveClean();
     const relevant = archive
         .filter(w => w.details && w.details[exName] && w.details[exName].sets && w.details[exName].sets.length)
         .slice(0, prefs.microPoints)
         .reverse(); // לגרף צריכים משמאל לימין (מהישן לחדש)
-        
+
     const heroEl = document.getElementById('micro-hero-e1rm');
     const lineSvg = document.getElementById('micro-line-svg');
     const datesEl = document.getElementById('micro-line-dates');
+
+    // עדכון כותרת לפי הבורר הנוכחי
+    const lbl = document.querySelector('.micro-hero-lbl');
+    if (lbl) {
+        if (prefs.microAxis === 'e1rm' || !prefs.microAxis) lbl.textContent = 'הערכת 1RM';
+        else if (prefs.microAxis === 'maxw') lbl.textContent = 'משקל מקסימלי';
+        else if (prefs.microAxis === 'vol')  lbl.textContent = 'נפח';
+    }
 
     if (!relevant.length) {
         if (lineSvg) lineSvg.innerHTML = '<text x="200" y="80" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="14" font-family="Inter">אין מספיק נתונים</text>';
         if (datesEl) datesEl.innerHTML = '';
         if (heroEl) heroEl.innerHTML = `—`;
-        renderPRCard(exName,[], prefs);
+        _microVals = []; _microDates = []; _microRelevant = [];
+        renderPRCard(exName, [], prefs);
         return;
     }
-    
+
     const vals = relevant.map(w => {
-        const parsed = parseSetsFromStrings(w.details[exName].sets); 
+        const parsed = parseSetsFromStrings(w.details[exName].sets);
         if (!parsed.length) return 0;
         if (prefs.microAxis === 'vol') return w.details[exName].vol || 0;
         if (prefs.microAxis === 'maxw') return Math.max(...parsed.map(s => s.w));
         return Math.max(...parsed.map(s => calc1RM(s.w, s.r, prefs.formula)));
     });
-    
+
+    // שמירת נתונים לשימוש אינטראקטיבי
+    _microVals = vals;
+    _microDates = relevant.map(w => {
+        const d = new Date(w.timestamp);
+        return `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth()+1).toString().padStart(2,'0')}`;
+    });
+    _microRelevant = relevant;
+
     if (heroEl) {
         const val = Math.round(vals[vals.length - 1]);
         const unit = prefs.microAxis === 'vol' && val >= 1000 ? 't' : 'kg';
         const displayVal = prefs.microAxis === 'vol' && val >= 1000 ? (val / 1000).toFixed(1) : val;
         heroEl.innerHTML = `${displayVal}<span class="inline-unit">${unit}</span>`;
     }
-    
-    drawMicroLineChart(vals, relevant.map(w => {
-        const d = new Date(w.timestamp);
-        return `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth()+1).toString().padStart(2,'0')}`;
-    }));
+
+    drawMicroLineChart(vals, _microDates);
     renderPRCard(exName, relevant, prefs);
 }
 
@@ -1193,33 +1224,65 @@ function getSmoothPath(points) {
     return path;
 }
 
+function selectMicroPoint(idx) {
+    _microSelectedPt = (_microSelectedPt === idx) ? -1 : idx;
+    drawMicroLineChart(_microVals, _microDates);
+}
+
 function drawMicroLineChart(vals, dates) {
-    const svg = document.getElementById('micro-line-svg'); 
+    const svg = document.getElementById('micro-line-svg');
     const datesEl = document.getElementById('micro-line-dates');
     if (!svg || !datesEl) return;
-    
+
     const n = vals.length;
-    if (n < 2) { 
-        svg.innerHTML = '<text x="200" y="80" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="14" font-family="Inter">אין מספיק נתונים למגמה</text>'; 
+    if (n < 2) {
+        svg.innerHTML = '<text x="200" y="80" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="14" font-family="Inter">אין מספיק נתונים למגמה</text>';
         datesEl.innerHTML = '';
-        return; 
+        return;
     }
-    
+
     const W = 400, H = 160, pad = { t: 20, b: 15, l: 20, r: 20 };
     const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
     const spread = Math.max(...vals) - Math.min(...vals);
     const mn = Math.min(...vals) - (spread > 0 ? spread * 0.2 : 10);
     const mx = Math.max(...vals) + (spread > 0 ? spread * 0.2 : 10);
-    
+
     const px = i => pad.l + (i / (n - 1)) * cW;
     const py = v => pad.t + cH - ((v - mn) / ((mx - mn) || 1)) * cH;
-    const pts = vals.map((v, i) =>[px(i), py(v)]);
-    
+    const pts = vals.map((v, i) => [px(i), py(v)]);
+
     const linePath = getSmoothPath(pts);
     const areaPath = linePath + ` L${pts[n - 1][0]},${H} L${pts[0][0]},${H} Z`;
-    
     const lastPt = pts[n - 1];
-    
+
+    // נקודה נבחרת — dot + tooltip בתוך ה-SVG
+    let selectedOverlay = '';
+    const selIdx = _microSelectedPt;
+    if (selIdx >= 0 && selIdx < n) {
+        const sx = pts[selIdx][0], sy = pts[selIdx][1];
+        const prefs = getAnalyticsPrefs();
+        const rawVal = vals[selIdx];
+        const isVol = prefs.microAxis === 'vol';
+        const displayVal = isVol && rawVal >= 1000
+            ? (rawVal / 1000).toFixed(1) + 't'
+            : Math.round(rawVal) + 'kg';
+        const label = dates[selIdx] + '  ' + displayVal;
+        const labelW = Math.max(label.length * 6.5, 80);
+        // מיקום tooltip: מעל הנקודה, תמיד בתוך הגרף
+        const tipX = Math.min(Math.max(sx, pad.l + labelW / 2), W - pad.r - labelW / 2);
+        const tipY = Math.max(sy - 28, pad.t + 2);
+
+        selectedOverlay = `
+            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" fill="#0A84FF" opacity="0.25"/>
+            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="#0A84FF"/>
+            <rect x="${(tipX - labelW / 2).toFixed(1)}" y="${(tipY - 10).toFixed(1)}"
+                width="${labelW.toFixed(1)}" height="17" rx="5"
+                fill="rgba(18,18,20,0.92)" stroke="#0A84FF" stroke-width="0.8"/>
+            <text x="${tipX.toFixed(1)}" y="${(tipY + 3).toFixed(1)}"
+                fill="#fff" font-size="9.5" text-anchor="middle"
+                font-weight="700" font-family="-apple-system,Inter,sans-serif">${label}</text>`;
+    }
+
     svg.innerHTML = `
         <defs>
             <linearGradient id="chart-grad" x1="0" x2="0" y1="0" y2="1">
@@ -1231,9 +1294,13 @@ function drawMicroLineChart(vals, dates) {
         <path d="${linePath}" fill="none" stroke="#0A84FF" stroke-width="4" stroke-linecap="round"></path>
         <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="6" fill="#0A84FF"></circle>
         <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="12" fill="none" stroke="#0A84FF" stroke-width="2" opacity="0.4"></circle>
+        ${selectedOverlay}
     `;
-    
-    datesEl.innerHTML = dates.map(d => `<span>${d}</span>`).join('');
+
+    // תאריכים — עם onclick לכל span
+    datesEl.innerHTML = dates.map((d, i) =>
+        `<span class="${i === selIdx ? 'micro-date-active' : ''}" onclick="selectMicroPoint(${i})" style="cursor:pointer;">${d}</span>`
+    ).join('');
 }
 
 function renderPRCard(exName, relevant, prefs) {
@@ -1284,7 +1351,18 @@ function setVolMuscle(muscle, btn) { document.querySelectorAll('#vol-muscle-chip
 function setMuscleRange(r, btn) { _updateChipGroup('muscle-chips', btn); const p = getAnalyticsPrefs(); p.muscleRange = r; saveAnalyticsPrefs(p); renderDonutChart(getArchiveClean(), r); }
 function setConsRange(n, btn) { _updateChipGroup('cons-chips', btn); const p = getAnalyticsPrefs(); p.consistencyRange = n; saveAnalyticsPrefs(p); renderConsistencyTrack(getArchiveClean(), n); }
 function setMicroPoints(n, btn) { _updateChipGroup('micro-pts-chips', btn); const p = getAnalyticsPrefs(); p.microPoints = n; saveAnalyticsPrefs(p); const s = document.getElementById('micro-ex-selector'); if (s && s.value) loadMicroData(s.value); }
-function setMicroAxis(ax, btn) { _updateChipGroup('micro-axis-chips', btn); const p = getAnalyticsPrefs(); p.microAxis = ax; saveAnalyticsPrefs(p); const s = document.getElementById('micro-ex-selector'); if (s && s.value) loadMicroData(s.value); }
+function setMicroAxis(ax, btn) {
+    _updateChipGroup('micro-axis-chips', btn);
+    const p = getAnalyticsPrefs(); p.microAxis = ax; saveAnalyticsPrefs(p);
+    // עדכון כותרת לפי הבורר הנבחר
+    const lbl = document.querySelector('.micro-hero-lbl');
+    if (lbl) {
+        if (ax === 'e1rm')  lbl.textContent = 'הערכת 1RM';
+        else if (ax === 'maxw') lbl.textContent = 'משקל מקסימלי';
+        else if (ax === 'vol')  lbl.textContent = 'נפח';
+    }
+    const s = document.getElementById('micro-ex-selector'); if (s && s.value) loadMicroData(s.value);
+}
 
 function openAnalyticsSettings() {
     const p = getAnalyticsPrefs();

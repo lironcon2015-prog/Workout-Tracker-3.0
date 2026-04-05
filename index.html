@@ -734,11 +734,20 @@
                     </div>
                 </div>
                 <div id="list-view-container">
-                    <div class="archive-actions d-flex gap-sm mb-sm">
-                        <button class="glass-card compact w-100 color-accent border-accent font-semi text-sm" onclick="copyBulkLog('all')">העתק הכל</button>
-                        <button id="btn-copy-selected" class="glass-card compact w-100 color-dim border-dim font-semi text-sm opacity-50" onclick="copyBulkLog('selected')" disabled>העתק מסומנים</button>
+                    <div class="archive-action-pills">
+                        <button class="archive-pill-btn" onclick="openRangeSheet()">
+                            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">date_range</span>
+                            <span>טווח</span>
+                        </button>
+                        <button id="btn-copy-selected" class="archive-pill-btn archive-pill-dim" onclick="copyBulkLog('selected')" disabled>
+                            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">check_box</span>
+                            <span>מסומנים</span>
+                        </button>
+                        <button class="archive-pill-btn" onclick="copyBulkLog('all')">
+                            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">content_copy</span>
+                            <span>העתק הכל</span>
+                        </button>
                     </div>
-                    <button class="glass-card compact w-100 font-semi text-sm mb-md" style="color:#FF9F0A;border-color:rgba(255,159,10,0.45);" onclick="openRangeSheet()">העתק לפי טווח</button>
                     <div id="archive-list" class="vertical-stack"></div>
                 </div>
                 <input type="file" id="import-file" class="d-none" onchange="importData(this)">

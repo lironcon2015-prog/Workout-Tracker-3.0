@@ -1110,73 +1110,195 @@ body {
     padding-top: 4px;
 }
 
-/* ── Archive Month Groups ── */
-.archive-month-group {
-    margin-bottom: 4px;
-}
-
-.archive-month-header {
+/* ── Archive Month Headers (redesign) ── */
+.archive-month-hd {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 10px 4px 6px;
-    margin-bottom: 6px;
-}
-
-.archive-month-header.current .archive-month-title {
-    font-size: 0.78em;
-    font-weight: 800;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.archive-month-header.current .archive-month-meta {
-    font-size: 0.72em;
-    color: var(--text-dim);
-}
-
-.archive-month-header.collapsible {
+    align-items: flex-end;
+    border-right: 4px solid rgba(255,255,255,0.07);
+    padding: 8px 14px 8px 0;
+    margin-bottom: 14px;
     cursor: pointer;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 14px;
-    margin-bottom: 4px;
-    min-height: 44px;
-    transition: background 0.18s;
+    user-select: none;
+    transition: opacity 0.15s;
 }
-.archive-month-header.collapsible:active { background: rgba(255,255,255,0.07); }
+.archive-month-hd:active { opacity: 0.7; }
+.archive-month-hd.is-current { border-right-color: var(--accent); }
 
-.archive-month-header-inner {
+.archive-month-hd-left { display: flex; flex-direction: column; gap: 5px; }
+
+.archive-month-hd-name {
+    font-family: 'Heebo', 'Inter', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: rgba(255,255,255,0.22);
+}
+.archive-month-hd.is-current .archive-month-hd-name { color: #e5e2e1; }
+
+.archive-month-hd-count {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(255,255,255,0.15);
+}
+.archive-month-hd.is-current .archive-month-hd-count { color: var(--accent); }
+
+.archive-month-hd-vol {
+    text-align: left;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    flex: 1;
+    align-items: flex-start;
+    gap: 3px;
 }
+.archive-month-hd-volnum {
+    font-family: 'Heebo', 'Inter', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 900;
+    font-style: italic;
+    color: rgba(255,255,255,0.18);
+    line-height: 1;
+}
+.archive-month-hd.is-current .archive-month-hd-volnum { color: #e5e2e1; }
 
-.archive-month-title {
-    font-size: 0.9em;
+.archive-month-hd-vollabel {
+    font-size: 0.6rem;
     font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.18);
+}
+
+/* ── Archive List Cards (redesign) ── */
+.archive-list-card {
+    background: #1b1b1b;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-top-color: rgba(255,255,255,0.10);
+    border-radius: 2rem;
+    padding: 18px 18px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+    transition: background 0.15s;
+}
+.archive-list-card:active { background: #222; }
+
+.archive-card-select-row { padding-top: 2px; flex-shrink: 0; }
+
+.archive-card-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    cursor: pointer;
+}
+
+.archive-card-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.archive-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+}
+
+.archive-card-title {
+    font-family: 'Heebo', 'Inter', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: #e5e2e1;
+    line-height: 1.2;
+    display: block;
+}
+
+.archive-card-date {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.36);
+    display: block;
+}
+
+.archive-card-thumbnail {
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
+    flex-shrink: 0;
+    background-color: #353535;
+    background-size: cover;
+    background-position: center;
+}
+
+.archive-card-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding-top: 14px;
+}
+
+.archive-stat-cell { display: flex; flex-direction: column; gap: 3px; }
+
+.archive-stat-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+}
+
+.archive-stat-value {
+    font-family: 'Heebo', 'Inter', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 900;
+    font-style: italic;
+    color: #e5e2e1;
+    line-height: 1;
+}
+
+/* ── Archive Action Pills ── */
+.archive-action-pills {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.archive-pill-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 10px 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 9999px;
     color: var(--text);
+    font-size: 0.7rem;
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    font-family: 'Heebo', 'Inter', sans-serif;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
 }
-
-.archive-month-meta {
-    font-size: 0.72em;
-    color: var(--text-dim);
-}
-
-.archive-month-arrow {
-    color: var(--text-dim);
-    font-size: 1.2em;
-    font-weight: 300;
-    transition: transform 0.25s cubic-bezier(0.2,0.8,0.2,1);
-    margin-right: 4px;
-}
-
-.archive-month-header.collapsible.open .archive-month-arrow {
-    transform: rotate(90deg);
-}
+.archive-pill-btn:hover  { background: rgba(255,255,255,0.07); }
+.archive-pill-btn:active { transform: scale(0.97); }
+.archive-pill-btn.archive-pill-dim { opacity: 0.4; cursor: default; }
 
 /* ── Collapsed archive month ── */
 .archive-month-items.collapsed { display: none; }

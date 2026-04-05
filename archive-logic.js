@@ -16,6 +16,26 @@ const DEFAULT_MICRO_ORDER = ['Bench Press (Main)', 'Overhead Press (Main)', 'Leg
 
 let selectedArchiveIds = new Set();
 
+// ─── ARCHIVE THUMB + SETS HELPERS ─────────────────────────────────────────
+
+// משחזר את אותה לוגיקת אינדקס כמו renderWorkoutMenu — אותה תמונה בשני המסכים
+function getWorkoutThumbUrl(workoutKey) {
+    let idx = 0;
+    const keys = Object.keys(state.workouts);
+    for (const key of keys) {
+        const meta = state.workoutMeta[key];
+        if (meta && (meta.isHidden || meta.isDeloadOnly)) continue;
+        if (key === workoutKey) return WORKOUT_THUMB_IMAGES[idx % WORKOUT_THUMB_IMAGES.length];
+        idx++;
+    }
+    return WORKOUT_THUMB_IMAGES[0];
+}
+
+function getWorkoutTotalSets(item) {
+    if (!item || !item.details) return 0;
+    return Object.values(item.details).reduce((total, ex) => total + (ex.sets ? ex.sets.length : 0), 0);
+}
+
 function openArchive() {
     selectedArchiveIds = new Set();
     updateCopySelectedBtn();
@@ -107,25 +127,40 @@ function getMuscleSetCounts(archive, range) {
 
 function createArchiveCard(item) {
     const card = document.createElement('div');
-    card.className = "menu-card mb-sm";
-    card.style.flexDirection = 'column';
-
-    const meta = state.workoutMeta[item.type];
-    const typeColor = (meta && meta.color) ? meta.color : 'var(--type-free)';
+    card.className = 'archive-list-card';
 
     const vol = getWorkoutVolume(item);
     const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : vol + 'kg';
+    const totalSets = getWorkoutTotalSets(item);
+    const thumbUrl = getWorkoutThumbUrl(item.type);
+    const idx = StorageManager.getArchive().findIndex(a => a.timestamp === item.timestamp);
 
     card.innerHTML = `
-        <div class="archive-card-row">
+        <div class="archive-card-select-row">
             <input type="checkbox" class="archive-checkbox" onchange="toggleArchiveSelection(${item.timestamp})"
                 ${selectedArchiveIds.has(item.timestamp) ? 'checked' : ''}>
-            <div class="archive-info" onclick="openArchiveDetail(${StorageManager.getArchive().findIndex(a => a.timestamp === item.timestamp)})">
-                <div class="flex-between">
-                    <span class="font-semi" style="color:${typeColor}">${item.type}</span>
-                    <span class="text-xs color-dim">${item.date || ''} ${item.time || ''}</span>
+        </div>
+        <div class="archive-card-main" onclick="openArchiveDetail(${idx})">
+            <div class="archive-card-body">
+                <div class="archive-card-info">
+                    <span class="archive-card-title">${item.type}</span>
+                    <span class="archive-card-date">${item.date || ''} • ${item.time || ''}</span>
                 </div>
-                <div class="text-sm color-dim">${item.duration || 0} דק' • ${volStr}</div>
+                <div class="archive-card-thumbnail" style="background-image:url('${thumbUrl}');"></div>
+            </div>
+            <div class="archive-card-stats">
+                <div class="archive-stat-cell">
+                    <span class="archive-stat-label">סטים</span>
+                    <span class="archive-stat-value">${totalSets || '—'}</span>
+                </div>
+                <div class="archive-stat-cell">
+                    <span class="archive-stat-label">נפח</span>
+                    <span class="archive-stat-value">${volStr}</span>
+                </div>
+                <div class="archive-stat-cell">
+                    <span class="archive-stat-label">משך</span>
+                    <span class="archive-stat-value">${item.duration || 0} דק'</span>
+                </div>
             </div>
         </div>`;
     return card;
@@ -173,14 +208,17 @@ function renderArchiveList() {
 
         const header = document.createElement('div');
         header.className = group.isCurrentMonth
-            ? 'archive-month-header collapsible open'
-            : 'archive-month-header collapsible';
+            ? 'archive-month-hd is-current'
+            : 'archive-month-hd';
         header.innerHTML = `
-            <div class="archive-month-header-inner">
-                <span class="archive-month-title">${group.label}</span>
-                <span class="archive-month-meta">${group.items.length} אימונים • ${volStr}</span>
+            <div class="archive-month-hd-left">
+                <div class="archive-month-hd-name">${group.label}</div>
+                <div class="archive-month-hd-count">${group.items.length} אימונים הושלמו</div>
             </div>
-            <div class="archive-month-arrow">›</div>`;
+            <div class="archive-month-hd-vol">
+                <span class="archive-month-hd-volnum">${volStr}</span>
+                <span class="archive-month-hd-vollabel">נפח כולל</span>
+            </div>`;
 
         const itemsContainer = document.createElement('div');
         itemsContainer.className = group.isCurrentMonth
@@ -191,7 +229,6 @@ function renderArchiveList() {
         header.addEventListener('click', () => {
             const isOpen = !itemsContainer.classList.contains('collapsed');
             itemsContainer.classList.toggle('collapsed', isOpen);
-            header.classList.toggle('open', !isOpen);
         });
 
         monthContainer.appendChild(header);
@@ -210,12 +247,10 @@ function updateCopySelectedBtn() {
     if (!btn) return;
     if (selectedArchiveIds.size > 0) {
         btn.disabled = false;
-        btn.classList.remove('opacity-50', 'color-dim', 'border-dim');
-        btn.classList.add('color-accent', 'border-accent');
+        btn.classList.remove('archive-pill-dim');
     } else {
         btn.disabled = true;
-        btn.classList.remove('color-accent', 'border-accent');
-        btn.classList.add('opacity-50', 'color-dim', 'border-dim');
+        btn.classList.add('archive-pill-dim');
     }
 }
 

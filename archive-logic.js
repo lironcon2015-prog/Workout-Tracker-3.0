@@ -487,36 +487,120 @@ function renderCalendar() {
     const targetDate = new Date(now.getFullYear(), now.getMonth() + state.calendarOffset, 1);
     const year = targetDate.getFullYear(), month = targetDate.getMonth();
     document.getElementById('current-month-display').innerText = `${MONTH_NAMES_HE[month]} ${year}`;
-    const firstDayIndex = targetDate.getDay();
+    const firstDayIndex = targetDate.getDay(); // 0=ראשון
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const history = StorageManager.getArchive();
     const monthWorkouts = history.filter(item => {
         const d = new Date(item.timestamp);
         return d.getMonth() === month && d.getFullYear() === year;
     });
+
+    // תאים ריקים לפני תחילת החודש
     for (let i = 0; i < firstDayIndex; i++) {
-        const cell = document.createElement('div'); cell.className = "calendar-cell empty"; grid.appendChild(cell);
+        const ph = document.createElement('div');
+        ph.className = 'cal-day-placeholder';
+        grid.appendChild(ph);
     }
+
     const today = new Date();
+    const isCurrentMonth = state.calendarOffset === 0;
+
     for (let day = 1; day <= daysInMonth; day++) {
-        const cell = document.createElement('div'); cell.className = "calendar-cell";
-        cell.innerHTML = `<span>${day}</span>`;
-        if (state.calendarOffset === 0 && day === today.getDate()) cell.classList.add('today');
         const dailyWorkouts = monthWorkouts.filter(item => new Date(item.timestamp).getDate() === day);
-        if (dailyWorkouts.length > 0) {
-            const dotsContainer = document.createElement('div'); dotsContainer.className = "dots-container";
+        const hasWorkout = dailyWorkouts.length > 0;
+        const isToday = isCurrentMonth && day === today.getDate();
+
+        const cell = document.createElement('div');
+        cell.className = hasWorkout ? 'cal-day-active' : 'cal-day-empty';
+        if (isToday) cell.classList.add('cal-today');
+
+        // מספר היום
+        const numEl = document.createElement('span');
+        numEl.className = hasWorkout ? 'cal-day-num' : 'cal-day-num cal-day-num-dim';
+        numEl.textContent = day;
+        cell.appendChild(numEl);
+
+        if (hasWorkout) {
+            const dotsRow = document.createElement('div');
+            dotsRow.className = 'cal-dots-row';
             dailyWorkouts.forEach(wo => {
-                const dot = document.createElement('div');
                 const woMeta = state.workoutMeta[wo.type];
-                const dotColor = (woMeta && woMeta.color) ? woMeta.color : 'var(--type-free)';
-                dot.className = 'dot';
-                dot.style.backgroundColor = dotColor; dotsContainer.appendChild(dot);
+                const color = (woMeta && woMeta.color) ? woMeta.color : 'var(--type-free)';
+                const dot = document.createElement('div');
+                dot.className = 'cal-dot';
+                dot.style.backgroundColor = color;
+                dot.style.boxShadow = `0 0 6px ${color}`;
+                dotsRow.appendChild(dot);
             });
-            cell.appendChild(dotsContainer);
+            cell.appendChild(dotsRow);
             cell.onclick = () => openDayDrawer(dailyWorkouts, day, MONTH_NAMES_HE[month]);
+        } else {
+            // placeholder לגובה אחיד
+            const ph = document.createElement('div');
+            ph.className = 'cal-dot-ph';
+            cell.appendChild(ph);
         }
+
         grid.appendChild(cell);
     }
+
+    _renderCalendarSummary(monthWorkouts, month, year);
+    _renderCalendarLegend(monthWorkouts);
+}
+
+function _renderCalendarSummary(monthWorkouts, month, year) {
+    const card = document.getElementById('cal-summary-card');
+    if (!card) return;
+    const count = monthWorkouts.length;
+
+    if (count === 0) {
+        card.style.display = 'none';
+        return;
+    }
+
+    card.style.display = 'block';
+    const totalVolKg = monthWorkouts.reduce((s, wo) => s + getWorkoutVolume(wo), 0);
+    const totalVolTon = (totalVolKg / 1000).toFixed(1);
+    const totalVolFmt = parseFloat(totalVolTon).toLocaleString('he-IL');
+
+    card.innerHTML = `
+        <div class="cal-summary-title">נתוני ${MONTH_NAMES_HE[month]}</div>
+        <div class="cal-summary-sub">סיכום ביצועים חודשי</div>
+        <div class="cal-summary-stats">
+            <div class="cal-summary-stat">
+                <span class="cal-summary-num">${count}</span>
+                <span class="cal-summary-label">אימונים</span>
+            </div>
+            <div class="cal-summary-stat">
+                <div class="cal-summary-vol-row">
+                    <span class="cal-summary-num">${totalVolFmt}</span>
+                    <span class="cal-summary-unit">טון</span>
+                </div>
+                <span class="cal-summary-label">נפח כולל</span>
+            </div>
+        </div>`;
+}
+
+function _renderCalendarLegend(monthWorkouts) {
+    const legend = document.getElementById('cal-legend');
+    if (!legend) return;
+    legend.innerHTML = '';
+    const seen = new Map();
+    monthWorkouts.forEach(wo => {
+        if (!seen.has(wo.type)) {
+            const woMeta = state.workoutMeta[wo.type];
+            const color = (woMeta && woMeta.color) ? woMeta.color : 'var(--type-free)';
+            seen.set(wo.type, color);
+        }
+    });
+    seen.forEach((color, label) => {
+        const item = document.createElement('div');
+        item.className = 'cal-legend-item';
+        item.innerHTML = `
+            <div class="cal-legend-dot" style="background:${color};box-shadow:0 0 8px ${color}"></div>
+            <span class="cal-legend-label">${label}</span>`;
+        legend.appendChild(item);
+    });
 }
 
 function openDayDrawer(workouts, day, monthName) {

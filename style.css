@@ -1008,15 +1008,17 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.08); border-top-color: rgba(255, 255, 255, 0.12);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 32px rgba(0,0,0,0.3);
     border-radius: 2rem; padding: 20px; position: relative; overflow: hidden;
-    display: flex; flex-direction: column; justify-content: space-between; min-height: 110px;
+    display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 110px;
 }
 .bento-icon-bg { position: absolute; bottom: -8px; left: -8px; font-size: 72px; opacity: 0.04; pointer-events: none; }
 .bento-lbl { font-size: 0.95rem; color: rgba(255,255,255,0.85); margin: 0; text-transform: uppercase; font-weight: 900; letter-spacing: -0.01em; text-align: right; font-family: 'Heebo', 'Inter', sans-serif; font-style: italic; line-height: 1.1; }
 .bento-val { font-size: 2rem; line-height: 1; margin: 8px 0 0; display: flex; align-items: baseline; justify-content: flex-start; direction: ltr; flex-direction: row-reverse; }
 .bento-sub { font-size: 0.6rem; color: rgba(255,255,255,0.35); font-weight: 700; margin: 5px 0 0; text-align: right; letter-spacing: 0.03em; }
 .inline-unit { font-size: 0.45em; font-family: 'Heebo', 'Inter', sans-serif; font-weight: 800; font-style: normal; opacity: 0.65; margin-right: 3px; letter-spacing: -0.01em; }
-.bento-glow-blue { box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 8px 32px rgba(0,0,0,0.3), 0 0 28px rgba(10,132,255,0.22), 0 0 60px rgba(10,132,255,0.08); border-color: rgba(10,132,255,0.18); }
-.bento-glow-orange { box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 8px 32px rgba(0,0,0,0.3), 0 0 28px rgba(255,159,10,0.22), 0 0 60px rgba(255,159,10,0.08); border-color: rgba(255,159,10,0.2); }
+.bento-glow-blue { border-right: 4px solid rgba(10,132,255,0.85); }
+.bento-glow-blue .bento-val { text-shadow: 0 0 20px rgba(10,132,255,0.35); }
+.bento-glow-orange { border-right: 4px solid rgba(255,159,10,0.85); }
+.bento-glow-orange .bento-val { text-shadow: 0 0 20px rgba(255,159,10,0.35); }
 
 /* CHARTS & BARS */
 .bar-chart-wrap { overflow-x: auto; scrollbar-width: none; }

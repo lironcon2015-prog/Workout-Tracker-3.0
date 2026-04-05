@@ -578,35 +578,36 @@ function renderHeroMetricsGrid(archive) {
     const totalVol = archive.reduce((s, a) => s + getWorkoutVolume(a), 0);
     const totalDurMins = archive.reduce((s, a) => s + (a.duration || 0), 0);
     const bestVol = archive.reduce((mx, a) => Math.max(mx, getWorkoutVolume(a)), 0);
+    const avgDur = total ? Math.round(totalDurMins / total) : 0;
 
-    // המרה לטון עבור התצוגה, שעות עבור הזמן
-    const volT = (totalVol / 1000).toFixed(1);
-    const bestVolT = (bestVol / 1000).toFixed(1);
-    const hours = Math.round(totalDurMins / 60);
+    // פורמט טון — מציג בטון אם ≥1000kg, אחרת kg
+    const fmtVol = (kg) => kg >= 1000
+        ? `${(kg / 1000).toFixed(1)}<span class="inline-unit">t</span>`
+        : `${kg.toLocaleString('he-IL')}<span class="inline-unit">kg</span>`;
 
     const el = document.getElementById('hero-metrics-grid'); if (!el) return;
 
-    // עקב עיצוב ה-RTL (ימין לשמאל): אייטם 1=ימין, אייטם 2=שמאל
     el.innerHTML = `
-        <div class="bento-card glow-blue">
+        <div class="bento-card glass-card m-0" style="margin:0;">
+            <span class="material-symbols-outlined bento-icon-bg">fitness_center</span>
             <div class="bento-lbl">נפח כולל</div>
-            <div class="bento-val blue">${volT}<span class="inline-unit">t</span></div>
-            <div class="bento-sub green">↗ +12%</div>
+            <div class="bento-val font-headline italic-black">${fmtVol(totalVol)}</div>
         </div>
-        <div class="bento-card">
+        <div class="bento-card glass-card m-0" style="margin:0;">
+            <span class="material-symbols-outlined bento-icon-bg">schedule</span>
             <div class="bento-lbl">זמן כולל</div>
-            <div class="bento-val">${hours}<span class="inline-unit" style="color:var(--text-dim);">h</span></div>
-            <div class="bento-sub">שעות סך הכל</div>
+            <div class="bento-val font-headline italic-black" style="color:var(--text);">${Math.round(totalDurMins / 60)}<span class="inline-unit">h</span></div>
+            ${avgDur ? `<div class="bento-sub">ממוצע ${avgDur}m</div>` : ''}
         </div>
-        <div class="bento-card">
+        <div class="bento-card glass-card m-0" style="margin:0;">
+            <span class="material-symbols-outlined bento-icon-bg">calendar_today</span>
             <div class="bento-lbl">אימונים</div>
-            <div class="bento-val">${total}</div>
-            <div class="bento-sub green"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-left:2px;">check_circle</span> יעד הושג</div>
+            <div class="bento-val font-headline italic-black" style="color:var(--text);">${total}</div>
         </div>
-        <div class="bento-card glow-orange">
-            <div class="bento-lbl">שיא נפח</div>
-            <div class="bento-val orange">${bestVolT}<span class="inline-unit">t</span></div>
-            <div class="bento-sub">שיא אישי חדש</div>
+        <div class="bento-card glass-card m-0" style="margin:0;">
+            <span class="material-symbols-outlined bento-icon-bg" style="color:var(--warning);">emoji_events</span>
+            <div class="bento-lbl" style="color:var(--warning);">שיא נפח</div>
+            <div class="bento-val font-headline italic-black" style="color:var(--warning);">${fmtVol(bestVol)}</div>
         </div>`;
 }
 
@@ -1463,9 +1464,6 @@ function renderHomePRCard() {
 function _homePRRenderRangeChips() {
     const container = document.getElementById('home-pr-range-chips-inline');
     if (!container) return;
-    
-    // שינוי המחלקה למחלקה המעוצבת מהאנליטיקה
-    container.className = 'mini-toggle'; 
     container.innerHTML = '';
 
     const prefs = getAnalyticsPrefs();
@@ -1474,7 +1472,7 @@ function _homePRRenderRangeChips() {
     [8, 16, 0].forEach(n => {
         const btn = document.createElement('button');
         const val = n === 0 ? 9999 : n;
-        btn.className = (activeRange === val ? 'active' : '');
+        btn.className = 'home-pr-range-chip' + (activeRange === val ? ' active' : '');
         btn.textContent = n === 0 ? 'הכל' : String(n);
         btn.onclick = () => setHomePRRange(val, btn);
         container.appendChild(btn);
@@ -1485,10 +1483,7 @@ function setHomePRRange(n, btn) {
     const prefs = getAnalyticsPrefs();
     prefs.homePRRange = n;
     saveAnalyticsPrefs(prefs);
-    const container = document.getElementById('home-pr-range-chips-inline');
-    if (container) {
-        container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-    }
+    document.querySelectorAll('.home-pr-range-chip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     _homePRSelectedIdx = _homePRBestIdx(_homePRCurrent);
     _homePRRender();

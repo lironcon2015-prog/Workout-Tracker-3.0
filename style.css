@@ -643,6 +643,11 @@ body {
     text-transform: uppercase; font-family: 'Heebo', 'Inter', sans-serif;
     overflow-wrap: break-word; word-break: break-word; margin: 8px 0 10px;
 }
+/* ui-ask-extra — ריווח מורחב לכותרת */
+#ui-ask-extra .confirm-fixed-top h2 {
+    line-height: 1.15;
+    margin: 12px 0 16px;
+}
 .sub-text { color: var(--text-dim); font-size: 0.9em; margin-bottom: 30px; }
 
 #ex-display-name {
@@ -884,6 +889,27 @@ body {
 
 /* ── Workout Color Swatches (editor) ── */
 .color-swatches-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 4px 0; }
+
+/* ── Editor thumb picker ── */
+.editor-thumb-picker-row {
+    display: flex; gap: 10px; flex-wrap: wrap; padding: 4px 0;
+}
+.editor-thumb-option {
+    width: 72px; height: 52px;
+    border-radius: 12px;
+    background-size: cover; background-position: center;
+    border: 2.5px solid transparent;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.18s, border-color 0.18s, transform 0.15s;
+    flex-shrink: 0;
+}
+.editor-thumb-option.active {
+    border-color: var(--primary);
+    opacity: 1;
+    transform: scale(1.06);
+}
+.editor-thumb-option:hover { opacity: 0.85; }
 .color-swatch {
     width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
     border: 2px solid transparent;

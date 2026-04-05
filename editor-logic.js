@@ -56,9 +56,15 @@ function renderWorkoutMenu() {
     // חץ קדימה — מתאים ל-RTL (כמו arrow_back_ios_new במוקאפ)
     const chevronSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
 
-    function buildCard(key, count, thumbIndex, isFirst, badge) {
+    function buildCard(key, count, fallbackIdx, isFirst, badge) {
         const btn = document.createElement('button');
         btn.className = 'obsidian-menu-card' + (isFirst ? ' card-featured' : '');
+        // שימוש ב-_thumbIdx ששמור ב-meta — אם קיים. fallbackIdx רק כברירת מחדל ראשונית
+        if (!state.workoutMeta[key]) state.workoutMeta[key] = {};
+        if (typeof state.workoutMeta[key]._thumbIdx !== 'number') {
+            state.workoutMeta[key]._thumbIdx = fallbackIdx;
+        }
+        const thumbIndex = state.workoutMeta[key]._thumbIdx;
         const imgUrl = thumbImages[thumbIndex % thumbImages.length];
         const thumbStyle = `background-image:url('${imgUrl}');background-size:cover;background-position:center;`;
         const badgeHtml = badge || '';
@@ -79,9 +85,6 @@ function renderWorkoutMenu() {
                 <div class="obsidian-card-thumb" style="${thumbStyle}"></div>
             </div>`;
         btn.onclick = () => selectWorkout(key);
-        // שמור אינדקס תמונה ב-meta לשימוש הארכיב
-        if (!state.workoutMeta[key]) state.workoutMeta[key] = {};
-        state.workoutMeta[key]._thumbIdx = thumbIndex;
         return btn;
     }
 
@@ -238,6 +241,7 @@ function openEditorUI() {
     document.getElementById('editor-deload-only-check').checked = !!meta.isDeloadOnly;
     document.getElementById('editor-hidden-check').checked = !!meta.isHidden;
     _renderColorSwatches(meta.color || '');
+    _renderThumbPicker(typeof meta._thumbIdx === 'number' ? meta._thumbIdx : 0);
     renderEditorList();
     navigate('ui-workout-editor');
 }
@@ -631,6 +635,7 @@ function saveWorkoutChanges() {
 
     state.workoutMeta[newName].isHidden = document.getElementById('editor-hidden-check').checked;
     state.workoutMeta[newName].color = _selectedEditorColor || '';
+    state.workoutMeta[newName]._thumbIdx = _selectedThumbIdx >= 0 ? _selectedThumbIdx : (state.workoutMeta[newName]._thumbIdx || 0);
 
     StorageManager.saveData(StorageManager.KEY_META, state.workoutMeta);
 
@@ -830,6 +835,28 @@ const WORKOUT_COLORS = [
 ];
 
 let _selectedEditorColor = '';
+
+let _selectedThumbIdx = -1;
+
+function selectEditorThumb(idx, el) {
+    _selectedThumbIdx = idx;
+    document.querySelectorAll('.editor-thumb-option').forEach(s => s.classList.remove('active'));
+    if (el) el.classList.add('active');
+}
+
+function _renderThumbPicker(currentIdx) {
+    _selectedThumbIdx = (typeof currentIdx === 'number' && currentIdx >= 0) ? currentIdx : 0;
+    const container = document.getElementById('editor-thumb-picker');
+    if (!container) return;
+    container.innerHTML = '';
+    WORKOUT_THUMB_IMAGES.forEach((url, idx) => {
+        const el = document.createElement('div');
+        el.className = 'editor-thumb-option' + (idx === _selectedThumbIdx ? ' active' : '');
+        el.style.backgroundImage = `url('${url}')`;
+        el.onclick = () => selectEditorThumb(idx, el);
+        container.appendChild(el);
+    });
+}
 
 function selectEditorColor(hex, el) {
     _selectedEditorColor = hex;

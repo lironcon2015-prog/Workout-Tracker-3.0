@@ -703,39 +703,9 @@ function closePlanSheet() {
 }
 
 function updatePlanFloatBtn(screenId) {
+    // נקה כפתורי תרגילים שהוזרקו בעבר
     document.querySelectorAll('.plan-tool-btn-row').forEach(el => el.remove());
-
-    const FLOW_SCREENS = ['ui-confirm', 'ui-main', 'ui-cluster-rest', 'ui-ask-extra'];
-    if (!FLOW_SCREENS.includes(screenId)) return;
-    if (!state.type || !state.workouts[state.type]) return;
-    if (state.isExtraPhase && state.clusterMode) return;
-    if (state.isFreestyle) return;
-
-    if (screenId === 'ui-main') {
-        const toolsRow = document.querySelector('#ui-main .header-tools');
-        if (toolsRow && !toolsRow.querySelector('.plan-exercises-btn')) {
-            const btn = document.createElement('button');
-            btn.className = 'tool-btn plan-exercises-btn';
-            btn.textContent = 'תרגילים';
-            btn.onclick = openCurrentPlanSheet;
-            toolsRow.appendChild(btn);
-        }
-    } else {
-        const screen = document.getElementById(screenId);
-        if (!screen) return;
-        const scrollArea = screen.querySelector('.confirm-fixed-top') || screen.firstElementChild;
-        if (!scrollArea) return;
-        if (screen.querySelector('.plan-tool-btn-row')) return;
-        const row = document.createElement('div');
-        row.className = 'header-tools plan-tool-btn-row';
-        row.style.marginBottom = '12px';
-        const btn = document.createElement('button');
-        btn.className = 'tool-btn plan-exercises-btn';
-        btn.textContent = 'תרגילים';
-        btn.onclick = openCurrentPlanSheet;
-        row.appendChild(btn);
-        scrollArea.insertBefore(row, scrollArea.firstChild);
-    }
+    // הכפתור זמין דרך תפריט שלוש הנקודות בסטריפ — אין צורך בהזרקה למסך
 }
 
 // ─── WEEK / WORKOUT SELECTION ──────────────────────────────────────────────

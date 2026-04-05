@@ -79,6 +79,9 @@ function renderWorkoutMenu() {
                 <div class="obsidian-card-thumb" style="${thumbStyle}"></div>
             </div>`;
         btn.onclick = () => selectWorkout(key);
+        // שמור אינדקס תמונה ב-meta לשימוש הארכיב
+        if (!state.workoutMeta[key]) state.workoutMeta[key] = {};
+        state.workoutMeta[key]._thumbIdx = thumbIndex;
         return btn;
     }
 

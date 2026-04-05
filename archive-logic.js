@@ -18,13 +18,18 @@ let selectedArchiveIds = new Set();
 
 // ─── ARCHIVE THUMB + SETS HELPERS ─────────────────────────────────────────
 
-// משחזר את אותה לוגיקת אינדקס כמו renderWorkoutMenu — אותה תמונה בשני המסכים
+// משתמש ב-_thumbIdx שנשמר ב-workoutMeta ע"י renderWorkoutMenu — אותה תמונה בדיוק
 function getWorkoutThumbUrl(workoutKey) {
+    const meta = state.workoutMeta && state.workoutMeta[workoutKey];
+    if (meta && typeof meta._thumbIdx === 'number') {
+        return WORKOUT_THUMB_IMAGES[meta._thumbIdx % WORKOUT_THUMB_IMAGES.length];
+    }
+    // fallback: חישוב פוזיציוני אם renderWorkoutMenu טרם רץ
     let idx = 0;
-    const keys = Object.keys(state.workouts);
+    const keys = Object.keys(state.workouts || {});
     for (const key of keys) {
-        const meta = state.workoutMeta[key];
-        if (meta && (meta.isHidden || meta.isDeloadOnly)) continue;
+        const m = state.workoutMeta && state.workoutMeta[key];
+        if (m && (m.isHidden || m.isDeloadOnly)) continue;
         if (key === workoutKey) return WORKOUT_THUMB_IMAGES[idx % WORKOUT_THUMB_IMAGES.length];
         idx++;
     }
@@ -144,7 +149,7 @@ function createArchiveCard(item) {
             <div class="archive-card-body">
                 <div class="archive-card-info">
                     <span class="archive-card-title">${item.type}</span>
-                    <span class="archive-card-date">${item.date || ''} • ${item.time || ''}</span>
+                    <span class="archive-card-date">${item.week && item.week !== 'deload' ? 'שבוע ' + item.week + ' • ' : item.week === 'deload' ? 'דילואוד • ' : ''}${item.date || ''} • ${item.time || ''}</span>
                 </div>
                 <div class="archive-card-thumbnail" style="background-image:url('${thumbUrl}');"></div>
             </div>
@@ -1725,8 +1730,8 @@ function _renderRangeMonthChips() {
         if (!seen.has(key)) {
             seen.add(key);
             const btn = document.createElement('button');
-            btn.className = 'range-chip';
-            btn.textContent = MONTH_NAMES_HE[d.getMonth()] + ' ' + d.getFullYear();
+            btn.className = 'range-card';
+            btn.innerHTML = `<span class="range-card-label">זמין</span><span class="range-card-name">${MONTH_NAMES_HE[d.getMonth()]} ${d.getFullYear()}</span>`;
             const yr = d.getFullYear(), mo = d.getMonth();
             btn.onclick = function() { _selectRangeMonth(yr, mo, btn); };
             container.appendChild(btn);
@@ -1737,15 +1742,27 @@ function _renderRangeMonthChips() {
 
 function _selectRangeMonth(year, month, btn) {
     _rangeSelectedMonth = { year: year, month: month };
-    document.querySelectorAll('#range-month-chips .range-chip').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('#range-month-chips .range-card').forEach(function(b) {
+        b.classList.remove('active');
+        const lbl = b.querySelector('.range-card-label');
+        if (lbl) lbl.textContent = 'זמין';
+    });
     btn.classList.add('active');
+    const lbl = btn.querySelector('.range-card-label');
+    if (lbl) lbl.textContent = 'נבחר';
     _updateRangeCopyBtn();
 }
 
 function selectRangeWeeks(n, btn) {
     _rangeSelectedWeeks = n;
-    document.querySelectorAll('#range-panel-weeks .range-chip').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('#range-panel-weeks .range-card').forEach(function(b) {
+        b.classList.remove('active');
+        const lbl = b.querySelector('.range-card-label');
+        if (lbl) lbl.textContent = 'זמין';
+    });
     btn.classList.add('active');
+    const lbl = btn.querySelector('.range-card-label');
+    if (lbl) lbl.textContent = 'נבחר';
     _updateRangeCopyBtn();
 }
 
@@ -1773,16 +1790,26 @@ function _getRangeItems() {
 
 function _updateRangeCopyBtn() {
     var btn = document.getElementById('btn-range-copy');
+    var preview = document.getElementById('range-stats-preview');
+    var previewText = document.getElementById('range-stats-text');
     if (!btn) return;
     var hasSelection = (_rangeTab === 'month' && _rangeSelectedMonth !== null) ||
                        (_rangeTab === 'weeks' && _rangeSelectedWeeks !== null);
     if (!hasSelection) {
-        btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = 'בחר טווח'; return;
+        btn.disabled = true;
+        btn.style.opacity = '0.45';
+        btn.innerHTML = '<span>בחר טווח</span><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span>';
+        if (preview) preview.style.display = 'none';
+        return;
     }
     var count = _getRangeItems().length;
     btn.disabled = count === 0;
     btn.style.opacity = count > 0 ? '1' : '0.5';
-    btn.textContent = count > 0 ? 'העתק ' + count + ' אימונים' : 'אין אימונים בטווח זה';
+    btn.innerHTML = count > 0
+        ? '<span>העתק ' + count + ' אימונים</span><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span>'
+        : '<span>אין אימונים בטווח זה</span><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span>';
+    if (preview) preview.style.display = count > 0 ? 'flex' : 'none';
+    if (previewText) previewText.textContent = count + ' אימונים נמצאו בטווח הנבחר';
 }
 
 function executeCopyByRange() {

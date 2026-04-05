@@ -343,6 +343,173 @@ body {
 }
 .mini-dot { width: 10px; height: 10px; border-radius: 50%; }
 
+/* ── Range Sheet Redesign ── */
+.range-sheet { max-height: 80vh; padding: 0; display: flex; flex-direction: column; }
+
+.range-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 20px 18px;
+}
+.range-sheet-title {
+    font-family: 'Heebo', 'Inter', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    color: #e5e2e1;
+    margin: 0 0 3px;
+}
+.range-sheet-subtitle {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin: 0;
+}
+.range-sheet-icon {
+    width: 40px;
+    height: 40px;
+    background: #2a2a2a;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.range-sheet > .segmented-control { margin: 0 20px 20px; }
+
+.range-sheet > #range-panel-month,
+.range-sheet > #range-panel-weeks {
+    padding: 0 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.range-card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.range-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    padding: 16px;
+    background: #2a2a2a;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 1.2rem;
+    cursor: pointer;
+    text-align: right;
+    transition: background 0.15s, border-color 0.15s;
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+}
+.range-card:hover { background: #333; }
+.range-card:active { background: #222; }
+
+.range-card.active {
+    background: rgba(10,132,255,0.10);
+    border-bottom-color: var(--accent);
+}
+.range-card.active::after {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--secondary);
+    box-shadow: 0 0 8px rgba(50,215,75,0.6);
+}
+
+.range-card-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+    display: block;
+}
+.range-card.active .range-card-label { color: var(--accent); }
+
+.range-card-name {
+    font-family: 'Heebo', 'Inter', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    line-height: 1;
+    display: block;
+}
+.range-card.active .range-card-name { color: #e5e2e1; }
+
+.range-stats-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 20px 0;
+    padding: 14px 16px;
+    background: rgba(10,10,10,0.5);
+    border-right: 4px solid var(--secondary);
+    border-radius: 1rem;
+}
+.range-stats-icon {
+    color: var(--secondary);
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+.range-stats-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+    margin-bottom: 3px;
+}
+.range-stats-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #e5e2e1;
+}
+
+.range-copy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: calc(100% - 40px);
+    margin: 16px 20px 20px;
+    padding: 15px;
+    background: #2a2a2a;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 9999px;
+    color: #e5e2e1;
+    font-family: 'Heebo', 'Inter', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    flex-shrink: 0;
+}
+.range-copy-btn:not([disabled]):hover  { background: #333; }
+.range-copy-btn:not([disabled]):active { transform: scale(0.98); }
+
 .grid-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .vertical-stack { display: flex; flex-direction: column; gap: 10px; }
 

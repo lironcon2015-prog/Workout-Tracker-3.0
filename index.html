@@ -1056,29 +1056,60 @@
 
     <!-- Archive Range Copy Sheet -->
     <div id="range-copy-overlay" class="bottom-sheet-overlay" onclick="closeRangeSheet()"></div>
-    <div id="range-copy-sheet" class="bottom-sheet">
+    <div id="range-copy-sheet" class="bottom-sheet range-sheet">
         <div class="sheet-handle"></div>
-        <h3 style="margin:0 0 14px;">העתק לפי טווח</h3>
-        <div class="segmented-control" style="margin-bottom:14px;">
-            <button class="segment-btn active" id="range-seg-month" onclick="switchRangeTab('month')">חודש</button>
-            <button class="segment-btn" id="range-seg-weeks" onclick="switchRangeTab('weeks')">שבועות</button>
+        <div class="range-sheet-header">
+            <div>
+                <h3 class="range-sheet-title">העתק לפי טווח</h3>
+                <p class="range-sheet-subtitle">חילוץ נתוני ארכיון</p>
+            </div>
+            <div class="range-sheet-icon">
+                <span class="material-symbols-outlined">history</span>
+            </div>
+        </div>
+        <div class="segmented-control" style="margin-bottom:20px;">
+            <button class="segment-btn active" id="range-seg-month" onclick="switchRangeTab('month')">לפי חודש</button>
+            <button class="segment-btn" id="range-seg-weeks" onclick="switchRangeTab('weeks')">לפי שבועות</button>
         </div>
         <div id="range-panel-month">
-            <div id="range-month-chips" class="range-chips" style="flex-wrap:wrap;gap:8px;"></div>
+            <div id="range-month-chips" class="range-card-grid"></div>
         </div>
         <div id="range-panel-weeks" style="display:none;">
-            <div class="range-chips" style="flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-                <button class="range-chip" onclick="selectRangeWeeks(1,this)">1</button>
-                <button class="range-chip" onclick="selectRangeWeeks(2,this)">2</button>
-                <button class="range-chip" onclick="selectRangeWeeks(3,this)">3</button>
-                <button class="range-chip" onclick="selectRangeWeeks(4,this)">4</button>
-                <button class="range-chip" onclick="selectRangeWeeks(6,this)">6</button>
-                <button class="range-chip" onclick="selectRangeWeeks(8,this)">8</button>
+            <div class="range-card-grid">
+                <button class="range-card" onclick="selectRangeWeeks(1,this)">
+                    <span class="range-card-label">זמין</span>
+                    <span class="range-card-name">שבוע אחרון</span>
+                </button>
+                <button class="range-card" onclick="selectRangeWeeks(2,this)">
+                    <span class="range-card-label">זמין</span>
+                    <span class="range-card-name">2 שבועות</span>
+                </button>
+                <button class="range-card" onclick="selectRangeWeeks(4,this)">
+                    <span class="range-card-label">זמין</span>
+                    <span class="range-card-name">4 שבועות</span>
+                </button>
+                <button class="range-card" onclick="selectRangeWeeks(8,this)">
+                    <span class="range-card-label">זמין</span>
+                    <span class="range-card-name">8 שבועות</span>
+                </button>
+                <button class="range-card" onclick="selectRangeWeeks(12,this)">
+                    <span class="range-card-label">זמין</span>
+                    <span class="range-card-name">12 שבועות</span>
+                </button>
             </div>
-            <p class="color-dim text-sm" style="margin:0 0 4px;">שבועות אחורה — כולל השבוע הנוכחי (ראשון–שבת)</p>
+            <p class="color-dim text-sm" style="margin:10px 0 4px;">שבועות אחורה — כולל השבוע הנוכחי (ראשון–שבת)</p>
         </div>
-        <button class="btn-main primary-gradient" id="btn-range-copy" onclick="executeCopyByRange()" disabled style="opacity:0.5;margin-top:16px;">בחר טווח</button>
-        <button class="btn-text" onclick="closeRangeSheet()">ביטול</button>
+        <div id="range-stats-preview" class="range-stats-preview" style="display:none;">
+            <span class="material-symbols-outlined range-stats-icon">insights</span>
+            <div>
+                <div class="range-stats-label">סטטיסטיקת טווח</div>
+                <div id="range-stats-text" class="range-stats-value"></div>
+            </div>
+        </div>
+        <button class="range-copy-btn" id="btn-range-copy" onclick="executeCopyByRange()" disabled style="opacity:0.45;">
+            <span>בחר טווח</span>
+            <span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span>
+        </button>
     </div>
 
     <!-- AI Coach Modal -->

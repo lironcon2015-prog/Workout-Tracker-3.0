@@ -1005,15 +1005,23 @@ function saveWorkoutManagerToCloud() {
 
 async function checkForUpdate() {
     try {
-        // cache-bust → עוקף את ה-SW cache ומביא את הגרסה האחרונה מהשרת
-        const res = await fetch('./version.json?t=' + Date.now());
+        // cache: 'no-store' → עוקף גם SW cache וגם HTTP cache לחלוטין
+        const res = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' });
         if (!res.ok) throw new Error('network error');
         const data = await res.json();
-        // הגרסה המותקנת כרגע — נטענה ב-window.onload ישירות מה-SW cache
+        const serverVersion = data.version || '';
+
+        // אם _gymproVersion עדיין לא נטען — קרא גם אותו ישירות מה-SW cache
+        if (!window._gymproVersion) {
+            const cached = await fetch('./version.json');
+            const cachedData = await cached.json().catch(() => ({}));
+            window._gymproVersion = cachedData.version || '';
+        }
         const currentVersion = window._gymproVersion || '';
-        if (data.version && currentVersion && data.version !== currentVersion) {
+
+        if (serverVersion && currentVersion && serverVersion !== currentVersion) {
             showConfirm(
-                `עדכון זמין! (${currentVersion} → ${data.version}). לנקות cache ולרענן?`,
+                `עדכון זמין! (${currentVersion} → ${serverVersion}). לנקות cache ולרענן?`,
                 async () => {
                     if ('caches' in window) {
                         const keys = await caches.keys();
@@ -1023,7 +1031,7 @@ async function checkForUpdate() {
                 }
             );
         } else {
-            showAlert('האפליקציה מעודכנת (v' + (currentVersion || data.version) + ')');
+            showAlert('האפליקציה מעודכנת (v' + (serverVersion || currentVersion) + ')');
         }
     } catch(e) {
         showAlert('לא ניתן לבדוק עדכונים. בדוק חיבור לאינטרנט.');

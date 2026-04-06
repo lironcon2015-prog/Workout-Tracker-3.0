@@ -58,31 +58,31 @@ function renderWorkoutMenu() {
 
     function buildCard(key, count, fallbackIdx, isFirst, badge) {
         const btn = document.createElement('button');
-        btn.className = 'obsidian-menu-card' + (isFirst ? ' card-featured' : '');
-        // שימוש ב-_thumbIdx ששמור ב-meta — אם קיים. fallbackIdx רק כברירת מחדל ראשונית
+        btn.className = 'km-manager-card';
+        btn.style.width = '100%';
+        btn.style.textAlign = 'start';
+
         if (!state.workoutMeta[key]) state.workoutMeta[key] = {};
         if (typeof state.workoutMeta[key]._thumbIdx !== 'number') {
             state.workoutMeta[key]._thumbIdx = fallbackIdx;
         }
         const thumbIndex = state.workoutMeta[key]._thumbIdx;
         const imgUrl = thumbImages[thumbIndex % thumbImages.length];
-        const thumbStyle = `background-image:url('${imgUrl}');background-size:cover;background-position:center;`;
         const badgeHtml = badge || '';
         const safeKey = key.replace(/'/g, "\\'");
+
         btn.innerHTML = `
-            <div class="obsidian-card-content">
-                <div class="obsidian-card-info">
-                    <div>
-                        <h3 class="obsidian-card-title">${key}</h3>
-                        ${badgeHtml}
-                        <p class="obsidian-card-count">${count} תרגילים</p>
-                    </div>
-                    <button class="btn-obsidian-pill" onclick="event.stopPropagation(); openWorkoutPlanSheet('${safeKey}')">
-                        <span>תרגילים</span>
-                        ${chevronSvg}
+            <div class="km-manager-card-img" style="background-image:url('${imgUrl}')"></div>
+            <div class="km-manager-card-body">
+                <h3 class="km-manager-card-title">${key}</h3>
+                ${badgeHtml}
+                <p class="km-manager-card-count">${count} תרגילים</p>
+                <div class="km-manager-card-actions">
+                    <button class="km-select-card-pill" onclick="event.stopPropagation(); openWorkoutPlanSheet('${safeKey}')">
+                        <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">format_list_bulleted</span>
+                        תרגילים
                     </button>
                 </div>
-                <div class="obsidian-card-thumb" style="${thumbStyle}"></div>
             </div>`;
         btn.onclick = () => selectWorkout(key);
         return btn;

@@ -2927,6 +2927,7 @@ body {
 .settings-info-row span:last-child { font-weight: 700; color: rgba(255,255,255,0.5); }
 .cloud-btn.purple { color: #BF5AF2; border-color: rgba(191,90,242,0.3); background: rgba(191,90,242,0.07); }
 
+
 /* =========================================================
    KM DESIGN SYSTEM — Workout Manager & Editor (v14.12.0-90)
    ========================================================= */
@@ -2942,10 +2943,6 @@ body {
 /* ════════════════════════════════
    WORKOUT MANAGER SCREEN
    ════════════════════════════════ */
-
-.km-manager-screen {
-    padding-bottom: 100px; /* room for FAB */
-}
 
 .km-manager-list {
     display: flex; flex-direction: column; gap: 14px;
@@ -2969,44 +2966,47 @@ body {
     box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 
-/* Manager card */
+/* Manager card —
+   direction:ltr מבטיח שהתמונה בצד שמאל ויזואלית גם בעמוד RTL */
 .km-manager-card {
     background: #1a1a1a; border-radius: 1.5rem;
     display: flex; flex-direction: row; align-items: stretch;
     overflow: hidden; cursor: pointer; transition: transform 0.15s;
-    min-height: 140px;
+    min-height: 140px; direction: ltr;
 }
 .km-manager-card:active { transform: scale(0.98); }
 .km-manager-card--hidden { opacity: 0.5; }
 
+/* תמונה — ראשונה ב-DOM = שמאל ויזואלי */
 .km-manager-card-img {
-    width: 90px; flex-shrink: 0;
+    width: 100px; flex-shrink: 0;
     background-size: cover; background-position: center;
     background-color: #111;
 }
 
+/* גוף הכרטיס — חוזר ל-RTL לטקסט */
 .km-manager-card-body {
-    flex: 1; padding: 18px 18px 14px;
+    flex: 1; padding: 16px 18px 14px;
     display: flex; flex-direction: column; gap: 4px;
+    direction: rtl;
 }
 
 .km-manager-card-title {
     font-family: 'Heebo', sans-serif; font-weight: 900;
-    font-size: 1.45rem; letter-spacing: -0.02em;
+    font-size: 1.4rem; letter-spacing: -0.02em;
     font-style: italic; text-transform: uppercase;
     color: #fff; margin: 0; line-height: 1.1;
 }
-
 .km-manager-card-count {
     font-size: 0.7rem; font-weight: 900; letter-spacing: 0.1em;
     color: #47e266; text-transform: uppercase; margin: 0;
 }
-
 .km-manager-card-actions {
     display: flex; gap: 8px; margin-top: auto; padding-top: 12px;
-    flex-wrap: wrap;
+    flex-wrap: wrap; direction: ltr;
 }
 
+/* Pill buttons (DELETE / DUPLICATE) */
 .km-pill-btn {
     display: flex; align-items: center; gap: 5px;
     background: #2c2c2c; border: none; border-radius: 9999px;
@@ -3016,21 +3016,14 @@ body {
     cursor: pointer; transition: background 0.15s;
 }
 .km-pill-btn:active { background: #3a3a3a; transform: scale(0.96); }
-.km-pill-btn--danger {
-    background: rgba(255,69,58,0.12); color: #ff6b6b;
-}
+.km-pill-btn--danger { background: rgba(255,69,58,0.12); color: #ff6b6b; }
 .km-pill-btn--danger:active { background: rgba(255,69,58,0.22); }
 
-/* Manager FAB */
-.km-manager-fab-area {
-    position: sticky; bottom: 70px; /* above tab bar */
-    padding: 10px 0 4px;
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    background: linear-gradient(to top, var(--bg) 60%, transparent);
-    pointer-events: none;
+/* Create button — לא sticky, בסוף הרשימה */
+.km-manager-bottom-actions {
+    display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+    margin-top: 20px; padding-bottom: 8px;
 }
-.km-manager-fab-area > * { pointer-events: auto; }
-
 .km-fab-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%; height: 54px; border: none; border-radius: 9999px;
@@ -3040,26 +3033,32 @@ body {
     box-shadow: 0 0 28px rgba(10,132,255,0.35);
 }
 .km-fab-btn:active { transform: scale(0.97); }
-
 .km-cloud-link {
-    background: none; font-size: 0.72rem; color: rgba(255,255,255,0.3);
-    padding: 4px 8px; border: none; cursor: pointer;
+    background: none; font-size: 0.72rem; color: rgba(255,255,255,0.25);
+    padding: 4px 8px; border: none; cursor: pointer; text-align: center;
 }
+
+/* Workout Selection cards (ui-workout-type) — אותה כרטיסייה, בלי actions */
+.km-select-card-pill {
+    display: flex; align-items: center; gap: 5px;
+    background: #2c2c2c; border: none; border-radius: 9999px;
+    color: #fff; font-family: 'Inter', sans-serif;
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 7px 12px;
+    cursor: pointer; align-self: flex-start;
+    margin-top: auto;
+}
+.km-select-card-pill:active { background: #3a3a3a; }
 
 /* ════════════════════════════════
    WORKOUT EDITOR SCREEN
    ════════════════════════════════ */
-
-.km-editor-screen {
-    padding-bottom: 20px;
-}
 
 /* Identity card */
 .km-identity-card {
     background: #1a1a1a; border-radius: 1.5rem;
     padding: 18px 20px; margin-bottom: 4px;
 }
-
 .km-title-input {
     background: none; border: none; outline: none;
     font-family: 'Heebo', sans-serif; font-weight: 900;
@@ -3071,20 +3070,19 @@ body {
 }
 .km-title-input::placeholder { color: rgba(255,255,255,0.2); }
 
-/* Toggle row */
+/* Toggle rows */
 .km-toggle-row {
     display: flex; align-items: center; justify-content: space-between;
     padding: 13px 0;
     border-top: 1px solid rgba(255,255,255,0.06);
 }
 .km-toggle-row--first { border-top: none; padding-top: 14px; }
-
 .km-toggle-label {
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em;
     text-transform: uppercase; color: rgba(255,255,255,0.6);
 }
 
-/* iOS-style toggle switch */
+/* iOS-style toggle */
 .km-switch { position: relative; display: inline-block; width: 44px; height: 26px; flex-shrink: 0; }
 .km-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
 .km-switch-track {
@@ -3093,31 +3091,18 @@ body {
     transition: background 0.2s;
 }
 .km-switch-track::after {
-    content: ''; position: absolute; top: 3px; right: 3px; /* RTL: thumb right when off */
+    content: ''; position: absolute; top: 3px; right: 3px;
     width: 20px; height: 20px; border-radius: 50%;
-    background: #fff; transition: transform 0.2s, right 0.2s;
+    background: #fff; transition: right 0.2s, left 0.2s;
     box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 .km-switch input:checked + .km-switch-track { background: #30D158; }
-.km-switch input:checked + .km-switch-track::after {
-    right: auto; left: 3px; /* thumb moves to left when on (RTL) */
-}
+.km-switch input:checked + .km-switch-track::after { right: auto; left: 3px; }
 
-/* Accent row (colors) */
-.km-accent-row {
-    display: flex; gap: 10px; align-items: center;
-    flex-wrap: wrap; padding: 4px 0;
-}
-
-/* Thumb grid (visual anchor) */
-.km-thumb-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 8px; padding: 4px 0;
-}
-/* The existing .editor-thumb-option class handles rendering — we override container only */
-#editor-thumb-picker.km-thumb-grid .editor-thumb-option {
-    width: 100%; height: 70px;
-}
+/* Accent / Thumb pickers */
+.km-accent-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 4px 0; }
+.km-thumb-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 4px 0; }
+#editor-thumb-picker.km-thumb-grid .editor-thumb-option { width: 100%; height: 70px; }
 
 /* Flow header */
 .km-flow-header {
@@ -3128,7 +3113,6 @@ body {
     font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em;
     color: rgba(255,255,255,0.3); text-transform: uppercase;
 }
-
 .km-editor-list { gap: 10px !important; }
 
 /* Editor block card */
@@ -3136,7 +3120,6 @@ body {
     background: #1a1a1a; border-radius: 1.5rem;
     padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;
 }
-
 .km-block-header {
     display: flex; align-items: center; justify-content: space-between;
 }
@@ -3145,7 +3128,6 @@ body {
     color: rgba(255,255,255,0.3); text-transform: uppercase;
 }
 .km-block-header-btns { display: flex; align-items: center; gap: 4px; }
-
 .km-icon-btn {
     background: none; border: none; padding: 2px; cursor: pointer;
     color: rgba(255,255,255,0.35); display: flex; align-items: center;
@@ -3153,30 +3135,22 @@ body {
 }
 .km-icon-btn:active { color: #fff; }
 .km-icon-btn .material-symbols-outlined { font-size: 1.15rem; line-height: 1; }
-
 .km-block-name {
     font-family: 'Heebo', sans-serif; font-weight: 900;
     font-size: 1.5rem; letter-spacing: -0.02em; text-transform: uppercase;
     color: #fff; line-height: 1.1; cursor: pointer;
 }
-
 .km-block-footer {
     display: flex; align-items: flex-end; justify-content: space-between;
     gap: 8px; margin-top: 2px;
 }
 .km-block-footer-meta { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-
-.km-sets-row {
-    display: flex; align-items: center; gap: 10px;
-}
+.km-sets-row { display: flex; align-items: center; gap: 10px; }
 .km-sets-label {
     font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em;
     color: rgba(255,255,255,0.35); text-transform: uppercase;
 }
-
-.km-tags-row {
-    display: flex; align-items: center; gap: 8px;
-}
+.km-tags-row { display: flex; align-items: center; gap: 8px; }
 .km-tag-label {
     font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em;
     color: rgba(255,255,255,0.3); text-transform: uppercase;
@@ -3191,7 +3165,6 @@ body {
     background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);
     color: rgba(255,255,255,0.3);
 }
-
 .km-trash-btn {
     background: none; border: none; cursor: pointer;
     color: rgba(255,255,255,0.2); padding: 6px;
@@ -3202,9 +3175,9 @@ body {
 
 /* Shared stepper */
 .km-stepper {
-    display: flex; align-items: center; gap: 0;
+    display: flex; align-items: center;
     background: rgba(255,255,255,0.06); border-radius: 9999px;
-    overflow: hidden;
+    overflow: hidden; direction: ltr;
 }
 .km-stepper-btn {
     background: none; border: none; color: #fff; cursor: pointer;
@@ -3218,80 +3191,84 @@ body {
     font-size: 1rem; min-width: 26px; text-align: center; color: #fff;
 }
 
-/* Cluster block */
+/* ════════════════════
+   CLUSTER BLOCK
+   ════════════════════ */
 .km-cluster-block {
-    background: rgba(94,92,230,0.06);
-    border: 1.5px dashed rgba(94,92,230,0.4);
+    background: #0d1629;
+    border: 1.5px solid rgba(94,92,230,0.45);
     border-radius: 1.5rem;
     padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
 }
 
 .km-cluster-title-row {
-    display: flex; align-items: center; gap: 8px;
-    flex-wrap: wrap;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 .km-cluster-title {
     font-family: 'Heebo', sans-serif; font-weight: 900;
-    font-size: 0.85rem; letter-spacing: 0.08em; color: #5E5CE6;
+    font-size: 1rem; letter-spacing: 0.06em; color: #7b79ff;
     text-transform: uppercase;
 }
 .km-cluster-meta {
     font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em;
-    color: rgba(255,255,255,0.4); text-transform: uppercase;
-    background: rgba(255,255,255,0.05); border-radius: 6px; padding: 2px 6px;
+    color: rgba(170,170,255,0.7); text-transform: uppercase;
+    background: rgba(94,92,230,0.15); border-radius: 6px; padding: 3px 8px;
 }
 
+/* Exercise rows inside cluster */
 .km-cluster-ex-list { display: flex; flex-direction: column; gap: 4px; }
 .km-cluster-ex-row {
     display: flex; align-items: center; gap: 8px;
-    padding: 8px 10px; background: rgba(255,255,255,0.04); border-radius: 10px;
+    padding: 9px 12px; background: rgba(94,92,230,0.08); border-radius: 10px;
 }
 .km-cluster-ex-label {
-    font-size: 0.65rem; font-weight: 900; color: #5E5CE6; width: 22px;
+    font-size: 0.65rem; font-weight: 900; color: #7b79ff; width: 24px;
     text-transform: uppercase; flex-shrink: 0;
 }
 .km-cluster-ex-name {
-    flex: 1; font-size: 0.85rem; font-weight: 600; color: #e5e5e7; cursor: pointer;
+    flex: 1; font-size: 0.88rem; font-weight: 600; color: #c8c8ff; cursor: pointer;
 }
 .km-cluster-ex-reps {
-    font-size: 0.62rem; font-weight: 700; color: rgba(255,255,255,0.35);
+    font-size: 0.62rem; font-weight: 700; color: rgba(170,170,255,0.5);
     letter-spacing: 0.04em;
 }
-
 .km-icon-btn-sm {
     background: none; border: none; cursor: pointer;
-    color: rgba(255,255,255,0.3); padding: 2px; display: flex; align-items: center;
+    color: rgba(170,170,255,0.3); padding: 2px; display: flex; align-items: center;
     transition: color 0.12s; flex-shrink: 0;
 }
 .km-icon-btn-sm:active { color: #ff453a; }
 
+/* Cluster rounds/rest controls */
 .km-cluster-controls {
-    display: flex; gap: 12px; padding-top: 4px;
+    display: flex; gap: 10px; padding-top: 4px;
 }
 .km-ctrl-group {
     flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: center;
+    background: rgba(94,92,230,0.1); border-radius: 1rem; padding: 10px 8px;
 }
 .km-ctrl-label {
     font-size: 0.58rem; font-weight: 800; letter-spacing: 0.1em;
-    color: rgba(255,255,255,0.3); text-transform: uppercase;
+    color: rgba(170,170,255,0.5); text-transform: uppercase;
 }
 
+/* Insert exercise button */
 .km-add-to-cluster-btn {
     display: flex; align-items: center; justify-content: center; gap: 6px;
-    background: none; border: 1px dashed rgba(94,92,230,0.4);
-    border-radius: 9999px; color: #5E5CE6;
+    background: none; border: 1px dashed rgba(94,92,230,0.5);
+    border-radius: 9999px; color: #7b79ff;
     font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
     text-transform: uppercase; padding: 10px 16px; cursor: pointer;
-    width: 100%; transition: border-color 0.15s;
+    width: 100%; transition: border-color 0.15s, background 0.15s;
+    box-sizing: border-box;
 }
-.km-add-to-cluster-btn:active { border-color: rgba(94,92,230,0.8); }
+.km-add-to-cluster-btn:active { background: rgba(94,92,230,0.08); }
 
-/* Bottom action area */
+/* ════════════════════
+   EDITOR BOTTOM ACTIONS
+   ════════════════════ */
 .km-editor-bottom-actions { margin-top: 16px; }
-
-.km-add-row {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-}
+.km-add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .km-add-btn {
     display: flex; align-items: center; justify-content: center; gap: 6px;
     background: none; border: 1.5px dashed rgba(10,132,255,0.4);
@@ -3301,12 +3278,9 @@ body {
     transition: border-color 0.15s, background 0.15s;
 }
 .km-add-btn:active { background: rgba(10,132,255,0.06); }
-.km-add-btn--cluster {
-    border-color: rgba(94,92,230,0.4); color: #5E5CE6;
-}
+.km-add-btn--cluster { border-color: rgba(94,92,230,0.4); color: #7b79ff; }
 .km-add-btn--cluster:active { background: rgba(94,92,230,0.06); }
 .km-add-icon { font-size: 0.95rem !important; line-height: 1; }
-
 .km-save-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     margin-top: 12px;

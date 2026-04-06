@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 14.12.0-90
+## גרסה נוכחית: 14.12.0-74
 
 ---
 
@@ -46,6 +46,18 @@
 
 ---
 
+## שפה עיצובית — Liquid Obsidian
+
+| מה | ערך |
+|----|-----|
+| כרטיסיות | `#1b1b1b solid`, `border-radius: 2rem` |
+| פונט ראשי | Heebo 900 לכותרות, `rem` units |
+| Pill buttons | `#353535`, `border-radius: 9999px`, `align-self: flex-start` |
+| Freestyle card | `border: 2px dashed rgba(255,255,255,0.2)` |
+| Session strip | `height: 50px`, fixed bottom, `z-index: 199`, מוסתר מחוץ ל-workout flow |
+
+---
+
 ## חוב טכני פתוח
 
 | # | תיאור | חומרה |
@@ -53,7 +65,6 @@
 | 1 | `details` ב-ArchiveEntry לא שומר cluster per-round — רק per-exercise | נמוכה |
 | 2 | archive entries ישנים (לפני 14.12.0-24) חסרים שדה `week` — AI block comparison נופל ל-fallback | נמוכה |
 | 3 | `updatePlanFloatBtn` עדיין מחפש `.header-tools` ב-ui-main שנמחק — מוחלף ע"י `#workout-quick-menu` | נמוכה |
-| 4 | תמונות העורך מבוססות על LH3 Google CDN שעשוי לפקוע. יש לשקול Base64 Upload בעתיד (Kinetic Precision v14.12.0-90) | נמוכה |
 
 ---
 

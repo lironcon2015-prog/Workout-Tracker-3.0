@@ -1,7 +1,7 @@
 /**
  * GYMPRO ELITE - EDITOR & MANAGER LOGIC
- * Version: 14.12.0-90
- * שדרוג: Kinetic Precision Editor (ממשק עריכה חדש, גרירת תמונות, פול תמונות דינמי).
+ * Version: 14.8.0
+ * שדרוג 1: Toggle פעילים/מוסתרים בניהול תוכניות.
  */
 
 // ─── WORKOUT QUICK MENU (היסטוריה / יומן) ─────────────────────────────────
@@ -33,57 +33,13 @@ function autoSaveConfigToCloud() {
     });
 }
 
-// ═══════════════════════════════════════════════════════════════
-// WORKOUT THUMB IMAGES POOL (Dynamic)
-// ═══════════════════════════════════════════════════════════════
-
-const _THUMB_KEY = 'gympro_thumb_images';
-
-// פול ברירת מחדל: 4 מקוריים + 23 מ-Stitch (סה"כ 27 תמונות)
-const _DEFAULT_THUMB_IMAGES = [
-    // ─ Original 4 (שומרים על backward-compat לאימונים קיימים idx 0-3)
+// ─── WORKOUT THUMB IMAGES (global — shared with archive-logic.js) ──────────
+const WORKOUT_THUMB_IMAGES = [
     'https://lh3.googleusercontent.com/aida-public/AB6AXuDPSxh1Qp2Y5rxaLi08qIoxzaIx6HpnkwADfs82U2MI3agKuOjH_XRe5Vnp7pqR4Evd6BCSN1YkzqsxR4nnHQV3PZwXgQBEG_TyPYZEVebs398qOzoE9HyVD9xCKKii15_Ya8EU-4niTMPvWEGd17IChBxNv5TeezOQrnFbB_qBA8FsoYuDaChgY7MmnJAOs3vwuKM5ySQBfgIlp5NV2gVPSFbGP2INnRMlHUVFFxfaoVATE1e2R11U7pj0h4STs62FftxEV7gt2Xg',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuBwpwBQq26LPlJcG2munCoBisisoadBReR8si5Z3g8S8lgmt5MJsUAeruNNad5eSE-JXi3yNGLEB-XLQ2mxm37YOgoyTDqNDCZtyg8BDuCDn-NSFZH2QyLABBEJW3ARgaInuP7jYs2Np2XGnBF5J6r6OMiR2gC-eX5F4j8bXE918AgnmlFilEgkJ9Lfyt8gQQDnZrLbp6riQvKpLe7jqelf992kdMjvLWTH9T2LKVlnkeBdAwiOwgoTTm96q43GOcbMi8KYcTaLnuQ',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuAlG4VTMGj-yqP5zRTFuwFw6VSP1Ao5jnbOz_Cg_AgxHAKaVb9AA14BrBcIPh1H6c9tTnYBVtY-qbhANOxe3Teq9dSp-VpaB1TsxWhPvcSTuNdfcCeac0ho4GM3sM_HacxT4LlJJdseMqdhuDm_DKXtDA1QpjmIUvLxaAZsw7tZo9-w3rmyC0e5kbgnjJl8aWUC_X7cyRZqHodEkgUz_IxKmYdK2Upnymtn0SoD_DaxTQyviYI2hDE8aB-m91sa2BrMhqNH-t6pFO0',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuADW-EekFmHAshTc9g9FzdlSJN11cRf8HfTvE1EjCGrITu9AVPwQhlAWveW4i-bOdZG31UQquBdZhCoLyJCtNNYFCM9AW8Jamwe7OtLPH-2VaXWPmiyB3eWNkffyC_Sv5E8VQZU0qrhmPzaQJJelLiqBR3YJWoUtRpnxDPFSVxpDVopfJ1kOA2SkdTySC1CtWQIQSlA1cmBqYiB14pog08rXWbnoI5Ov-8JtVQyVirf58d95jdVQuoY_pkDv5LqglM8aErroJvyG7w',
-    // ─ Stitch images (indices 4-26)
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuAa2Vwn-Npmz7NbshC3rMQgWM9M8CCxNPnGZUOU7OaPxSEMVGDhY-mKDoY-XteHYA_U6uVxkCW5juqWCmeSvcPwoHgr7eclbp-g2ffzK89c5m2Q6puxaJIOxzmGQ7QHIQQiiZijukgx1yOWGKFGRancwpMZs-yOdMjFJXmu3x-GTbxt5SYtDVS89s_5-BJDg3bGw4-wfWZZrND_NaEoPDcoNCCOifu-YqJuTAXGVAard2mlRrPHLd4nRnsyQxOhycpiBA49Cvt5yDY',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuDIOVKREkSUtF2gGWLXkGb-udu6k7Vd88eBGwQddiYNYxpY_P5fNhml-xqMsN4qoJi_vtN8xDeLzrT7J_VWSFH86FyJrE-ivdDpk0xT7fzfEjKLkIgI1krkRQSdWomSS-LyvpxRXXwx03m8HfV-KK7u7KYnG0_KMDYaAFctqwxUHv3kPdB7_rz3xzUzT2ahNq2ZwxaT3BUfVPuvvI9ak5r0-ml3SfsX6KZZRlCcSi4Ab3Htp4doK7B5thxvV2O5Tx5BepYgvnRce_E',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuAGo718VbTjHroR2f1ZBGGlTAzxlKArnnTAwwVQWooTDXT1OmHbOM4Ph_3MW9fkgdPsrnNXMGqTnIE4V2ouYMZ0MtOtJKH5GOX7xZFGAIGSRfxCf_HRk-v4hDrW18zAVyDhh9i5ydIHS4spQxq163MuDZb5ENQNEEirSYwRKLBHnXb4r-QuCSjUqpm9UsL_zBExoL8rtnXCIBygBYvbZHXj77vkM9qG95bkT9Okv2nqOtbO4qaKU4YMUHFub0Ap2T-NMGPVMx-UM14',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuAq_XJA8-2WusMzNGWr00DbVseG324nv8SBq2d4WVdA78rws8uIFaAc5jk3Ayv-SezIXc_U0pEhBsw5bmKgElbLlS85ThQ1rEEK4DQ9oIMHfe_4FnSz1r3kNGlQ6Ic9shZQj1bt3zT334kCzpdS9SwY-zCjr-opxcozdGnRsp0oRoVKRKzecKVP6uvYwJlyQBnvhBXQdkepO_BUP3qKnfXAPa8Cy3qKFEigyJNsoihIQ3XVihgN880qXMT1V0kF-iA7OqBc3wcPCts',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuDM747zT5KYoaK7X8hc-K-WYOjQXbbgWXh_0AcMIq4ja35br_K3VLl0dCSx-U68SYUq_k5e04IvERh-vlKv-k2AAANYGRdP6b51aHTDC1tMNLZ5srr2OUjYz5Q-Ntm75y29b67xEwWvocbUijNsm4kvskmBoa3U0umSm3TxpsF145TI6B2S2RwbHj0gPyhcC7ci-6qdVORG9a8JXyomx-FbSaHn3-QEWvshpgb_ah09clrwL88QDQS-eWCeztMEGN9j29hnLX35ddw',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuC2anRJGMnLHZPMMsfqKBf630347PZ3rWsm8rSg-LRhI4oA4Df_ne_03owqU5d_6b8pokyZBFrN6-5KIYUM7_bOFguohUBhm7AWhDg-1bpjZGgqyxhU1p2Z82kPb8ZwKorRZ4g9-EMnpUNi1v51elx50e7TZp74rAnL3yb6jHleAtvBGySoEEFyO9dVDP0JhuQJnoIY9xx2uOhXtz09RwiTkiwXXd-zNSeBkH-L0FeACvCBbl0cCi57Qtkzw8rMECn-Y0gudIjSeJc',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuCOI-xJHBRcxLOuOVtVrd05C2ziUleF7r3se3JDtjsOM8IIalAQtIRw9w2KLEOv7fB3zr2bxUbW-urEdaO4enryruujATKVSSXT1RerLy2ZmNDMaIQm2NibKnDL0LwrGBjAvgCfXGy-oJZios3IL_2PkYZOH5yav5VqNwQkiXyCbHrZHcjyk3qlJ2L8yzC2TLxN8ReMXDsDk6w_xfnWh7UxjS5qVYcJVobrXNidjhtN8pghO5tPDTuBmiQzaGH9CWUsJkwkt2QYvOg',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuC4XCydYwMQOp05WaIpiiYppV3u48kYoIDe4IqLvMIzuuXL02qPXqjQoSJnaHYBVttOV-sz4WqJ6RLX9FQOx9TVZds2w2JoNA5GEZZHNncC8QDLfPR4cKW1v88rQr91hzjNR-UQKcrnnmhPXXXy4WMfa4TlghuaCr6hVvxKUtgeZdbFYkNnQDDbGJjzJBLg0iDHPBDDqPEKOIR41q2D3VhcrgJuAltOGnEvq8tq0S1EzuPo-Zm1xYhV6TVSAzj1hRqrLqPi-dm9UDQ',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuC8iUL6txoNh0QsNfAzhd2KZQBRvogSsBoytkXXnG6jhmlXKgYmu7zAIiD7HTOyRKx08ugFFVnTWGNZiUCaPvuhuBAa9IB7LLcxWDTZlvrulRQ1_6fLB5w__gMKZVlgEB6ZSfb_uCbKI7RF0Wr4NdWb3bEbSgHpyVqYwnr9HCCbkVMyk5MSYcsnT4NGzY8ztwjVXsWVl9ciTgp-_w3ej4e31RXSKGpB403uV_GZiMYzdcBeaN4dVdDpVsb72JJgefKFhAVklNKYgH0',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuCSIPPWtn_87T7_CpErLG5Vm3j1MY00-ZTBNRR-RU2YMbGCttYrltMNclNMT3dOahPvsDnJsLw_IwT4K3iJ9CCktrAuGTalJE6vYEdoVRd3mgY53MkZkOjiS9QR7VjRcwBvte80Ui99CIbPB1ENxe6Btx9tKOcwmXTGtslMc24NVzW0G-WM6y3UVarTBD8i2qqxRBvapfSD79vcOqpvQ8maqp4V7gjBxjk8JHs4drT7pZWxHSz9Rqm4KDvEkxQkgpjULcHgLE7F0kQ',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuA0o81sTiRXnfupd2FsjC_a9EDBcq68iXB5KcBqg6C64M2qSvk8yfXjXUdo_UIFuFp1F220Mt4zMcXBIhvyLin8KRnMEoJ83OFTG5OXPvis_0ASyjdDq_BEznMdi71sCUpK1YSqgNRu2TQwVut4AeeZ2nwOO_f94MlZqnFQBESvrC1jfM23NjQ6UToejhXn0PZUoj9J8Iyquk99hYWqFIcdzd5zx88_jh0TLyYN0zJ3SINojwTBGHEroWm0Kn9J5lP_8tAQXR0Mt5c',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuBtks_kWrjWZ7Spa9vGucazeEyVn3C37vG8QDqk3ipeMsbHOZglThN03ko_wsT-bGsVpxFYEjebM-2aVTSqMIJDx1KbsDO-fpPB6pGpyvdpN5npsQS4FTEXmIM2u09My5c3MRYr7vAnH5Qi8JjGVxySJk-B-zppfot4IKHFqq8-kgJcuhOxj0D3FGMmIQ6R-15VeimyIz02SZqTZB-Dd8u5IdC4xLjDnfV1dFhiCMwCan7fGBuhvfPUlSwQTyOnidhWeJgLpjmCqX4',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuCuNXRceTHgXIbIXhggS0B_SbT_FT-UQ5Ghl089FpKPzJfccxYlCYFsVRG-DrZlWPUzh7OqLUpjGASZQRntrZOrxQE6jjP0B0XsDNt79UlYF2yX8PzZTByFtSk20nknKYjjjuYfkzJhAkQFTSoDnzB4pfMFnJJkdhJH64XmFe0N25HEV7pAHv85BrypxuGsMbdSrsywigLWbbAv7-nkD7gL9FFHHD6q0TuhXCYWHlXd0Hm4TNc37pG-z4Ttoe4Mk_LeW5q4g1i8Jtc',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuDFOSDYMQLnw6yiCBJv23T6gSOEhQrNHIhJbAy-i1eNxTzCfw-v7Gq6rOqEkO9vlBmTG8r_wCpTVqMfohDcwkF7FmdzLT5c1PZ1M3SOrNQxhXaaLRGi0mjn6-hAtTo3SqP-bYn9mJn4YQHSAJ0XXEG4gaTNR5b_MgqqAkF6yOkyo3CVgoVUsJREdDq2kyQYZ92XuwWJQM1QJjNqpyuAgmzNnePru8SqKgVKxtNunI78RBl7tXsr_h2hlS9JYRGRppJ-ADJIcPN0K0A',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuARiIzg1WS_1CwfRg31BTKxDqfKOxASEKbPOGXoRnb5pUvpV0eRfC40OzZ6Q_Bj4-9ibcike8IGZpw5YYYDiqe_iPPiQrX_rt0m-Jm6irJ-BcycOBFYrPD1Qz7lCtkOufHZUiqWX4YbN_yFDvRJpfwenkXf1zFT8M_5Taz8HEGZ5RBdAeWitd6xp3dk85dNm5KB4H_PjnByp4V87qRcCxq0vNBBO2KgNtVQV0kwgjW2dL0V6sEjJId-4yz1o2JQmGy0Wkj1F5gCxdk',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuCDBIZuIgvQsDcryR-WZZreqgTDlW-MZHFTxjYRnRuTwfD-ctEeUmE-NfFHQCx-FxBJQ2Byec4BsIK8A3IY8p_iIVMHuEHgv2WwAIfO8ZMO2Hrr8rf1xRM7BRoWoJtV50KT8wBbCXVV1gBiHogst6gOHVnOgwyWgA-MDs2BMmvIffZR_vf5DdqDUGrBP-O5ltYp1WiAQ-zYtQAHcU5PFJ6lQUTMKnsTyHrBicRKtJ4JDXOSj5GA3YZMK_KRmeEuh2IhSUHUo6y_dk0',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuBFbQoTAMcCruoGveHFpAg5j30M_SFyQZ4vzUaKFkTSoFlmhiR3KdVhN3eAXcUOQlOujHF4tnx1Hs23QrpZHDVo1PdtvLQuzO2jvTBlIj0Q5ZgLWNwMFTF7nOkE4huS3Sd5U7kpXz_VhPoUqG4TyC0jjr8WjgJqe1DDnFnuC7fxRi5TarYe7RPD7ZPHsF_2USEfRQ2YqZTGT_RKC8k0mmb2FxvLvtVy2-EUc_PrKHygyIQ8L4Sdk3tQ3i8ul4eQDJgqhmrzEYg9Tk4',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuB76Oi27IIyHj3pWHE7gw_dvNn7Xb2zs5kO-r23F-1zGVOH-W1jbixJ099udoeWbWrVXLgiatLMTf5wI6a9MwrejbDUlDK7kKutYivqryejNDtGR_yfsWoINtA1MD5T7tFOO5dmLzNrWQdVdMLkyLLRLb3ramCiBox7nabxAZuvkhxM_WYE_aVZzgwb1qRid6pwWj3Mn4mpvwevTr4C4us4fB67trPzEgtZsxy1c4pJTBIMb-fq9_n0WiVbo1YbERYiRD1ZM8e1DfE',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuCiIp6u8V3sSDUHCNxM3FyC5sLIt2fjfB6r7gyVoknfx3In7V4Xdi-X_30RvmwdmCiY4Vi7dYHXoaKY4QbEZEW7UR_eAVbNYxxlSqs-a39lpzAQY3G_Rgk23mqKdLdMuuLnjgHb2Ekjl82cGQV5q3UBtWiurdJl079T-t4ZDkBMM1d1Axu5SeUlQZeS3S7DO9TsxySl6QWYJyX6nJtbpI_vbiDkFXkVR9gH_Qn5a30pSywASFTwupEBOCRBWe__ufn36mxK-YkWZbI',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuAWW1qfq-oJVni8Qpbr-EHm4UfKC59S9Z3ihNK9ItaGj77gCakS71b5JvFhpdelBqel1IKehkY8yRZt3tP2xY4U-Xd5g4wRihiCaUT5ISB5c7DXzSViNbcIEAFP9Oib4uRdZ_eIkbSM9ST4MC30uT5XtFeWB2h__RnOuTI7qXyoUVduLxJQoBF5d2u12Z1sdfdDbYlBzk_SBRQW_DV4UQUOh02ASaIWDub7kfipgf59O8S-mbNsjHFNk54A-xMnBjixJC0joc7TI9A',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuC4r8IN9J-GF99Am6AawTje7f_CBz36gbOEx457NlsxTGeA25gtEk8oMmSk915PHAsxwxRrFPsS7h9u-Uz9a9glmoEIA23wlsGeIrs4EjCjfy5UDhIqTGb73kRPlW2Doy35Ef03Na-ZksKA9ciswT4hIO-EBN09VXNzjhmV7o7lLQgMqmiW8vjCw6KC57fLpZvlM4moUPE5WdEPgrJrGNsFmqVUqB8pRJniYxxuJHm21iuRCjuKbD5z2iKFuuOnA4YTzjcOpFQpukQ',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuDhxsNzcX6PHSVPEJfd8bhR_evFhI-1NbKN5qGfbe9UAnmb9D0dxtkf2FNsXgPs0ue4JGbqUv4JwWxhbS1HwzFEkfNXV0XX0Ezo4Qq3y3cyMMKDZLc3EXjavC0XczgQVYvRqp5Kur58bR1tn76NSYV8NdLZvO1YsUxr-dITliNqUgsYFA0zPMYP6F3MaB-Eb_qXp6DeqdXeK9Ape8STbp-UzymO9d_cNnIU9E0HS7iHVzjtRI2_rfdrEjeH7_MZ_kbfX8WDd8CdKU4',
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuCB8U2R1gCvstPsFk8KLrHu2uzjYIFOxoUaiLoNeJEoq_aMXS7ZDEHZ_SsgAgHmakdIhGuYSNUVWreUUQ4SaXD_b0lZEBd22o231tGEnuVgMZZFXrgsa4jrAkTi5kTzNTPuNcCNQiYww8YD9xrmZ6Wbot1cp2gm0xZZ3Z7lwe-XViJJs-ryrwH4EuqVayLBuiTa2UxJ4m4JIlbytpIpJF0Fd3zHLQbP3drUO6MPLUrUQl1Z6Pk3xrAbmj3z9Ob4qumKFQYBT0oR0eQ',
 ];
-
-// מחליף את `const WORKOUT_THUMB_IMAGES = [...]` — מוטבלי + persistent
-let WORKOUT_THUMB_IMAGES = (() => {
-    try {
-        const s = localStorage.getItem(_THUMB_KEY);
-        if (s) { const p = JSON.parse(s); if (Array.isArray(p) && p.length) return p; }
-    } catch(e) {}
-    return [..._DEFAULT_THUMB_IMAGES];
-})();
-
-function _saveThumbPool() {
-    try { localStorage.setItem(_THUMB_KEY, JSON.stringify(WORKOUT_THUMB_IMAGES)); } catch(e) {}
-}
 
 // ─── DYNAMIC MAIN MENU ─────────────────────────────────────────────────────
 
@@ -549,7 +505,7 @@ function closeExConfigModal() {
 
 function renderEditorList() {
     const list = document.getElementById('editor-list');
-    list.innerHTML = '';
+    list.innerHTML = "";
 
     managerState.exercises.forEach((item, idx) => {
         if (item.type === 'cluster') {
@@ -559,126 +515,89 @@ function renderEditorList() {
         }
     });
 
-    // עדכון מונה הבלוקים
-    const countEl = document.getElementById('editor-block-count');
-    if (countEl) {
-        const n = managerState.exercises.length;
-        countEl.textContent = n > 0 ? `${n} TOTAL BLOCK${n !== 1 ? 'S' : ''}` : '';
-    }
-
     StorageManager.saveSessionState();
 }
 
 function renderRegularItem(item, idx, list) {
-    const card = document.createElement('div');
-    card.className = 'weditor-block';
+    const row = document.createElement('div');
+    row.className = "editor-row";
 
-    const blockNum = String(idx + 1).padStart(2, '0');
-    const isMain = !!item.isMain;
-
-    // SVG icons (inline, no dependency)
-    const svgUp    = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>`;
-    const svgDown  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>`;
-    const svgTrash = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
-    const svgInfo  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-
-    const setsHtml = !isMain ? `
-        <div>
-            <div class="weditor-ctrl-label">TARGET SETS</div>
-            <div class="weditor-sets-ctrl">
-                <button class="weditor-sets-btn" onclick="changeSetCount(${idx}, -1)">−</button>
-                <span class="weditor-sets-val">${item.sets}</span>
-                <button class="weditor-sets-btn plus" onclick="changeSetCount(${idx}, 1)">+</button>
+    let setControls = '';
+    if (!item.isMain) {
+        setControls = `
+            <div class="set-selector">
+                <button class="set-btn" onclick="changeSetCount(${idx}, -1)">-</button>
+                <span class="set-val">${item.sets}</span>
+                <button class="set-btn" onclick="changeSetCount(${idx}, 1)">+</button>
             </div>
-        </div>` : `<div></div>`;
+        `;
+    } else {
+        setControls = `<span class="text-sm color-dim" style="margin:0 5px;">1RM</span>`;
+    }
 
-    card.innerHTML = `
-        <div class="weditor-block-head">
-            <div style="flex:1;min-width:0;">
-                <span class="weditor-block-num">BLOCK ${blockNum}</span>
-                <div class="weditor-block-name">${item.name}</div>
-            </div>
-            <div class="weditor-block-btns">
-                <button class="weditor-icon-btn" onclick="moveExInEditor(${idx}, -1)" aria-label="הזז למעלה">${svgUp}</button>
-                <button class="weditor-icon-btn" onclick="moveExInEditor(${idx}, 1)"  aria-label="הזז למטה">${svgDown}</button>
-                <button class="weditor-icon-btn danger" onclick="removeExFromEditor(${idx})" aria-label="מחק">${svgTrash}</button>
-            </div>
+    row.innerHTML = `
+        <div class="row-info" onclick="openRestTimerModal(${idx})">${item.name}</div>
+        <div class="editor-controls">
+            <button class="badge-main ${item.isMain ? 'active' : ''}" onclick="toggleMainStatus(${idx})">MAIN</button>
+            ${setControls}
+            <button class="control-icon-btn" onclick="moveExInEditor(${idx}, -1)">▲</button>
+            <button class="control-icon-btn" onclick="moveExInEditor(${idx}, 1)">▼</button>
+            <button class="control-icon-btn" onclick="removeExFromEditor(${idx})" style="color:#ff453a; border-color: rgba(255,69,58,0.3);">✕</button>
         </div>
-        <div class="weditor-block-footer">
-            ${setsHtml}
-            <div class="weditor-tags-col">
-                <div class="weditor-ctrl-label">TAGS</div>
-                <button class="weditor-main-tag${isMain ? ' active' : ''}" onclick="toggleMainStatus(${idx})">MAIN LIFT</button>
-            </div>
-        </div>
-        <div class="weditor-block-settings-hint" onclick="openRestTimerModal(${idx})">
-            ${svgInfo}
-            Settings & Rest Timer
-        </div>`;
-    list.appendChild(card);
+    `;
+    list.appendChild(row);
 }
 
 function renderClusterItem(cluster, idx, list) {
-    const card = document.createElement('div');
-    card.className = 'weditor-cluster';
+    const box = document.createElement('div');
+    box.className = "cluster-box";
 
-    const svgUp    = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>`;
-    const svgDown  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>`;
-    const svgTrash = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M9 6V4h6v2"/></svg>`;
-    const svgLayers = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
-    const svgPlus   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
-    const svgX      = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    let html = `
+    <div class="cluster-header">
+        <div class="cluster-title">סבב / מעגל (Cluster)</div>
+        <div class="editor-controls">
+            <button class="control-icon-btn" onclick="moveExInEditor(${idx}, -1)">▲</button>
+            <button class="control-icon-btn" onclick="moveExInEditor(${idx}, 1)">▼</button>
+            <button class="control-icon-btn" onclick="removeExFromEditor(${idx})" style="color:#ff453a;">✕</button>
+        </div>
+    </div>
+    <div class="input-grid grid-2-cols mb-sm">
+        <div class="glass-card compact m-0 p-sm">
+            <label>מס' סבבים</label>
+            <div class="set-selector flex-center">
+                <button class="set-btn" onclick="changeClusterRounds(${idx}, -1)">-</button>
+                <span class="set-val">${cluster.rounds}</span>
+                <button class="set-btn" onclick="changeClusterRounds(${idx}, 1)">+</button>
+            </div>
+        </div>
+        <div class="glass-card compact m-0 p-sm">
+            <label>מנוחה בסוף סבב</label>
+            <div class="set-selector flex-center">
+                <button class="set-btn" onclick="changeClusterRest(${idx}, -30)">-</button>
+                <span class="set-val" style="width:40px;">${cluster.clusterRest}s</span>
+                <button class="set-btn" onclick="changeClusterRest(${idx}, 30)">+</button>
+            </div>
+        </div>
+    </div>
+    <div class="cluster-content vertical-stack">
+    `;
 
-    let exHtml = '';
-    cluster.exercises.forEach((ex, exIdx) => {
-        const lbl = String.fromCharCode(65 + exIdx); // A, B, C...
-        const repsLabel = ex.targetReps ? `${ex.targetReps} REPS` : '— REPS';
-        exHtml += `
-        <div class="weditor-cluster-ex" onclick="openRestTimerModal(${idx}, ${exIdx})">
-            <span class="weditor-cluster-ex-lbl">${lbl}${exIdx + 1}</span>
-            <span class="weditor-cluster-ex-name">${ex.name}</span>
-            <span class="weditor-cluster-ex-reps">${repsLabel}</span>
-            <button class="weditor-cluster-ex-del"
-                onclick="event.stopPropagation(); removeExFromCluster(${idx}, ${exIdx})"
-                aria-label="הסר">${svgX}</button>
+    cluster.exercises.forEach((ex, internalIdx) => {
+        html += `
+        <div class="editor-row p-sm" style="background:rgba(255,255,255,0.05);">
+            <div class="row-info" onclick="openRestTimerModal(${idx}, ${internalIdx})">${internalIdx + 1}. ${ex.name}</div>
+            <div class="editor-controls">
+                <button class="control-icon-btn" style="width:24px; height:24px;" onclick="removeExFromCluster(${idx}, ${internalIdx})">✕</button>
+            </div>
         </div>`;
     });
 
-    card.innerHTML = `
-        <div class="weditor-cluster-head">
-            <div class="weditor-cluster-title-row">
-                ${svgLayers}
-                <span class="weditor-cluster-title-txt">CLUSTER BLOCK</span>
-                <div class="weditor-cluster-btns">
-                    <button class="weditor-icon-btn" onclick="moveExInEditor(${idx}, -1)">${svgUp}</button>
-                    <button class="weditor-icon-btn" onclick="moveExInEditor(${idx}, 1)">${svgDown}</button>
-                    <button class="weditor-icon-btn danger" onclick="removeExFromEditor(${idx})">${svgTrash}</button>
-                </div>
-            </div>
-            <div class="weditor-cluster-ctrls">
-                <div class="weditor-cluster-ctrl-item">
-                    <div class="weditor-ctrl-label">ROUNDS</div>
-                    <div class="weditor-sets-ctrl">
-                        <button class="weditor-sets-btn" onclick="changeClusterRounds(${idx}, -1)">−</button>
-                        <span class="weditor-sets-val">${cluster.rounds}</span>
-                        <button class="weditor-sets-btn plus" onclick="changeClusterRounds(${idx}, 1)">+</button>
-                    </div>
-                </div>
-                <div class="weditor-cluster-ctrl-item">
-                    <div class="weditor-ctrl-label">REST</div>
-                    <div class="weditor-sets-ctrl">
-                        <button class="weditor-sets-btn" onclick="changeClusterRest(${idx}, -30)">−</button>
-                        <span class="weditor-sets-val" style="font-size:1rem;">${cluster.clusterRest}s</span>
-                        <button class="weditor-sets-btn plus" onclick="changeClusterRest(${idx}, 30)">+</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="weditor-cluster-exercises">${exHtml}</div>
-        <button class="weditor-cluster-add-ex" onclick="openExerciseSelectorForCluster(${idx})">
-            ${svgPlus} INSERT NESTED EXERCISE
-        </button>`;
-    list.appendChild(card);
+    html += `
+        <button class="btn-text text-sm color-type-free p-sm" onclick="openExerciseSelectorForCluster(${idx})">+ הוסף תרגיל לסבב</button>
+    </div>`;
+
+    box.innerHTML = html;
+    list.appendChild(box);
 }
 
 function toggleMainStatus(idx) { managerState.exercises[idx].isMain = !managerState.exercises[idx].isMain; renderEditorList(); }
@@ -916,6 +835,28 @@ const WORKOUT_COLORS = [
 ];
 
 let _selectedEditorColor = '';
+
+let _selectedThumbIdx = -1;
+
+function selectEditorThumb(idx, el) {
+    _selectedThumbIdx = idx;
+    document.querySelectorAll('.editor-thumb-option').forEach(s => s.classList.remove('active'));
+    if (el) el.classList.add('active');
+}
+
+function _renderThumbPicker(currentIdx) {
+    _selectedThumbIdx = (typeof currentIdx === 'number' && currentIdx >= 0) ? currentIdx : 0;
+    const container = document.getElementById('editor-thumb-picker');
+    if (!container) return;
+    container.innerHTML = '';
+    WORKOUT_THUMB_IMAGES.forEach((url, idx) => {
+        const el = document.createElement('div');
+        el.className = 'editor-thumb-option' + (idx === _selectedThumbIdx ? ' active' : '');
+        el.style.backgroundImage = `url('${url}')`;
+        el.onclick = () => selectEditorThumb(idx, el);
+        container.appendChild(el);
+    });
+}
 
 function selectEditorColor(hex, el) {
     _selectedEditorColor = hex;

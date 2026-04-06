@@ -2926,3 +2926,388 @@ body {
 .settings-info-row span:first-child { color: var(--text-dim); }
 .settings-info-row span:last-child { font-weight: 700; color: rgba(255,255,255,0.5); }
 .cloud-btn.purple { color: #BF5AF2; border-color: rgba(191,90,242,0.3); background: rgba(191,90,242,0.07); }
+
+/* =========================================================
+   KM DESIGN SYSTEM — Workout Manager & Editor (v14.12.0-90)
+   ========================================================= */
+
+/* ── Shared Section Label ── */
+.km-section-label {
+    font-size: 0.62rem; font-weight: 900; letter-spacing: 0.12em;
+    text-transform: uppercase; color: rgba(255,255,255,0.35);
+    margin-bottom: 10px;
+}
+.km-section-label--mt { margin-top: 20px; }
+
+/* ════════════════════════════════
+   WORKOUT MANAGER SCREEN
+   ════════════════════════════════ */
+
+.km-manager-screen {
+    padding-bottom: 100px; /* room for FAB */
+}
+
+.km-manager-list {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 0 0 8px;
+}
+
+/* Segmented control — pill */
+.km-seg-control {
+    display: flex; background: #161616; border-radius: 9999px;
+    padding: 4px; gap: 4px;
+}
+.km-seg-btn {
+    flex: 1; background: none; border: none; border-radius: 9999px;
+    color: rgba(255,255,255,0.4); font-family: 'Heebo', sans-serif;
+    font-weight: 900; font-size: 0.75rem; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 10px 8px; cursor: pointer;
+    transition: all 0.2s;
+}
+.km-seg-btn.active {
+    background: #2a2a2a; color: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+/* Manager card */
+.km-manager-card {
+    background: #1a1a1a; border-radius: 1.5rem;
+    display: flex; flex-direction: row; align-items: stretch;
+    overflow: hidden; cursor: pointer; transition: transform 0.15s;
+    min-height: 140px;
+}
+.km-manager-card:active { transform: scale(0.98); }
+.km-manager-card--hidden { opacity: 0.5; }
+
+.km-manager-card-img {
+    width: 90px; flex-shrink: 0;
+    background-size: cover; background-position: center;
+    background-color: #111;
+}
+
+.km-manager-card-body {
+    flex: 1; padding: 18px 18px 14px;
+    display: flex; flex-direction: column; gap: 4px;
+}
+
+.km-manager-card-title {
+    font-family: 'Heebo', sans-serif; font-weight: 900;
+    font-size: 1.45rem; letter-spacing: -0.02em;
+    font-style: italic; text-transform: uppercase;
+    color: #fff; margin: 0; line-height: 1.1;
+}
+
+.km-manager-card-count {
+    font-size: 0.7rem; font-weight: 900; letter-spacing: 0.1em;
+    color: #47e266; text-transform: uppercase; margin: 0;
+}
+
+.km-manager-card-actions {
+    display: flex; gap: 8px; margin-top: auto; padding-top: 12px;
+    flex-wrap: wrap;
+}
+
+.km-pill-btn {
+    display: flex; align-items: center; gap: 5px;
+    background: #2c2c2c; border: none; border-radius: 9999px;
+    color: #fff; font-family: 'Inter', sans-serif;
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 7px 12px;
+    cursor: pointer; transition: background 0.15s;
+}
+.km-pill-btn:active { background: #3a3a3a; transform: scale(0.96); }
+.km-pill-btn--danger {
+    background: rgba(255,69,58,0.12); color: #ff6b6b;
+}
+.km-pill-btn--danger:active { background: rgba(255,69,58,0.22); }
+
+/* Manager FAB */
+.km-manager-fab-area {
+    position: sticky; bottom: 70px; /* above tab bar */
+    padding: 10px 0 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    background: linear-gradient(to top, var(--bg) 60%, transparent);
+    pointer-events: none;
+}
+.km-manager-fab-area > * { pointer-events: auto; }
+
+.km-fab-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; height: 54px; border: none; border-radius: 9999px;
+    font-family: 'Heebo', sans-serif; font-weight: 900;
+    font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #000; cursor: pointer; transition: transform 0.15s;
+    box-shadow: 0 0 28px rgba(10,132,255,0.35);
+}
+.km-fab-btn:active { transform: scale(0.97); }
+
+.km-cloud-link {
+    background: none; font-size: 0.72rem; color: rgba(255,255,255,0.3);
+    padding: 4px 8px; border: none; cursor: pointer;
+}
+
+/* ════════════════════════════════
+   WORKOUT EDITOR SCREEN
+   ════════════════════════════════ */
+
+.km-editor-screen {
+    padding-bottom: 20px;
+}
+
+/* Identity card */
+.km-identity-card {
+    background: #1a1a1a; border-radius: 1.5rem;
+    padding: 18px 20px; margin-bottom: 4px;
+}
+
+.km-title-input {
+    background: none; border: none; outline: none;
+    font-family: 'Heebo', sans-serif; font-weight: 900;
+    font-size: 1.8rem; letter-spacing: -0.03em;
+    color: #fff; width: 100%; text-align: right;
+    padding: 0 0 14px; margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    text-transform: uppercase;
+}
+.km-title-input::placeholder { color: rgba(255,255,255,0.2); }
+
+/* Toggle row */
+.km-toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.km-toggle-row--first { border-top: none; padding-top: 14px; }
+
+.km-toggle-label {
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(255,255,255,0.6);
+}
+
+/* iOS-style toggle switch */
+.km-switch { position: relative; display: inline-block; width: 44px; height: 26px; flex-shrink: 0; }
+.km-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.km-switch-track {
+    position: absolute; inset: 0; border-radius: 9999px;
+    background: rgba(255,255,255,0.12); cursor: pointer;
+    transition: background 0.2s;
+}
+.km-switch-track::after {
+    content: ''; position: absolute; top: 3px; right: 3px; /* RTL: thumb right when off */
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; transition: transform 0.2s, right 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+.km-switch input:checked + .km-switch-track { background: #30D158; }
+.km-switch input:checked + .km-switch-track::after {
+    right: auto; left: 3px; /* thumb moves to left when on (RTL) */
+}
+
+/* Accent row (colors) */
+.km-accent-row {
+    display: flex; gap: 10px; align-items: center;
+    flex-wrap: wrap; padding: 4px 0;
+}
+
+/* Thumb grid (visual anchor) */
+.km-thumb-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; padding: 4px 0;
+}
+/* The existing .editor-thumb-option class handles rendering — we override container only */
+#editor-thumb-picker.km-thumb-grid .editor-thumb-option {
+    width: 100%; height: 70px;
+}
+
+/* Flow header */
+.km-flow-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 22px 0 10px;
+}
+.km-block-count {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em;
+    color: rgba(255,255,255,0.3); text-transform: uppercase;
+}
+
+.km-editor-list { gap: 10px !important; }
+
+/* Editor block card */
+.km-editor-block {
+    background: #1a1a1a; border-radius: 1.5rem;
+    padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;
+}
+
+.km-block-header {
+    display: flex; align-items: center; justify-content: space-between;
+}
+.km-block-num {
+    font-size: 0.6rem; font-weight: 900; letter-spacing: 0.14em;
+    color: rgba(255,255,255,0.3); text-transform: uppercase;
+}
+.km-block-header-btns { display: flex; align-items: center; gap: 4px; }
+
+.km-icon-btn {
+    background: none; border: none; padding: 2px; cursor: pointer;
+    color: rgba(255,255,255,0.35); display: flex; align-items: center;
+    transition: color 0.15s;
+}
+.km-icon-btn:active { color: #fff; }
+.km-icon-btn .material-symbols-outlined { font-size: 1.15rem; line-height: 1; }
+
+.km-block-name {
+    font-family: 'Heebo', sans-serif; font-weight: 900;
+    font-size: 1.5rem; letter-spacing: -0.02em; text-transform: uppercase;
+    color: #fff; line-height: 1.1; cursor: pointer;
+}
+
+.km-block-footer {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 8px; margin-top: 2px;
+}
+.km-block-footer-meta { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+.km-sets-row {
+    display: flex; align-items: center; gap: 10px;
+}
+.km-sets-label {
+    font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.35); text-transform: uppercase;
+}
+
+.km-tags-row {
+    display: flex; align-items: center; gap: 8px;
+}
+.km-tag-label {
+    font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.3); text-transform: uppercase;
+}
+.km-tag-pill {
+    background: rgba(100,253,125,0.12); border: 1px solid rgba(100,253,125,0.3);
+    color: #47e266; border-radius: 9999px;
+    font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 4px 10px; cursor: pointer;
+}
+.km-tag-pill:not(.km-tag-pill--main) {
+    background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.3);
+}
+
+.km-trash-btn {
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.2); padding: 6px;
+    transition: color 0.15s; flex-shrink: 0;
+}
+.km-trash-btn:active { color: #ff453a; }
+.km-trash-btn .material-symbols-outlined { font-size: 1.1rem; line-height: 1; }
+
+/* Shared stepper */
+.km-stepper {
+    display: flex; align-items: center; gap: 0;
+    background: rgba(255,255,255,0.06); border-radius: 9999px;
+    overflow: hidden;
+}
+.km-stepper-btn {
+    background: none; border: none; color: #fff; cursor: pointer;
+    font-size: 1.1rem; line-height: 1; width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 300; transition: background 0.12s;
+}
+.km-stepper-btn:active { background: rgba(255,255,255,0.1); }
+.km-stepper-val {
+    font-family: 'Heebo', sans-serif; font-weight: 900;
+    font-size: 1rem; min-width: 26px; text-align: center; color: #fff;
+}
+
+/* Cluster block */
+.km-cluster-block {
+    background: rgba(94,92,230,0.06);
+    border: 1.5px dashed rgba(94,92,230,0.4);
+    border-radius: 1.5rem;
+    padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
+}
+
+.km-cluster-title-row {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+}
+.km-cluster-title {
+    font-family: 'Heebo', sans-serif; font-weight: 900;
+    font-size: 0.85rem; letter-spacing: 0.08em; color: #5E5CE6;
+    text-transform: uppercase;
+}
+.km-cluster-meta {
+    font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em;
+    color: rgba(255,255,255,0.4); text-transform: uppercase;
+    background: rgba(255,255,255,0.05); border-radius: 6px; padding: 2px 6px;
+}
+
+.km-cluster-ex-list { display: flex; flex-direction: column; gap: 4px; }
+.km-cluster-ex-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; background: rgba(255,255,255,0.04); border-radius: 10px;
+}
+.km-cluster-ex-label {
+    font-size: 0.65rem; font-weight: 900; color: #5E5CE6; width: 22px;
+    text-transform: uppercase; flex-shrink: 0;
+}
+.km-cluster-ex-name {
+    flex: 1; font-size: 0.85rem; font-weight: 600; color: #e5e5e7; cursor: pointer;
+}
+.km-cluster-ex-reps {
+    font-size: 0.62rem; font-weight: 700; color: rgba(255,255,255,0.35);
+    letter-spacing: 0.04em;
+}
+
+.km-icon-btn-sm {
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.3); padding: 2px; display: flex; align-items: center;
+    transition: color 0.12s; flex-shrink: 0;
+}
+.km-icon-btn-sm:active { color: #ff453a; }
+
+.km-cluster-controls {
+    display: flex; gap: 12px; padding-top: 4px;
+}
+.km-ctrl-group {
+    flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: center;
+}
+.km-ctrl-label {
+    font-size: 0.58rem; font-weight: 800; letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.3); text-transform: uppercase;
+}
+
+.km-add-to-cluster-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: none; border: 1px dashed rgba(94,92,230,0.4);
+    border-radius: 9999px; color: #5E5CE6;
+    font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 10px 16px; cursor: pointer;
+    width: 100%; transition: border-color 0.15s;
+}
+.km-add-to-cluster-btn:active { border-color: rgba(94,92,230,0.8); }
+
+/* Bottom action area */
+.km-editor-bottom-actions { margin-top: 16px; }
+
+.km-add-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.km-add-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: none; border: 1.5px dashed rgba(10,132,255,0.4);
+    border-radius: 9999px; color: #0A84FF;
+    font-size: 0.65rem; font-weight: 800; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 13px 12px; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.km-add-btn:active { background: rgba(10,132,255,0.06); }
+.km-add-btn--cluster {
+    border-color: rgba(94,92,230,0.4); color: #5E5CE6;
+}
+.km-add-btn--cluster:active { background: rgba(94,92,230,0.06); }
+.km-add-icon { font-size: 0.95rem !important; line-height: 1; }
+
+.km-save-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 12px;
+}

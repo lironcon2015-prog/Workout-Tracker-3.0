@@ -152,12 +152,12 @@ function renderManagerList() {
 
     const keys = Object.keys(state.workouts);
 
-    // Segmented control
+    // Segmented control — pill style, HIDDEN | ACTIVE order (כמו במוקאפ)
     const seg = document.createElement('div');
-    seg.className = 'segmented-control mb-md';
+    seg.className = 'km-seg-control mb-lg';
     seg.innerHTML = `
-        <button class="segment-btn ${_managerTab === 'active' ? 'active' : ''}" onclick="_setManagerTab('active')">פעילים</button>
-        <button class="segment-btn ${_managerTab === 'hidden' ? 'active' : ''}" onclick="_setManagerTab('hidden')">מוסתרים</button>
+        <button class="km-seg-btn ${_managerTab === 'hidden' ? 'active' : ''}" onclick="_setManagerTab('hidden')">HIDDEN</button>
+        <button class="km-seg-btn ${_managerTab === 'active' ? 'active' : ''}" onclick="_setManagerTab('active')">ACTIVE</button>
     `;
     list.appendChild(seg);
 
@@ -167,28 +167,42 @@ function renderManagerList() {
 
     if (displayKeys.length === 0) {
         const empty = document.createElement('p');
-        empty.className = 'text-center color-dim';
+        empty.className = 'text-center color-dim mt-lg';
         empty.textContent = _managerTab === 'active' ? 'אין תוכניות פעילות' : 'אין תוכניות מוסתרות';
         list.appendChild(empty);
     } else {
-        displayKeys.forEach(key => {
+        displayKeys.forEach((key, cardIdx) => {
             const wo = state.workouts[key];
-            const el = document.createElement('div');
-            el.className = 'manager-item';
-            if (_managerTab === 'hidden') el.style.opacity = '0.55';
-            el.onclick = () => editWorkout(key);
+            const meta = state.workoutMeta[key] || {};
             let count = 0;
             if (Array.isArray(wo)) {
                 wo.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
             }
-            el.innerHTML = `
-                <div class="manager-info"><h3>${key}</h3><p>${count} תרגילים</p></div>
-                <div class="manager-actions">
-                    <button class="btn-text-action" onclick="event.stopPropagation(); duplicateWorkout('${key}')">שכפל</button>
-                    <button class="btn-text-action delete" onclick="event.stopPropagation(); deleteWorkout('${key}')">מחק</button>
+            const thumbIdx = (typeof meta._thumbIdx === 'number') ? meta._thumbIdx : (cardIdx % WORKOUT_THUMB_IMAGES.length);
+            const imgUrl = WORKOUT_THUMB_IMAGES[thumbIdx % WORKOUT_THUMB_IMAGES.length];
+            const safeKey = key.replace(/'/g, "\\'");
+
+            const card = document.createElement('div');
+            card.className = 'km-manager-card' + (_managerTab === 'hidden' ? ' km-manager-card--hidden' : '');
+            card.innerHTML = `
+                <div class="km-manager-card-img" style="background-image:url('${imgUrl}')"></div>
+                <div class="km-manager-card-body">
+                    <h2 class="km-manager-card-title">${key}</h2>
+                    <p class="km-manager-card-count">EXERCISES ${count}</p>
+                    <div class="km-manager-card-actions">
+                        <button class="km-pill-btn km-pill-btn--danger" onclick="event.stopPropagation(); deleteWorkout('${safeKey}')">
+                            <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">delete</span>
+                            DELETE
+                        </button>
+                        <button class="km-pill-btn" onclick="event.stopPropagation(); duplicateWorkout('${safeKey}')">
+                            <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">content_copy</span>
+                            DUPLICATE
+                        </button>
+                    </div>
                 </div>
             `;
-            list.appendChild(el);
+            card.onclick = () => editWorkout(key);
+            list.appendChild(card);
         });
     }
 
@@ -515,88 +529,122 @@ function renderEditorList() {
         }
     });
 
+    // עדכון מונה בלוקים בכותרת EXERCISE FLOW
+    const countEl = document.getElementById('editor-block-count');
+    if (countEl) countEl.textContent = `${managerState.exercises.length} TOTAL BLOCKS`;
+
     StorageManager.saveSessionState();
 }
 
 function renderRegularItem(item, idx, list) {
+    const blockNum = String(idx + 1).padStart(2, '0');
     const row = document.createElement('div');
-    row.className = "editor-row";
+    row.className = "km-editor-block";
 
-    let setControls = '';
-    if (!item.isMain) {
-        setControls = `
-            <div class="set-selector">
-                <button class="set-btn" onclick="changeSetCount(${idx}, -1)">-</button>
-                <span class="set-val">${item.sets}</span>
-                <button class="set-btn" onclick="changeSetCount(${idx}, 1)">+</button>
+    const setsHtml = !item.isMain ? `
+        <div class="km-sets-row">
+            <span class="km-sets-label">TARGET SETS</span>
+            <div class="km-stepper">
+                <button class="km-stepper-btn" onclick="changeSetCount(${idx}, -1)">-</button>
+                <span class="km-stepper-val">${item.sets}</span>
+                <button class="km-stepper-btn" onclick="changeSetCount(${idx}, 1)">+</button>
             </div>
-        `;
-    } else {
-        setControls = `<span class="text-sm color-dim" style="margin:0 5px;">1RM</span>`;
-    }
+        </div>` : '';
+
+    const tagHtml = item.isMain
+        ? `<div class="km-tags-row"><span class="km-tag-label">TAGS</span><button class="km-tag-pill km-tag-pill--main" onclick="toggleMainStatus(${idx})">MAIN LIFT</button></div>`
+        : `<div class="km-tags-row"><span class="km-tag-label">TAGS</span><button class="km-tag-pill" onclick="toggleMainStatus(${idx})">+ TAG</button></div>`;
 
     row.innerHTML = `
-        <div class="row-info" onclick="openRestTimerModal(${idx})">${item.name}</div>
-        <div class="editor-controls">
-            <button class="badge-main ${item.isMain ? 'active' : ''}" onclick="toggleMainStatus(${idx})">MAIN</button>
-            ${setControls}
-            <button class="control-icon-btn" onclick="moveExInEditor(${idx}, -1)">▲</button>
-            <button class="control-icon-btn" onclick="moveExInEditor(${idx}, 1)">▼</button>
-            <button class="control-icon-btn" onclick="removeExFromEditor(${idx})" style="color:#ff453a; border-color: rgba(255,69,58,0.3);">✕</button>
+        <div class="km-block-header">
+            <span class="km-block-num">BLOCK ${blockNum}</span>
+            <div class="km-block-header-btns">
+                <button class="km-icon-btn" onclick="moveExInEditor(${idx}, -1)">
+                    <span class="material-symbols-outlined">keyboard_arrow_up</span>
+                </button>
+                <button class="km-icon-btn" onclick="moveExInEditor(${idx}, 1)">
+                    <span class="material-symbols-outlined">keyboard_arrow_down</span>
+                </button>
+            </div>
+        </div>
+        <div class="km-block-name" onclick="openRestTimerModal(${idx})">${item.name}</div>
+        <div class="km-block-footer">
+            <div class="km-block-footer-meta">
+                ${setsHtml}
+                ${tagHtml}
+            </div>
+            <button class="km-trash-btn" onclick="removeExFromEditor(${idx})">
+                <span class="material-symbols-outlined">delete</span>
+            </button>
         </div>
     `;
     list.appendChild(row);
 }
 
 function renderClusterItem(cluster, idx, list) {
+    const blockNum = String(idx + 1).padStart(2, '0');
     const box = document.createElement('div');
-    box.className = "cluster-box";
+    box.className = "km-cluster-block";
 
-    let html = `
-    <div class="cluster-header">
-        <div class="cluster-title">סבב / מעגל (Cluster)</div>
-        <div class="editor-controls">
-            <button class="control-icon-btn" onclick="moveExInEditor(${idx}, -1)">▲</button>
-            <button class="control-icon-btn" onclick="moveExInEditor(${idx}, 1)">▼</button>
-            <button class="control-icon-btn" onclick="removeExFromEditor(${idx})" style="color:#ff453a;">✕</button>
-        </div>
-    </div>
-    <div class="input-grid grid-2-cols mb-sm">
-        <div class="glass-card compact m-0 p-sm">
-            <label>מס' סבבים</label>
-            <div class="set-selector flex-center">
-                <button class="set-btn" onclick="changeClusterRounds(${idx}, -1)">-</button>
-                <span class="set-val">${cluster.rounds}</span>
-                <button class="set-btn" onclick="changeClusterRounds(${idx}, 1)">+</button>
-            </div>
-        </div>
-        <div class="glass-card compact m-0 p-sm">
-            <label>מנוחה בסוף סבב</label>
-            <div class="set-selector flex-center">
-                <button class="set-btn" onclick="changeClusterRest(${idx}, -30)">-</button>
-                <span class="set-val" style="width:40px;">${cluster.clusterRest}s</span>
-                <button class="set-btn" onclick="changeClusterRest(${idx}, 30)">+</button>
-            </div>
-        </div>
-    </div>
-    <div class="cluster-content vertical-stack">
-    `;
-
+    let exRows = '';
     cluster.exercises.forEach((ex, internalIdx) => {
-        html += `
-        <div class="editor-row p-sm" style="background:rgba(255,255,255,0.05);">
-            <div class="row-info" onclick="openRestTimerModal(${idx}, ${internalIdx})">${internalIdx + 1}. ${ex.name}</div>
-            <div class="editor-controls">
-                <button class="control-icon-btn" style="width:24px; height:24px;" onclick="removeExFromCluster(${idx}, ${internalIdx})">✕</button>
-            </div>
+        const label = String.fromCharCode(65 + internalIdx); // A, B, C...
+        exRows += `
+        <div class="km-cluster-ex-row">
+            <span class="km-cluster-ex-label">${label}${internalIdx + 1}</span>
+            <span class="km-cluster-ex-name" onclick="openRestTimerModal(${idx}, ${internalIdx})">${ex.name}</span>
+            <span class="km-cluster-ex-reps">${ex.sets ? ex.sets + ' REPS' : ''}</span>
+            <button class="km-icon-btn-sm" onclick="removeExFromCluster(${idx}, ${internalIdx})">
+                <span class="material-symbols-outlined" style="font-size:0.95rem;">close</span>
+            </button>
         </div>`;
     });
 
-    html += `
-        <button class="btn-text text-sm color-type-free p-sm" onclick="openExerciseSelectorForCluster(${idx})">+ הוסף תרגיל לסבב</button>
-    </div>`;
-
-    box.innerHTML = html;
+    box.innerHTML = `
+        <div class="km-block-header">
+            <span class="km-block-num">BLOCK ${blockNum}</span>
+            <div class="km-block-header-btns">
+                <button class="km-icon-btn" onclick="moveExInEditor(${idx}, -1)">
+                    <span class="material-symbols-outlined">keyboard_arrow_up</span>
+                </button>
+                <button class="km-icon-btn" onclick="moveExInEditor(${idx}, 1)">
+                    <span class="material-symbols-outlined">keyboard_arrow_down</span>
+                </button>
+                <button class="km-trash-btn" onclick="removeExFromEditor(${idx})">
+                    <span class="material-symbols-outlined">delete</span>
+                </button>
+            </div>
+        </div>
+        <div class="km-cluster-title-row">
+            <span class="material-symbols-outlined" style="color:#5E5CE6;font-size:1.1rem;line-height:1;">hub</span>
+            <span class="km-cluster-title">CLUSTER BLOCK</span>
+            <span class="km-cluster-meta">${cluster.rounds} ROUNDS</span>
+            <span class="km-cluster-meta">${cluster.clusterRest}S REST</span>
+        </div>
+        <div class="km-cluster-ex-list">${exRows}</div>
+        <div class="km-cluster-controls">
+            <div class="km-ctrl-group">
+                <span class="km-ctrl-label">Rounds</span>
+                <div class="km-stepper">
+                    <button class="km-stepper-btn" onclick="changeClusterRounds(${idx}, -1)">-</button>
+                    <span class="km-stepper-val">${cluster.rounds}</span>
+                    <button class="km-stepper-btn" onclick="changeClusterRounds(${idx}, 1)">+</button>
+                </div>
+            </div>
+            <div class="km-ctrl-group">
+                <span class="km-ctrl-label">Rest</span>
+                <div class="km-stepper">
+                    <button class="km-stepper-btn" onclick="changeClusterRest(${idx}, -30)">-</button>
+                    <span class="km-stepper-val">${cluster.clusterRest}s</span>
+                    <button class="km-stepper-btn" onclick="changeClusterRest(${idx}, 30)">+</button>
+                </div>
+            </div>
+        </div>
+        <button class="km-add-to-cluster-btn" onclick="openExerciseSelectorForCluster(${idx})">
+            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">add</span>
+            INSERT NESTED EXERCISE
+        </button>
+    `;
     list.appendChild(box);
 }
 

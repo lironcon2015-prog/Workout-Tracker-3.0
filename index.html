@@ -466,51 +466,79 @@
             </div>
 
             <!-- WORKOUT MANAGER -->
-            <div id="ui-workout-manager" class="screen">
-                <div class="hero-section"><h2>ניהול תוכניות</h2></div>
-                <div id="manager-list" class="vertical-stack"></div>
-                <div class="mt-md">
-                    <button id="btn-create-workout" class="btn-main primary-gradient" onclick="createNewWorkout()">+ צור תוכנית חדשה</button>
-                    <button class="btn-save-cloud" onclick="saveWorkoutManagerToCloud()">☁️ שמור קונפיגורציה לענן</button>
-                    <button class="btn-text mt-md" onclick="navigate('ui-week', true)">חזרה ללוח הבקרה</button>
+            <div id="ui-workout-manager" class="screen km-manager-screen">
+                <div id="manager-list" class="km-manager-list"></div>
+                <!-- FAB area — pinned above tab-bar -->
+                <div class="km-manager-fab-area">
+                    <button id="btn-create-workout" class="km-fab-btn primary-gradient" onclick="createNewWorkout()">
+                        <span class="material-symbols-outlined" style="font-size:1.2rem;line-height:1;">add</span>
+                        CREATE NEW PLAN
+                    </button>
+                    <button class="btn-save-cloud km-cloud-link" onclick="saveWorkoutManagerToCloud()">☁️ שמור קונפיגורציה לענן</button>
                 </div>
             </div>
 
             <!-- WORKOUT EDITOR -->
-            <div id="ui-workout-editor" class="screen">
-                <div class="hero-section"><h2>עריכת תוכנית</h2></div>
-                <div class="glass-card">
-                    <label class="text-xs color-dim">שם התוכנית</label>
-                    <input type="text" id="editor-workout-name" class="minimal-input text-right text-lg font-bold mb-sm">
-                    <div class="flex-between border-top pt-sm">
-                        <span class="text-sm">הצג בשבוע דילואוד?</span>
-                        <input type="checkbox" id="editor-deload-check" class="archive-checkbox">
+            <div id="ui-workout-editor" class="screen km-editor-screen">
+
+                <!-- WORKOUT IDENTITY -->
+                <div class="km-section-label">WORKOUT IDENTITY</div>
+                <div class="km-identity-card">
+                    <input type="text" id="editor-workout-name" class="km-title-input" placeholder="WORKOUT NAME">
+                    <div class="km-toggle-row km-toggle-row--first">
+                        <span class="km-toggle-label">DELOAD</span>
+                        <label class="km-switch">
+                            <input type="checkbox" id="editor-deload-check">
+                            <span class="km-switch-track"></span>
+                        </label>
                     </div>
-                    <div class="flex-between border-top pt-sm mt-xs">
-                        <span class="text-sm color-type-free">מופיע בדילואוד בלבד?</span>
-                        <input type="checkbox" id="editor-deload-only-check" class="archive-checkbox">
+                    <div class="km-toggle-row">
+                        <span class="km-toggle-label">RESTRICTED</span>
+                        <label class="km-switch">
+                            <input type="checkbox" id="editor-deload-only-check">
+                            <span class="km-switch-track"></span>
+                        </label>
                     </div>
-                    <div class="flex-between border-top pt-sm mt-xs">
-                        <span class="text-sm color-dim">הסתר מרשימת האימונים</span>
-                        <input type="checkbox" id="editor-hidden-check" class="archive-checkbox">
-                    </div>
-                    <div class="border-top pt-sm mt-xs">
-                        <span class="text-sm color-dim d-block mb-sm">צבע זיהוי</span>
-                        <div id="editor-color-swatches" class="color-swatches-row"></div>
-                    </div>
-                    <div class="border-top pt-sm mt-xs">
-                        <span class="text-sm color-dim d-block mb-sm">תמונת האימון</span>
-                        <div id="editor-thumb-picker" class="editor-thumb-picker-row"></div>
+                    <div class="km-toggle-row">
+                        <span class="km-toggle-label">HIDDEN</span>
+                        <label class="km-switch">
+                            <input type="checkbox" id="editor-hidden-check">
+                            <span class="km-switch-track"></span>
+                        </label>
                     </div>
                 </div>
-                <div class="section-label">רשימת תרגילים</div>
-                <div id="editor-list" class="vertical-stack"></div>
-                <div class="input-grid mt-sm grid-2-cols">
-                    <button class="btn-text border-dashed border-accent color-accent" onclick="openExerciseSelector()">+ הוסף תרגיל</button>
-                    <button class="btn-text border-dashed color-type-free" style="border-color:var(--type-free)!important;" onclick="addClusterToEditor()">+ צור סבב</button>
+
+                <!-- THEMATIC ACCENT -->
+                <div class="km-section-label km-section-label--mt">THEMATIC ACCENT</div>
+                <div id="editor-color-swatches" class="km-accent-row"></div>
+
+                <!-- VISUAL ANCHOR -->
+                <div class="km-section-label km-section-label--mt">VISUAL ANCHOR</div>
+                <div id="editor-thumb-picker" class="km-thumb-grid"></div>
+
+                <!-- EXERCISE FLOW -->
+                <div class="km-flow-header">
+                    <span class="km-section-label" style="margin:0;">EXERCISE FLOW</span>
+                    <span id="editor-block-count" class="km-block-count">0 TOTAL BLOCKS</span>
                 </div>
-                <div class="mt-xl">
-                    <button class="btn-main primary-gradient" onclick="saveWorkoutChanges()">שמור שינויים</button>
+                <div id="editor-list" class="vertical-stack km-editor-list"></div>
+
+                <!-- BOTTOM ACTIONS -->
+                <div class="km-editor-bottom-actions">
+                    <div class="km-add-row">
+                        <button class="km-add-btn" onclick="openExerciseSelector()">
+                            <span class="material-symbols-outlined km-add-icon">add_circle</span>
+                            ADD EXERCISE
+                        </button>
+                        <button class="km-add-btn km-add-btn--cluster" onclick="addClusterToEditor()">
+                            <span class="material-symbols-outlined km-add-icon">hub</span>
+                            CREATE CLUSTER
+                        </button>
+                    </div>
+                    <button class="btn-main primary-gradient km-save-btn" onclick="saveWorkoutChanges()">
+                        <span class="material-symbols-outlined" style="font-size:1.1rem;">save</span>
+                        SAVE CHANGES
+                    </button>
                     <button class="btn-text" onclick="handleBackClick()">ביטול</button>
                 </div>
             </div>

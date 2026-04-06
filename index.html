@@ -17,12 +17,18 @@
 <body>
     <div class="glass-overlay"></div>
     
-    <!-- Session Log Modal -->
-    <div id="session-log-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>יומן אימון</h3>
-            <div id="session-log-list" class="vertical-stack my-lg"></div>
-            <button class="btn-text" onclick="closeSessionLog()">סגור</button>
+    <!-- Session Log — Bottom Sheet -->
+    <div id="session-log-modal" class="slog-overlay" onclick="handleSlogOverlayClick(event)">
+        <div class="slog-sheet">
+            <div class="slog-handle"></div>
+            <div class="slog-header">
+                <h2 class="slog-title">יומן אימון</h2>
+                <button class="slog-close-btn" onclick="closeSessionLog()">
+                    <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">close</span>
+                    סגור
+                </button>
+            </div>
+            <div id="session-log-list" class="slog-list"></div>
         </div>
     </div>
 
@@ -605,13 +611,36 @@
                 <button class="btn-text" onclick="handleBackClick()">ביטול</button>
             </div>
 
-            <div id="ui-1rm" class="screen">
-                <div class="hero-section"><h2 id="rm-title">1RM</h2></div>
-                <div class="glass-card">
-                    <label>משקל מקסימלי (RM)</label>
-                    <select id="rm-picker" class="ios-picker"></select>
+            <div id="ui-1rm" class="screen rm-screen">
+                <div class="rm-card">
+                    <div class="rm-card-label-wrap">
+                        <span id="rm-title" class="rm-card-label">1RM</span>
+                        <div class="rm-label-bar"></div>
+                    </div>
+                    <!-- Hidden picker — save1RM() קורא ממנו -->
+                    <select id="rm-picker" class="ios-picker" style="display:none;"></select>
+                    <!-- תצוגה ויזואלית -->
+                    <div class="rm-display-wrap">
+                        <div id="rm-display-val" class="rm-big-num">—</div>
+                        <span class="rm-unit-lbl">kg</span>
+                    </div>
+                    <!-- Stepper -->
+                    <div class="rm-stepper-row">
+                        <button class="rm-step-btn" onclick="stepRM(-1)">
+                            <span class="material-symbols-outlined">remove</span>
+                        </button>
+                        <div class="rm-step-sep"></div>
+                        <button class="rm-step-btn" onclick="stepRM(1)">
+                            <span class="material-symbols-outlined">add</span>
+                        </button>
+                    </div>
+                    <!-- Delta מהבלוק הקודם -->
+                    <div id="rm-delta-row" class="rm-delta-pill" style="display:none;">
+                        <span class="material-symbols-outlined" style="font-size:0.9rem;color:#64fd7d;line-height:1;">trending_up</span>
+                        <span id="rm-delta-text"></span>
+                    </div>
                 </div>
-                <button class="btn-main primary-gradient" onclick="save1RM()">צור אימון</button>
+                <button class="btn-main primary-gradient rm-cta-btn" onclick="save1RM()">צור אימון</button>
             </div>
 
             <div id="ui-confirm" class="screen">

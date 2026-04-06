@@ -1001,8 +1001,46 @@ function setupCalculatedEx() {
         if (diff < bestDiff) { bestDiff = diff; bestIdx = j; }
     }
     p.selectedIndex = bestIdx;
+
+    // עדכון תצוגה ויזואלית
+    syncRMDisplay();
+
+    // Delta — הצג שיפור מהבסיס אם lastRM שונה מ-baseRM
+    const deltaRow = document.getElementById('rm-delta-row');
+    const deltaText = document.getElementById('rm-delta-text');
+    if (deltaRow && deltaText && lastRM != null && lastRM !== baseRM) {
+        const diff = Math.round((lastRM - baseRM) * 10) / 10;
+        if (diff !== 0) {
+            deltaText.textContent = diff > 0
+                ? `שיפור של ${diff}kg מהבסיס`
+                : `ירידה של ${Math.abs(diff)}kg מהבסיס`;
+            deltaRow.style.display = 'flex';
+        } else {
+            deltaRow.style.display = 'none';
+        }
+    } else if (deltaRow) {
+        deltaRow.style.display = 'none';
+    }
+
     navigate('ui-1rm');
     StorageManager.saveSessionState();
+}
+
+function syncRMDisplay() {
+    const p = document.getElementById('rm-picker');
+    const display = document.getElementById('rm-display-val');
+    if (!p || !display) return;
+    const val = parseFloat(p.options[p.selectedIndex]?.value);
+    display.textContent = isNaN(val) ? '—' : val;
+}
+
+function stepRM(dir) {
+    const p = document.getElementById('rm-picker');
+    if (!p) return;
+    const newIdx = Math.max(0, Math.min(p.options.length - 1, p.selectedIndex + dir));
+    p.selectedIndex = newIdx;
+    syncRMDisplay();
+    haptic && haptic('light');
 }
 
 function save1RM() {
@@ -2121,42 +2159,85 @@ function _saveToArchive(note) {
 
 function openSessionLog() {
     const modal = document.getElementById('session-log-modal');
-    const list = document.getElementById('session-log-list');
-    list.innerHTML = "";
+    const list  = document.getElementById('session-log-list');
+    list.innerHTML = '';
 
     const realSets = state.log.filter(l => !l.skip);
 
     if (realSets.length === 0) {
-        list.innerHTML = '<p class="text-center color-dim">טרם נרשמו סטים</p>';
+        list.innerHTML = '<p style="text-align:center;color:#71717a;padding:24px 0;">טרם נרשמו סטים</p>';
     } else {
-        // קיבוץ לפי תרגיל — שמירה על סדר הכניסה
+        // קיבוץ לפי תרגיל — שמירה על סדר כניסה
         const exOrder = [];
-        const exMap = {};
+        const exMap   = {};
         realSets.forEach((entry, i) => {
             if (!exMap[entry.exName]) { exMap[entry.exName] = []; exOrder.push(entry.exName); }
             exMap[entry.exName].push({ entry, realIdx: i });
         });
 
         exOrder.forEach(exName => {
-            const header = document.createElement('div');
-            header.className = 'log-ex-header';
-            header.textContent = exName;
-            list.appendChild(header);
+            const sets = exMap[exName];
 
-            exMap[exName].forEach(({ entry, realIdx }) => {
+            // חישוב נפח כולל לתרגיל
+            const vol = sets.reduce((sum, { entry }) => sum + (entry.w * entry.r), 0);
+            const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : vol + 'kg';
+
+            // כרטיס תרגיל
+            const card = document.createElement('article');
+            card.className = 'slog-ex-card';
+
+            // כותרת כרטיס
+            card.innerHTML = `
+                <div class="slog-ex-header">
+                    <div class="slog-ex-info">
+                        <h3 class="slog-ex-name">${exName}</h3>
+                    </div>
+                    <div class="slog-ex-vol-wrap">
+                        <p class="slog-vol-lbl">VOLUME</p>
+                        <p class="slog-vol-val">${volStr}</p>
+                    </div>
+                </div>
+                <div class="slog-sets-list" id="slog-sets-${exOrder.indexOf(exName)}"></div>`;
+
+            list.appendChild(card);
+
+            const setsList = card.querySelector('.slog-sets-list');
+            sets.forEach(({ entry, realIdx }, setNum) => {
                 const row = document.createElement('div');
-                row.className = 'log-set-row';
-                row.innerHTML = `<span>${entry.w}kg × ${entry.r} • RIR ${entry.rir}${entry.note ? ' | ' + entry.note : ''}</span><button class="btn-log-edit" onclick="openEditSetModal(${realIdx})">ערוך</button>`;
-                list.appendChild(row);
+                const isLast = setNum === sets.length - 1;
+                row.className = 'slog-set-row' + (isLast ? ' slog-set-row--last' : '');
+                const rirStr = (entry.rir !== '' && entry.rir != null) ? `RIR ${entry.rir}` : '—';
+                row.innerHTML = `
+                    <span class="slog-set-num">${setNum + 1}</span>
+                    <span class="slog-set-data">${entry.w}kg <span class="slog-x">×</span> ${entry.r}</span>
+                    <span class="slog-rir-badge">${rirStr}</span>
+                    <button class="slog-edit-btn" onclick="openEditSetModal(${realIdx})">ערוך</button>`;
+                setsList.appendChild(row);
             });
         });
     }
 
     modal.style.display = 'flex';
+    // אנימציה: slide up
+    requestAnimationFrame(() => {
+        const sheet = modal.querySelector('.slog-sheet');
+        if (sheet) sheet.classList.add('open');
+    });
+}
+
+function handleSlogOverlayClick(e) {
+    if (e.target === e.currentTarget) closeSessionLog();
 }
 
 function closeSessionLog() {
-    document.getElementById('session-log-modal').style.display = 'none';
+    const modal = document.getElementById('session-log-modal');
+    const sheet = modal.querySelector('.slog-sheet');
+    if (sheet) {
+        sheet.classList.remove('open');
+        setTimeout(() => { modal.style.display = 'none'; }, 280);
+    } else {
+        modal.style.display = 'none';
+    }
 }
 
 // ─── HISTORY DRAWER ────────────────────────────────────────────────────────

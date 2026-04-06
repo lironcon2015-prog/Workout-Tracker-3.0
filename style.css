@@ -1968,32 +1968,263 @@ body {
     font-family: inherit; cursor: pointer;
 }
 
-/* ─── SESSION LOG MODAL ─────────────────────────────────────────────────── */
+/* ─── SESSION LOG — Bottom Sheet ──────────────────────────────────────────── */
 
-#session-log-list {
-    overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: none;
+.slog-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1000;
+    display: none;
+    align-items: flex-end;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
-#session-log-list::-webkit-scrollbar { display: none; }
 
-.log-ex-header {
-    font-size: 0.85em; font-weight: 700; color: var(--text);
-    padding: 10px 0 5px; border-bottom: 1px solid rgba(255,255,255,0.1);
-    margin-top: 10px;
+.slog-sheet {
+    width: 100%;
+    background: #1b1b1b;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    max-height: 78vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.2,0.8,0.2,1);
+    box-shadow: 0 -12px 40px rgba(0,0,0,0.6);
 }
-.log-ex-header:first-child { margin-top: 0; }
+.slog-sheet.open { transform: translateY(0); }
 
-.log-set-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
-    font-size: 0.9em;
+.slog-handle {
+    width: 44px; height: 5px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 3px;
+    margin: 12px auto 0;
+    flex-shrink: 0;
 }
-.log-set-row:last-of-type { border-bottom: none; }
 
-.btn-log-edit {
-    font-size: 0.72em; color: var(--accent);
-    background: rgba(10,132,255,0.1); border: 1px solid rgba(10,132,255,0.28);
-    border-radius: 6px; padding: 4px 8px; cursor: pointer; font-family: inherit;
-    white-space: nowrap; flex-shrink: 0;
+.slog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 20px 12px;
+    flex-shrink: 0;
+}
+.slog-title {
+    font-family: 'Heebo', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    font-style: italic;
+    color: #fff;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+.slog-close-btn {
+    display: flex; align-items: center; gap: 4px;
+    background: none; border: none;
+    color: rgba(255,255,255,0.45);
+    font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+    padding: 6px 8px;
+}
+.slog-close-btn:active { opacity: 0.6; }
+
+.slog-list {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    padding: 0 16px 24px;
+    scrollbar-width: none;
+}
+.slog-list::-webkit-scrollbar { display: none; }
+
+/* כרטיס תרגיל */
+.slog-ex-card {
+    background: #262626;
+    border-radius: 1.5rem;
+    padding: 16px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+}
+.slog-ex-card::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 3px; height: 100%;
+    background: #7fafff;
+    border-radius: 0 1.5rem 1.5rem 0;
+}
+
+.slog-ex-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.slog-ex-name {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #fff;
+    margin: 0 0 3px;
+}
+.slog-vol-lbl {
+    font-size: 0.58rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.4);
+    margin: 0 0 1px; text-align: left;
+}
+.slog-vol-val {
+    font-family: 'Heebo', sans-serif;
+    font-size: 1.4rem; font-weight: 900; font-style: italic;
+    color: #64fd7d; margin: 0; text-align: left; line-height: 1;
+}
+
+/* שורת סט */
+.slog-set-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #131313;
+    border-radius: 9999px;
+    padding: 10px 14px;
+    margin-bottom: 6px;
+}
+.slog-set-row--last { margin-bottom: 0; }
+
+.slog-set-num {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900; font-style: italic;
+    font-size: 1rem; color: #7fafff;
+    width: 20px; flex-shrink: 0; text-align: center;
+}
+.slog-set-data {
+    flex: 1;
+    font-weight: 700; font-size: 1rem; color: #fff;
+}
+.slog-x { color: rgba(255,255,255,0.4); font-weight: 400; }
+.slog-rir-badge {
+    font-size: 0.68rem; font-weight: 700;
+    background: rgba(100,253,125,0.12);
+    border: 1px solid rgba(100,253,125,0.2);
+    color: #54ee70;
+    border-radius: 9999px;
+    padding: 4px 10px;
+    flex-shrink: 0;
+}
+.slog-edit-btn {
+    font-size: 0.75rem; font-weight: 700;
+    color: #7fafff; background: none; border: none;
+    cursor: pointer; font-family: inherit;
+    padding: 2px 6px; flex-shrink: 0;
+}
+.slog-edit-btn:active { opacity: 0.6; }
+
+/* ─── 1RM SCREEN ─────────────────────────────────────────────────────────── */
+
+.rm-screen {
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    gap: 0;
+}
+
+.rm-card {
+    width: 100%;
+    background: #1e1e1e;
+    border-radius: 2rem;
+    padding: 32px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 40px rgba(0,0,0,0.4);
+}
+/* spotlight */
+.rm-card::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    background: rgba(127,175,255,0.06);
+    border-radius: 50%;
+    filter: blur(40px);
+    pointer-events: none;
+}
+
+.rm-card-label-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    margin-bottom: 28px;
+}
+.rm-card-label {
+    font-size: 0.7rem; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 0.2em;
+    color: #7fafff;
+    font-family: 'Heebo', sans-serif;
+}
+.rm-label-bar {
+    width: 48px; height: 2px;
+    background: rgba(127,175,255,0.3);
+    border-radius: 99px;
+    margin-top: 6px;
+}
+
+.rm-display-wrap {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-bottom: 28px;
+}
+.rm-big-num {
+    font-family: 'Heebo', sans-serif;
+    font-size: 5.5rem; font-weight: 900;
+    letter-spacing: -0.04em;
+    color: #fff; line-height: 1;
+    font-style: italic;
+}
+.rm-unit-lbl {
+    font-size: 1.4rem; font-weight: 400;
+    color: rgba(255,255,255,0.4);
+}
+
+.rm-stepper-row {
+    display: flex; align-items: center; gap: 24px;
+    margin-bottom: 20px;
+}
+.rm-step-btn {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+}
+.rm-step-btn .material-symbols-outlined { font-size: 1.6rem; }
+.rm-step-btn:active { background: rgba(255,255,255,0.16); transform: scale(0.9); }
+
+.rm-step-sep {
+    width: 1px; height: 28px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 1px;
+}
+
+.rm-delta-pill {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(100,253,125,0.07);
+    border: 1px solid rgba(100,253,125,0.15);
+    border-radius: 9999px;
+    padding: 8px 18px;
+    font-size: 0.82rem; font-weight: 600;
+    color: #54ee70;
+}
+
+.rm-cta-btn {
+    margin-top: 20px;
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900;
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
 }
 
 /* ─── SESSION TIMER STRIP ────────────────────────────────────────────────── */
@@ -2232,7 +2463,7 @@ body {
 .stg-hero-title { font-size: 3rem; font-weight: 900; color: #fff; line-height: 1.1; letter-spacing: -0.02em; }
 .stg-hero-bar { height: 4px; width: 6rem; background: linear-gradient(to left, var(--accent), transparent); border-radius: 99px; margin-top: 8px; }
 
-.stg-bento { background: #1a1919; border: 1px solid rgba(255,255,255,0.05); border-radius: 2rem; overflow: hidden; }
+.stg-bento { background: #1a1919; border: none; border-radius: 2rem; overflow: hidden; }
 
 .stg-nav-row {
     display: flex; align-items: center; gap: 14px;

@@ -162,7 +162,7 @@ body {
 /* Header */
 .app-header { 
     display: flex; justify-content: space-between; align-items: center; 
-    margin-bottom: 32px; /* ← הוגדל מ-22 ל-32 כדי לדחוף את הכרטיסייה למטה */
+    margin-bottom: 32px;
     padding-top: 6px; position: relative; 
 }
 .back-btn { background: none; border: none; padding: 8px; visibility: hidden; cursor: pointer; display: flex; align-items: center; }
@@ -390,14 +390,6 @@ body {
 .cal-legend-item { display: flex; align-items: center; gap: 5px; }
 .cal-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .cal-legend-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
-
-/* keep legacy dot classes used elsewhere */
-.dots-container { display: flex; gap: 3px; margin-top: 4px; flex-wrap: wrap; justify-content: center; width: 80%; }
-.dot { width: 6px; height: 6px; border-radius: 50%; }
-.dot.type-a { background-color: var(--type-a); }
-.dot.type-b { background-color: var(--type-b); }
-.dot.type-c { background-color: var(--type-c); }
-.dot.type-free { background-color: var(--type-free); }
 
 /* Bottom Sheet */
 .bottom-sheet-overlay {
@@ -2926,3 +2918,576 @@ body {
 .settings-info-row span:first-child { color: var(--text-dim); }
 .settings-info-row span:last-child { font-weight: 700; color: rgba(255,255,255,0.5); }
 .cloud-btn.purple { color: #BF5AF2; border-color: rgba(191,90,242,0.3); background: rgba(191,90,242,0.07); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   WORKOUT EDITOR — Kinetic Precision Design System  (v14.12.0-90)
+   הוסף בסוף style.css
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Top Bar ── */
+.weditor-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px 20px;
+    flex-shrink: 0;
+}
+.weditor-back-btn {
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; color: var(--primary); cursor: pointer;
+    border-radius: 50%;
+    transition: background 0.15s;
+}
+.weditor-back-btn:active { background: rgba(170, 199, 255, 0.12); }
+.weditor-topbar-title {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900;
+    font-size: 1.15rem;
+    letter-spacing: 0.12em;
+    color: var(--primary);
+    text-transform: uppercase;
+}
+
+/* ── Section Labels ── */
+.weditor-section-lbl {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin: 0 2px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.weditor-va-hint {
+    font-size: 0.6rem;
+    letter-spacing: 0.05em;
+    color: rgba(142, 142, 147, 0.55);
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+/* ── Workout Name Input ── */
+.weditor-name-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900;
+    font-size: 2.4rem;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: #fff;
+    padding: 0 2px;
+    margin-bottom: 24px;
+    caret-color: var(--primary);
+    flex-shrink: 0;
+}
+.weditor-name-input::placeholder { color: rgba(255,255,255,0.15); }
+
+/* ── Toggle Cards Grid ── */
+.weditor-toggles-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-shrink: 0;
+}
+.weditor-toggle-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 12px;
+    background: #131313;
+    border-radius: var(--ios-radius);
+    border: 1px solid rgba(255,255,255,0.07);
+    cursor: pointer;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+    overflow: hidden;
+}
+.weditor-toggle-card:active { background: #1c1c1c; }
+.weditor-toggle-lbl {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    line-height: 1;
+}
+/* Hidden real checkbox */
+.weditor-chk {
+    position: absolute;
+    opacity: 0;
+    width: 0; height: 0;
+    pointer-events: none;
+}
+/* Toggle track */
+.weditor-track {
+    width: 40px; height: 22px;
+    background: #2c2c2e;
+    border-radius: 9999px;
+    position: relative;
+    transition: background 0.25s;
+    flex-shrink: 0;
+}
+.weditor-dot {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 16px; height: 16px;
+    background: #636366;
+    border-radius: 50%;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.25s;
+}
+/* Checked state: input → adjacent .weditor-track */
+.weditor-chk:checked + .weditor-track { background: var(--primary); }
+.weditor-chk:checked + .weditor-track .weditor-dot {
+    transform: translateX(18px);
+    background: #000;
+}
+
+/* ── Color Swatches Row ── */
+.weditor-color-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 4px 0 20px;
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: none;
+}
+.weditor-color-row::-webkit-scrollbar { display: none; }
+/* Reuse existing .color-swatch but with bigger size in this context */
+#ui-workout-editor .color-swatch {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+}
+
+/* ── Visual Anchor — Horizontal 2-row scroll grid ── */
+.weditor-va-scroll {
+    overflow-x: auto;
+    margin: 0 -16px;  /* bleed to screen edges */
+    padding: 4px 16px 16px;
+    scrollbar-width: none;
+    flex-shrink: 0;
+}
+.weditor-va-scroll::-webkit-scrollbar { display: none; }
+.weditor-va-grid {
+    display: grid;
+    grid-template-rows: repeat(2, 80px);
+    grid-auto-flow: column;
+    grid-auto-columns: 80px;
+    gap: 10px;
+    width: max-content;
+}
+
+/* Individual thumb cell */
+.weditor-thumb-cell {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    cursor: pointer;
+    border: 2.5px solid transparent;
+    opacity: 0.45;
+    transition: opacity 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    overflow: visible; /* so ring shows */
+}
+.weditor-thumb-cell.selected {
+    border-color: var(--primary);
+    opacity: 1;
+    box-shadow: 0 0 0 4px rgba(170, 199, 255, 0.18);
+}
+.weditor-thumb-cell:active { transform: scale(0.93); }
+.weditor-thumb-cell.dragging {
+    opacity: 0.25;
+    transform: scale(0.88);
+}
+.weditor-thumb-cell.drag-over {
+    border-color: var(--primary);
+    opacity: 0.85;
+    transform: scale(1.08);
+    box-shadow: 0 0 0 4px rgba(170, 199, 255, 0.3);
+}
+
+/* Delete button — always visible at low opacity on mobile */
+.weditor-thumb-del {
+    position: absolute;
+    top: 0px; right: 0px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.72);
+    border: 1.5px solid rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 13px;
+    line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s, background 0.15s, transform 0.1s;
+    z-index: 2;
+    padding: 0;
+}
+.weditor-thumb-cell:hover .weditor-thumb-del,
+.weditor-thumb-cell.selected .weditor-thumb-del { opacity: 1; }
+.weditor-thumb-del:active {
+    background: rgba(255, 69, 58, 0.8);
+    transform: scale(0.9);
+}
+
+/* ── Exercise Flow Header ── */
+.weditor-flow-hdr {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 8px 2px 14px;
+    flex-shrink: 0;
+}
+.weditor-flow-title {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900;
+    font-size: 1.6rem;
+    letter-spacing: -0.02em;
+    color: #fff;
+    text-transform: uppercase;
+}
+.weditor-flow-count {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* ── Exercise Block Card ── */
+.weditor-list { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+
+.weditor-block {
+    background: #1a1a1a;
+    border-radius: 2rem;
+    padding: 22px 20px 16px;
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    flex-shrink: 0;
+}
+.weditor-block-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    gap: 10px;
+}
+.weditor-block-num {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--primary);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 6px;
+}
+.weditor-block-name {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900;
+    font-size: 1.55rem;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: #fff;
+    text-transform: uppercase;
+    cursor: pointer;
+    flex: 1;
+}
+.weditor-block-name:active { color: var(--primary); }
+.weditor-block-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.weditor-icon-btn {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.06);
+    border: none;
+    border-radius: 8px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+    padding: 0;
+}
+.weditor-icon-btn:active { background: rgba(255,255,255,0.14); color: #fff; transform: scale(0.9); }
+.weditor-icon-btn.danger { color: var(--danger); background: rgba(255, 69, 58, 0.1); }
+.weditor-icon-btn.danger:active { background: rgba(255, 69, 58, 0.25); }
+
+/* Block footer: sets + tags */
+.weditor-block-footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+}
+.weditor-ctrl-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+.weditor-sets-ctrl {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: rgba(0,0,0,0.4);
+    border-radius: 9999px;
+    padding: 3px;
+    width: fit-content;
+}
+.weditor-sets-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    line-height: 1;
+    transition: background 0.15s, transform 0.1s;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+}
+.weditor-sets-btn { background: #2c2c2e; color: var(--text); }
+.weditor-sets-btn:active { transform: scale(0.9); }
+.weditor-sets-btn.plus { background: var(--primary); color: #000; }
+.weditor-sets-btn.plus:active { background: var(--primary-container); }
+.weditor-sets-val {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900;
+    font-size: 1.3rem;
+    color: #fff;
+    min-width: 32px;
+    text-align: center;
+}
+.weditor-tags-col { text-align: right; }
+.weditor-main-tag {
+    padding: 7px 16px;
+    border-radius: 9999px;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.weditor-main-tag.active {
+    background: var(--secondary);
+    border-color: var(--secondary);
+    color: #003a14;
+    box-shadow: 0 0 12px rgba(71, 226, 102, 0.3);
+}
+.weditor-main-tag:active { transform: scale(0.95); }
+
+/* Settings hint */
+.weditor-block-settings-hint {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: rgba(142,142,147,0.5);
+    cursor: pointer;
+    transition: color 0.15s;
+    padding: 2px 0;
+    -webkit-tap-highlight-color: transparent;
+}
+.weditor-block-settings-hint:active { color: var(--primary); }
+
+/* ── Cluster Card ── */
+.weditor-cluster {
+    background: rgba(0, 24, 51, 0.75);
+    border: 1.5px solid rgba(170, 199, 255, 0.2);
+    border-radius: 2rem;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.weditor-cluster-head {
+    padding: 18px 18px 12px;
+    border-bottom: 1px solid rgba(170, 199, 255, 0.1);
+}
+.weditor-cluster-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.weditor-cluster-title-txt {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: 0.08em;
+    color: var(--primary);
+    text-transform: uppercase;
+    flex: 1;
+}
+.weditor-cluster-btns {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.weditor-cluster-ctrls {
+    display: flex;
+    gap: 16px;
+}
+.weditor-cluster-ctrl-item { flex: 1; }
+.weditor-cluster-exercises {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.weditor-cluster-ex {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.weditor-cluster-ex:active { background: rgba(255,255,255,0.08); }
+.weditor-cluster-ex-lbl {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: rgba(170, 199, 255, 0.5);
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    width: 22px;
+}
+.weditor-cluster-ex-name {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+    flex: 1;
+}
+.weditor-cluster-ex-reps {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.07);
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+.weditor-cluster-ex-del {
+    width: 26px; height: 26px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+}
+.weditor-cluster-ex-del:active { background: rgba(255,69,58,0.2); color: var(--danger); }
+.weditor-cluster-add-ex {
+    width: 100%;
+    padding: 14px;
+    background: transparent;
+    border: none;
+    border-top: 1px dashed rgba(170, 199, 255, 0.2);
+    color: var(--primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background 0.15s;
+}
+.weditor-cluster-add-ex:active { background: rgba(170, 199, 255, 0.07); }
+
+/* ── Ghost Action Buttons ── */
+.weditor-ghost-btn {
+    width: 100%;
+    min-height: 68px;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: transparent;
+    border: 2px dashed rgba(255,255,255,0.14);
+    border-radius: 2rem;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+}
+.weditor-ghost-btn:active {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(170,199,255,0.05);
+}
+.weditor-ghost-cluster { border-color: rgba(94, 92, 230, 0.35); }
+.weditor-ghost-cluster:active {
+    border-color: var(--type-free);
+    color: var(--type-free);
+    background: rgba(94,92,230,0.08);
+}
+
+/* ── Save Button ── */
+.weditor-save-btn {
+    width: 100%;
+    margin-top: 14px;
+    margin-bottom: 10px;
+    height: 58px;
+    border-radius: 9999px !important;
+    font-family: 'Heebo', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 1rem !important;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 8px 32px rgba(10, 132, 255, 0.35);
+    flex-shrink: 0;
+}

@@ -2237,7 +2237,7 @@ body {
 .stg-nav-row {
     display: flex; align-items: center; gap: 14px;
     padding: 16px 20px;
-    border-bottom: 1px solid #222;
+    
     cursor: pointer; background: none; width: 100%;
     font-family: inherit; text-align: right;
     transition: background 0.15s;
@@ -2254,20 +2254,20 @@ body {
     display: flex; align-items: center; justify-content: space-between;
     padding: 20px 20px 16px;
     border: none;
-    border-bottom: 1px solid #222;
+    
     background: rgba(255,255,255,0.01);
     cursor: pointer; width: 100%; font-family: inherit; text-align: right;
     transition: background 0.15s;
 }
 .stg-firebase-row:active { background: rgba(255,255,255,0.06); }
 
-.stg-cloud-upload { padding: 8px 20px 4px; border-bottom: 1px solid #222; }
+.stg-cloud-upload { padding: 8px 20px 4px;  }
 
 .stg-cloud-row {
     display: grid; grid-template-columns: 4fr 8fr;
     align-items: center; gap: 12px;
     padding: 10px 20px;
-    border-bottom: 1px solid #222;
+    
 }
 .stg-cloud-row--last { border-bottom: none; }
 .stg-cloud-label { font-size: 0.75rem; font-weight: 800; color: rgba(255,255,255,0.4); }
@@ -2308,7 +2308,7 @@ body {
 .stg-sys-bar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 14px 20px;
-    border-bottom: 1px solid #222;
+    
     background: rgba(255,255,255,0.01);
 }
 .stg-sys-btns { display: flex; align-items: center; gap: 8px; }

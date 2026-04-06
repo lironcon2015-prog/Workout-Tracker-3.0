@@ -179,6 +179,8 @@ window.onload = () => {
             window._gymproVersion = d.version || '';
             const el = document.getElementById('app-version-label');
             if (el && d.version) el.textContent = 'GymPro Elite v' + d.version;
+            const sv = document.getElementById('settings-version-inline');
+            if (sv && d.version) sv.textContent = 'v' + d.version;
         })
         .catch(() => {});
 };

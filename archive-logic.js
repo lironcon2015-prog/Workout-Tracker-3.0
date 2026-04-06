@@ -486,7 +486,7 @@ function renderCalendar() {
     const now = new Date();
     const targetDate = new Date(now.getFullYear(), now.getMonth() + state.calendarOffset, 1);
     const year = targetDate.getFullYear(), month = targetDate.getMonth();
-    document.getElementById('current-month-display').innerText = `${MONTH_NAMES_HE[month]} ${year}`;
+    document.getElementById('current-month-display').innerText = `\u200F${MONTH_NAMES_HE[month]} ${year}`;
     const firstDayIndex = targetDate.getDay(); // 0=ראשון
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const history = StorageManager.getArchive();

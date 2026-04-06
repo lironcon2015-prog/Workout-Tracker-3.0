@@ -471,7 +471,7 @@
                 <div class="km-manager-bottom-actions">
                     <button id="btn-create-workout" class="km-fab-btn primary-gradient" onclick="createNewWorkout()">
                         <span class="material-symbols-outlined" style="font-size:1.2rem;line-height:1;">add</span>
-                        CREATE NEW PLAN
+                        צור תוכנית חדשה
                     </button>
                     <button class="btn-save-cloud km-cloud-link" onclick="saveWorkoutManagerToCloud()">☁️ שמור קונפיגורציה לענן</button>
                 </div>
@@ -480,26 +480,26 @@
             <!-- WORKOUT EDITOR -->
             <div id="ui-workout-editor" class="screen km-editor-screen">
 
-                <!-- WORKOUT IDENTITY -->
-                <div class="km-section-label">WORKOUT IDENTITY</div>
+                <!-- זהות אימון -->
+                <div class="km-section-label">זהות אימון</div>
                 <div class="km-identity-card">
-                    <input type="text" id="editor-workout-name" class="km-title-input" placeholder="WORKOUT NAME">
+                    <input type="text" id="editor-workout-name" class="km-title-input" placeholder="שם תוכנית">
                     <div class="km-toggle-row km-toggle-row--first">
-                        <span class="km-toggle-label">DELOAD</span>
+                        <span class="km-toggle-label">דילואוד</span>
                         <label class="km-switch">
                             <input type="checkbox" id="editor-deload-check">
                             <span class="km-switch-track"></span>
                         </label>
                     </div>
                     <div class="km-toggle-row">
-                        <span class="km-toggle-label">RESTRICTED</span>
+                        <span class="km-toggle-label">מוגבל</span>
                         <label class="km-switch">
                             <input type="checkbox" id="editor-deload-only-check">
                             <span class="km-switch-track"></span>
                         </label>
                     </div>
                     <div class="km-toggle-row">
-                        <span class="km-toggle-label">HIDDEN</span>
+                        <span class="km-toggle-label">מוסתר</span>
                         <label class="km-switch">
                             <input type="checkbox" id="editor-hidden-check">
                             <span class="km-switch-track"></span>
@@ -507,18 +507,18 @@
                     </div>
                 </div>
 
-                <!-- THEMATIC ACCENT -->
-                <div class="km-section-label km-section-label--mt">THEMATIC ACCENT</div>
+                <!-- צבע מזהה -->
+                <div class="km-section-label km-section-label--mt">צבע מזהה</div>
                 <div id="editor-color-swatches" class="km-accent-row"></div>
 
-                <!-- VISUAL ANCHOR -->
-                <div class="km-section-label km-section-label--mt">VISUAL ANCHOR</div>
+                <!-- תמונת אימון -->
+                <div class="km-section-label km-section-label--mt">תמונת אימון</div>
                 <div id="editor-thumb-picker" class="km-thumb-grid"></div>
 
-                <!-- EXERCISE FLOW -->
+                <!-- זרימת אימון -->
                 <div class="km-flow-header">
-                    <span class="km-section-label" style="margin:0;">EXERCISE FLOW</span>
-                    <span id="editor-block-count" class="km-block-count">0 TOTAL BLOCKS</span>
+                    <span class="km-section-label" style="margin:0;">זרימת אימון</span>
+                    <span id="editor-block-count" class="km-block-count">0 בלוקים סה"כ</span>
                 </div>
                 <div id="editor-list" class="vertical-stack km-editor-list"></div>
 
@@ -527,16 +527,16 @@
                     <div class="km-add-row">
                         <button class="km-add-btn" onclick="openExerciseSelector()">
                             <span class="material-symbols-outlined km-add-icon">add_circle</span>
-                            ADD EXERCISE
+                            הוסף תרגיל
                         </button>
                         <button class="km-add-btn km-add-btn--cluster" onclick="addClusterToEditor()">
                             <span class="material-symbols-outlined km-add-icon">hub</span>
-                            CREATE CLUSTER
+                            צור סבב
                         </button>
                     </div>
                     <button class="btn-main primary-gradient km-save-btn" onclick="saveWorkoutChanges()">
                         <span class="material-symbols-outlined" style="font-size:1.1rem;">save</span>
-                        SAVE CHANGES
+                        שמור שינויים
                     </button>
                     <button class="btn-text" onclick="handleBackClick()">ביטול</button>
                 </div>
@@ -1241,6 +1241,19 @@
                   placeholder="למשל: מתאמן 3 פעמים בשבוע, מתמקד בכוח. יש לי רגישות בכתף ימין. המטרה שלי היא 140kg Bench..."></textarea>
         <button class="btn-main primary-gradient" onclick="saveAIPersona()">שמור פרופיל</button>
         <button class="btn-text" onclick="closeAIPersonaSheet()">ביטול</button>
+    </div>
+
+    <!-- Thumb Manage Sheet -->
+    <div id="thumb-manage-overlay" class="bottom-sheet-overlay" onclick="closeThumbManageSheet()"></div>
+    <div id="thumb-manage-sheet" class="bottom-sheet" style="max-height:80vh;">
+        <div class="sheet-handle"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <h3 style="margin:0;">ניהול תמונות</h3>
+            <span class="color-dim text-xs">לחץ על העין להסתרה/הצגה</span>
+        </div>
+        <p class="sub-text" style="margin-bottom:16px;">תמונות מוסתרות לא יופיעו בבוחר התמונות</p>
+        <div id="thumb-manage-content" class="thumb-manage-grid"></div>
+        <button class="btn-main primary-gradient" onclick="closeThumbManageSheet()" style="margin-top:16px;">סיום</button>
     </div>
 
     <script src="data.js"></script>

@@ -35,11 +35,81 @@ function autoSaveConfigToCloud() {
 
 // ─── WORKOUT THUMB IMAGES (global — shared with archive-logic.js) ──────────
 const WORKOUT_THUMB_IMAGES = [
+    // תמונות מקוריות
     'https://lh3.googleusercontent.com/aida-public/AB6AXuDPSxh1Qp2Y5rxaLi08qIoxzaIx6HpnkwADfs82U2MI3agKuOjH_XRe5Vnp7pqR4Evd6BCSN1YkzqsxR4nnHQV3PZwXgQBEG_TyPYZEVebs398qOzoE9HyVD9xCKKii15_Ya8EU-4niTMPvWEGd17IChBxNv5TeezOQrnFbB_qBA8FsoYuDaChgY7MmnJAOs3vwuKM5ySQBfgIlp5NV2gVPSFbGP2INnRMlHUVFFxfaoVATE1e2R11U7pj0h4STs62FftxEV7gt2Xg',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuBwpwBQq26LPlJcG2munCoBisisoadBReR8si5Z3g8S8lgmt5MJsUAeruNNad5eSE-JXi3yNGLEB-XLQ2mxm37YOgoyTDqNDCZtyg8BDuCDn-NSFZH2QyLABBEJW3ARgaInuP7jYs2Np2XGnBF5J6r6OMiR2gC-eX5F4j8bXE918AgnmlFilEgkJ9Lfyt8gQQDnZrLbp6riQvKpLe7jqelf992kdMjvLWTH9T2LKVlnkeBdAwiOwgoTTm96q43GOcbMi8KYcTaLnuQ',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuAlG4VTMGj-yqP5zRTFuwFw6VSP1Ao5jnbOz_Cg_AgxHAKaVb9AA14BrBcIPh1H6c9tTnYBVtY-qbhANOxe3Teq9dSp-VpaB1TsxWhPvcSTuNdfcCeac0ho4GM3sM_HacxT4LlJJdseMqdhuDm_DKXtDA1QpjmIUvLxaAZsw7tZo9-w3rmyC0e5kbgnjJl8aWUC_X7cyRZqHodEkgUz_IxKmYdK2Upnymtn0SoD_DaxTQyviYI2hDE8aB-m91sa2BrMhqNH-t6pFO0',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuADW-EekFmHAshTc9g9FzdlSJN11cRf8HfTvE1EjCGrITu9AVPwQhlAWveW4i-bOdZG31UQquBdZhCoLyJCtNNYFCM9AW8Jamwe7OtLPH-2VaXWPmiyB3eWNkffyC_Sv5E8VQZU0qrhmPzaQJJelLiqBR3YJWoUtRpnxDPFSVxpDVopfJ1kOA2SkdTySC1CtWQIQSlA1cmBqYiB14pog08rXWbnoI5Ov-8JtVQyVirf58d95jdVQuoY_pkDv5LqglM8aErroJvyG7w',
+    // תמונות חדשות
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuAa2Vwn-Npmz7NbshC3rMQgWM9M8CCxNPnGZUOU7OaPxSEMVGDhY-mKDoY-XteHYA_U6uVxkCW5juqWCmeSvcPwoHgr7eclbp-g2ffzK89c5m2Q6puxaJIOxzmGQ7QHIQQiiZijukgx1yOWGKFGRancwpMZs-yOdMjFJXmu3x-GTbxt5SYtDVS89s_5-BJDg3bGw4-wfWZZrND_NaEoPDcoNCCOifu-YqJuTAXGVAard2mlRrPHLd4nRnsyQxOhycpiBA49Cvt5yDY',
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuDIOVKREkSUtF2gGWLXkGb-udu6k7Vd88eBGwQddiYNYxpY_P5fNhml-xqMsN4qoJi_vtN8xDeLzrT7J_VWSFH86FyJrE-ivdDpk0xT7fzfEjKLkIgI1krkRQSdWomSS-LyvpxRXXwx03m8HfV-KK7u7KYnG0_KMDYaAFctqwxUHv3kPdB7_rz3xzUzT2ahNq2ZwxaT3BUfVPuvvI9ak5r0-ml3SfsX6KZZRlCcSi4Ab3Htp4doK7B5thxvV2O5Tx5BepYgvnRce_E',
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuAGo718VbTjHroR2f1ZBGGlTAzxlKArnnTAwwVQWooTDXT1OmHbOM4Ph_3MW9fkgdPsrnNXMGqTnIE4V2ouYMZ0MtOtJKH5GOX7xZFGAIGSRfxCf_HRk-v4hDrW18zAVyDhh9i5ydIHS4spQxq163MuDZb5ENQNEEirSYwRKLBHnXb4r-QuCSjUqpm9UsL_zBExoL8rtnXCIBygBYvbZHXj77vkM9qG95bkT9Okv2nqOtbO4qaKU4YMUHFub0Ap2T-NMGPVMx-UM14',
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuAq_XJA8-2WusMzNGWr00DbVseG324nv8SBq2d4WVdA78rws8uIFaAc5jk3Ayv-SezIXc_U0pEhBsw5bmKgElbLlS85ThQ1rEEK4DQ9oIMHfe_4FnSz1r3kNGlQ6Ic9shZQj1bt3zT334kCzpdS9SwY-zCjr-opxcozdGnRsp0oRoVKRKzecKVP6uvYwJlyQBnvhBXQdkepO_BUP3qKnfXAPa8Cy3qKFEigyJNsoihIQ3XVihgN880qXMT1V0kF-iA7OqBc3wcPCts',
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuDM747zT5KYoaK7X8hc-K-WYOjQXbbgWXh_0AcMIq4ja35br_K3VLl0dCSx-U68SYUq_k5e04IvERh-vlKv-k2AAANYGRdP6b51aHTDC1tMNLZ5srr2OUfYz5Q-Ntm75y29b67xEwWvocbUijNsm4kvskmBoa3U0umSm3TxpsF145TI6B2S2RwbHj0gPyhcC7ci-6qdVORG9a8JXyomx-FbSaHn3-QEWvshpgb_ah09clrwL88QDQS-eWCeztMEGN9j29hnLX35ddw',
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuC2anRJGMnLHZPMMsfqKBf630347PZ3rWsm8rSg-LRhI4oA4Df_ne_03owqU5d_6b8pokyZBFrN6-5KIYUM7_bOFguohUBhm7AWhDg-1bpjZGgqyxhU1p2Z82kPb8ZwKorRZ4g9-EMnpUNi1v51elx50e7TZp74rAnL3yb6jHleAtvBGySoEEFyO9dVDP0JhuQJnoIY9xx2uOhXtz09RwiTkiwXXd-zNSeBkH-L0FeACvCBbl0cCi57Qtkzw8rMECn-Y0gudIjSeJc',
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuCOI-xJHBRcxLOuOVtVrd05C2ziUleF7r3se3JDtjsOM8IIalAQtIRw9w2KLEOv7fB3zr2bxUbW-urEdaO4enryruujATKVSSXT1RerLy2ZmNDMaIQm2NibKnDL0LwrGBjAvgCfXGy-oJZios3IL_2PkYZOH5yav5VqNwQkiXyCbHrZHcjyk3qlJ2L8yzC2TLxN8ReMXDsDk6w_xfnWh7UxjS5qVYcJVobrXNidjhtN8pghO5tPDTuBmiQzaGH9CWUsJkwkt2QYvOg',
 ];
+
+// ─── HIDDEN THUMBS MANAGEMENT ──────────────────────────────────────────────
+// מאפשר למשתמש להסתיר תמונות מבוחר התמונות בעורך
+
+const _HIDDEN_THUMBS_KEY = 'gympro_hidden_thumbs';
+
+function _getHiddenThumbs() {
+    return StorageManager.getData(_HIDDEN_THUMBS_KEY) || [];
+}
+
+function _saveHiddenThumbs(indices) {
+    StorageManager.saveData(_HIDDEN_THUMBS_KEY, indices);
+}
+
+function toggleThumbHiddenUI(idx, btn) {
+    const hidden = _getHiddenThumbs();
+    const pos = hidden.indexOf(idx);
+    if (pos === -1) {
+        hidden.push(idx);
+        btn.querySelector('.material-symbols-outlined').textContent = 'visibility_off';
+        btn.closest('.thumb-manage-item').classList.add('hidden-thumb');
+    } else {
+        hidden.splice(pos, 1);
+        btn.querySelector('.material-symbols-outlined').textContent = 'visibility';
+        btn.closest('.thumb-manage-item').classList.remove('hidden-thumb');
+    }
+    _saveHiddenThumbs(hidden);
+    // רענן את הבוחר הראשי (בלי לשנות את הבחירה הנוכחית)
+    _renderThumbPicker(_selectedThumbIdx);
+}
+
+function openThumbManageSheet() {
+    const overlay = document.getElementById('thumb-manage-overlay');
+    const sheet   = document.getElementById('thumb-manage-sheet');
+    const content = document.getElementById('thumb-manage-content');
+    if (!overlay || !sheet || !content) return;
+
+    const hidden = _getHiddenThumbs();
+    content.innerHTML = '';
+    WORKOUT_THUMB_IMAGES.forEach((url, idx) => {
+        const isHidden = hidden.includes(idx);
+        const item = document.createElement('div');
+        item.className = 'thumb-manage-item' + (isHidden ? ' hidden-thumb' : '');
+        item.innerHTML = `
+            <div class="thumb-manage-img" style="background-image:url('${url}')"></div>
+            <button class="thumb-manage-toggle" onclick="toggleThumbHiddenUI(${idx}, this)">
+                <span class="material-symbols-outlined">${isHidden ? 'visibility_off' : 'visibility'}</span>
+            </button>`;
+        content.appendChild(item);
+    });
+
+    overlay.style.display = 'block';
+    sheet.style.transform = 'translateY(0)';
+}
+
+function closeThumbManageSheet() {
+    const overlay = document.getElementById('thumb-manage-overlay');
+    const sheet   = document.getElementById('thumb-manage-sheet');
+    if (overlay) overlay.style.display = 'none';
+    if (sheet)   sheet.style.transform = '';
+}
 
 // ─── DYNAMIC MAIN MENU ─────────────────────────────────────────────────────
 
@@ -156,8 +226,8 @@ function renderManagerList() {
     const seg = document.createElement('div');
     seg.className = 'km-seg-control mb-lg';
     seg.innerHTML = `
-        <button class="km-seg-btn ${_managerTab === 'hidden' ? 'active' : ''}" onclick="_setManagerTab('hidden')">HIDDEN</button>
-        <button class="km-seg-btn ${_managerTab === 'active' ? 'active' : ''}" onclick="_setManagerTab('active')">ACTIVE</button>
+        <button class="km-seg-btn ${_managerTab === 'hidden' ? 'active' : ''}" onclick="_setManagerTab('hidden')">מוסתרות</button>
+        <button class="km-seg-btn ${_managerTab === 'active' ? 'active' : ''}" onclick="_setManagerTab('active')">פעילות</button>
     `;
     list.appendChild(seg);
 
@@ -188,15 +258,15 @@ function renderManagerList() {
                 <div class="km-manager-card-img" style="background-image:url('${imgUrl}')"></div>
                 <div class="km-manager-card-body">
                     <h2 class="km-manager-card-title">${key}</h2>
-                    <p class="km-manager-card-count">EXERCISES ${count}</p>
+                    <p class="km-manager-card-count">${count} תרגילים</p>
                     <div class="km-manager-card-actions">
                         <button class="km-pill-btn km-pill-btn--danger" onclick="event.stopPropagation(); deleteWorkout('${safeKey}')">
                             <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">delete</span>
-                            DELETE
+                            מחק
                         </button>
                         <button class="km-pill-btn" onclick="event.stopPropagation(); duplicateWorkout('${safeKey}')">
                             <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">content_copy</span>
-                            DUPLICATE
+                            שכפל
                         </button>
                     </div>
                 </div>
@@ -531,7 +601,7 @@ function renderEditorList() {
 
     // עדכון מונה בלוקים בכותרת EXERCISE FLOW
     const countEl = document.getElementById('editor-block-count');
-    if (countEl) countEl.textContent = `${managerState.exercises.length} TOTAL BLOCKS`;
+    if (countEl) countEl.textContent = `${managerState.exercises.length} בלוקים סה"כ`;
 
     StorageManager.saveSessionState();
 }
@@ -543,7 +613,7 @@ function renderRegularItem(item, idx, list) {
 
     const setsHtml = !item.isMain ? `
         <div class="km-sets-row">
-            <span class="km-sets-label">TARGET SETS</span>
+            <span class="km-sets-label">סטים יעד</span>
             <div class="km-stepper">
                 <button class="km-stepper-btn" onclick="changeSetCount(${idx}, -1)">-</button>
                 <span class="km-stepper-val">${item.sets}</span>
@@ -552,12 +622,12 @@ function renderRegularItem(item, idx, list) {
         </div>` : '';
 
     const tagHtml = item.isMain
-        ? `<div class="km-tags-row"><span class="km-tag-label">TAGS</span><button class="km-tag-pill km-tag-pill--main" onclick="toggleMainStatus(${idx})">MAIN LIFT</button></div>`
-        : `<div class="km-tags-row"><span class="km-tag-label">TAGS</span><button class="km-tag-pill" onclick="toggleMainStatus(${idx})">+ TAG</button></div>`;
+        ? `<div class="km-tags-row"><span class="km-tag-label">תגיות</span><button class="km-tag-pill km-tag-pill--main" onclick="toggleMainStatus(${idx})">MAIN LIFT</button></div>`
+        : `<div class="km-tags-row"><span class="km-tag-label">תגיות</span><button class="km-tag-pill" onclick="toggleMainStatus(${idx})">+ תגית</button></div>`;
 
     row.innerHTML = `
         <div class="km-block-header">
-            <span class="km-block-num">BLOCK ${blockNum}</span>
+            <span class="km-block-num">בלוק ${blockNum}</span>
             <div class="km-block-header-btns">
                 <button class="km-icon-btn" onclick="moveExInEditor(${idx}, -1)">
                     <span class="material-symbols-outlined">keyboard_arrow_up</span>
@@ -593,7 +663,7 @@ function renderClusterItem(cluster, idx, list) {
         <div class="km-cluster-ex-row">
             <span class="km-cluster-ex-label">${label}${internalIdx + 1}</span>
             <span class="km-cluster-ex-name" onclick="openRestTimerModal(${idx}, ${internalIdx})">${ex.name}</span>
-            <span class="km-cluster-ex-reps">${ex.sets ? ex.sets + ' REPS' : ''}</span>
+            <span class="km-cluster-ex-reps">${ex.sets ? ex.sets + ' חז׳' : ''}</span>
             <button class="km-icon-btn-sm" onclick="removeExFromCluster(${idx}, ${internalIdx})">
                 <span class="material-symbols-outlined" style="font-size:0.95rem;">close</span>
             </button>
@@ -602,7 +672,7 @@ function renderClusterItem(cluster, idx, list) {
 
     box.innerHTML = `
         <div class="km-block-header">
-            <span class="km-block-num">BLOCK ${blockNum}</span>
+            <span class="km-block-num">בלוק ${blockNum}</span>
             <div class="km-block-header-btns">
                 <button class="km-icon-btn" onclick="moveExInEditor(${idx}, -1)">
                     <span class="material-symbols-outlined">keyboard_arrow_up</span>
@@ -617,14 +687,14 @@ function renderClusterItem(cluster, idx, list) {
         </div>
         <div class="km-cluster-title-row">
             <span class="material-symbols-outlined" style="color:#5E5CE6;font-size:1.1rem;line-height:1;">hub</span>
-            <span class="km-cluster-title">CLUSTER BLOCK</span>
-            <span class="km-cluster-meta">${cluster.rounds} ROUNDS</span>
-            <span class="km-cluster-meta">${cluster.clusterRest}S REST</span>
+            <span class="km-cluster-title">בלוק סבב</span>
+            <span class="km-cluster-meta">${cluster.rounds} סבבים</span>
+            <span class="km-cluster-meta">${cluster.clusterRest}ש' מנוחה</span>
         </div>
         <div class="km-cluster-ex-list">${exRows}</div>
         <div class="km-cluster-controls">
             <div class="km-ctrl-group">
-                <span class="km-ctrl-label">Rounds</span>
+                <span class="km-ctrl-label">סבבים</span>
                 <div class="km-stepper">
                     <button class="km-stepper-btn" onclick="changeClusterRounds(${idx}, -1)">-</button>
                     <span class="km-stepper-val">${cluster.rounds}</span>
@@ -632,17 +702,17 @@ function renderClusterItem(cluster, idx, list) {
                 </div>
             </div>
             <div class="km-ctrl-group">
-                <span class="km-ctrl-label">Rest</span>
+                <span class="km-ctrl-label">מנוחה</span>
                 <div class="km-stepper">
                     <button class="km-stepper-btn" onclick="changeClusterRest(${idx}, -30)">-</button>
-                    <span class="km-stepper-val">${cluster.clusterRest}s</span>
+                    <span class="km-stepper-val">${cluster.clusterRest}ש'</span>
                     <button class="km-stepper-btn" onclick="changeClusterRest(${idx}, 30)">+</button>
                 </div>
             </div>
         </div>
         <button class="km-add-to-cluster-btn" onclick="openExerciseSelectorForCluster(${idx})">
             <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">add</span>
-            INSERT NESTED EXERCISE
+            הוסף תרגיל לסבב
         </button>
     `;
     list.appendChild(box);
@@ -893,17 +963,36 @@ function selectEditorThumb(idx, el) {
 }
 
 function _renderThumbPicker(currentIdx) {
+    const hiddenIndices = _getHiddenThumbs();
+
+    // אם התמונה הנוכחית מוסתרת — עבור לראשונה הגלויה
+    if (hiddenIndices.includes(currentIdx)) {
+        const firstVisible = WORKOUT_THUMB_IMAGES.findIndex((_, i) => !hiddenIndices.includes(i));
+        currentIdx = firstVisible >= 0 ? firstVisible : 0;
+    }
     _selectedThumbIdx = (typeof currentIdx === 'number' && currentIdx >= 0) ? currentIdx : 0;
+
     const container = document.getElementById('editor-thumb-picker');
     if (!container) return;
     container.innerHTML = '';
+
+    // הצג רק תמונות גלויות
     WORKOUT_THUMB_IMAGES.forEach((url, idx) => {
+        if (hiddenIndices.includes(idx)) return;
         const el = document.createElement('div');
         el.className = 'editor-thumb-option' + (idx === _selectedThumbIdx ? ' active' : '');
         el.style.backgroundImage = `url('${url}')`;
         el.onclick = () => selectEditorThumb(idx, el);
         container.appendChild(el);
     });
+
+    // כפתור "נהל תמונות"
+    const manageBtn = document.createElement('div');
+    manageBtn.className = 'editor-thumb-option editor-thumb-manage-btn';
+    manageBtn.title = 'נהל תמונות';
+    manageBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:1.5rem;color:rgba(255,255,255,0.4);pointer-events:none;">add_a_photo</span>`;
+    manageBtn.onclick = () => openThumbManageSheet();
+    container.appendChild(manageBtn);
 }
 
 function selectEditorColor(hex, el) {

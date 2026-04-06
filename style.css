@@ -3285,3 +3285,69 @@ body {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     margin-top: 12px;
 }
+
+/* ════════════════════
+   THUMB MANAGE SHEET
+   ════════════════════ */
+.thumb-manage-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    overflow-y: auto;
+    max-height: 50vh;
+    padding: 4px 2px;
+}
+.thumb-manage-item {
+    position: relative;
+    border-radius: 50%;
+    overflow: visible;
+    aspect-ratio: 1;
+}
+.thumb-manage-img {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    transition: opacity 0.2s;
+}
+.thumb-manage-item.hidden-thumb .thumb-manage-img {
+    opacity: 0.25;
+}
+.thumb-manage-toggle {
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20,20,22,0.92);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 9999px;
+    padding: 3px 5px;
+    cursor: pointer;
+    color: rgba(255,255,255,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    z-index: 2;
+}
+.thumb-manage-toggle .material-symbols-outlined {
+    font-size: 0.9rem !important;
+    line-height: 1;
+}
+.thumb-manage-item.hidden-thumb .thumb-manage-toggle {
+    color: rgba(255,90,90,0.8);
+    border-color: rgba(255,90,90,0.3);
+}
+
+/* כפתור "נהל תמונות" בבוחר */
+.editor-thumb-manage-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.04);
+    border: 1.5px dashed rgba(255,255,255,0.18) !important;
+}
+.editor-thumb-manage-btn:active {
+    background: rgba(255,255,255,0.08);
+}

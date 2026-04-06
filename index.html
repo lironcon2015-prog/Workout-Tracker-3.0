@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 14.11.0</title>
+    <title>GymPro Elite 14.12.0-90</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
@@ -478,41 +478,72 @@
 
             <!-- WORKOUT EDITOR -->
             <div id="ui-workout-editor" class="screen">
-                <div class="hero-section"><h2>עריכת תוכנית</h2></div>
-                <div class="glass-card">
-                    <label class="text-xs color-dim">שם התוכנית</label>
-                    <input type="text" id="editor-workout-name" class="minimal-input text-right text-lg font-bold mb-sm">
-                    <div class="flex-between border-top pt-sm">
-                        <span class="text-sm">הצג בשבוע דילואוד?</span>
-                        <input type="checkbox" id="editor-deload-check" class="archive-checkbox">
-                    </div>
-                    <div class="flex-between border-top pt-sm mt-xs">
-                        <span class="text-sm color-type-free">מופיע בדילואוד בלבד?</span>
-                        <input type="checkbox" id="editor-deload-only-check" class="archive-checkbox">
-                    </div>
-                    <div class="flex-between border-top pt-sm mt-xs">
-                        <span class="text-sm color-dim">הסתר מרשימת האימונים</span>
-                        <input type="checkbox" id="editor-hidden-check" class="archive-checkbox">
-                    </div>
-                    <div class="border-top pt-sm mt-xs">
-                        <span class="text-sm color-dim d-block mb-sm">צבע זיהוי</span>
-                        <div id="editor-color-swatches" class="color-swatches-row"></div>
-                    </div>
-                    <div class="border-top pt-sm mt-xs">
-                        <span class="text-sm color-dim d-block mb-sm">תמונת האימון</span>
-                        <div id="editor-thumb-picker" class="editor-thumb-picker-row"></div>
-                    </div>
+
+                <!-- ── Top Bar ── -->
+                <div class="weditor-topbar">
+                    <button class="weditor-back-btn" onclick="handleBackClick()">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <span class="weditor-topbar-title">WORKOUT EDITOR</span>
+                    <div style="width:40px;flex-shrink:0;"></div>
                 </div>
-                <div class="section-label">רשימת תרגילים</div>
-                <div id="editor-list" class="vertical-stack"></div>
-                <div class="input-grid mt-sm grid-2-cols">
-                    <button class="btn-text border-dashed border-accent color-accent" onclick="openExerciseSelector()">+ הוסף תרגיל</button>
-                    <button class="btn-text border-dashed color-type-free" style="border-color:var(--type-free)!important;" onclick="addClusterToEditor()">+ צור סבב</button>
+
+                <!-- ── Workout Identity ── -->
+                <p class="weditor-section-lbl">WORKOUT IDENTITY</p>
+                <input type="text" id="editor-workout-name" class="weditor-name-input" placeholder="שם האימון..." dir="auto">
+
+                <!-- ── Toggles ── -->
+                <div class="weditor-toggles-grid">
+                    <label class="weditor-toggle-card">
+                        <span class="weditor-toggle-lbl">DELOAD</span>
+                        <input type="checkbox" id="editor-deload-check" class="weditor-chk">
+                        <div class="weditor-track"><div class="weditor-dot"></div></div>
+                    </label>
+                    <label class="weditor-toggle-card">
+                        <span class="weditor-toggle-lbl">RESTRICTED</span>
+                        <input type="checkbox" id="editor-deload-only-check" class="weditor-chk">
+                        <div class="weditor-track"><div class="weditor-dot"></div></div>
+                    </label>
+                    <label class="weditor-toggle-card">
+                        <span class="weditor-toggle-lbl">HIDDEN</span>
+                        <input type="checkbox" id="editor-hidden-check" class="weditor-chk">
+                        <div class="weditor-track"><div class="weditor-dot"></div></div>
+                    </label>
                 </div>
-                <div class="mt-xl">
-                    <button class="btn-main primary-gradient" onclick="saveWorkoutChanges()">שמור שינויים</button>
-                    <button class="btn-text" onclick="handleBackClick()">ביטול</button>
+
+                <!-- ── Thematic Accent ── -->
+                <p class="weditor-section-lbl">THEMATIC ACCENT</p>
+                <div id="editor-color-swatches" class="weditor-color-row"></div>
+
+                <!-- ── Visual Anchor ── -->
+                <p class="weditor-section-lbl">VISUAL ANCHOR
+                    <span class="weditor-va-hint">גרור לסידור מחדש · × למחיקה</span>
+                </p>
+                <div class="weditor-va-scroll">
+                    <div id="editor-thumb-picker" class="weditor-va-grid"></div>
                 </div>
+
+                <!-- ── Exercise Flow ── -->
+                <div class="weditor-flow-hdr">
+                    <span class="weditor-flow-title">EXERCISE FLOW</span>
+                    <span id="editor-block-count" class="weditor-flow-count"></span>
+                </div>
+                <div id="editor-list" class="weditor-list"></div>
+
+                <!-- ── Bottom Actions ── -->
+                <button class="weditor-ghost-btn" onclick="openExerciseSelector()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    ADD EXERCISE
+                </button>
+                <button class="weditor-ghost-btn weditor-ghost-cluster" onclick="addClusterToEditor()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                    CREATE CLUSTER
+                </button>
+                <button class="weditor-save-btn btn-main primary-gradient" onclick="saveWorkoutChanges()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    SAVE CHANGES
+                </button>
+
             </div>
 
             <!-- EXERCISE SELECTOR -->

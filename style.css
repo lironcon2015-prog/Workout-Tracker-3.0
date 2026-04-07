@@ -2899,11 +2899,7 @@ body {
     position: relative; z-index: 1;
 }
 #ui-week .deload-card .wk-name { color: #c4a0ff; }
-#ui-week .menu-card .chevron {
-    position: absolute;
-    top: 14px; left: 14px;
-    margin: 0; opacity: 0.3;
-}
+#ui-week .menu-card .chevron { display: none; }
 
 /* ── PR CARD DETAILS ── */
 .home-pr-num {

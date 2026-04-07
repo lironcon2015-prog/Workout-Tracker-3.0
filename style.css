@@ -220,25 +220,26 @@ body {
 .content-area {
     flex: 1;
     position: relative;
-    overflow: hidden;
+    overflow-y: auto;
     overflow-x: hidden;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    scrollbar-width: none;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
 }
+.content-area::-webkit-scrollbar { display: none; }
 
 .screen {
     display: none;
     flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    overflow-y: auto;
+    flex-shrink: 0;
+    min-height: 100%;
     overflow-x: hidden;
     padding-bottom: 90px;
-    scrollbar-width: none;
-    overscroll-behavior-y: contain;
+    position: relative;
 }
-.screen::-webkit-scrollbar { display: none; }
 .screen.active { display: flex; animation: slideIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .screen > * { flex-shrink: 0; }
 @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

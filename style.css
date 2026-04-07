@@ -2477,8 +2477,7 @@ body {
 
 .stg-nav-row {
     display: flex; align-items: center; gap: 14px;
-    padding: 16px 20px;
-    
+    padding: 16px 20px; border: none;
     cursor: pointer; background: none; width: 100%;
     font-family: inherit; text-align: right;
     transition: background 0.15s;
@@ -3153,7 +3152,7 @@ body {
 /* Settings screen — redesigned */
 .settings-group { margin-bottom: 8px; }
 .settings-group-label { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.35); padding: 0 4px 6px; }
-.settings-nav-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; background: none; width: 100%; font-family: inherit; text-align: right; }
+.settings-nav-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); border-top: none; border-left: none; border-right: none; cursor: pointer; background: none; width: 100%; font-family: inherit; text-align: right; }
 .settings-nav-row:last-child { border-bottom: none; }
 .settings-nav-left { display: flex; align-items: center; gap: 12px; }
 .settings-nav-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -3209,7 +3208,7 @@ body {
 /* Manager card —
    direction:ltr מבטיח שהתמונה בצד שמאל ויזואלית גם בעמוד RTL */
 .km-manager-card {
-    background: #1a1a1a; border-radius: 1.5rem;
+    background: #1a1a1a; border-radius: 1.5rem; border: none;
     display: flex; flex-direction: row; align-items: stretch;
     overflow: hidden; cursor: pointer; transition: transform 0.15s;
     min-height: 140px; direction: ltr;

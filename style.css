@@ -231,6 +231,7 @@ body {
     display: none;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     padding-bottom: 90px;

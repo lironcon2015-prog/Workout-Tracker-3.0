@@ -2220,6 +2220,8 @@ body {
     /* מניעת bleeding מ-subpixel rendering */
     -webkit-font-smoothing: antialiased;
     transform: translateZ(0);
+    /* מרווח לאוברהאנג של italic — מונע חיתוך עשרוניים */
+    padding-inline-end: 6px;
 }
 .rm-unit-lbl {
     font-size: 1.2rem; font-weight: 400;

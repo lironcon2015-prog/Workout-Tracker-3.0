@@ -77,7 +77,7 @@ function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
 // ─── GLOBAL STATE ──────────────────────────────────────────────────────────
 
 let state = {
-    week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0,
+    week: 1, type: '', rm: 100, rmUsed: {}, exIdx: 0, setIdx: 0,
     log: [], currentEx: null, currentExName: '',
     historyStack: ['ui-week'],
     timerInterval: null, seconds: 0, startTime: null,
@@ -1005,21 +1005,49 @@ function setupCalculatedEx() {
     // עדכון תצוגה ויזואלית
     syncRMDisplay();
 
-    // Delta — הצג שיפור מהבסיס אם lastRM שונה מ-baseRM
+    // Delta — השוואה לשבוע המקביל בסייקל הקודם
     const deltaRow = document.getElementById('rm-delta-row');
     const deltaText = document.getElementById('rm-delta-text');
-    if (deltaRow && deltaText && lastRM != null && lastRM !== baseRM) {
-        const diff = Math.round((lastRM - baseRM) * 10) / 10;
-        if (diff !== 0) {
-            deltaText.textContent = diff > 0
-                ? `שיפור של ${diff}kg מהבסיס`
-                : `ירידה של ${Math.abs(diff)}kg מהבסיס`;
-            deltaRow.style.display = 'flex';
+    if (deltaRow && deltaText) {
+        let prevRM = null;
+        const wk = parseInt(state.week);
+        if (!isNaN(wk) && wk >= 1 && wk <= 3) {
+            const archive = StorageManager.getArchive();
+            const cycleStart = archive.findIndex(a => a.week === 1);
+            if (cycleStart !== -1) {
+                const prevEntries = archive.slice(cycleStart + 1);
+                const match = prevEntries.find(a =>
+                    parseInt(a.week) === wk && a.type === state.type
+                );
+                if (match) {
+                    // rmValues נשמר באנטרי חדשים
+                    if (match.rmValues && match.rmValues[state.currentExName]) {
+                        prevRM = match.rmValues[state.currentExName];
+                    } else if (match.log) {
+                        // fallback: חישוב הפוך מהמשקל הכבד ביותר
+                        const exLogs = match.log.filter(l => l.exName === state.currentExName && !l.skip);
+                        if (exLogs.length) {
+                            const maxW = Math.max(...exLogs.map(l => l.w));
+                            const maxPct = wk === 1 ? 0.85 : wk === 2 ? 0.90 : 0.95;
+                            prevRM = Math.round(maxW / maxPct / 2.5) * 2.5;
+                        }
+                    }
+                }
+            }
+        }
+        if (prevRM != null) {
+            const diff = Math.round((defaultRM - prevRM) * 10) / 10;
+            if (diff !== 0) {
+                deltaText.textContent = diff > 0
+                    ? `+${diff}kg משבוע ${state.week} קודם`
+                    : `${diff}kg משבוע ${state.week} קודם`;
+                deltaRow.style.display = 'flex';
+            } else {
+                deltaRow.style.display = 'none';
+            }
         } else {
             deltaRow.style.display = 'none';
         }
-    } else if (deltaRow) {
-        deltaRow.style.display = 'none';
     }
 
     navigate('ui-1rm');
@@ -1046,6 +1074,7 @@ function stepRM(dir) {
 function save1RM() {
     state.rm = parseFloat(document.getElementById('rm-picker').value);
     StorageManager.saveRM(state.currentExName, state.rm);
+    state.rmUsed[state.currentExName] = state.rm;
     let percentages = []; let reps = [];
     const w = parseInt(state.week);
     if (w === 1) { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
@@ -2072,10 +2101,10 @@ function _saveToArchive(note) {
             const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
             const parts = core.split('x');
             if (parts.length >= 2) {
-                const w = parseFloat(parts[0].replace('kg', '').replace('(יד אחת)', '').trim());
+                const w = parseFloat(parts[0].replace('kg', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim());
                 const rMatch = parts[1].match(/\d+/);
                 const r = rMatch ? parseInt(rMatch[0]) : 1;
-                if (!isNaN(w)) exVol += w * r;
+                if (!isNaN(w)) exVol += w * r * (isUnilateral(exName) ? 2 : 1);
             }
         });
         totalVol += exVol;
@@ -2108,7 +2137,8 @@ function _saveToArchive(note) {
             const exVol = details[exName] ? details[exName].vol : 0;
             const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
             const mainTag = exMap[exName] && exMap[exName].isMain ? ' (Main)' : '';
-            summaryLines.push(`${exName}${mainTag} (Vol: ${volStr}):`);
+            const uniTag = isUnilateral(exName) ? ' (צד אחד)' : '';
+            summaryLines.push(`${exName}${mainTag}${uniTag} (Vol: ${volStr}):`);
             seg.sets.forEach(entry => {
                 const rir = entry.rir !== undefined ? entry.rir : '—';
                 const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
@@ -2161,7 +2191,8 @@ function _saveToArchive(note) {
         details,
         exOrder,
         log: archivedLog,
-        note
+        note,
+        rmValues: state.rmUsed || {}
     };
 
     StorageManager.saveToArchive(archiveEntry);
@@ -2191,8 +2222,9 @@ function openSessionLog() {
         exOrder.forEach(exName => {
             const sets = exMap[exName];
 
-            // חישוב נפח כולל לתרגיל
-            const vol = sets.reduce((sum, { entry }) => sum + (entry.w * entry.r), 0);
+            // חישוב נפח כולל לתרגיל (×2 לצד אחד)
+            const uniMult = isUnilateral(exName) ? 2 : 1;
+            const vol = sets.reduce((sum, { entry }) => sum + (entry.w * entry.r * uniMult), 0);
             const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : vol + 'kg';
 
             // כרטיס תרגיל

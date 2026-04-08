@@ -1745,15 +1745,7 @@ body {
     margin-top: 8px;
 }
 #ui-main.cluster .timer-section {
-    margin-top: 12px;
-}
-#ui-main.cluster .timer-wrap {
-    width: 100px;
-    height: 100px;
-    margin-bottom: 8px;
-}
-#ui-main.cluster .timer-text {
-    font-size: 1.7em;
+    margin-top: 16px;
 }
 #ui-main.cluster .d-flex.gap-sm.mt-lg {
     margin-top: 10px;

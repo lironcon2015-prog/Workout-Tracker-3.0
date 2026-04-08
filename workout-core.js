@@ -1099,26 +1099,39 @@ function initPickers() {
     if (state.clusterMode) {
         const queueDiv = document.createElement('div');
         queueDiv.className = 'cluster-queue-container';
-        let queueHtml = `<div class="queue-title">בהמשך הסבב:</div>`;
+        let pillsHtml = '';
         let foundNext = false;
         for (let i = state.clusterIdx + 1; i < state.activeCluster.exercises.length; i++) {
             const exName = state.activeCluster.exercises[i].name;
             const isNext = !foundNext;
-            queueHtml += `<div class="queue-item ${isNext ? 'next' : ''}">${isNext ? '• הבא: ' : ''}${exName}</div>`;
+            pillsHtml += `<div class="queue-pill ${isNext ? 'next' : ''}"><span class="queue-pill-label">${isNext ? 'הבא: NEXT' : 'LATER'}</span><span class="queue-pill-name">${exName}</span></div>`;
             foundNext = true;
         }
-        if (!foundNext) queueHtml += `<div class="queue-item">--- סוף סבב ---</div>`;
-        queueDiv.innerHTML = queueHtml;
+        if (!foundNext) pillsHtml += `<div class="queue-pill"><span class="queue-pill-name">סוף סבב</span></div>`;
+        queueDiv.innerHTML = `<div class="cluster-queue-header"><div class="queue-title">≡ תור הקלאסטר</div><span class="queue-continue-lbl">המשך הסבב</span></div><div class="cluster-queue-pills">${pillsHtml}</div>`;
         exHeader.parentNode.insertBefore(queueDiv, exHeader.nextSibling);
     }
 
     const badge = document.getElementById('set-counter');
+    const existingTrainingLabel = document.getElementById('cluster-training-label');
+    if (existingTrainingLabel) existingTrainingLabel.remove();
+
     if (state.clusterMode) {
         badge.innerText = `ROUND ${state.clusterRound}/${state.activeCluster.rounds}`;
-        badge.style.background = "var(--type-free)";
+        badge.style.background = "var(--secondary)";
+        badge.style.color = "#0a0a0a";
+        badge.style.borderColor = "var(--secondary)";
+        const badgeRow = document.querySelector('.badge-row');
+        const label = document.createElement('span');
+        label.id = 'cluster-training-label';
+        label.className = 'cluster-training-lbl';
+        label.textContent = 'כעת מתאמנים';
+        badgeRow.appendChild(label);
     } else {
         badge.innerText = `SET ${state.setIdx + 1}/${state.currentEx.sets.length}`;
         badge.style.background = "var(--accent)";
+        badge.style.color = "";
+        badge.style.borderColor = "";
     }
 
     const target = state.currentEx.sets[state.setIdx];

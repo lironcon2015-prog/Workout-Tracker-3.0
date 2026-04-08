@@ -2869,11 +2869,11 @@ body {
 }
 #ui-week .menu-card:active { transform: scale(0.96); background: rgba(53,53,53,0.38); }
 
-/* per-card accent glow — top corner */
-#ui-week .wk-card-1::after { content:''; position:absolute; top:-28px; left:-28px; width:90px; height:90px; border-radius:50%; background:#3e90ff; filter:blur(24px); opacity:0.30; pointer-events:none; }
-#ui-week .wk-card-2::after { content:''; position:absolute; top:-28px; left:-28px; width:90px; height:90px; border-radius:50%; background:#47e266; filter:blur(24px); opacity:0.25; pointer-events:none; }
-#ui-week .wk-card-3::after { content:''; position:absolute; top:-28px; left:-28px; width:90px; height:90px; border-radius:50%; background:#ffb868; filter:blur(24px); opacity:0.25; pointer-events:none; }
-#ui-week .wk-card-d::after  { content:''; position:absolute; top:-28px; left:-28px; width:90px; height:90px; border-radius:50%; background:#9b6dff; filter:blur(24px); opacity:0.28; pointer-events:none; }
+/* per-card accent glow — radial-gradient (replaces ::after to avoid overflow/blur artifacts) */
+#ui-week .wk-card-1 { background: radial-gradient(circle 80px at 0 0, rgba(62,144,255,0.30), transparent), rgba(53,53,53,0.38); }
+#ui-week .wk-card-2 { background: radial-gradient(circle 80px at 0 0, rgba(71,226,102,0.25), transparent), rgba(53,53,53,0.38); }
+#ui-week .wk-card-3 { background: radial-gradient(circle 80px at 0 0, rgba(255,184,104,0.25), transparent), rgba(53,53,53,0.38); }
+#ui-week .wk-card-d { background: radial-gradient(circle 80px at 0 0, rgba(155,109,255,0.28), transparent), rgba(53,53,53,0.38); }
 #ui-week .deload-card { border: 1px solid rgba(155,109,255,0.18); }
 
 .wk-bg-num {

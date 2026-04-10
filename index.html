@@ -451,7 +451,10 @@
             <div id="ui-exercise-db" class="screen">
                 <div class="sticky-header">
                     <h2 class="section-title mb-sm">מאגר תרגילים</h2>
-                    <input type="text" id="db-search" class="search-input" placeholder="חפש תרגיל לעריכה..." oninput="renderExerciseDatabase()">
+                    <div class="search-wrap">
+                        <span class="material-symbols-outlined search-wrap-icon">search</span>
+                        <input type="text" id="db-search" class="search-input" placeholder="חפש תרגיל לעריכה..." oninput="renderExerciseDatabase()">
+                    </div>
                     <div class="chip-container">
                         <button class="chip active" onclick="setDbFilter('all', this)">הכל</button>
                         <button class="chip" onclick="setDbFilter('חזה', this)">חזה</button>
@@ -549,7 +552,10 @@
             <div id="ui-exercise-selector" class="screen">
                 <div class="sticky-header">
                     <h2 class="section-title mb-sm">בחר תרגיל</h2>
-                    <input type="text" id="selector-search" class="search-input" placeholder="חפש תרגיל..." oninput="filterSelector()">
+                    <div class="search-wrap">
+                        <span class="material-symbols-outlined search-wrap-icon">search</span>
+                        <input type="text" id="selector-search" class="search-input" placeholder="חפש תרגיל..." oninput="filterSelector()">
+                    </div>
                     <div class="chip-container">
                         <button class="chip active" onclick="setSelectorFilter('all', this)">הכל</button>
                         <button class="chip" onclick="setSelectorFilter('חזה', this)">חזה</button>
@@ -591,18 +597,30 @@
                         </button>
                     </div>
                     <h2 id="variation-title" class="section-title mb-sm">בחר תרגיל</h2>
-                    <input type="text" id="freestyle-search" class="search-input" placeholder="חפש תרגיל..." oninput="renderFreestyleList()">
+                    <div class="search-wrap">
+                        <span class="material-symbols-outlined search-wrap-icon">search</span>
+                        <input type="text" id="freestyle-search" class="search-input" placeholder="חפש תרגיל..." oninput="renderFreestyleList()">
+                    </div>
                     <div id="variation-chips" class="chip-container d-flex"></div>
                 </div>
                 <div id="variation-options" class="vertical-stack pt-sm"></div>
                 <button id="btn-var-finish-extra" class="finish-main-btn mt-lg" style="display:none;" onclick="finishExtraPhase()">סיום אימון</button>
+                <div id="freestyle-finish-float" class="freestyle-finish-float" style="display:none;">
+                    <button class="freestyle-finish-btn" onclick="finish()">
+                        <span>סיום אימון</span>
+                        <span class="material-symbols-outlined" style="font-size:1.3rem;">check_circle</span>
+                    </button>
+                </div>
                 <button class="btn-text" onclick="handleBackClick()">חזור</button>
             </div>
 
             <div id="ui-swap-list" class="screen">
                 <div class="sticky-header">
                     <h2 class="section-title mb-sm">אפשרויות החלפה</h2>
-                    <input type="text" id="swap-search" class="search-input" placeholder="חפש תרגיל..." oninput="_renderSwapMenu(this.value)">
+                    <div class="search-wrap">
+                        <span class="material-symbols-outlined search-wrap-icon">search</span>
+                        <input type="text" id="swap-search" class="search-input" placeholder="חפש תרגיל..." oninput="_renderSwapMenu(this.value)">
+                    </div>
                 </div>
                 <div id="swap-container" class="vertical-stack pt-sm"></div>
                 <button class="btn-text" onclick="handleBackClick()">ביטול</button>

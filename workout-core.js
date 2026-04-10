@@ -81,7 +81,7 @@ function getExInitials(name) {
     const clean = name.replace(/\(.*?\)/g, '').trim();
     const words = clean.split(/\s+/).filter(w => w.length > 0);
     if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
-    return words.map(w => w[0].toUpperCase()).join('').substring(0, 3);
+    return words.map(w => w[0].toUpperCase()).join('').substring(0, 2);
 }
 
 /** שם שריר ראשי בעברית לתצוגת badge */
@@ -1732,10 +1732,12 @@ function updateVariationUI() {
     const finishExtraBtn = document.getElementById('btn-var-finish-extra');
     const contextContainer = document.getElementById('variation-context-container');
     const title = document.getElementById('variation-title');
+    const freestyleFinish = document.getElementById('freestyle-finish-float');
 
     resumeBtn.style.display = 'none';
     finishExtraBtn.style.display = 'none';
     contextContainer.style.display = 'none';
+    if (freestyleFinish) freestyleFinish.style.display = 'none';
 
     if (state.isInterruption) {
         title.innerText = "הוספת תרגיל";
@@ -1748,6 +1750,10 @@ function updateVariationUI() {
         finishExtraBtn.innerText = "סיום אימון";
     } else {
         title.innerText = "בחר תרגיל";
+        // כפתור סיום אימון floating — מוצג רק אם כבר בוצע לפחות תרגיל אחד
+        if (freestyleFinish && state.isFreestyle && state.completedExInSession.length > 0) {
+            freestyleFinish.style.display = 'block';
+        }
     }
 }
 

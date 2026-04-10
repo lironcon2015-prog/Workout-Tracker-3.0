@@ -812,10 +812,10 @@ body {
 /* ── Freestyle Finish Float ── */
 .freestyle-finish-float {
     position: fixed;
-    bottom: calc(60px + env(safe-area-inset-bottom, 20px));
+    bottom: calc(70px + env(safe-area-inset-bottom, 20px));
     left: 20px;
     right: 20px;
-    z-index: 198;
+    z-index: 201;
     pointer-events: none;
 }
 .freestyle-finish-btn {

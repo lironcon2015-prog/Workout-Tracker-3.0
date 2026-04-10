@@ -74,6 +74,41 @@ function isExOrVariationDone(originalName) {
 
 function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
 
+// ── Exercise Card Helpers (Kinetic Precision) ──
+
+/** ראשי תיבות משם תרגיל: "Bench Press (Main)" → "BP" */
+function getExInitials(name) {
+    const clean = name.replace(/\(.*?\)/g, '').trim();
+    const words = clean.split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+    return words.map(w => w[0].toUpperCase()).join('').substring(0, 3);
+}
+
+/** שם שריר ראשי בעברית לתצוגת badge */
+function getMuscleBadge(muscles) {
+    if (!muscles || muscles.length === 0) return '';
+    if (muscles.includes('biceps')) return 'יד קדמית';
+    if (muscles.includes('triceps')) return 'יד אחורית';
+    const hebrew = muscles.filter(m => /[\u0590-\u05FF]/.test(m));
+    return hebrew[0] || muscles[0];
+}
+
+/** בונה HTML פנימי של כרטיס תרגיל (ללא ה-wrapper החיצוני) */
+function buildExCardInner(name, muscles) {
+    const initials = getExInitials(name);
+    const badge = getMuscleBadge(muscles);
+    const tagHTML = badge ? `<span class="ex-card-tag">${badge}</span>` : '';
+    return `
+        <div class="ex-card-body">
+            <div class="ex-card-icon"><span class="ex-card-initials">${initials}</span></div>
+            <div class="ex-card-info">
+                <div class="ex-card-name">${name}</div>
+                ${tagHTML}
+            </div>
+        </div>
+        <div class="ex-card-chevron"></div>`;
+}
+
 // ─── GLOBAL STATE ──────────────────────────────────────────────────────────
 
 let state = {
@@ -1766,16 +1801,16 @@ function renderFreestyleList() {
     }
 
     filtered.forEach(ex => {
-        const btn = document.createElement('button');
-        btn.className = "menu-card";
-        btn.innerHTML = `<span>${ex.name}</span><div class="chevron"></div>`;
-        btn.onclick = () => {
+        const card = document.createElement('div');
+        card.className = "ex-card";
+        card.innerHTML = buildExCardInner(ex.name, ex.muscles);
+        card.onclick = () => {
             state.currentEx = deepClone(ex);
             state.currentExName = ex.name;
             if (!state.currentEx.sets || state.currentEx.sets.length < 3) state.currentEx.sets = [{ w: 10, r: 10 }, { w: 10, r: 10 }, { w: 10, r: 10 }];
             startRecording();
         };
-        options.appendChild(btn);
+        options.appendChild(card);
     });
 }
 
@@ -1792,24 +1827,27 @@ function _renderSwapMenu(searchVal) {
     container.innerHTML = "";
 
     const workoutList = state.workouts[state.type];
+    /** חיפוש תרגיל מ-state לפי שם — לקבלת muscles */
+    const findEx = (name) => state.exercises.find(e => e.name === name);
 
     // ── מומלצים: וריאציות מהקבוצות הקיימות ──
     const variations = getSubstitutes(state.currentExName).filter(name => !state.completedExInSession.includes(name));
     if (variations.length > 0) {
         const titleVar = document.createElement('div');
-        titleVar.className = "section-label";
+        titleVar.className = "ex-section-label";
         titleVar.innerText = "מחליפים מומלצים";
         container.appendChild(titleVar);
         variations.forEach(vName => {
-            const btn = document.createElement('button');
-            btn.className = "menu-card";
-            btn.innerHTML = `<span>${vName}</span><div class="chevron"></div>`;
-            btn.onclick = () => {
+            const exData = findEx(vName);
+            const card = document.createElement('div');
+            card.className = "ex-card";
+            card.innerHTML = buildExCardInner(vName, exData ? exData.muscles : []);
+            card.onclick = () => {
                 state.currentExName = vName;
                 state.historyStack.pop();
                 showConfirmScreen(vName);
             };
-            container.appendChild(btn);
+            container.appendChild(card);
         });
     }
 
@@ -1818,28 +1856,29 @@ function _renderSwapMenu(searchVal) {
         const remaining = workoutList.map((item, idx) => ({ item, idx })).filter(({ idx }) => idx > state.exIdx);
         if (remaining.length > 0) {
             const titleOrder = document.createElement('div');
-            titleOrder.className = "section-label mt-md";
+            titleOrder.className = "ex-section-label";
             titleOrder.innerText = "החלף סדר עם תרגיל אחר";
             container.appendChild(titleOrder);
             remaining.forEach(({ item, idx }) => {
-                const btn = document.createElement('button');
-                btn.className = "menu-card";
-                btn.innerHTML = `<span>${item.name}</span><div class="chevron"></div>`;
-                btn.onclick = () => {
+                const exData = findEx(item.name);
+                const card = document.createElement('div');
+                card.className = "ex-card";
+                card.innerHTML = buildExCardInner(item.name, exData ? exData.muscles : []);
+                card.onclick = () => {
                     const currentItem = state.workouts[state.type][state.exIdx];
                     state.workouts[state.type][state.exIdx] = state.workouts[state.type][idx];
                     state.workouts[state.type][idx] = currentItem;
                     state.historyStack.pop();
                     showConfirmScreen();
                 };
-                container.appendChild(btn);
+                container.appendChild(card);
             });
         }
     }
 
     // ── כל התרגילים (חיפוש חופשי) ──
     const titleAll = document.createElement('div');
-    titleAll.className = "section-label mt-md";
+    titleAll.className = "ex-section-label";
     titleAll.innerText = "כל התרגילים";
     container.appendChild(titleAll);
 
@@ -1850,10 +1889,10 @@ function _renderSwapMenu(searchVal) {
         .sort((a, b) => a.name.localeCompare(b.name));
 
     allFiltered.forEach(ex => {
-        const btn = document.createElement('button');
-        btn.className = "menu-card";
-        btn.innerHTML = `<span>${ex.name}</span><div class="chevron"></div>`;
-        btn.onclick = () => {
+        const card = document.createElement('div');
+        card.className = "ex-card";
+        card.innerHTML = buildExCardInner(ex.name, ex.muscles);
+        card.onclick = () => {
             state.currentExName = ex.name;
             state.currentEx = deepClone(ex);
             if (!state.currentEx.sets || state.currentEx.sets.length === 0) {
@@ -1862,7 +1901,7 @@ function _renderSwapMenu(searchVal) {
             state.historyStack.pop();
             showConfirmScreen(ex.name);
         };
-        container.appendChild(btn);
+        container.appendChild(card);
     });
 
     if (allFiltered.length === 0 && sv) {

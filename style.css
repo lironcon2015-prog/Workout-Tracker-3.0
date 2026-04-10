@@ -770,6 +770,7 @@ body {
     color: white;
     letter-spacing: -0.02em;
     line-height: 1.2;
+    text-transform: uppercase;
 }
 
 .ex-card-tag {
@@ -811,10 +812,10 @@ body {
 /* ── Freestyle Finish Float ── */
 .freestyle-finish-float {
     position: fixed;
-    bottom: 100px;
+    bottom: calc(60px + env(safe-area-inset-bottom, 20px));
     left: 20px;
     right: 20px;
-    z-index: 40;
+    z-index: 198;
     pointer-events: none;
 }
 .freestyle-finish-btn {
@@ -823,21 +824,20 @@ body {
     justify-content: center;
     gap: 0.5rem;
     width: 100%;
-    padding: 1rem;
+    padding: 18px;
     border: none;
-    border-radius: 9999px;
-    background: linear-gradient(135deg, #0A84FF, #0056b3);
-    color: white;
-    font-family: 'Heebo', sans-serif;
-    font-weight: 900;
-    font-style: italic;
-    font-size: 1.15rem;
-    letter-spacing: -0.02em;
+    border-radius: 50px;
+    background: linear-gradient(90deg, var(--primary-container) 0%, var(--primary) 50%, var(--primary-container) 100%);
+    color: #0a0a0a;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 1.1em;
     cursor: pointer;
     pointer-events: auto;
-    box-shadow: 0 12px 40px rgba(10, 132, 255, 0.35);
+    box-shadow: 0 10px 30px rgba(62, 144, 255, 0.22);
     transition: transform 0.15s, box-shadow 0.2s;
 }
+.freestyle-finish-btn .material-symbols-outlined { color: #0a0a0a; }
 .freestyle-finish-btn:active { transform: scale(0.96); }
 
 /* CONFIRM SCREEN */

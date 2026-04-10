@@ -427,18 +427,9 @@ function renderExerciseDatabase() {
 
     filtered.forEach(ex => {
         const row = document.createElement('div');
-        row.className = "selector-item-row";
+        row.className = "ex-card";
         row.onclick = () => openExerciseEditor(ex.name);
-
-        row.innerHTML = `
-            <div class="selector-item-info">
-                <div class="font-semi text-base">${ex.name}</div>
-                <div class="text-sm color-dim mt-xs">${ex.muscles.join(', ')}</div>
-            </div>
-            <div class="selector-item-actions">
-                <div class="chevron"></div>
-            </div>
-        `;
+        row.innerHTML = buildExCardInner(ex.name, ex.muscles);
         list.appendChild(row);
     });
 }
@@ -857,14 +848,21 @@ function renderSelectorList() {
 
     filtered.forEach(ex => {
         const row = document.createElement('div');
-        row.className = "selector-item-row";
-
+        row.className = "ex-card";
+        const safeName = ex.name.replace(/'/g, "\\'");
+        row.onclick = () => selectExerciseFromList(ex.name);
         row.innerHTML = `
-            <div class="selector-item-info" onclick="selectExerciseFromList('${ex.name.replace(/'/g, "\\'")}')">${ex.name}</div>
-            <div class="selector-item-actions">
-                <button class="btn-text-edit" onclick="openExerciseEditor('${ex.name.replace(/'/g, "\\'")}')">ערוך</button>
+            <div class="ex-card-body">
+                <div class="ex-card-icon"><span class="ex-card-initials">${getExInitials(ex.name)}</span></div>
+                <div class="ex-card-info">
+                    <div class="ex-card-name">${ex.name}</div>
+                    ${ex.muscles ? `<span class="ex-card-tag">${getMuscleBadge(ex.muscles)}</span>` : ''}
+                </div>
             </div>
-        `;
+            <div style="display:flex;align-items:center;gap:0.6rem;">
+                <button class="btn-text-edit" onclick="event.stopPropagation(); openExerciseEditor('${safeName}')">ערוך</button>
+                <div class="ex-card-chevron"></div>
+            </div>`;
         list.appendChild(row);
     });
 }

@@ -103,8 +103,8 @@ git checkout claude/BRANCH_NAME   # חזרה לענף העבודה
 
 ### תבנית גרסה
 ```
-sw.js:        const CACHE_VERSION = 'gympro-v14.12.0-XX';
-version.json: { "version": "14.12.0-XX" }
+sw.js:        const CACHE_VERSION = 'gympro-v15.X';
+version.json: { "version": "15.X" }
 ```
 
 ---
@@ -133,7 +133,7 @@ version.json: { "version": "14.12.0-XX" }
 ---
 
 ## גרסה נוכחית
-14.12.0-100
+15.0
 
 ---
 

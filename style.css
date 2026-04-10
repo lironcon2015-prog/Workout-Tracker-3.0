@@ -702,8 +702,8 @@ body {
     align-items: center;
     justify-content: space-between;
     background: linear-gradient(145deg, #1a1919 0%, #0e0e0e 100%);
-    border-radius: 1.25rem;
-    padding: 1.1rem 1.25rem;
+    border-radius: 2rem;
+    padding: 1.1rem 1.5rem;
     margin-bottom: 0.65rem;
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.25s;
@@ -711,6 +711,8 @@ body {
     width: 100%;
     text-align: right;
     color: white;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 .ex-card:active { transform: scale(0.97); }
 @media (hover: hover) {
@@ -805,6 +807,38 @@ body {
     padding-right: 0.25rem;
 }
 .ex-section-label:first-child { margin-top: 0; }
+
+/* ── Freestyle Finish Float ── */
+.freestyle-finish-float {
+    position: fixed;
+    bottom: 100px;
+    left: 20px;
+    right: 20px;
+    z-index: 40;
+    pointer-events: none;
+}
+.freestyle-finish-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 1rem;
+    border: none;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #0A84FF, #0056b3);
+    color: white;
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 1.15rem;
+    letter-spacing: -0.02em;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 12px 40px rgba(10, 132, 255, 0.35);
+    transition: transform 0.15s, box-shadow 0.2s;
+}
+.freestyle-finish-btn:active { transform: scale(0.96); }
 
 /* CONFIRM SCREEN */
 #ui-confirm { justify-content: flex-start; position: relative; }
@@ -1239,6 +1273,37 @@ body {
 
 .control-icon-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
+/* ── Search Wrap — liquid-glass with icon ── */
+.search-wrap {
+    display: flex;
+    align-items: center;
+    background: rgba(38, 38, 38, 0.6);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 1rem;
+    padding: 0.15rem 0.5rem;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+.search-wrap-icon {
+    color: var(--text-dim);
+    font-size: 1.3rem;
+    padding: 0 0.4rem;
+    flex-shrink: 0;
+}
+.search-wrap .search-input {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 12px 8px;
+    margin-bottom: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+.search-wrap .search-input:focus { outline: none; border: none; }
+
+/* fallback עבור search-input שלא עטוף ב-search-wrap */
 .search-input { background: rgba(18, 18, 20, 0.75); backdrop-filter: blur(20px) saturate(160%) brightness(0.88); -webkit-backdrop-filter: blur(20px) saturate(160%) brightness(0.88); border: 1px solid var(--border); border-top-color: var(--border-hi); border-radius: 12px; padding: 12px; color: white; width: 100%; font-family: inherit; font-size: 1em; box-sizing: border-box; margin-bottom: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); }
 .search-input:focus { outline: none; border-color: var(--accent); }
 

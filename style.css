@@ -1081,6 +1081,49 @@ body {
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
+/* ── Archive Edit Mode ── */
+.archive-edit-set {
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 6px 8px !important;
+    transition: background 0.15s;
+}
+.archive-edit-set:active { background: rgba(255,255,255,0.08); }
+.archive-edit-icon {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-right: auto;
+    margin-left: 4px;
+    opacity: 0.5;
+}
+.archive-note-editor {
+    margin: 12px 0 0;
+}
+.archive-note-label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+.archive-note-textarea {
+    width: 100%;
+    background: #1b1b1b;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: var(--text);
+    padding: 12px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+    box-sizing: border-box;
+}
+.archive-note-textarea:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.25);
+}
+
 .finish-main-btn { background: #3a3a3c; color: white; padding: 15px; border-radius: var(--ios-radius); border: none; width: 100%; margin-top: 20px; font-weight: 600; }
 
 /* ── Modal Styles ── */

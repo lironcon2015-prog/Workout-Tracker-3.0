@@ -131,6 +131,15 @@ const StorageManager = {
         this.saveData(this.KEY_ARCHIVE, history);
     },
 
+    updateArchiveEntry(timestamp, updatedEntry) {
+        let history = this.getArchive();
+        const idx = history.findIndex(h => h.timestamp === timestamp);
+        if (idx === -1) return false;
+        history[idx] = updatedEntry;
+        this.saveData(this.KEY_ARCHIVE, history);
+        return true;
+    },
+
     // ── Analytics Prefs ─────────────────────────────────────────────────
 
     getAnalyticsPrefs() {

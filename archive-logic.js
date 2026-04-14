@@ -435,12 +435,25 @@ function openArchiveDetail(idx) {
     if (idx < 0 || idx >= archive.length) return;
     const item = archive[idx];
 
+    // שמירת reference לעריכה עתידית
+    _archiveEditItem = JSON.parse(JSON.stringify(item));
+    _archiveEditTimestamp = item.timestamp;
+    _archiveEditMode = false;
+
     const contentEl = document.getElementById('archive-detail-content');
     contentEl.className = '';
     contentEl.innerHTML = buildArchiveDetailHTML(item);
 
+    // וידוא שמצב עריכה מאופס
+    document.getElementById('archive-detail-actions').style.display = 'flex';
+    document.getElementById('archive-edit-actions').style.display = 'none';
+    document.getElementById('archive-detail-note-editor').style.display = 'none';
+
+    const editBtn = document.getElementById('btn-archive-edit');
     const copyBtn = document.getElementById('btn-archive-copy');
     const deleteBtn = document.getElementById('btn-archive-delete');
+
+    editBtn.onclick = () => enterArchiveEditMode();
 
     copyBtn.onclick = () => {
         if (navigator.clipboard) {
@@ -473,7 +486,526 @@ function openArchiveDetail(idx) {
         });
     };
 
+    // חיבור כפתורי עריכה
+    document.getElementById('btn-archive-save-edit').onclick = () => saveArchiveEdit();
+    document.getElementById('btn-archive-cancel-edit').onclick = () => exitArchiveEditMode();
+
     navigate('ui-archive-detail');
+}
+
+// ─── ARCHIVE EDIT MODE ───────────────────────────────────────────────────
+
+let _archiveEditItem = null;       // עותק עמוק של האימון בעריכה
+let _archiveEditTimestamp = null;   // timestamp מקורי לזיהוי
+let _archiveEditMode = false;      // האם במצב עריכה?
+
+function enterArchiveEditMode() {
+    if (!_archiveEditItem) return;
+    _archiveEditMode = true;
+
+    // הצג/הסתר כפתורים
+    document.getElementById('archive-detail-actions').style.display = 'none';
+    document.getElementById('archive-edit-actions').style.display = 'flex';
+
+    // הצג עורך הערות
+    const noteEditor = document.getElementById('archive-detail-note-editor');
+    noteEditor.style.display = 'block';
+    document.getElementById('archive-note-input').value = _archiveEditItem.note || '';
+
+    // רנדר מחדש עם אלמנטים לחיצים
+    _renderArchiveEditView();
+}
+
+function exitArchiveEditMode() {
+    _archiveEditMode = false;
+    _archiveEditItem = null;
+    _archiveEditTimestamp = null;
+
+    document.getElementById('archive-detail-actions').style.display = 'flex';
+    document.getElementById('archive-edit-actions').style.display = 'none';
+    document.getElementById('archive-detail-note-editor').style.display = 'none';
+
+    // חזור לתצוגה רגילה — פתח מחדש
+    navigate('ui-archive');
+}
+
+function _renderArchiveEditView() {
+    const item = _archiveEditItem;
+    const contentEl = document.getElementById('archive-detail-content');
+
+    if (item.log && item.log.length > 0) {
+        contentEl.innerHTML = _buildArchiveEditHTML_withLog(item);
+    } else if (item.details) {
+        contentEl.innerHTML = _buildArchiveEditHTML_detailsOnly(item);
+    }
+}
+
+// בניית HTML לעריכה כשיש log מובנה
+function _buildArchiveEditHTML_withLog(item) {
+    const meta = state.workoutMeta[item.type];
+    const typeColor = (meta && meta.color) ? meta.color : 'var(--type-free)';
+    const totalVol = getWorkoutVolume(item);
+    const totalVolStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
+
+    let html = `<div class="summary-overview-card">
+        <div class="summary-overview-col">
+            <div class="summary-overview-val" style="color:${typeColor}">${item.type}</div>
+            <div class="summary-overview-label">סוג אימון</div>
+        </div>
+        <div class="summary-overview-col">
+            <div class="summary-overview-val">${item.duration || 0}m</div>
+            <div class="summary-overview-label">משך</div>
+        </div>
+        <div class="summary-overview-col">
+            <div class="summary-overview-val">${item.date || ''}</div>
+            <div class="summary-overview-label">${item.time || ''}</div>
+        </div>
+    </div>`;
+
+    // חלוקה לסגמנטים (רגיל / cluster)
+    const segs = [];
+    item.log.filter(l => !l.skip).forEach(entry => {
+        const last = segs[segs.length - 1];
+        if (!entry.isCluster) {
+            if (last && last.type === 'normal' && last.exName === entry.exName) last.sets.push(entry);
+            else segs.push({ type: 'normal', exName: entry.exName, sets: [entry] });
+        } else {
+            if (last && last.type === 'cluster') last.sets.push(entry);
+            else segs.push({ type: 'cluster', sets: [entry] });
+        }
+    });
+
+    // מיפוי log index לכל entry (רק non-skip)
+    const nonSkipLog = item.log.filter(l => !l.skip);
+
+    segs.forEach(seg => {
+        if (seg.type === 'normal') {
+            const exName = seg.exName;
+            const exVol = (item.details && item.details[exName]) ? item.details[exName].vol : 0;
+            const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
+            let setRows = '';
+            seg.sets.forEach((entry, i) => {
+                const logIdx = nonSkipLog.indexOf(entry);
+                const rir = entry.rir !== undefined ? entry.rir : '—';
+                const noteStr = entry.note ? ` | ${entry.note}` : '';
+                setRows += `<div class="summary-set-row archive-edit-set" onclick="openArchiveSetEditor(${logIdx})">
+                    <div class="summary-set-num">${i + 1}</div>
+                    <div class="summary-set-details">${entry.w}kg x ${entry.r} (RIR ${rir}${noteStr})</div>
+                    <span class="material-symbols-outlined archive-edit-icon">edit</span>
+                </div>`;
+            });
+            html += `<div class="summary-ex-card">
+                <div class="summary-ex-header">
+                    <div class="summary-ex-title">${exName}</div>
+                    <div class="summary-ex-vol">${volStr}</div>
+                </div>
+                ${setRows}
+            </div>`;
+        } else {
+            const byRound = {};
+            seg.sets.forEach(entry => {
+                const rn = entry.round || 1;
+                if (!byRound[rn]) byRound[rn] = [];
+                byRound[rn].push(entry);
+            });
+            const rounds = Object.keys(byRound).map(Number).sort((a, b) => a - b);
+            let clusterHtml = '';
+            rounds.forEach(rn => {
+                clusterHtml += `<div class="summary-cluster-round">סבב ${rn}</div>`;
+                byRound[rn].forEach((entry, i) => {
+                    const logIdx = nonSkipLog.indexOf(entry);
+                    const rir = entry.rir !== undefined ? entry.rir : '—';
+                    const noteStr = entry.note ? ` | ${entry.note}` : '';
+                    clusterHtml += `<div class="summary-set-row archive-edit-set" onclick="openArchiveSetEditor(${logIdx})">
+                        <div class="summary-set-num">${i + 1}</div>
+                        <div class="summary-set-details">
+                            <span class="summary-cluster-ex-name">${entry.exName}</span>
+                            ${entry.w}kg x ${entry.r} (RIR ${rir}${noteStr})
+                        </div>
+                        <span class="material-symbols-outlined archive-edit-icon">edit</span>
+                    </div>`;
+                });
+            });
+            html += `<div class="summary-ex-card">
+                <div class="summary-ex-header">
+                    <div class="summary-ex-title">Cluster (${rounds.length} סבבים)</div>
+                </div>
+                ${clusterHtml}
+            </div>`;
+        }
+    });
+
+    html += `<div style="text-align:center;padding:12px 0 4px;font-size:0.8em;color:var(--text-dim);">נפח כולל: ${totalVolStr}</div>`;
+    return html;
+}
+
+// בניית HTML לעריכה כשאין log — רק details (אימונים ישנים)
+function _buildArchiveEditHTML_detailsOnly(item) {
+    const meta = state.workoutMeta[item.type];
+    const typeColor = (meta && meta.color) ? meta.color : 'var(--type-free)';
+    const totalVol = getWorkoutVolume(item);
+    const totalVolStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
+
+    let html = `<div class="summary-overview-card">
+        <div class="summary-overview-col">
+            <div class="summary-overview-val" style="color:${typeColor}">${item.type}</div>
+            <div class="summary-overview-label">סוג אימון</div>
+        </div>
+        <div class="summary-overview-col">
+            <div class="summary-overview-val">${item.duration || 0}m</div>
+            <div class="summary-overview-label">משך</div>
+        </div>
+        <div class="summary-overview-col">
+            <div class="summary-overview-val">${item.date || ''}</div>
+            <div class="summary-overview-label">${item.time || ''}</div>
+        </div>
+    </div>`;
+
+    const detailKeys = Object.keys(item.details);
+    const exOrder = (item.exOrder && item.exOrder.length > 0)
+        ? [...item.exOrder.filter(n => item.details[n]), ...detailKeys.filter(n => !(item.exOrder || []).includes(n))]
+        : detailKeys;
+
+    exOrder.forEach(exName => {
+        const exData = item.details[exName];
+        if (!exData) return;
+        const sets = exData.sets || [];
+        if (sets.length === 0) return;
+        const exVol = exData.vol || 0;
+        const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
+        let setRows = '';
+        sets.forEach((setStr, i) => {
+            setRows += `<div class="summary-set-row archive-edit-set" onclick="openArchiveDetailSetEditor('${exName.replace(/'/g, "\\'")}', ${i})">
+                <div class="summary-set-num">${i + 1}</div>
+                <div class="summary-set-details">${setStr}</div>
+                <span class="material-symbols-outlined archive-edit-icon">edit</span>
+            </div>`;
+        });
+        html += `<div class="summary-ex-card">
+            <div class="summary-ex-header">
+                <div class="summary-ex-title">${exName}</div>
+                <div class="summary-ex-vol">${volStr}</div>
+            </div>
+            ${setRows}
+        </div>`;
+    });
+
+    html += `<div style="text-align:center;padding:12px 0 4px;font-size:0.8em;color:var(--text-dim);">נפח כולל: ${totalVolStr}</div>`;
+    return html;
+}
+
+// ─── ARCHIVE SET EDITOR (משתמש ב-edit-set-modal הקיים) ──────────────────
+
+let _archiveEditSetLogIdx = -1;    // אינדקס ב-nonSkipLog
+let _archiveEditSetExName = null;  // שם תרגיל (למצב details-only)
+let _archiveEditSetExIdx = -1;     // אינדקס סט בתוך תרגיל (למצב details-only)
+let _editFromArchive = false;      // דגל לזיהוי מצב ארכיון ב-saveSetEdit
+
+function openArchiveSetEditor(nonSkipIdx) {
+    if (!_archiveEditItem || !_archiveEditItem.log) return;
+    const nonSkipLog = _archiveEditItem.log.filter(l => !l.skip);
+    const entry = nonSkipLog[nonSkipIdx];
+    if (!entry) return;
+
+    _archiveEditSetLogIdx = nonSkipIdx;
+    _archiveEditSetExName = null;
+    _editFromArchive = true;
+
+    document.getElementById('edit-weight').value = entry.w;
+    document.getElementById('edit-reps').value = entry.r;
+    document.getElementById('edit-rir').value = entry.rir !== undefined ? entry.rir : '';
+    document.getElementById('edit-note').value = entry.note || '';
+    document.getElementById('edit-set-modal').style.display = 'flex';
+}
+
+// לאימונים ישנים ללא log — פרסור מתוך הסטרינג
+function openArchiveDetailSetEditor(exName, setIdx) {
+    if (!_archiveEditItem || !_archiveEditItem.details) return;
+    const exData = _archiveEditItem.details[exName];
+    if (!exData || !exData.sets || !exData.sets[setIdx]) return;
+
+    const setStr = exData.sets[setIdx];
+    const parsed = _parseSetString(setStr);
+
+    _archiveEditSetExName = exName;
+    _archiveEditSetExIdx = setIdx;
+    _archiveEditSetLogIdx = -1;
+    _editFromArchive = true;
+
+    document.getElementById('edit-weight').value = parsed.w;
+    document.getElementById('edit-reps').value = parsed.r;
+    document.getElementById('edit-rir').value = parsed.rir;
+    document.getElementById('edit-note').value = parsed.note;
+    document.getElementById('edit-set-modal').style.display = 'flex';
+}
+
+// פרסור סטרינג סט: "80kg x 5 (RIR 2) | Note: xxx"
+function _parseSetString(setStr) {
+    let w = 0, r = 0, rir = '', note = '';
+
+    // הפרדת הערה
+    if (setStr.includes('| Note:')) {
+        const parts = setStr.split('| Note:');
+        setStr = parts[0].trim();
+        note = parts.slice(1).join('| Note:').trim();
+    } else if (setStr.includes('|')) {
+        const parts = setStr.split('|');
+        setStr = parts[0].trim();
+        note = parts.slice(1).join('|').trim();
+    }
+
+    // פרסור משקל וחזרות
+    const xParts = setStr.split('x');
+    if (xParts.length >= 2) {
+        w = parseFloat(xParts[0].replace('kg', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim()) || 0;
+        const afterX = xParts.slice(1).join('x').trim();
+        const rMatch = afterX.match(/(\d+)/);
+        r = rMatch ? parseInt(rMatch[1]) : 0;
+
+        // RIR
+        const rirMatch = afterX.match(/RIR\s+([^\s)]+)/i);
+        rir = rirMatch ? rirMatch[1] : '';
+    }
+
+    return { w, r, rir, note };
+}
+
+function saveArchiveSetEdit() {
+    const w = parseFloat(document.getElementById('edit-weight').value);
+    const r = parseInt(document.getElementById('edit-reps').value);
+    const rir = document.getElementById('edit-rir').value;
+    const note = document.getElementById('edit-note').value.trim();
+
+    if (_archiveEditSetLogIdx >= 0 && _archiveEditItem.log) {
+        // עדכון log entry
+        const nonSkipLog = _archiveEditItem.log.filter(l => !l.skip);
+        const entry = nonSkipLog[_archiveEditSetLogIdx];
+        if (entry) {
+            entry.w = w;
+            entry.r = r;
+            entry.rir = rir;
+            entry.note = note;
+        }
+        // חישוב מחדש של details מתוך log
+        _recalcArchiveDetails();
+    } else if (_archiveEditSetExName) {
+        // עדכון details ישירות (אימונים ישנים)
+        const exData = _archiveEditItem.details[_archiveEditSetExName];
+        if (exData && exData.sets && exData.sets[_archiveEditSetExIdx] !== undefined) {
+            const noteStr = note ? ` | Note: ${note}` : '';
+            exData.sets[_archiveEditSetExIdx] = `${w}kg x ${r} (RIR ${rir})${noteStr}`;
+            // חישוב מחדש של volume לתרגיל
+            _recalcExVolume(_archiveEditSetExName);
+        }
+    }
+
+    _editFromArchive = false;
+    document.getElementById('edit-set-modal').style.display = 'none';
+
+    // רנדר מחדש
+    _renderArchiveEditView();
+}
+
+function deleteArchiveSet() {
+    if (_archiveEditSetLogIdx >= 0 && _archiveEditItem.log) {
+        const nonSkipLog = _archiveEditItem.log.filter(l => !l.skip);
+        const entry = nonSkipLog[_archiveEditSetLogIdx];
+        if (entry) {
+            const realIdx = _archiveEditItem.log.indexOf(entry);
+            if (realIdx !== -1) _archiveEditItem.log.splice(realIdx, 1);
+        }
+        _recalcArchiveDetails();
+    } else if (_archiveEditSetExName) {
+        const exData = _archiveEditItem.details[_archiveEditSetExName];
+        if (exData && exData.sets) {
+            exData.sets.splice(_archiveEditSetExIdx, 1);
+            if (exData.sets.length === 0) {
+                delete _archiveEditItem.details[_archiveEditSetExName];
+                if (_archiveEditItem.exOrder) {
+                    _archiveEditItem.exOrder = _archiveEditItem.exOrder.filter(n => n !== _archiveEditSetExName);
+                }
+            } else {
+                _recalcExVolume(_archiveEditSetExName);
+            }
+        }
+    }
+
+    _editFromArchive = false;
+    document.getElementById('edit-set-modal').style.display = 'none';
+    _renderArchiveEditView();
+}
+
+// חישוב מחדש של details ו-exOrder מתוך log
+function _recalcArchiveDetails() {
+    const item = _archiveEditItem;
+    if (!item.log) return;
+
+    const exOrder = [];
+    const details = {};
+
+    item.log.forEach(entry => {
+        if (entry.skip) return;
+        const key = entry.exName;
+        if (!details[key]) { details[key] = { sets: [], vol: 0 }; exOrder.push(key); }
+        const rir = entry.rir !== undefined ? entry.rir : '—';
+        const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
+        details[key].sets.push(`${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+    });
+
+    // חישוב volume
+    exOrder.forEach(exName => {
+        let exVol = 0;
+        details[exName].sets.forEach(setStr => {
+            const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
+            const parts = core.split('x');
+            if (parts.length >= 2) {
+                const w = parseFloat(parts[0].replace('kg', '').trim());
+                const rMatch = parts[1].match(/\d+/);
+                const r = rMatch ? parseInt(rMatch[0]) : 1;
+                if (!isNaN(w)) exVol += w * r * (isUnilateral(exName) ? 2 : 1);
+            }
+        });
+        details[exName].vol = exVol;
+    });
+
+    item.details = details;
+    item.exOrder = exOrder;
+}
+
+// חישוב מחדש של volume לתרגיל ספציפי (מצב details-only)
+function _recalcExVolume(exName) {
+    const exData = _archiveEditItem.details[exName];
+    if (!exData || !exData.sets) return;
+
+    let exVol = 0;
+    exData.sets.forEach(setStr => {
+        const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
+        const parts = core.split('x');
+        if (parts.length >= 2) {
+            const w = parseFloat(parts[0].replace('kg', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim());
+            const rMatch = parts[1].match(/\d+/);
+            const r = rMatch ? parseInt(rMatch[0]) : 1;
+            if (!isNaN(w)) exVol += w * r * (isUnilateral(exName) ? 2 : 1);
+        }
+    });
+    exData.vol = exVol;
+}
+
+// בניית summary מחדש
+function _rebuildArchiveSummary(item) {
+    const weekLabel = item.week === 'deload' ? 'Deload' :
+                      item.week === 'Freestyle' ? 'Freestyle' :
+                      item.week ? `Week ${item.week}` : '';
+
+    // שחזור תאריך מ-timestamp
+    const now = new Date(item.timestamp);
+    const dateStr = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`;
+
+    const lines = [
+        'GYMPRO ELITE SUMMARY',
+        `${item.type}${weekLabel ? ' | ' + weekLabel : ''} | ${dateStr} | ${item.duration || 0}m`,
+        ''
+    ];
+    if (item.note) { lines.push(`הערה: ${item.note}`); lines.push(''); }
+
+    if (item.log && item.log.length > 0) {
+        // בניה מבוססת-סגמנטים
+        const segs = [];
+        item.log.filter(l => !l.skip).forEach(entry => {
+            const last = segs[segs.length - 1];
+            if (!entry.isCluster) {
+                if (last && last.type === 'normal' && last.exName === entry.exName) last.sets.push(entry);
+                else segs.push({ type: 'normal', exName: entry.exName, sets: [entry] });
+            } else {
+                if (last && last.type === 'cluster') last.sets.push(entry);
+                else segs.push({ type: 'cluster', sets: [entry] });
+            }
+        });
+
+        segs.forEach(seg => {
+            if (seg.type === 'normal') {
+                const exName = seg.exName;
+                const exVol = (item.details && item.details[exName]) ? item.details[exName].vol : 0;
+                const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
+                const uniTag = isUnilateral(exName) ? ' (צד אחד)' : '';
+                lines.push(`${exName}${uniTag} (Vol: ${volStr}):`);
+                seg.sets.forEach(entry => {
+                    const rir = entry.rir !== undefined ? entry.rir : '—';
+                    const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
+                    lines.push(`${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+                });
+                lines.push('');
+            } else {
+                const byRound = {};
+                seg.sets.forEach(entry => {
+                    const rn = entry.round || 1;
+                    if (!byRound[rn]) byRound[rn] = [];
+                    byRound[rn].push(entry);
+                });
+                Object.keys(byRound).map(Number).sort((a, b) => a - b).forEach(rn => {
+                    lines.push(`Cluster סבב ${rn}:`);
+                    byRound[rn].forEach(entry => {
+                        const rir = entry.rir !== undefined ? entry.rir : '—';
+                        const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
+                        lines.push(`  ${entry.exName}: ${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+                    });
+                    lines.push('');
+                });
+            }
+        });
+    } else if (item.details) {
+        const exOrder = item.exOrder || Object.keys(item.details);
+        exOrder.forEach(exName => {
+            const exData = item.details[exName];
+            if (!exData || !exData.sets || exData.sets.length === 0) return;
+            const volStr = exData.vol >= 1000 ? (exData.vol / 1000).toFixed(1) + 't' : exData.vol + 'kg';
+            lines.push(`${exName} (Vol: ${volStr}):`);
+            exData.sets.forEach(s => lines.push(s));
+            lines.push('');
+        });
+    }
+
+    return lines.join('\n').trimEnd();
+}
+
+// שמירת כל השינויים בארכיון
+function saveArchiveEdit() {
+    if (!_archiveEditItem || !_archiveEditTimestamp) return;
+
+    // עדכון הערה
+    _archiveEditItem.note = document.getElementById('archive-note-input').value.trim() || '';
+
+    // בניית summary מחדש
+    _archiveEditItem.summary = _rebuildArchiveSummary(_archiveEditItem);
+
+    // שמירה ל-localStorage
+    const saved = StorageManager.updateArchiveEntry(_archiveEditTimestamp, _archiveEditItem);
+    if (!saved) {
+        showAlert('שגיאה בשמירת השינויים');
+        return;
+    }
+
+    haptic('success');
+    showAlert('האימון עודכן בהצלחה!');
+
+    // סנכרון Firebase אם מוגדר
+    if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
+        FirebaseManager.saveArchiveToCloud().then(ok => {
+            if (typeof showCloudToast === 'function') {
+                showCloudToast(ok ? '☁️ ארכיון עודכן בענן' : '⚠️ שגיאה בעדכון ארכיון בענן', ok);
+            }
+        });
+    }
+
+    _archiveEditMode = false;
+    _archiveEditItem = null;
+    _archiveEditTimestamp = null;
+
+    document.getElementById('archive-detail-actions').style.display = 'flex';
+    document.getElementById('archive-edit-actions').style.display = 'none';
+    document.getElementById('archive-detail-note-editor').style.display = 'none';
+
+    navigate('ui-archive');
 }
 
 // ─── CALENDAR ─────────────────────────────────────────────────────────────

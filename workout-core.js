@@ -857,9 +857,9 @@ function showConfirmScreen(forceExName = null) {
 
     if (currentPlanItem) {
         if (currentPlanItem.restTime) state.currentEx.restTime = currentPlanItem.restTime;
-        if (currentPlanItem.targetWeight) state.currentEx.targetWeight = currentPlanItem.targetWeight;
-        if (currentPlanItem.targetReps) state.currentEx.targetReps = currentPlanItem.targetReps;
-        if (currentPlanItem.targetRIR) state.currentEx.targetRIR = currentPlanItem.targetRIR;
+        if (currentPlanItem.targetWeight !== undefined) state.currentEx.targetWeight = currentPlanItem.targetWeight;
+        if (currentPlanItem.targetReps !== undefined) state.currentEx.targetReps = currentPlanItem.targetReps;
+        if (currentPlanItem.targetRIR !== undefined) state.currentEx.targetRIR = currentPlanItem.targetRIR;
     }
 
     document.getElementById('confirm-ex-name').innerText = exData.name;
@@ -968,9 +968,9 @@ function confirmExercise(doEx) {
         state.currentExName = exData.name;
 
         if (firstExItem.restTime) state.currentEx.restTime = firstExItem.restTime;
-        if (firstExItem.targetWeight) state.currentEx.targetWeight = firstExItem.targetWeight;
-        if (firstExItem.targetReps) state.currentEx.targetReps = firstExItem.targetReps;
-        if (firstExItem.targetRIR) state.currentEx.targetRIR = firstExItem.targetRIR;
+        if (firstExItem.targetWeight !== undefined) state.currentEx.targetWeight = firstExItem.targetWeight;
+        if (firstExItem.targetReps !== undefined) state.currentEx.targetReps = firstExItem.targetReps;
+        if (firstExItem.targetRIR !== undefined) state.currentEx.targetRIR = firstExItem.targetRIR;
 
         resizeSets(1);
         startRecording();
@@ -1407,9 +1407,9 @@ function nextStep() {
             state.currentExName = exData.name;
 
             if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
-            if (nextExItem.targetWeight) state.currentEx.targetWeight = nextExItem.targetWeight;
-            if (nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
-            if (nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
+            if (nextExItem.targetWeight !== undefined) state.currentEx.targetWeight = nextExItem.targetWeight;
+            if (nextExItem.targetReps !== undefined) state.currentEx.targetReps = nextExItem.targetReps;
+            if (nextExItem.targetRIR !== undefined) state.currentEx.targetRIR = nextExItem.targetRIR;
 
             state.currentEx.sets = [{ w: 10, r: 10 }];
             state.setIdx = 0; state.lastLoggedSet = null;
@@ -1520,9 +1520,9 @@ function startNextRound() {
     state.currentExName = exData.name;
 
     if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
-    if (nextExItem.targetWeight) state.currentEx.targetWeight = nextExItem.targetWeight;
-    if (nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
-    if (nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
+    if (nextExItem.targetWeight !== undefined) state.currentEx.targetWeight = nextExItem.targetWeight;
+    if (nextExItem.targetReps !== undefined) state.currentEx.targetReps = nextExItem.targetReps;
+    if (nextExItem.targetRIR !== undefined) state.currentEx.targetRIR = nextExItem.targetRIR;
 
     state.currentEx.sets = [{ w: 10, r: 10 }];
     startRecording();
@@ -1563,9 +1563,9 @@ function skipCurrentExercise() {
                 state.currentExName = exData.name;
 
                 if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
-                if (nextExItem.targetWeight) state.currentEx.targetWeight = nextExItem.targetWeight;
-                if (nextExItem.targetReps) state.currentEx.targetReps = nextExItem.targetReps;
-                if (nextExItem.targetRIR) state.currentEx.targetRIR = nextExItem.targetRIR;
+                if (nextExItem.targetWeight !== undefined) state.currentEx.targetWeight = nextExItem.targetWeight;
+                if (nextExItem.targetReps !== undefined) state.currentEx.targetReps = nextExItem.targetReps;
+                if (nextExItem.targetRIR !== undefined) state.currentEx.targetRIR = nextExItem.targetRIR;
 
                 state.currentEx.sets = [{ w: 10, r: 10 }];
                 state.setIdx = 0; state.lastLoggedSet = null;
@@ -2462,6 +2462,9 @@ function closeEditModal() {
 
 let _editingRestEx = null;
 
+// פתיחת מודאל הגדרות תרגיל בזמן אימון פעיל
+// saveExerciseSettings / changeRestTime / closeExerciseSettings — מוגדרות ב-editor-logic.js
+// ותומכות בשני ההקשרים (עורך + אימון פעיל)
 function openExerciseSettings() {
     const planItem = state.clusterMode
         ? state.activeCluster.exercises[state.clusterIdx]
@@ -2469,33 +2472,12 @@ function openExerciseSettings() {
     _editingRestEx = planItem;
 
     document.getElementById('ex-settings-title').innerText = `הגדרות: ${state.currentExName}`;
-    document.getElementById('target-weight-input').value = planItem.targetWeight || '';
-    document.getElementById('target-reps-input').value = planItem.targetReps || '';
-    document.getElementById('target-rir-input').value = planItem.targetRIR || '';
+    document.getElementById('target-weight-input').value = planItem.targetWeight !== undefined ? planItem.targetWeight : '';
+    document.getElementById('target-reps-input').value = planItem.targetReps !== undefined ? planItem.targetReps : '';
+    document.getElementById('target-rir-input').value = planItem.targetRIR !== undefined ? planItem.targetRIR : '';
     document.getElementById('rest-time-display').innerText = (planItem.restTime || 90) + 's';
     document.getElementById('exercise-settings-modal').style.display = 'flex';
 }
-
-function changeRestTime(delta) {
-    if (!_editingRestEx) return;
-    _editingRestEx.restTime = Math.max(15, (_editingRestEx.restTime || 90) + delta);
-    document.getElementById('rest-time-display').innerText = _editingRestEx.restTime + 's';
-}
-
-function saveExerciseSettings() {
-    if (!_editingRestEx) return;
-    const tw = document.getElementById('target-weight-input').value;
-    const tr = document.getElementById('target-reps-input').value;
-    const trir = document.getElementById('target-rir-input').value;
-    if (tw) { _editingRestEx.targetWeight = parseFloat(tw); state.currentEx.targetWeight = parseFloat(tw); }
-    if (tr) { _editingRestEx.targetReps = parseInt(tr); state.currentEx.targetReps = parseInt(tr); }
-    if (trir) { _editingRestEx.targetRIR = parseFloat(trir); state.currentEx.targetRIR = parseFloat(trir); }
-    StorageManager.saveSessionState();
-    closeExerciseSettings();
-    initPickers();
-}
-
-function closeExerciseSettings() { document.getElementById('exercise-settings-modal').style.display = 'none'; }
 
 // ─── RESET ─────────────────────────────────────────────────────────────────
 

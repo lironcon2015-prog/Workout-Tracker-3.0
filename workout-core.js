@@ -2414,6 +2414,11 @@ function openSummaryEditSetModal(realIdx) {
 }
 
 function saveSetEdit() {
+    // ניתוב למצב ארכיון אם פעיל
+    if (typeof _editFromArchive !== 'undefined' && _editFromArchive) {
+        saveArchiveSetEdit();
+        return;
+    }
     const realSets = state.log.filter(l => !l.skip);
     const entry = realSets[_editSetRealIdx];
     if (!entry) return;
@@ -2429,6 +2434,11 @@ function saveSetEdit() {
 }
 
 function deleteSetFromLog() {
+    // ניתוב למצב ארכיון אם פעיל
+    if (typeof _editFromArchive !== 'undefined' && _editFromArchive) {
+        deleteArchiveSet();
+        return;
+    }
     const realSets = state.log.filter(l => !l.skip);
     const entry = realSets[_editSetRealIdx];
     if (!entry) return;
@@ -2445,6 +2455,7 @@ function closeEditModal() {
     document.getElementById('edit-set-modal').style.display = 'none';
     _editFromLog = false;
     _editFromSummary = false;
+    if (typeof _editFromArchive !== 'undefined') _editFromArchive = false;
 }
 
 // ─── EXERCISE SETTINGS ─────────────────────────────────────────────────────

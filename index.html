@@ -838,9 +838,18 @@
             <div id="ui-archive-detail" class="screen">
                 <div class="hero-section"><h2>פרטי אימון</h2></div>
                 <div id="archive-detail-content" class="summary-card"></div>
-                <div class="vertical-stack mt-lg">
+                <div id="archive-detail-note-editor" class="archive-note-editor" style="display:none;">
+                    <label class="archive-note-label">הערת אימון</label>
+                    <textarea id="archive-note-input" class="archive-note-textarea" rows="3" placeholder="הוסף הערה לאימון..."></textarea>
+                </div>
+                <div id="archive-detail-actions" class="vertical-stack mt-lg">
+                    <button class="btn-main primary-gradient" id="btn-archive-edit">ערוך אימון</button>
                     <button class="btn-main primary-gradient" id="btn-archive-copy">העתק סיכום</button>
                     <button class="btn-text color-danger" id="btn-archive-delete">מחק אימון מהארכיון</button>
+                </div>
+                <div id="archive-edit-actions" class="vertical-stack mt-lg" style="display:none;">
+                    <button class="btn-main primary-gradient" id="btn-archive-save-edit">שמור שינויים</button>
+                    <button class="btn-text color-dim" id="btn-archive-cancel-edit">ביטול</button>
                 </div>
             </div>
 

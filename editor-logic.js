@@ -792,23 +792,42 @@ function changeRestTime(delta) {
 }
 
 function saveExerciseSettings() {
-    const val = parseInt(document.getElementById('rest-time-display').innerText.replace('s', ''));
-    const tWeight = parseFloat(document.getElementById('target-weight-input').value);
-    const tReps = parseInt(document.getElementById('target-reps-input').value);
-    const tRIR = parseFloat(document.getElementById('target-rir-input').value);
+    if (managerState.editingTimerEx) {
+        // הקשר עורך — שמירה ל-managerState
+        const val = parseInt(document.getElementById('rest-time-display').innerText.replace('s', ''));
+        const tWeight = parseFloat(document.getElementById('target-weight-input').value);
+        const tReps = parseInt(document.getElementById('target-reps-input').value);
+        const tRIR = parseFloat(document.getElementById('target-rir-input').value);
 
-    const { idx, internalIdx } = managerState.editingTimerEx;
-    const targetEx = internalIdx !== null
-        ? managerState.exercises[idx].exercises[internalIdx]
-        : managerState.exercises[idx];
+        const { idx, internalIdx } = managerState.editingTimerEx;
+        const targetEx = internalIdx !== null
+            ? managerState.exercises[idx].exercises[internalIdx]
+            : managerState.exercises[idx];
 
-    targetEx.restTime = val;
-    targetEx.targetWeight = isNaN(tWeight) ? undefined : tWeight;
-    targetEx.targetReps = isNaN(tReps) ? undefined : tReps;
-    targetEx.targetRIR = isNaN(tRIR) ? undefined : tRIR;
+        targetEx.restTime = val;
+        targetEx.targetWeight = isNaN(tWeight) ? undefined : tWeight;
+        targetEx.targetReps = isNaN(tReps) ? undefined : tReps;
+        targetEx.targetRIR = isNaN(tRIR) ? undefined : tRIR;
 
-    closeExerciseSettings();
-    renderEditorList();
+        closeExerciseSettings();
+        renderEditorList();
+    } else if (typeof _editingRestEx !== 'undefined' && _editingRestEx) {
+        // הקשר אימון פעיל — שמירה ל-plan item ו-state.currentEx
+        const tw = document.getElementById('target-weight-input').value;
+        const tr = document.getElementById('target-reps-input').value;
+        const trir = document.getElementById('target-rir-input').value;
+
+        if (tw !== '') { _editingRestEx.targetWeight = parseFloat(tw); state.currentEx.targetWeight = parseFloat(tw); }
+        else { delete _editingRestEx.targetWeight; state.currentEx.targetWeight = undefined; }
+        if (tr !== '') { _editingRestEx.targetReps = parseInt(tr); state.currentEx.targetReps = parseInt(tr); }
+        else { delete _editingRestEx.targetReps; state.currentEx.targetReps = undefined; }
+        if (trir !== '') { _editingRestEx.targetRIR = parseFloat(trir); state.currentEx.targetRIR = parseFloat(trir); }
+        else { delete _editingRestEx.targetRIR; state.currentEx.targetRIR = undefined; }
+
+        StorageManager.saveSessionState();
+        closeExerciseSettings();
+        initPickers();
+    }
 }
 
 function closeExerciseSettings() { document.getElementById('exercise-settings-modal').style.display = 'none'; managerState.editingTimerEx = null; }

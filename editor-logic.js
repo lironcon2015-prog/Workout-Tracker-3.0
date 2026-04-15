@@ -773,9 +773,9 @@ function openRestTimerModal(idx, internalIdx = null) {
     }
 
     document.getElementById('ex-settings-title').innerText = ex.name;
-    document.getElementById('target-weight-input').value = ex.targetWeight || "";
-    document.getElementById('target-reps-input').value = ex.targetReps || "";
-    document.getElementById('target-rir-input').value = ex.targetRIR || "";
+    document.getElementById('target-weight-input').value = ex.targetWeight !== undefined ? ex.targetWeight : "";
+    document.getElementById('target-reps-input').value = ex.targetReps !== undefined ? ex.targetReps : "";
+    document.getElementById('target-rir-input').value = ex.targetRIR !== undefined ? ex.targetRIR : "";
 
     const time = ex.restTime || (ex.isMain ? 120 : 90);
     document.getElementById('rest-time-display').innerText = time + "s";

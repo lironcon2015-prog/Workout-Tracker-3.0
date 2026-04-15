@@ -1009,6 +1009,7 @@ function confirmExercise(doEx) {
         state.currentEx.isCalc = true;
         setupCalculatedEx();
     } else {
+        state.currentEx.isCalc = false; // תרגיל isCalc שלא סומן כ-Main — חייב לכבות כדי ש-initPickers ישתמש ביעדים
         if (targetSets && targetSets > 0) resizeSets(targetSets);
         startRecording();
     }

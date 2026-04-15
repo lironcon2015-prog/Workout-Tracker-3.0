@@ -313,6 +313,7 @@ const FirebaseManager = {
     KEY_FIREBASE_CONFIG: 'gympro_firebase_config',
     _db: null,
     _initialized: false,
+    _authReady: null,  // Promise שמסתיים כשה-Anonymous Auth הושלם
 
     // בודק אם Firebase מוגדר (יש config ב-LocalStorage)
     isConfigured() {
@@ -333,6 +334,7 @@ const FirebaseManager = {
         localStorage.removeItem(this.KEY_FIREBASE_CONFIG);
         this._db = null;
         this._initialized = false;
+        this._authReady = null;
     },
 
     // אתחול Firestore — נקרא lazily לפני כל פעולת ענן
@@ -350,6 +352,9 @@ const FirebaseManager = {
             }
             this._db = firebase.firestore();
             this._initialized = true;
+            // כניסה אנונימית — נדרשת לכללי Firestore (request.auth != null)
+            this._authReady = firebase.auth().signInAnonymously()
+                .catch(e => console.error('GymPro: anonymous auth failed', e));
             return true;
         } catch(e) {
             console.error('GymPro Firebase init error:', e);
@@ -357,10 +362,17 @@ const FirebaseManager = {
         }
     },
 
+    // ממתין לסיום האתחול ול-Auth לפני פעולות Firestore
+    async _ensureReady() {
+        if (!this.init()) return false;
+        await this._authReady;
+        return true;
+    },
+
     // ── Archive ──────────────────────────────────────────────────────────────
 
     async saveArchiveToCloud() {
-        if (!this.init()) return false;
+        if (!await this._ensureReady()) return false;
         try {
             const archive = StorageManager.getArchive();
             await this._db.collection('gympro_data').doc('archive').set({
@@ -375,7 +387,7 @@ const FirebaseManager = {
     },
 
     async loadArchiveFromCloud() {
-        if (!this.init()) {
+        if (!await this._ensureReady()) {
             showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.');
             return;
         }
@@ -395,7 +407,7 @@ const FirebaseManager = {
     // ── Config ───────────────────────────────────────────────────────────────
 
     async saveConfigToCloud() {
-        if (!this.init()) return false;
+        if (!await this._ensureReady()) return false;
         try {
             const configData = {
                 workouts:       StorageManager.getData(StorageManager.KEY_DB_WORKOUTS),
@@ -413,7 +425,7 @@ const FirebaseManager = {
     },
 
     async loadConfigFromCloud() {
-        if (!this.init()) {
+        if (!await this._ensureReady()) {
             showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.');
             return;
         }
@@ -437,7 +449,7 @@ const FirebaseManager = {
     // ── Upload All (העלאה ראשונית) ────────────────────────────────────────────
 
     async uploadAllToCloud() {
-        if (!this.init()) {
+        if (!await this._ensureReady()) {
             showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.');
             return;
         }
@@ -457,7 +469,7 @@ const FirebaseManager = {
     // ── AI History ───────────────────────────────────────────────────────────
 
     async saveAIHistoryToCloud() {
-        if (!this.init()) return false;
+        if (!await this._ensureReady()) return false;
         try {
             const history = StorageManager.getAIHistory();
             await this._db.collection('gympro_data').doc('ai_history').set({
@@ -472,7 +484,7 @@ const FirebaseManager = {
     },
 
     async loadAIHistoryFromCloud() {
-        if (!this.init()) {
+        if (!await this._ensureReady()) {
             showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.');
             return;
         }

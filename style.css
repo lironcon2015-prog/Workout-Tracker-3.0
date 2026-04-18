@@ -3857,3 +3857,33 @@ body {
 .editor-thumb-manage-btn:active {
     background: rgba(255,255,255,0.08);
 }
+
+/* =========================================================================
+   v15.8 — LIQUID OBSIDIAN SURFACE UNIFICATION
+   Converts selected "old glass" surfaces to solid Obsidian — matches the
+   design language already used on Home hero + Workout Selection cards.
+   Scope is narrow: modals, bottom-sheets, hero cards, and .menu-card are
+   INTENTIONALLY preserved (glass is meaningful there).
+   To rollback: delete this entire block.
+   ========================================================================= */
+
+.manager-item,
+.editor-row,
+.selector-item-row,
+.history-card-container,
+.summary-overview-card,
+.summary-ex-card {
+    background: #1b1b1b !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-top-color: rgba(255, 255, 255, 0.05) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Active-state tint stays consistent with Obsidian */
+.manager-item:active,
+.editor-row:active,
+.selector-item-row:active {
+    background: #222 !important;
+}

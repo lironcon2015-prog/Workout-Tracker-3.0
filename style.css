@@ -10,14 +10,8 @@
     --border-hi: rgba(255, 255, 255, 0.12);
     --card-bg-solid: rgba(31, 31, 31, 0.95);
     --ios-radius: 16px;
-    /* ── v15.7.1: Radius scale (additive — legacy --ios-radius preserved) ── */
-    --r-sm: 12px;     /* inputs, small chips */
-    --r-md: 20px;     /* rows, inner cards, sheets */
-    --r-lg: 32px;     /* main cards (= 2rem equivalent) */
-    --r-pill: 9999px; /* buttons, pills */
     --type-a: #0A84FF;
-    /* ── v15.7.1: Green unified to iOS system-green (was #47e266) ── */
-    --type-b: #32D74B;
+    --type-b: #47e266;
     --type-c: #ffb868;
     --type-free: #5E5CE6;
     --danger: #ff453a;
@@ -25,8 +19,7 @@
     /* Mockup primary palette */
     --primary: #aac7ff;
     --primary-container: #3e90ff;
-    /* ── v15.7.1: Secondary aligned with --type-b ── */
-    --secondary: #32D74B;
+    --secondary: #47e266;
 
     /* Design System: Spacing */
     --sp-xs: 4px;
@@ -3505,7 +3498,7 @@ body {
 }
 .km-manager-card-count {
     font-size: 0.7rem; font-weight: 900; letter-spacing: 0.1em;
-    color: #32D74B; text-transform: uppercase; margin: 0;
+    color: #47e266; text-transform: uppercase; margin: 0;
 }
 .km-manager-card-actions {
     display: flex; gap: 8px; margin-top: auto; padding-top: 12px;
@@ -3663,7 +3656,7 @@ body {
 }
 .km-tag-pill {
     background: rgba(100,253,125,0.12); border: 1px solid rgba(100,253,125,0.3);
-    color: #32D74B; border-radius: 9999px;
+    color: #47e266; border-radius: 9999px;
     font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em;
     text-transform: uppercase; padding: 4px 10px; cursor: pointer;
 }
@@ -3856,34 +3849,4 @@ body {
 }
 .editor-thumb-manage-btn:active {
     background: rgba(255,255,255,0.08);
-}
-
-/* =========================================================================
-   v15.8 — LIQUID OBSIDIAN SURFACE UNIFICATION
-   Converts selected "old glass" surfaces to solid Obsidian — matches the
-   design language already used on Home hero + Workout Selection cards.
-   Scope is narrow: modals, bottom-sheets, hero cards, and .menu-card are
-   INTENTIONALLY preserved (glass is meaningful there).
-   To rollback: delete this entire block.
-   ========================================================================= */
-
-.manager-item,
-.editor-row,
-.selector-item-row,
-.history-card-container,
-.summary-overview-card,
-.summary-ex-card {
-    background: #1b1b1b !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: 1px solid rgba(255, 255, 255, 0.05) !important;
-    border-top-color: rgba(255, 255, 255, 0.05) !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
-}
-
-/* Active-state tint stays consistent with Obsidian */
-.manager-item:active,
-.editor-row:active,
-.selector-item-row:active {
-    background: #222 !important;
 }

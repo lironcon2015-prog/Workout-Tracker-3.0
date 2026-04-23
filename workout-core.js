@@ -201,13 +201,12 @@ document.addEventListener('visibilitychange', () => {
 
 // ─── INITIALIZATION ────────────────────────────────────────────────────────
 
-window.onload = () => {
+document.addEventListener('DOMContentLoaded', () => {
     StorageManager.initDB();
     if (typeof renderWorkoutMenu === 'function') renderWorkoutMenu();
     checkRecovery();
     if (typeof renderHeroCard === 'function') renderHeroCard();
     if (typeof renderHomePRCard === 'function') renderHomePRCard();
-    // קריאה ללא cache-bust → מחזיר את הגרסה המותקנת מה-SW cache
     fetch('./version.json')
         .then(r => r.json())
         .then(d => {
@@ -218,7 +217,16 @@ window.onload = () => {
             if (sv && d.version) sv.textContent = 'v' + d.version;
         })
         .catch(() => {});
-};
+    // טעינת thumbnails ברקע כדי שיהיו מוכנים כשהמשתמש עובר למסך הבחירה
+    if (typeof WORKOUT_THUMB_IMAGES !== 'undefined') {
+        setTimeout(() => {
+            WORKOUT_THUMB_IMAGES.forEach(url => {
+                const img = new Image();
+                img.src = url;
+            });
+        }, 500);
+    }
+});
 
 function checkRecovery() {
     if (!StorageManager.hasActiveSession()) return;

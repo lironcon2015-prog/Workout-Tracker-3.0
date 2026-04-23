@@ -8,13 +8,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://lh3.googleusercontent.com">
+    <link rel="preconnect" href="https://www.gstatic.com">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Heebo:wght@300;400;600;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Heebo:wght@300;400;600;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');</script>
     <!-- Firebase SDK (Compat) — Firestore + Auth -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <div class="glass-overlay"></div>
@@ -661,7 +665,7 @@
 
             <div id="ui-confirm" class="screen">
                 <div class="confirm-bg-hero" aria-hidden="true">
-                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGa9NKVSOWKyzuyTrcOIrBAhQMAXYoUT5GNgrE7ToFb8XH9xljYeKmzElTEZ5MFsRx6CegBWuPcmY3zlP_Vi4rr7wAmrSSrXaXfMq6ncbCbg0cmbpXq183V6xLY6TA4WJ6MhmgqtV3RAE_IxWjAOZChrVvfhp-HGDcKgfpNzLuEI2T3oxOKzsvpByL4h4kjEKEPkE2OnLn1CERdSvBXWbsQZA2qJ80IeOpGLyOiaZ3DQBxIITzfQECAYviy3ELAcjVxEvyhiepwD8" alt="">
+                    <img loading="lazy" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGa9NKVSOWKyzuyTrcOIrBAhQMAXYoUT5GNgrE7ToFb8XH9xljYeKmzElTEZ5MFsRx6CegBWuPcmY3zlP_Vi4rr7wAmrSSrXaXfMq6ncbCbg0cmbpXq183V6xLY6TA4WJ6MhmgqtV3RAE_IxWjAOZChrVvfhp-HGDcKgfpNzLuEI2T3oxOKzsvpByL4h4kjEKEPkE2OnLn1CERdSvBXWbsQZA2qJ80IeOpGLyOiaZ3DQBxIITzfQECAYviy3ELAcjVxEvyhiepwD8" alt="">
                 </div>
                 <div class="confirm-fixed-top">
                     <div id="confirm-ex-counter" class="text-sm color-accent font-semi mb-xs" style="display:none;"></div>
@@ -859,7 +863,7 @@
                 
                 <!-- Hero Background -->
                 <div class="hero-bg-ana">
-                    <img class="hero-image-ana" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6J3AfEvcpPozzfrnUanXA0Qfohcy0ajd4CRR55ZMnKpMNXGSutcKB2SOxJHDi6CbiJO_BBldaEvvpdUlhznsMSylCunal_RQzdot0VjMPAo0EXnZcZ02z8PbNNCaTfX_HrfxKrQVF4e4vWo19wq9I1FotGwZYQ7nmL8sugf72NkFb3pafSOIkZh9ysUgH8ioSD_ldTkZ_Bi2lUfQkOXBbsc7YNOjoOo9At3vZzpdPqXeRMnzsxwi9DSa7sZP6fwUl4iXJuZbR5_1m">
+                    <img class="hero-image-ana" loading="lazy" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6J3AfEvcpPozzfrnUanXA0Qfohcy0ajd4CRR55ZMnKpMNXGSutcKB2SOxJHDi6CbiJO_BBldaEvvpdUlhznsMSylCunal_RQzdot0VjMPAo0EXnZcZ02z8PbNNCaTfX_HrfxKrQVF4e4vWo19wq9I1FotGwZYQ7nmL8sugf72NkFb3pafSOIkZh9ysUgH8ioSD_ldTkZ_Bi2lUfQkOXBbsc7YNOjoOo9At3vZzpdPqXeRMnzsxwi9DSa7sZP6fwUl4iXJuZbR5_1m">
                     <div class="hero-gradient-ana"></div>
                 </div>
 

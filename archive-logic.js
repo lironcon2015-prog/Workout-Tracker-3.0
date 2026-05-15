@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
- * Version: 14.12.0-72
+ * Version: 15.8
  * שינויים: אנליטיקה - תצוגת Stitch Perfect (Bento, Bezier, Liquid Obsidian).
  */
 

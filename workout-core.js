@@ -896,65 +896,9 @@ function showConfirmScreen(forceExName = null) {
     const historyContainer = document.getElementById('history-container');
     historyContainer.innerHTML = "";
 
-    if (typeof getLastPerformance === 'function') {
-        const history = getLastPerformance(exName);
-        if (history) {
-            let rowsHtml = "";
-
-            history.sets.forEach((setStr, idx) => {
-                let weight = "-", reps = "-", rir = "-";
-                let currentNote = "";
-                let coreStr = setStr;
-
-                if (setStr.includes('| Note:')) {
-                    const parts = setStr.split('| Note:');
-                    coreStr = parts[0].trim();
-                    currentNote = parts[1].trim();
-                }
-
-                try {
-                    const parts = coreStr.split('x');
-                    if (parts.length > 1) {
-                        weight = parts[0].replace('kg', '').trim();
-                        const rest = parts[1];
-                        const rirMatch = rest.match(/\(RIR (.*?)\)/);
-                        reps = rest.split('(')[0].trim();
-                        if (rirMatch) rir = rirMatch[1];
-                    }
-                } catch (e) {}
-
-                const rirNum = parseFloat(rir);
-                const rirClass = (rir !== '-' && rirNum <= 0) ? 'rir-val rir-orange' : 'rir-val rir-green';
-
-                rowsHtml += `
-                <div class="history-row">
-                    <div class="history-col set-idx">${idx + 1}</div>
-                    <div class="history-col">${weight}</div>
-                    <div class="history-col">${reps}</div>
-                    <div class="history-col ${rirClass}">${rir}</div>
-                </div>`;
-
-                // הערה inline מתחת לסט — רק אם קיימת
-                if (currentNote) {
-                    rowsHtml += `
-                    <div class="history-note-inline">
-                        <div><p>${currentNote}</p></div>
-                    </div>`;
-                }
-            });
-
-            const gridHtml = `
-            <div class="history-card-container">
-                <div class="text-sm color-dim text-right mb-sm">ביצוע אחרון: ${history.date}</div>
-                <div class="history-separator"></div>
-                <div class="history-section-title">ביצוע קודם</div>
-                <div class="history-header">
-                    <div>סט</div><div>משקל</div><div>חזרות</div><div>RIR</div>
-                </div>
-                <div class="history-list">${rowsHtml}</div>
-            </div>`;
-            historyContainer.innerHTML = gridHtml;
-        }
+    if (typeof getLastPerformances === 'function') {
+        const performances = getLastPerformances(exName, 5);
+        _renderHistoryPager(historyContainer, performances, { title: 'ביצוע קודם' });
     }
 
     navigate('ui-confirm');
@@ -2354,45 +2298,94 @@ function closeSessionLog() {
 
 // ─── HISTORY DRAWER ────────────────────────────────────────────────────────
 
+// פירוק string סט בפורמט "Wkg x R (RIR X) | Note: text"
+function _parseHistorySetStr(setStr) {
+    let weight = '-', reps = '-', rir = '-', note = '';
+    let coreStr = setStr;
+    if (setStr.includes('| Note:')) {
+        const parts = setStr.split('| Note:');
+        coreStr = parts[0].trim();
+        note = parts[1].trim();
+    }
+    try {
+        const parts = coreStr.split('x');
+        if (parts.length > 1) {
+            weight = parts[0].replace('kg', '').trim();
+            const rest = parts[1];
+            const rirMatch = rest.match(/\(RIR (.*?)\)/);
+            reps = rest.split('(')[0].trim();
+            if (rirMatch) rir = rirMatch[1];
+        }
+    } catch (e) {}
+    return { weight, reps, rir, note };
+}
+
+// pager לתצוגת היסטוריית תרגיל — דפדוף בין עד 5 ביצועים אחרונים
+function _renderHistoryPager(containerEl, performances, opts = {}) {
+    if (!performances || !performances.length) {
+        containerEl.innerHTML = `<p class="color-dim text-sm text-center">אין ביצוע קודם בארכיון</p>`;
+        return;
+    }
+
+    let idx = 0; // 0 = החדש ביותר
+    const render = () => {
+        const perf = performances[idx];
+        let rowsHtml = "";
+        perf.sets.forEach((setStr, i) => {
+            const { weight, reps, rir, note } = _parseHistorySetStr(setStr);
+            const rirNum = parseFloat(rir);
+            const rirClass = (rir !== '-' && rirNum <= 0) ? 'rir-val rir-orange' : 'rir-val rir-green';
+            rowsHtml += `
+                <div class="history-row">
+                    <div class="history-col set-idx">${i + 1}</div>
+                    <div class="history-col">${weight}</div>
+                    <div class="history-col">${reps}</div>
+                    <div class="history-col ${rirClass}">${rir}</div>
+                </div>`;
+            if (note && opts.showNotes !== false) {
+                rowsHtml += `<div class="history-note-inline"><div><p>${note}</p></div></div>`;
+            }
+        });
+
+        const hasOlder = idx < performances.length - 1;
+        const hasNewer = idx > 0;
+        const titleHtml = opts.title ? `<div class="history-separator"></div><div class="history-section-title">${opts.title}</div>` : '';
+
+        containerEl.innerHTML = `
+            <div class="history-card-container">
+                <div class="history-nav">
+                    <button class="history-nav-btn" data-act="older" ${!hasOlder ? 'disabled' : ''} aria-label="ביצוע ישן יותר">›</button>
+                    <div class="history-nav-info">
+                        <div class="nav-date">${perf.date || '—'}</div>
+                        <div class="nav-counter">${idx + 1} / ${performances.length}</div>
+                    </div>
+                    <button class="history-nav-btn" data-act="newer" ${!hasNewer ? 'disabled' : ''} aria-label="ביצוע חדש יותר">‹</button>
+                </div>
+                ${titleHtml}
+                <div class="history-header">
+                    <div>סט</div><div>משקל</div><div>חזרות</div><div>RIR</div>
+                </div>
+                <div class="history-list">${rowsHtml}</div>
+            </div>`;
+
+        const olderBtn = containerEl.querySelector('[data-act="older"]');
+        const newerBtn = containerEl.querySelector('[data-act="newer"]');
+        if (olderBtn) olderBtn.onclick = () => { if (idx < performances.length - 1) { idx++; render(); haptic('light'); } };
+        if (newerBtn) newerBtn.onclick = () => { if (idx > 0) { idx--; render(); haptic('light'); } };
+    };
+    render();
+}
+
 function openHistoryDrawer() {
     if (!state.currentExName) return;
-    const history = (typeof getLastPerformance === 'function') ? getLastPerformance(state.currentExName) : null;
+    const performances = (typeof getLastPerformances === 'function') ? getLastPerformances(state.currentExName, 5) : [];
     const content = document.getElementById('sheet-content');
     const overlay = document.getElementById('sheet-overlay');
     const drawer  = document.getElementById('sheet-modal');
 
-    let html = `<h3 style="margin:0 0 10px;">${state.currentExName}</h3>`;
+    content.innerHTML = `<h3 style="margin:0 0 10px;">${state.currentExName}</h3><div id="history-pager-host"></div>`;
+    _renderHistoryPager(document.getElementById('history-pager-host'), performances);
 
-    if (!history || !history.sets || history.sets.length === 0) {
-        html += `<p class="color-dim text-sm">אין ביצוע קודם בארכיון</p>`;
-    } else {
-        html += `<div class="text-xs color-dim mb-sm">ביצוע אחרון: ${history.date}</div>`;
-        html += `<div class="history-card-container">
-            <div class="history-header"><div>סט</div><div>משקל</div><div>חזרות</div><div>RIR</div></div>
-            <div class="history-list">`;
-        history.sets.forEach((setStr, idx) => {
-            let weight = '-', reps = '-', rir = '-';
-            try {
-                const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
-                const parts = core.split('x');
-                if (parts.length > 1) {
-                    weight = parts[0].replace('kg', '').trim();
-                    const rirMatch = parts[1].match(/\(RIR (.*?)\)/);
-                    reps = parts[1].split('(')[0].trim();
-                    if (rirMatch) rir = rirMatch[1];
-                }
-            } catch (e) {}
-            html += `<div class="history-row">
-                <div class="history-col set-idx">#${idx + 1}</div>
-                <div class="history-col">${weight}</div>
-                <div class="history-col">${reps}</div>
-                <div class="history-col rir-note">${rir}</div>
-            </div>`;
-        });
-        html += `</div></div>`;
-    }
-
-    content.innerHTML = html;
     overlay.style.display = 'block';
     drawer.classList.add('open');
     haptic('light');

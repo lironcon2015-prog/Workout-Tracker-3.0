@@ -63,23 +63,22 @@ function switchArchiveView(view) {
 }
 
 function getLastPerformance(exName) {
-    const history = StorageManager.getArchive();
-    const isInterruptionLog = (state.log || []).filter(l => l.isInterruption && l.exName === exName);
+    const all = getLastPerformances(exName, 1);
+    return all.length ? all[0] : null;
+}
 
+// מחזיר עד `limit` ביצועים אחרונים של תרגיל בארכיון — מהחדש לישן
+function getLastPerformances(exName, limit = 5) {
+    const history = StorageManager.getArchive();
+    const results = [];
     for (const entry of history) {
         if (!entry.details || !entry.details[exName]) continue;
-        if (!entry.details[exName].sets || entry.details[exName].sets.length === 0) continue;
-
-        const sets = entry.details[exName].sets.filter(s => {
-            if (!isInterruptionLog.length) return true;
-            return true;
-        });
-
-        if (sets.length > 0) {
-            return { sets, date: entry.date || '' };
-        }
+        const sets = entry.details[exName].sets;
+        if (!sets || !sets.length) continue;
+        results.push({ sets, date: entry.date || '' });
+        if (results.length >= limit) break;
     }
-    return null;
+    return results;
 }
 
 function getArchiveClean() {

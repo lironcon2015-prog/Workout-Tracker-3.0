@@ -2704,8 +2704,8 @@ async function callGeminiAPI(userMessage) {
                 const text = parts.find(p => !p.thought)?.text || '';
                 return text;
             }
-            if (response.status === 429 || response.status === 503) {
-                console.warn(`GymPro AI: model ${modelName} overloaded, trying next...`);
+            if (response.status === 429 || response.status === 503 || response.status === 404) {
+                console.warn(`GymPro AI: model ${modelName} unavailable (${response.status}), trying next...`);
                 lastErr = `${modelName}: ${response.status}`;
                 continue;
             }

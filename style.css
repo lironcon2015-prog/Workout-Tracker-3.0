@@ -1209,6 +1209,30 @@ body {
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 8px 32px rgba(0,0,0,0.3);
     position: relative; overflow: hidden;
 }
+.history-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px;
+}
+.history-nav-info { flex: 1; text-align: center; }
+.history-nav-info .nav-date {
+    font-family: 'Heebo', sans-serif; font-weight: 700;
+    font-size: 0.9rem; color: var(--text);
+}
+.history-nav-info .nav-counter {
+    font-size: 0.7rem; color: rgba(255,255,255,0.45);
+    margin-top: 2px; font-variant-numeric: tabular-nums;
+}
+.history-nav-btn {
+    background: #353535; border: none; color: var(--text);
+    width: 36px; height: 36px; border-radius: 9999px;
+    font-size: 1.3rem; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Heebo', sans-serif; flex-shrink: 0;
+    transition: opacity 0.15s;
+}
+.history-nav-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.history-nav-btn:not(:disabled):active { opacity: 0.6; }
+
 .history-card-container .history-separator {
     height: 1px; width: 100%; background: rgba(255,255,255,0.08); margin: 14px 0;
 }

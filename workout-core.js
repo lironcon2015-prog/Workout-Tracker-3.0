@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 14.10.0
+ * Version: 15.8
  * שדרוגים: החלפת תרגיל חופשית, חזרה מבחר אימון, פידבק סיום, כפתור רענון, תיקוני חוב.
  */
 
@@ -557,10 +557,8 @@ function _doBack(currentScreen) {
         if (typeof renderFreestyleList === 'function') renderFreestyleList();
     }
 
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(prevScreen).classList.add('active');
-    const NO_BACK = ['ui-week', 'ui-analytics', 'ui-archive'];
-    document.getElementById('global-back').style.display = !NO_BACK.includes(prevScreen) ? 'flex' : 'none';
+    // navigate() הוא מקור האמת — מסנכרן tab-bar, session-strip, settings-btn, back-btn
+    navigate(prevScreen);
 }
 
 function openSettings() {
@@ -1411,6 +1409,11 @@ function nextStep() {
             state.clusterIdx++;
             const nextExItem = state.activeCluster.exercises[state.clusterIdx];
             const exData = state.exercises.find(e => e.name === nextExItem.name);
+            if (!exData) {
+                showAlert(`התרגיל "${nextExItem.name}" לא נמצא. סוגר את הסופרסט.`);
+                finishCluster();
+                return;
+            }
 
             state.currentEx = deepClone(exData);
             state.currentExName = exData.name;
@@ -1524,6 +1527,11 @@ function startNextRound() {
 
     const nextExItem = state.activeCluster.exercises[0];
     const exData = state.exercises.find(e => e.name === nextExItem.name);
+    if (!exData) {
+        showAlert(`התרגיל "${nextExItem.name}" לא נמצא. סוגר את הסופרסט.`);
+        finishCluster();
+        return;
+    }
 
     state.currentEx = deepClone(exData);
     state.currentExName = exData.name;
@@ -1567,6 +1575,11 @@ function skipCurrentExercise() {
 
                 const nextExItem = state.activeCluster.exercises[state.clusterIdx];
                 const exData = state.exercises.find(e => e.name === nextExItem.name);
+                if (!exData) {
+                    showAlert(`התרגיל "${nextExItem.name}" לא נמצא. סוגר את הסופרסט.`);
+                    finishCluster();
+                    return;
+                }
 
                 state.currentEx = deepClone(exData);
                 state.currentExName = exData.name;

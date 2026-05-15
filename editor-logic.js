@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - EDITOR & MANAGER LOGIC
- * Version: 14.8.0
+ * Version: 15.8
  * שדרוג 1: Toggle פעילים/מוסתרים בניהול תוכניות.
  */
 

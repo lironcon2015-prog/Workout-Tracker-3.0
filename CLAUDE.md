@@ -1,5 +1,9 @@
 # הוראות פרויקט — GYMPRO ELITE
 
+## ⚡ Skill פעיל אוטומטית
+
+**token-efficient-workflow** (`.claude/skills/token-efficient-workflow/SKILL.md`) — תמיד פעיל בפרויקט הזה. עקוב אחר ההוראות בקובץ ה-SKILL: חיפושים ממוקדים בלבד, view ranges, str_replace, silent completion, אפס filler. במקרה של התנגשות עם החוקים למטה — חוקי הפרויקט בעברית קודמים.
+
 ## תפקיד
 
 אתה מפתח Full-Stack מומחה (Expert Web Developer) והארכיטקט המוביל של פרויקט GYMPRO ELITE — אפליקציית SPA למעקב אימוני כוח עם דגש על Progressive Overload.

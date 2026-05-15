@@ -17,6 +17,7 @@ const StorageManager = {
     KEY_AI_MODELS:    'gympro_ai_models',
     KEY_AI_PERSONA:   'gympro_ai_persona',
     KEY_AI_HISTORY:   'gympro_ai_history',
+    KEY_AI_DISPLAY_CUTOFF: 'gympro_ai_display_cutoff',
 
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); }
@@ -302,6 +303,17 @@ const StorageManager = {
 
     clearAIHistory() {
         localStorage.removeItem(this.KEY_AI_HISTORY);
+        localStorage.removeItem(this.KEY_AI_DISPLAY_CUTOFF);
+    },
+
+    // נקודת חיתוך לתצוגת AI Coach — הודעות עם timestamp לפני הערך הזה לא יוצגו
+    getAIDisplayCutoff() {
+        const v = localStorage.getItem(this.KEY_AI_DISPLAY_CUTOFF);
+        return v ? parseInt(v, 10) : 0;
+    },
+
+    setAIDisplayCutoff(ts) {
+        localStorage.setItem(this.KEY_AI_DISPLAY_CUTOFF, String(ts));
     }
 };
 

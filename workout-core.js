@@ -161,7 +161,7 @@ let _sessionTimerOffset = 0;     // שניות שעברו לפני ה-interval �
 let aiChatHistory     = [];    // זיכרון session — מוזרק ל-API (10 אחרונות)
 let isAILoading       = false; // מניעת double-submit
 let aiFullArchiveMode = false; // מצב ארכיון מלא
-let _aiDisplayCleared = false; // תצוגה נוקתה בסשן זה — לא לרנדר מחדש
+// תצוגת ניקוי שורדת reload — דרך StorageManager.getAIDisplayCutoff()
 
 function startSessionTimer(restoreElapsed) {
     stopSessionTimer();
@@ -2743,8 +2743,10 @@ function openAICoach() {
     const saved = StorageManager.getAIHistory();
     aiChatHistory = saved.map(m => ({ role: m.role, text: m.text }));
 
-    // רינדור היסטוריה — דילוג אם המשתמש ניקה תצוגה בסשן זה
-    if (!_aiDisplayCleared) _renderAIChatHistory(saved);
+    // סינון לפי cutoff — הודעות מלפני "ניקוי מסך" לא יוצגו (שורד reload)
+    const cutoff = StorageManager.getAIDisplayCutoff();
+    const visible = cutoff > 0 ? saved.filter(m => (m.timestamp || 0) > cutoff) : saved;
+    _renderAIChatHistory(visible);
 
     // context banner אם באימון
     _updateAIContextBanner();
@@ -2783,7 +2785,7 @@ function closeAICoach() {
 function clearAIChatDisplay() {
     const container = document.getElementById('ai-chat-messages');
     if (container) container.innerHTML = '';
-    _aiDisplayCleared = true;
+    StorageManager.setAIDisplayCutoff(Date.now());
     haptic('success');
 }
 

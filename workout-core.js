@@ -423,6 +423,10 @@ function navigate(id, clearStack = false) {
     } else if (id !== 'ui-main' && document.body.classList.contains('live-mode-active')) {
         exitWorkoutLiveMode(true);  // silent exit if leaving ui-main while active
     }
+    // עדכון הכפתור הירוק "חזור ל-Live" בכל מעבר ל-ui-main
+    if (id === 'ui-main' && typeof _syncLiveResumeBtn === 'function') {
+        setTimeout(_syncLiveResumeBtn, 80);
+    }
 }
 
 function handleBackClick() {
@@ -3630,6 +3634,7 @@ async function enterWorkoutLiveMode() {
 
     updateLiveViewContent();
     _attachLiveSwipe();
+    _syncLiveResumeBtn();
     haptic('light');
 }
 
@@ -3646,6 +3651,7 @@ async function exitWorkoutLiveMode(silent = false) {
         _liveModeSuppressed = true;
         haptic('light');
     }
+    _syncLiveResumeBtn();
 }
 
 // Helper שמופעל מהכפתור "המשך לתרגיל הבא" בתוך ה-Live View
@@ -3654,6 +3660,21 @@ function _liveContinueExercise() {
         finishCurrentExercise();
         setTimeout(updateLiveViewContent, 80);
     }
+}
+
+// כפתור "חזור ל-Live" ב-ui-main — מנקה suppression וחוזר לתצוגה הענקית
+function _resumeLiveMode() {
+    _liveModeSuppressed = false;
+    enterWorkoutLiveMode();
+}
+
+// סנכרון הצגת הכפתור הירוק ב-ui-main — מופיע רק כש-liveMode דלוק
+// ובאופן אקטיבי המשתמש מחוץ ל-overlay
+function _syncLiveResumeBtn() {
+    const btn = document.getElementById('live-resume-btn');
+    if (!btn) return;
+    const show = isLiveModeEnabled() && !document.body.classList.contains('live-mode-active');
+    btn.style.display = show ? 'inline-flex' : 'none';
 }
 
 // קורא לנתוני state ומסנכרן את ה-DOM של ה-overlay
@@ -3789,6 +3810,7 @@ function toggleLiveMode(enabled) {
         // אם כבר במסך אימון — להפעיל מיד
         enterWorkoutLiveMode();
     }
+    _syncLiveResumeBtn();
 }
 
 // סנכרון מצב ה-toggle כשנכנסים להגדרות

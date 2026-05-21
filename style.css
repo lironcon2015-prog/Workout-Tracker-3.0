@@ -241,8 +241,14 @@ body {
     position: relative;
 }
 .screen.active { display: flex; animation: slideIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.screen.active.enter-forward { animation: screenEnterForward 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.screen.active.enter-back    { animation: screenEnterBack 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .screen > * { flex-shrink: 0; }
 @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+/* RTL forward: המסך החדש מחליק פנימה מהשמאל (כיוון הקריאה ימין→שמאל; "הבא" = שמאל ויזואלית) */
+@keyframes screenEnterForward { from { transform: translateX(-28px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+/* RTL back: המסך הקודם נכנס מצד ימין */
+@keyframes screenEnterBack    { from { transform: translateX(28px);  opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 /* Cards & Buttons */
 .hero-section { margin-bottom: 25px; } 
@@ -4075,4 +4081,53 @@ body {
 }
 .editor-thumb-manage-btn:active {
     background: rgba(255,255,255,0.08);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Sprint 2 — UI/UX Polish: Skeletons + Drag Sheets
+   ─────────────────────────────────────────────────────────────── */
+
+/* Skeleton shimmer — Liquid Obsidian palette */
+@keyframes skelShimmer {
+    0%   { background-position:  200% 0; }
+    100% { background-position: -200% 0; }
+}
+.skeleton-shimmer {
+    background: linear-gradient(90deg, #1b1b1b 0%, #2a2a2a 50%, #1b1b1b 100%);
+    background-size: 200% 100%;
+    animation: skelShimmer 1.4s linear infinite;
+    border-radius: 2rem;
+    pointer-events: none;
+    will-change: background-position;
+}
+.skel-stack { display: flex; flex-direction: column; gap: 14px; padding: 4px 0; }
+.skel-card  { height: 96px;  border-radius: 2rem; }
+.skel-card.tall { height: 180px; }
+.skel-card.short { height: 64px; border-radius: 18px; }
+.skel-line  { height: 16px;  border-radius: 8px; }
+.skel-line.short { width: 40%; }
+.skel-line.medium { width: 65%; }
+.skel-line.long { width: 100%; }
+.skel-circle { width: 64px; height: 64px; border-radius: 50%; }
+.skel-bar-row { display: flex; gap: 8px; align-items: flex-end; height: 140px; padding: 12px; background: #141414; border-radius: 2rem; }
+.skel-bar-row .skel-bar { flex: 1; border-radius: 12px 12px 4px 4px; }
+
+/* placeholder containers hidden until ה-JS מבקש אותם */
+.skel-host { display: none; }
+.skel-host.is-visible { display: block; animation: fadeIn 0.18s ease-out; }
+
+/* Bottom sheet drag-to-dismiss — מבטל מעבר בזמן גרירה ידנית */
+.bottom-sheet.dragging {
+    transition: none !important;
+    will-change: transform;
+}
+.bottom-sheet .sheet-handle { cursor: grab; touch-action: none; }
+.bottom-sheet.dragging .sheet-handle { cursor: grabbing; }
+
+/* גישה נגישה: אם המשתמש העדיף תנועה מופחתת — בטל אנימציות מעבר */
+@media (prefers-reduced-motion: reduce) {
+    .screen.active,
+    .screen.active.enter-forward,
+    .screen.active.enter-back { animation: none !important; }
+    .skeleton-shimmer { animation: none; background: #1b1b1b; }
 }

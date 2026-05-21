@@ -4144,10 +4144,11 @@ body {
 
 .heatmap-table {
     display: grid;
-    grid-template-columns: 42px repeat(7, 1fr) 68px;
-    column-gap: 6px; row-gap: 8px;
+    grid-template-columns: 34px repeat(7, minmax(0, 1fr)) 54px;
+    column-gap: 5px; row-gap: 8px;
     direction: rtl; align-items: stretch;
     margin-top: 8px;
+    min-width: 0;
 }
 .hm-corner { /* תא פינתי ריק */ }
 
@@ -4180,13 +4181,13 @@ body {
 /* תאי חום — רדיוס גדול, גלוי וברור */
 .heatmap-cell {
     aspect-ratio: 1 / 1;
-    min-height: 28px;
-    border-radius: 9px;
+    border-radius: 8px;
     background: rgba(255,255,255,0.025);
     border: 1px solid rgba(255,255,255,0.04);
     cursor: pointer;
     transition: transform 0.18s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.18s, border-color 0.18s;
     position: relative;
+    min-width: 0;
 }
 .heatmap-cell:hover:not(.empty) { transform: scale(1.18); border-color: rgba(255,255,255,0.35); z-index: 2; }
 .heatmap-cell.selected {
@@ -4204,17 +4205,17 @@ body {
 .hm-total-val {
     font-family: 'Heebo', sans-serif;
     font-style: italic; font-weight: 900;
-    font-size: 1.05rem; color: #fff;
-    line-height: 1; letter-spacing: -0.02em;
-    direction: ltr;
+    font-size: 0.92rem; color: #fff;
+    line-height: 1; letter-spacing: -0.03em;
+    direction: ltr; white-space: nowrap;
 }
-.hm-total-val.dim { color: rgba(255,255,255,0.22); font-size: 0.95rem; }
+.hm-total-val.dim { color: rgba(255,255,255,0.22); font-size: 0.85rem; }
 .hm-trend {
     font-family: 'Heebo', sans-serif;
     font-style: italic; font-weight: 900;
-    font-size: 0.6rem; line-height: 1;
-    padding: 3px 7px; border-radius: 9999px;
-    letter-spacing: -0.01em; direction: ltr;
+    font-size: 0.54rem; line-height: 1;
+    padding: 2px 5px; border-radius: 9999px;
+    letter-spacing: -0.02em; direction: ltr;
     white-space: nowrap;
 }
 .hm-trend.up   { background: rgba(71,226,102,0.14); color: var(--type-b); }

@@ -1292,28 +1292,54 @@ function initPickers() {
     syncStepperDisplay('reps');
     syncStepperDisplay('rir');
 
-    _resetSetRecZone();
+    _resetSetRecState();
 }
 
 // ─── AI SET RECOMMENDATION ─────────────────────────────────────────────────
 // המלצה חכמה לסט הבא — נשלחת ל-Gemini עם context מלא של ביצועים + מצב תזונתי.
 // מופעלת לחיצה ידנית כדי לחסוך קריאות API.
+// UI: טריגר זעיר ב-badge-row + תוצאה ב-bottom sheet (לא דוחפת את הטיימר).
 
 let _pendingAIRecommendation = null;
 
-function _resetSetRecZone() {
+// _roundRecommendedWeight — מעגל ל-2.5 ק"ג עבור משקלים מעל 25 ק"ג.
+// תרגילים קלים (משקולות יד קטנות, כבלים) יכולים להישאר בערכים מדויקים.
+function _roundRecommendedWeight(w) {
+    if (typeof w !== 'number' || !isFinite(w)) return w;
+    if (w <= 25) return w;
+    return Math.round(w / 2.5) * 2.5;
+}
+
+function _resetSetRecState() {
     _pendingAIRecommendation = null;
-    const zone    = document.getElementById('set-rec-zone');
     const trigger = document.getElementById('set-rec-trigger');
-    const result  = document.getElementById('set-rec-result');
-    if (!zone || !trigger || !result) return;
-    const hasKey  = !!StorageManager.getAIConfig().apiKey;
-    zone.style.display    = hasKey ? '' : 'none';
-    trigger.style.display = 'flex';
-    trigger.removeAttribute('disabled');
-    result.style.display  = 'none';
-    result.className      = 'set-rec-result';
-    result.innerHTML      = '';
+    if (trigger) {
+        const hasKey = !!StorageManager.getAIConfig().apiKey;
+        trigger.style.display = hasKey ? 'inline-flex' : 'none';
+        trigger.removeAttribute('disabled');
+    }
+    _closeSetRecSheet(true);
+}
+
+function _openSetRecSheet() {
+    const overlay = document.getElementById('set-rec-overlay');
+    const sheet   = document.getElementById('set-rec-sheet');
+    if (!overlay || !sheet) return;
+    overlay.style.display = 'block';
+    // המתנה ל-paint כדי שטרנזישן ה-transform יפעל בצורה חלקה
+    requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function _closeSetRecSheet(instant = false) {
+    const overlay = document.getElementById('set-rec-overlay');
+    const sheet   = document.getElementById('set-rec-sheet');
+    if (!overlay || !sheet) return;
+    sheet.classList.remove('open');
+    if (instant) {
+        overlay.style.display = 'none';
+    } else {
+        setTimeout(() => { overlay.style.display = 'none'; }, 300);
+    }
 }
 
 function _buildRecommendationPrompt(exName) {
@@ -1353,6 +1379,10 @@ Guidelines:
 - If last RIR>=2 and reps hit target → recommend +1 step weight.
 - If last RIR=0 and reps below target → recommend a small deload.
 - Otherwise → keep weight, suggest +1 rep.
+
+Weight rounding rule (CRITICAL):
+- If the recommended weight is greater than 25 kg → ROUND to the nearest 2.5 kg (e.g. 52.3 → 52.5, 78.7 → 80, 41.2 → 40).
+- If 25 kg or less → leave precision as-is (small dumbbells / cables can use 1 kg increments).
 
 Respond with ONLY valid JSON (no markdown, no commentary, no code fences):
 { "w": <number kg>, "r": <number reps>, "rir": <number>, "reason": "<short Hebrew explanation up to 80 chars>" }`;
@@ -1412,10 +1442,10 @@ async function requestAIRecommendation() {
     if (!trigger || !result) return;
 
     haptic('light');
-    trigger.style.display = 'none';
-    result.className      = 'set-rec-result loading';
-    result.innerHTML      = '⏳ המאמן חושב על הסט הבא...';
-    result.style.display  = 'flex';
+    trigger.setAttribute('disabled', 'true');
+    result.className = 'set-rec-result loading';
+    result.innerHTML = '⏳ המאמן חושב על הסט הבא...';
+    _openSetRecSheet();
 
     try {
         const prompt   = _buildRecommendationPrompt(state.currentExName);
@@ -1423,6 +1453,8 @@ async function requestAIRecommendation() {
         const cleaned  = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
         const rec      = JSON.parse(cleaned);
         if (typeof rec.w !== 'number' || typeof rec.r !== 'number') throw new Error('BAD_RESPONSE');
+        // הגנת רשת — מעגל מ-AI שלא ציית להוראת ה-rounding בפרומפט
+        rec.w = _roundRecommendedWeight(rec.w);
         _renderAIRecommendation(rec);
     } catch (e) {
         console.warn('GymPro: AI recommendation failed', e);
@@ -1430,7 +1462,7 @@ async function requestAIRecommendation() {
         result.innerHTML = e.message === 'API_KEY_MISSING'
             ? 'נדרש להגדיר Gemini API Key בהגדרות.'
             : 'לא הצלחתי לקבל המלצה — נסה שוב או שאל ב-AI Coach.';
-        setTimeout(() => _resetSetRecZone(), 3500);
+        setTimeout(() => dismissAIRecommendation(), 3500);
     }
 }
 
@@ -1442,7 +1474,7 @@ function _renderAIRecommendation(rec) {
     result.className = 'set-rec-result';
     result.innerHTML = `
         <div class="set-rec-header">
-            <span class="material-symbols-outlined" style="font-size:0.9rem;">auto_awesome</span>
+            <span class="material-symbols-outlined" style="font-size:0.95rem;">auto_awesome</span>
             המלצת המאמן
         </div>
         <div class="set-rec-vals">
@@ -1494,7 +1526,9 @@ function _setPickerValue(select, val) {
 
 function dismissAIRecommendation() {
     _pendingAIRecommendation = null;
-    _resetSetRecZone();
+    _closeSetRecSheet();
+    const trigger = document.getElementById('set-rec-trigger');
+    if (trigger) trigger.removeAttribute('disabled');
     haptic('light');
 }
 

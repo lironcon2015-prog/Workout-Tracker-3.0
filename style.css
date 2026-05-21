@@ -4144,92 +4144,155 @@ body {
 
 .heatmap-table {
     display: grid;
-    grid-template-columns: 36px repeat(7, 1fr) 56px;
-    gap: 4px; direction: rtl;
-    align-items: stretch;
+    grid-template-columns: 42px repeat(7, 1fr) 68px;
+    column-gap: 6px; row-gap: 8px;
+    direction: rtl; align-items: stretch;
+    margin-top: 8px;
 }
 .hm-corner { /* תא פינתי ריק */ }
-.hm-day-lbl, .hm-total-head {
-    font-size: 0.6rem; color: rgba(255,255,255,0.4);
-    font-weight: 900; font-style: italic; text-align: center;
-    padding-bottom: 4px; line-height: 1.2;
-}
-.hm-total-head { font-size: 0.55rem; }
-.hm-week-lbl {
-    font-size: 0.6rem; color: rgba(255,255,255,0.35);
-    font-weight: 900; font-style: italic; text-align: center;
-    display: flex; align-items: center; justify-content: center;
-    direction: ltr;
-}
-.heatmap-cell {
-    aspect-ratio: 1 / 1; border-radius: 5px;
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04);
-    cursor: pointer; transition: transform 0.15s, border-color 0.15s;
-    position: relative; overflow: hidden;
-    display: flex; align-items: center; justify-content: center;
-}
-.heatmap-cell:hover, .heatmap-cell.selected { transform: scale(1.18); border-color: rgba(255,255,255,0.55); z-index: 2; }
-.heatmap-cell.empty { background: rgba(255,255,255,0.03); cursor: default; }
-.heatmap-cell.empty:hover { transform: none; border-color: rgba(255,255,255,0.04); }
-.hm-cell-val {
-    font-size: 0.52rem; font-weight: 900; font-style: italic;
-    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-    pointer-events: none; line-height: 1; letter-spacing: -0.02em;
+
+/* כותרות ימים — Heebo italic-black, prominent */
+.hm-day-lbl {
     font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 0.95rem; color: rgba(255,255,255,0.7);
+    text-align: center; padding: 2px 0 10px;
+    line-height: 1; letter-spacing: -0.01em;
+}
+.hm-total-head {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 0.55rem; color: rgba(255,255,255,0.4);
+    padding: 8px 0 10px; line-height: 1;
+    letter-spacing: 0.8px; text-transform: uppercase;
+    display: flex; align-items: flex-end; justify-content: center;
 }
 
+/* תוויות שבוע (תאריכים) */
+.hm-week-lbl {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 800;
+    font-size: 0.78rem; color: rgba(255,255,255,0.45);
+    display: flex; align-items: center; justify-content: center;
+    direction: ltr; letter-spacing: -0.01em;
+}
+
+/* תאי חום — רדיוס גדול, גלוי וברור */
+.heatmap-cell {
+    aspect-ratio: 1 / 1;
+    min-height: 28px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: transform 0.18s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.18s, border-color 0.18s;
+    position: relative;
+}
+.heatmap-cell:hover:not(.empty) { transform: scale(1.18); border-color: rgba(255,255,255,0.35); z-index: 2; }
+.heatmap-cell.selected {
+    transform: scale(1.22); z-index: 3;
+    border-color: rgba(255,255,255,0.75);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5), 0 0 0 2px rgba(10,132,255,0.4);
+}
+.heatmap-cell.empty { background: rgba(255,255,255,0.02); cursor: default; border-color: rgba(255,255,255,0.025); }
+
+/* סיכום שבועי — מודגש, pill למגמה */
 .hm-week-total {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 1px; padding: 0 2px;
+    gap: 5px; padding: 0 2px; direction: ltr;
 }
 .hm-total-val {
-    font-size: 0.7rem; font-weight: 900; font-style: italic;
-    color: #fff; font-family: 'Heebo', sans-serif; line-height: 1;
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 1.05rem; color: #fff;
+    line-height: 1; letter-spacing: -0.02em;
     direction: ltr;
 }
-.hm-total-val.dim { color: rgba(255,255,255,0.3); }
+.hm-total-val.dim { color: rgba(255,255,255,0.22); font-size: 0.95rem; }
 .hm-trend {
-    font-size: 0.55rem; font-weight: 800; line-height: 1;
-    font-family: 'Heebo', sans-serif; direction: ltr;
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 0.6rem; line-height: 1;
+    padding: 3px 7px; border-radius: 9999px;
+    letter-spacing: -0.01em; direction: ltr;
+    white-space: nowrap;
 }
-.hm-trend.up { color: var(--type-b); }
-.hm-trend.down { color: var(--danger); }
-.hm-trend.flat { color: rgba(255,255,255,0.3); }
+.hm-trend.up   { background: rgba(71,226,102,0.14); color: var(--type-b); }
+.hm-trend.down { background: rgba(255,69,58,0.14);  color: var(--danger); }
+.hm-trend.flat { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); padding: 3px 9px; }
 
+/* טולטיפ — כרטיס פרימיום */
 .heatmap-tooltip {
-    margin-top: 12px; min-height: 28px;
-    font-size: 0.72rem; color: rgba(255,255,255,0.75);
-    background: rgba(10,132,255,0.08); border: 1px solid rgba(10,132,255,0.18);
-    border-radius: 10px; padding: 8px 12px; text-align: center;
-    display: none; font-weight: 600; line-height: 1.5;
+    margin-top: 18px;
+    background: linear-gradient(180deg, rgba(10,132,255,0.10), rgba(10,132,255,0.04));
+    border: 1px solid rgba(10,132,255,0.22);
+    border-radius: 16px; padding: 14px 16px;
+    text-align: center; display: none;
+    font-family: 'Heebo', sans-serif;
 }
 .heatmap-tooltip.show { display: block; }
-.heatmap-tooltip strong { color: var(--accent); font-weight: 900; }
-.heatmap-tooltip .hm-tip-breakdown {
-    display: block; margin-top: 4px; font-size: 0.65rem;
-    color: rgba(255,255,255,0.55); font-weight: 700;
+.hm-tip-main {
+    font-size: 0.85rem; font-weight: 800;
+    color: rgba(255,255,255,0.85); line-height: 1.3;
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; flex-wrap: wrap;
+}
+.hm-tip-main strong {
+    color: var(--accent); font-weight: 900; font-style: italic;
+    font-size: 1rem;
+}
+.hm-tip-dot {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: rgba(255,255,255,0.25); display: inline-block;
+}
+.hm-tip-breakdown {
+    display: block; margin-top: 8px;
+    font-size: 0.7rem; color: rgba(255,255,255,0.55);
+    font-weight: 700; letter-spacing: 0.2px;
 }
 
+/* Footer ממוצע — כרטיס משני */
 .heatmap-footer {
-    margin-top: 10px; padding: 8px 12px;
+    margin-top: 14px; padding: 14px 18px;
     display: flex; justify-content: space-between; align-items: center;
-    background: rgba(255,255,255,0.03); border-radius: 10px;
-    font-size: 0.65rem; color: rgba(255,255,255,0.55); font-weight: 700;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px;
+    font-family: 'Heebo', sans-serif;
 }
-.heatmap-footer strong { color: #fff; font-weight: 900; font-style: italic; font-family: 'Heebo', sans-serif; }
+.hm-foot-lbl {
+    font-size: 0.7rem; color: rgba(255,255,255,0.5);
+    font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px;
+}
+.hm-foot-right { text-align: left; }
+.hm-foot-val {
+    font-size: 1.15rem; font-weight: 900; font-style: italic;
+    color: #fff; line-height: 1; direction: ltr;
+}
+.hm-foot-sub {
+    font-size: 0.62rem; color: rgba(255,255,255,0.4);
+    font-weight: 700; margin-top: 3px;
+}
 
+/* Legend — שורת צ׳יפים נקייה */
 .heatmap-legend {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    margin-top: 10px; font-size: 0.55rem; color: rgba(255,255,255,0.5);
-    font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
-    flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    margin-top: 14px; flex-wrap: wrap;
+    font-family: 'Heebo', sans-serif;
 }
-.hm-leg-item { display: inline-flex; align-items: center; gap: 4px; }
+.hm-leg-item {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.65rem; color: rgba(255,255,255,0.6);
+    font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
+}
 .hm-leg-dot {
-    width: 9px; height: 9px; border-radius: 2px;
-    border: 1px solid rgba(255,255,255,0.1);
+    width: 12px; height: 12px; border-radius: 4px;
 }
-.hm-leg-lbl { padding: 0 4px; }
+.hm-leg-lbl {
+    font-size: 0.6rem; color: rgba(255,255,255,0.4);
+    font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.hm-leg-grad { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; }
 
 /* --- Plateau Card --- */
 .plateau-card { border-left: 3px solid var(--type-c); }

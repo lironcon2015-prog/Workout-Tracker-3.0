@@ -2142,7 +2142,6 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
     const data = _aggregateDailyByMuscle(archive, weeks, muscleFilter);
     const allVols = data.flat().map(c => c.vol).filter(v => v > 0);
     const maxVol = allVols.length ? Math.max(...allVols) : 1;
-    const labelThreshold = maxVol * 0.5;
 
     // סיכומים שבועיים
     const weekTotals = data.map(row => row.reduce((s, c) => s + c.vol, 0));
@@ -2170,7 +2169,7 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
                 html += `<div class="heatmap-cell empty" data-vol="0" data-sets="0" data-date="${dStr}" onclick="_onHeatmapCellClick(this)"></div>`;
                 return;
             }
-            const intensity = 0.22 + 0.78 * Math.min(1, cell.vol / maxVol);
+            const intensity = 0.25 + 0.75 * Math.min(1, cell.vol / maxVol);
             // צבע: לפי שריר דומיננטי במצב 'all', אחרת תמיד צבע השריר הנבחר
             let baseColor;
             if (muscleFilter === 'all') {
@@ -2180,10 +2179,7 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
                 baseColor = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#0A84FF';
             }
             const bgRGBA = _hexToRGBA(baseColor, intensity);
-            const valLabel = cell.vol >= labelThreshold
-                ? `<span class="hm-cell-val">${_fmtVolShort(cell.vol)}</span>`
-                : '';
-            html += `<div class="heatmap-cell" style="background:${bgRGBA};" data-vol="${Math.round(cell.vol)}" data-sets="${cell.sets}" data-date="${dStr}" data-bk='${JSON.stringify(cell.breakdown).replace(/'/g, "&#39;")}' onclick="_onHeatmapCellClick(this)">${valLabel}</div>`;
+            html += `<div class="heatmap-cell" style="background:${bgRGBA};" data-vol="${Math.round(cell.vol)}" data-sets="${cell.sets}" data-date="${dStr}" data-bk='${JSON.stringify(cell.breakdown).replace(/'/g, "&#39;")}' onclick="_onHeatmapCellClick(this)"></div>`;
         });
 
         // סיכום שבוע + חץ מגמה מול שבוע קודם
@@ -2192,9 +2188,9 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
         let trendHTML = '';
         if (wkIdx > 0 && weekTotals[wkIdx - 1] > 0 && total > 0) {
             const change = (total - weekTotals[wkIdx - 1]) / weekTotals[wkIdx - 1] * 100;
-            if (change >= 5)        trendHTML = `<span class="hm-trend up">↑${Math.round(change)}%</span>`;
-            else if (change <= -5)  trendHTML = `<span class="hm-trend down">↓${Math.round(Math.abs(change))}%</span>`;
-            else                    trendHTML = `<span class="hm-trend flat">–</span>`;
+            if (change >= 5)        trendHTML = `<span class="hm-trend up">↑ ${Math.round(change)}%</span>`;
+            else if (change <= -5)  trendHTML = `<span class="hm-trend down">↓ ${Math.round(Math.abs(change))}%</span>`;
+            else                    trendHTML = `<span class="hm-trend flat">– 0%</span>`;
         }
         const dimCls = total === 0 ? ' dim' : '';
         html += `<div class="hm-week-total">
@@ -2209,7 +2205,12 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
     // Footer: ממוצע שבועי
     if (footerEl) {
         if (activeWeeks.length) {
-            footerEl.innerHTML = `<span>ממוצע שבועי</span><strong>${_fmtVolShort(avgWeek)} <span style="opacity:0.5;font-size:0.85em">(${activeWeeks.length} שבועות פעילים)</span></strong>`;
+            footerEl.innerHTML = `
+                <div class="hm-foot-lbl">ממוצע שבועי</div>
+                <div class="hm-foot-right">
+                    <div class="hm-foot-val">${_fmtVolShort(avgWeek)}</div>
+                    <div class="hm-foot-sub">${activeWeeks.length} שבועות פעילים</div>
+                </div>`;
             footerEl.style.display = 'flex';
         } else {
             footerEl.style.display = 'none';
@@ -2226,10 +2227,12 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
             const c = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#0A84FF';
             legendEl.innerHTML = `
                 <span class="hm-leg-lbl">פחות</span>
-                <span class="hm-leg-dot" style="background:${c};opacity:0.2"></span>
-                <span class="hm-leg-dot" style="background:${c};opacity:0.5"></span>
-                <span class="hm-leg-dot" style="background:${c};opacity:0.8"></span>
-                <span class="hm-leg-dot" style="background:${c};opacity:1"></span>
+                <span class="hm-leg-grad">
+                    <span class="hm-leg-dot" style="background:${_hexToRGBA(c, 0.25)}"></span>
+                    <span class="hm-leg-dot" style="background:${_hexToRGBA(c, 0.5)}"></span>
+                    <span class="hm-leg-dot" style="background:${_hexToRGBA(c, 0.75)}"></span>
+                    <span class="hm-leg-dot" style="background:${_hexToRGBA(c, 1)}"></span>
+                </span>
                 <span class="hm-leg-lbl">יותר</span>`;
         }
     }
@@ -2242,7 +2245,7 @@ function _onHeatmapCellClick(el) {
     if (!tooltipEl) return;
     const vol = parseInt(el.dataset.vol, 10), sets = parseInt(el.dataset.sets, 10), date = el.dataset.date;
     if (!vol) {
-        tooltipEl.innerHTML = `<span>${date} — ללא אימון</span>`;
+        tooltipEl.innerHTML = `<div class="hm-tip-main"><strong>${date}</strong><span class="hm-tip-dot"></span><span>ללא אימון</span></div>`;
     } else {
         const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + ' טון' : vol + ' ק"ג';
         let breakdownStr = '';
@@ -2254,7 +2257,15 @@ function _onHeatmapCellClick(el) {
                 breakdownStr = `<span class="hm-tip-breakdown">${items.map(([m, v]) => `${m} ${Math.round(v / tot * 100)}%`).join(' · ')}</span>`;
             }
         } catch (e) { /* ignore */ }
-        tooltipEl.innerHTML = `<strong>${date}</strong> · ${sets} סטים · <strong>${volStr}</strong>${breakdownStr}`;
+        tooltipEl.innerHTML = `
+            <div class="hm-tip-main">
+                <strong>${date}</strong>
+                <span class="hm-tip-dot"></span>
+                <span>${sets} סטים</span>
+                <span class="hm-tip-dot"></span>
+                <strong>${volStr}</strong>
+            </div>
+            ${breakdownStr}`;
     }
     tooltipEl.classList.add('show');
     haptic('light');

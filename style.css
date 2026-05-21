@@ -4759,3 +4759,6 @@ body.live-mode-active .workout-quick-menu {
 body.live-mode-active .bottom-sheet-overlay { z-index: 10005 !important; }
 body.live-mode-active .bottom-sheet         { z-index: 10006 !important; }
 body.live-mode-active .modal-overlay        { z-index: 10005 !important; }
+/* session log משתמש ב-classes עצמאיות (לא bottom-sheet) — חייב bump משלו */
+body.live-mode-active .slog-overlay         { z-index: 10005 !important; }
+body.live-mode-active .slog-sheet           { z-index: 10006 !important; }

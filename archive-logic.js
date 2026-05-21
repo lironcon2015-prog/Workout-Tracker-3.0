@@ -2141,7 +2141,10 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
 
     const data = _aggregateDailyByMuscle(archive, weeks, muscleFilter);
     const allVols = data.flat().map(c => c.vol).filter(v => v > 0);
-    const maxVol = allVols.length ? Math.max(...allVols) : 1;
+    // נקודת ייחוס: ממוצע יום פעיל. עוצמת הצבע נקבעת לפי קרבה לממוצע
+    // — סקלה לוגריתמית סביב 1.0 (=יום ממוצע) מבטיחה שגם יום נמוך וגם יום גבוה
+    // יראו בבירור שונה מיום טיפוסי, במקום שיתאחדו על קצוות המגוון.
+    const avgDayVol = allVols.length ? allVols.reduce((s, v) => s + v, 0) / allVols.length : 1;
 
     // סיכומים שבועיים
     const weekTotals = data.map(row => row.reduce((s, c) => s + c.vol, 0));
@@ -2169,7 +2172,10 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
                 html += `<div class="heatmap-cell empty" data-vol="0" data-sets="0" data-date="${dStr}" onclick="_onHeatmapCellClick(this)"></div>`;
                 return;
             }
-            const intensity = 0.25 + 0.75 * Math.min(1, cell.vol / maxVol);
+            // סקלה לוגריתמית סביב הממוצע: יום שווה לממוצע=0.7, חצי-ממוצע≈0.45, פי-2=0.95
+            // נותן הבדל ויזואלי חד בין ימים נמוכים, ממוצעים וגבוהים — בניגוד לסקלה מבוססת max
+            const ratio = cell.vol / avgDayVol;
+            const intensity = Math.max(0.22, Math.min(1, 0.7 + Math.log2(ratio) * 0.28));
             // צבע: לפי שריר דומיננטי במצב 'all', אחרת תמיד צבע השריר הנבחר
             let baseColor;
             if (muscleFilter === 'all') {

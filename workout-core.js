@@ -148,6 +148,11 @@ let managerState = {
     editingTimerEx: null
 };
 
+// ─── NAVIGATION CONSTANTS ──────────────────────────────────────────────────
+// מקור אמת יחיד — משמש גם ב-navigate() וגם ב-restoreSession()
+const WORKOUT_SCREENS = ['ui-workout-type', 'ui-confirm', 'ui-main', 'ui-1rm', 'ui-cluster-rest', 'ui-variation', 'ui-swap-list', 'ui-ask-extra', 'ui-extra-cluster', 'ui-summary'];
+const NO_BACK_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive'];
+
 let audioContext;
 let wakeLock = null;
 
@@ -262,23 +267,7 @@ function restoreSession() {
             }
         }
 
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(lastScreen).classList.add('active');
-        document.getElementById('global-back').style.display = (lastScreen !== 'ui-week') ? 'flex' : 'none';
-
-        // עדכון UI-state בדיוק כמו navigate() — מסתיר/מציג טאב-בר, סטריפ ו-settings
-        const WORKOUT_SCREENS = ['ui-workout-type', 'ui-confirm', 'ui-main', 'ui-1rm', 'ui-cluster-rest', 'ui-variation', 'ui-swap-list', 'ui-ask-extra', 'ui-extra-cluster', 'ui-summary'];
-        const inWorkout = WORKOUT_SCREENS.includes(lastScreen);
-        const tabBar = document.querySelector('.tab-bar');
-        const strip = document.getElementById('session-timer-strip');
-        const settingsBtn = document.getElementById('btn-settings');
-        const soundBtn    = document.getElementById('btn-sound');
-        const reloadBtn   = document.getElementById('btn-reload');
-        if (tabBar)      tabBar.style.display      = inWorkout ? 'none' : 'flex';
-        if (strip)       strip.style.display       = inWorkout ? 'flex' : 'none';
-        if (settingsBtn) settingsBtn.style.display = inWorkout ? 'none' : 'flex';
-        if (soundBtn)    soundBtn.style.display    = inWorkout ? 'none' : 'flex';
-        if (reloadBtn)   reloadBtn.style.display   = inWorkout ? 'none' : 'flex';
+        _applyScreenChrome(lastScreen);
 
         // שחזור טיימר מהזמן שנשמר — לא כולל זמן הפסקה
         if (state.workoutStartTime) startSessionTimer(state.sessionElapsedSecs || 0);
@@ -369,38 +358,40 @@ async function initAudio() {
 
 // ─── NAVIGATION ────────────────────────────────────────────────────────────
 
-function navigate(id, clearStack = false) {
-    haptic('light');
+// _applyScreenChrome — מקור האמת לעדכון ה-UI Chrome (active screen, tab-bar, strip, header buttons, back).
+// קוראים לו גם navigate() וגם restoreSession() כדי שאחרי refresh תהיה התנהגות זהה.
+function _applyScreenChrome(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+    const target = document.getElementById(screenId);
+    if (target) target.classList.add('active');
 
-    if (id !== 'ui-main') stopRestTimer();
-    const WORKOUT_SCREENS = ['ui-workout-type', 'ui-confirm', 'ui-main', 'ui-1rm', 'ui-cluster-rest', 'ui-variation', 'ui-swap-list', 'ui-ask-extra', 'ui-extra-cluster', 'ui-summary'];
-    const tabBar = document.querySelector('.tab-bar');
-    if (tabBar) tabBar.style.display = WORKOUT_SCREENS.includes(id) ? 'none' : 'flex';
-
-    // Session timer strip — visible during workout
-    const strip = document.getElementById('session-timer-strip');
-    if (strip) strip.style.display = WORKOUT_SCREENS.includes(id) ? 'flex' : 'none';
-
-    // Hide header buttons during workout
+    const inWorkout = WORKOUT_SCREENS.includes(screenId);
+    const tabBar      = document.querySelector('.tab-bar');
+    const strip       = document.getElementById('session-timer-strip');
     const settingsBtn = document.getElementById('btn-settings');
     const soundBtn    = document.getElementById('btn-sound');
     const reloadBtn   = document.getElementById('btn-reload');
-    const inWorkout   = WORKOUT_SCREENS.includes(id);
+    if (tabBar)      tabBar.style.display      = inWorkout ? 'none' : 'flex';
+    if (strip)       strip.style.display       = inWorkout ? 'flex' : 'none';
     if (settingsBtn) settingsBtn.style.display = inWorkout ? 'none' : 'flex';
     if (soundBtn)    soundBtn.style.display    = inWorkout ? 'none' : 'flex';
     if (reloadBtn)   reloadBtn.style.display   = inWorkout ? 'none' : 'flex';
+
+    const backBtn = document.getElementById('global-back');
+    if (backBtn) backBtn.style.display = !NO_BACK_SCREENS.includes(screenId) ? 'flex' : 'none';
+}
+
+function navigate(id, clearStack = false) {
+    haptic('light');
+    if (id !== 'ui-main') stopRestTimer();
+
+    _applyScreenChrome(id);
 
     if (clearStack) {
         state.historyStack = [id];
     } else {
         if (state.historyStack[state.historyStack.length - 1] !== id) state.historyStack.push(id);
     }
-
-    // Back button hidden on main tab screens
-    const NO_BACK = ['ui-week', 'ui-analytics', 'ui-archive'];
-    document.getElementById('global-back').style.display = !NO_BACK.includes(id) ? 'flex' : 'none';
 
     updatePlanFloatBtn(id);
 }

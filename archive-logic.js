@@ -1811,7 +1811,7 @@ function loadMicroData(exName) {
     }
 
     const vals = relevant.map(w => {
-        const parsed = parseSetsFromStrings(w.details[exName].sets);
+        const parsed = getEntryExerciseSets(w, exName);
         if (!parsed.length) return 0;
         if (prefs.microAxis === 'vol') return w.details[exName].vol || 0;
         if (prefs.microAxis === 'maxw') return Math.max(...parsed.map(s => s.w));
@@ -1850,17 +1850,24 @@ function parseSetsFromStrings(sets) {
             // Regex חסין במיוחד ששולף נתונים גם אם יש טקסט מיותר מסביב (כמו Notes או כיתובים שונים)
             const wMatch = s.match(/([\d\.]+)\s*kg/);
             const w = wMatch ? parseFloat(wMatch[1]) : 0;
-            
+
             const rMatch = s.match(/x\s*(\d+)/);
             const r = rMatch ? parseInt(rMatch[1]) : 0;
-            
+
             const rirMatch = s.match(/RIR\s*([\d\.]+)/);
             const rir = rirMatch ? parseFloat(rirMatch[1]) : '—'; // שולף נקי ללא סוגריים
-            
+
             if (!w || !r) return null;
             return { w, r, rir };
         } catch (e) { return null; }
     }).filter(Boolean);
+}
+
+// getEntryExerciseSets — Helper מרכזי לשליפת סטים מפורסרים מתוך archive entry.
+// מחזיר [] אם entry/exercise חסרים — מבטל את הצורך ב-null-checks חוזרים בכל קורא.
+function getEntryExerciseSets(entry, exName) {
+    if (!entry || !entry.details || !entry.details[exName]) return [];
+    return parseSetsFromStrings(entry.details[exName].sets || []);
 }
 
 function getSmoothPath(points) {
@@ -1961,13 +1968,12 @@ function drawMicroLineChart(vals, dates) {
 function renderPRCard(exName, relevant, prefs) {
     let bestE1RM = 0, prW = 0, prR = 1, prRIR = '—', prDate = '';
     relevant.forEach(w => {
-        if (!w.details || !w.details[exName]) return;
-        parseSetsFromStrings(w.details[exName].sets).forEach(s => {
+        getEntryExerciseSets(w, exName).forEach(s => {
             const e1rm = calc1RM(s.w, s.r, prefs.formula);
-            if (e1rm > bestE1RM) { 
-                bestE1RM = e1rm; prW = s.w; prR = s.r; prRIR = s.rir; 
+            if (e1rm > bestE1RM) {
+                bestE1RM = e1rm; prW = s.w; prR = s.r; prRIR = s.rir;
                 const d = new Date(w.timestamp);
-                prDate = `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth()+1).toString().padStart(2,'0')}`; 
+                prDate = `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth()+1).toString().padStart(2,'0')}`;
             }
         });
     });
@@ -2096,8 +2102,7 @@ function renderHomePRCard() {
         const exName = HOME_PR_EXERCISES[key];
         const sessions = [];
         [...archive].reverse().forEach(w => {
-            if (!w.details || !w.details[exName]) return;
-            const sets = parseSetsFromStrings(w.details[exName].sets || []);
+            const sets = getEntryExerciseSets(w, exName);
             if (!sets.length) return;
             const bestE1RM = Math.max(...sets.map(s => calc1RM(s.w, s.r, prefs.formula)));
             const bestSet  = sets.reduce((b, s) => calc1RM(s.w, s.r, prefs.formula) > calc1RM(b.w, b.r, prefs.formula) ? s : b, sets[0]);

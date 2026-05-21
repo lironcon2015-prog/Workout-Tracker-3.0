@@ -642,8 +642,21 @@ function renderRegularItem(item, idx, list) {
     list.appendChild(row);
 }
 
+// CLUSTER_MAX_EX — מספר תרגילים מקסימלי בסבב/סופרסט/ג'יאנט.
+// מעל 6 התרגול הופך לא ריאלי (זמן מעבר, fatigue management).
+const CLUSTER_MAX_EX = 6;
+
+function _getClusterLabel(cluster) {
+    const n = (cluster.exercises || []).length;
+    if (n >= 3) return { title: 'ג׳יאנט סט', type: 'giant' };
+    if (n === 2) return { title: 'סופרסט', type: 'super' };
+    return { title: 'בלוק סבב', type: 'block' };
+}
+
 function renderClusterItem(cluster, idx, list) {
     const blockNum = String(idx + 1).padStart(2, '0');
+    const labelInfo = _getClusterLabel(cluster);
+    const atMax = (cluster.exercises || []).length >= CLUSTER_MAX_EX;
     const box = document.createElement('div');
     box.className = "km-cluster-block";
 
@@ -661,6 +674,13 @@ function renderClusterItem(cluster, idx, list) {
         </div>`;
     });
 
+    const addBtnHtml = atMax
+        ? `<div class="km-cluster-cap">מקסימום ${CLUSTER_MAX_EX} תרגילים בסבב</div>`
+        : `<button class="km-add-to-cluster-btn" onclick="openExerciseSelectorForCluster(${idx})">
+            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">add</span>
+            הוסף תרגיל לסבב
+        </button>`;
+
     box.innerHTML = `
         <div class="km-block-header">
             <span class="km-block-num">בלוק ${blockNum}</span>
@@ -676,9 +696,10 @@ function renderClusterItem(cluster, idx, list) {
                 </button>
             </div>
         </div>
-        <div class="km-cluster-title-row">
+        <div class="km-cluster-title-row km-cluster-title-row--${labelInfo.type}">
             <span class="material-symbols-outlined" style="color:#5E5CE6;font-size:1.1rem;line-height:1;">hub</span>
-            <span class="km-cluster-title">בלוק סבב</span>
+            <span class="km-cluster-title">${labelInfo.title}</span>
+            <span class="km-cluster-meta">${cluster.exercises.length} תרגילים</span>
             <span class="km-cluster-meta">${cluster.rounds} סבבים</span>
             <span class="km-cluster-meta">${cluster.clusterRest}ש' מנוחה</span>
         </div>
@@ -701,10 +722,7 @@ function renderClusterItem(cluster, idx, list) {
                 </div>
             </div>
         </div>
-        <button class="km-add-to-cluster-btn" onclick="openExerciseSelectorForCluster(${idx})">
-            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">add</span>
-            הוסף תרגיל לסבב
-        </button>
+        ${addBtnHtml}
     `;
     list.appendChild(box);
 }
@@ -889,8 +907,13 @@ function renderSelectorList() {
 function selectExerciseFromList(exName) {
     const newExObj = { name: exName, isMain: false, sets: 3, restTime: 90 };
     if (managerState.activeClusterRef !== null) {
+        const cluster = managerState.exercises[managerState.activeClusterRef];
+        if (cluster.exercises.length >= CLUSTER_MAX_EX) {
+            showAlert(`מקסימום ${CLUSTER_MAX_EX} תרגילים בסבב.`);
+            return;
+        }
         newExObj.restTime = 30;
-        managerState.exercises[managerState.activeClusterRef].exercises.push(newExObj);
+        cluster.exercises.push(newExObj);
     } else {
         managerState.exercises.push(newExObj);
     }

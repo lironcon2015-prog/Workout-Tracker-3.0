@@ -848,14 +848,22 @@ function showConfirmScreen(forceExName = null) {
         state.currentEx = null;
         state.currentExName = '';
 
-        document.getElementById('confirm-ex-name').innerText = "סבב / מעגל (Cluster)";
-        document.getElementById('confirm-ex-config').innerText = `סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
+        // שם דינמי לפי כמות תרגילים: סופרסט (2) / ג'יאנט סט (3+) / סבב כללי
+        const exCount = state.activeCluster.exercises.length;
+        const headingName = exCount >= 3 ? "ג׳יאנט סט (Giant Set)"
+                          : exCount === 2 ? "סופרסט (Superset)"
+                          : "סבב / מעגל (Cluster)";
+        document.getElementById('confirm-ex-name').innerText = headingName;
+        document.getElementById('confirm-ex-config').innerText = `סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds} • ${exCount} תרגילים`;
         document.getElementById('confirm-ex-config').style.display = 'block';
 
         const historyContainer = document.getElementById('history-container');
-        let listHtml = `<div class="vertical-stack text-right my-md">`;
+        // 4+ תרגילים → רשימה גלילה כדי שלא ידחפו את הכפתורים מחוץ למסך
+        const scrollClass = exCount >= 4 ? ' cluster-intro-list--scroll' : '';
+        let listHtml = `<div class="cluster-intro-list${scrollClass}">`;
         state.activeCluster.exercises.forEach((ex, i) => {
-            listHtml += `<div class="bg-card p-sm rounded-md mb-xs">${i + 1}. ${ex.name}</div>`;
+            const tag = String.fromCharCode(65 + i); // A, B, C...
+            listHtml += `<div class="cluster-intro-row"><span class="cluster-intro-tag">${tag}</span><span class="cluster-intro-name">${ex.name}</span></div>`;
         });
         listHtml += `</div>`;
         historyContainer.innerHTML = listHtml;

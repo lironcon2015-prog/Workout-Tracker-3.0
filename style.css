@@ -3833,6 +3833,68 @@ body {
 }
 .km-add-to-cluster-btn:active { background: rgba(94,92,230,0.08); }
 
+/* ── Giant Sets — סופרסט/ג׳יאנט עיצוב ───────────────────────────────── */
+.km-cluster-title-row--super .km-cluster-title { color: #FF9F0A; }
+.km-cluster-title-row--giant .km-cluster-title { color: #FF453A; }
+.km-cluster-cap {
+    text-align: center;
+    font-size: 0.7rem;
+    color: rgba(255,159,10,0.7);
+    background: rgba(255,159,10,0.06);
+    border: 1px dashed rgba(255,159,10,0.3);
+    border-radius: 9999px;
+    padding: 8px 14px;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+}
+
+/* ── Cluster Intro Screen — רשימת תרגילים לפני סבב ──────────────────── */
+.cluster-intro-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 16px 0;
+}
+.cluster-intro-list--scroll {
+    max-height: 34vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-left: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.cluster-intro-list--scroll::-webkit-scrollbar { width: 4px; }
+.cluster-intro-list--scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+.cluster-intro-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #1b1b1b;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 14px;
+    padding: 10px 14px;
+    text-align: right;
+}
+.cluster-intro-tag {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(94,92,230,0.15);
+    color: #aac7ff;
+    font-weight: 900;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.cluster-intro-name {
+    flex: 1;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #fff;
+}
+
 /* ════════════════════
    EDITOR BOTTOM ACTIONS
    ════════════════════ */

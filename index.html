@@ -982,6 +982,45 @@
                     </div>
                     <div class="wt-toast" id="wt-toast"></div>
 
+                    <!-- Sprint 3: Volume Heatmap -->
+                    <div class="obsidian-card" id="vol-heatmap-card">
+                        <div class="card-header">
+                            <div>
+                                <h3 class="card-title font-headline italic-black">מפת חום נפח</h3>
+                                <p class="text-[10px] font-bold color-dim mt-xs uppercase tracking-wide" style="font-size:0.65rem; margin:4px 0 0;">פעילות יומית לפי שריר</p>
+                            </div>
+                            <div class="mini-toggle" id="heatmap-range-chips">
+                                <button onclick="setHeatmapRange(6,this)">6</button>
+                                <button class="active" onclick="setHeatmapRange(12,this)">12</button>
+                                <button onclick="setHeatmapRange(20,this)">20</button>
+                            </div>
+                        </div>
+                        <div class="chips-row mb-sm" id="heatmap-muscle-chips">
+                            <button class="chip active" data-muscle="all" onclick="setHeatmapMuscle('all',this)">הכל</button>
+                            <button class="chip inactive" data-muscle="חזה" onclick="setHeatmapMuscle('חזה',this)">חזה</button>
+                            <button class="chip inactive" data-muscle="גב" onclick="setHeatmapMuscle('גב',this)">גב</button>
+                            <button class="chip inactive" data-muscle="רגליים" onclick="setHeatmapMuscle('רגליים',this)">רגליים</button>
+                            <button class="chip inactive" data-muscle="כתפיים" onclick="setHeatmapMuscle('כתפיים',this)">כתפיים</button>
+                            <button class="chip inactive" data-muscle="ידיים" onclick="setHeatmapMuscle('ידיים',this)">ידיים</button>
+                        </div>
+                        <div class="heatmap-wrap">
+                            <div class="heatmap-day-labels" id="heatmap-day-labels">
+                                <span>א</span><span>ב</span><span>ג</span><span>ד</span><span>ה</span><span>ו</span><span>ש</span>
+                            </div>
+                            <div class="heatmap-grid" id="heatmap-grid"></div>
+                        </div>
+                        <div class="heatmap-tooltip" id="heatmap-tooltip"></div>
+                        <div class="heatmap-legend">
+                            <span class="hm-leg-lbl">פחות</span>
+                            <span class="hm-leg-cell" style="opacity:0.15"></span>
+                            <span class="hm-leg-cell" style="opacity:0.35"></span>
+                            <span class="hm-leg-cell" style="opacity:0.6"></span>
+                            <span class="hm-leg-cell" style="opacity:0.85"></span>
+                            <span class="hm-leg-cell" style="opacity:1"></span>
+                            <span class="hm-leg-lbl">יותר</span>
+                        </div>
+                    </div>
+
                     <!-- Consistency Track -->
                     <div class="obsidian-card">
                         <div class="card-header">
@@ -1042,6 +1081,40 @@
                                 <button onclick="setMicroPoints(12,this)">12</button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Sprint 3: Plateau Detection -->
+                    <div class="obsidian-card plateau-card" id="plateau-card" style="display:none;">
+                        <div class="plateau-head">
+                            <div class="plateau-icon">
+                                <span class="material-symbols-outlined icon-fill" style="font-size:20px;">trending_flat</span>
+                            </div>
+                            <div style="flex:1;">
+                                <h3 class="card-title font-headline italic-black" style="font-size:1rem;">זיהוי קיבעון</h3>
+                                <p class="plateau-sub" id="plateau-sub">—</p>
+                            </div>
+                            <div class="plateau-badge" id="plateau-badge">—</div>
+                        </div>
+                        <div class="plateau-body" id="plateau-body"></div>
+                        <button class="btn-plateau-ai" id="btn-plateau-ai" onclick="requestAIPlateauAdvice()" style="display:none;">
+                            <span class="material-symbols-outlined" style="font-size:1rem;">auto_awesome</span>
+                            <span>בקש המלצה מהמאמן</span>
+                        </button>
+                        <div class="plateau-ai-result" id="plateau-ai-result" style="display:none;"></div>
+                    </div>
+
+                    <!-- Sprint 3: PR Prediction -->
+                    <div class="obsidian-card pr-pred-card" id="pr-prediction-card" style="display:none;">
+                        <div class="pr-pred-head">
+                            <div class="pr-pred-icon">
+                                <span class="material-symbols-outlined icon-fill" style="font-size:20px;">target</span>
+                            </div>
+                            <div style="flex:1;">
+                                <h3 class="card-title font-headline italic-black" style="font-size:1rem;">תחזית PR</h3>
+                                <p class="pr-pred-sub" id="pr-pred-sub">—</p>
+                            </div>
+                        </div>
+                        <div class="pr-pred-body" id="pr-pred-body"></div>
                     </div>
 
                     <!-- PR Card -->

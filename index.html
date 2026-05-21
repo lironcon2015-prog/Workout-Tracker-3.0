@@ -333,6 +333,23 @@
                     </div>
                 </div>
 
+                <!-- I.5 תצוגה -->
+                <div class="settings-group">
+                    <div class="settings-group-label">תצוגה</div>
+                    <div class="stg-bento">
+                        <div class="stg-toggle-row">
+                            <div class="stg-toggle-info">
+                                <div class="stg-row-title">מצב Live</div>
+                                <div class="stg-toggle-hint">מסך אימון fullscreen — טיימר ענק, החלקה לרישום סט. מתאים לאימון אינטנסיבי ללא הסחות דעת.</div>
+                            </div>
+                            <label class="stg-switch">
+                                <input type="checkbox" id="live-mode-toggle" onchange="toggleLiveMode(this.checked)">
+                                <span class="stg-switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- II. סנכרון ענן -->
                 <div class="settings-group">
                     <div class="settings-group-label">סנכרון ענן</div>
@@ -1140,6 +1157,39 @@
             </div><!-- /ui-analytics -->
 
         </main>
+    </div>
+
+    <!-- =================== SPRINT 4: WORKOUT LIVE VIEW =================== -->
+    <div id="workout-live-overlay" class="workout-live" style="display:none;" aria-hidden="true">
+        <button id="live-exit-btn" class="live-exit-btn" onclick="exitWorkoutLiveMode()" aria-label="צא ממצב Live">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+
+        <div class="live-header">
+            <div class="live-set-counter" id="live-set-counter">SET 1/1</div>
+            <h1 class="live-ex-name" id="live-ex-name">—</h1>
+        </div>
+
+        <div class="live-timer-wrap">
+            <svg class="live-timer-svg" viewBox="0 0 100 100">
+                <circle class="live-timer-bg" cx="50" cy="50" r="46"></circle>
+                <circle id="live-timer-progress" class="live-timer-bar" cx="50" cy="50" r="46"></circle>
+            </svg>
+            <div class="live-timer-text" id="live-timer-text">00:00</div>
+            <div class="live-timer-lbl" id="live-timer-lbl">REST</div>
+        </div>
+
+        <div class="live-next-target" id="live-next-target">
+            <span class="live-target-lbl">סט הבא</span>
+            <span class="live-target-val" id="live-target-val">—</span>
+        </div>
+
+        <div class="live-swipe-card" id="live-swipe-card">
+            <div class="live-swipe-icon">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </div>
+            <span class="live-swipe-text">החלק לרישום הסט</span>
+        </div>
     </div>
 
     <!-- TAB BAR -->

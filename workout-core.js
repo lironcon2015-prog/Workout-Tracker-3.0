@@ -407,6 +407,13 @@ function navigate(id, clearStack = false) {
     }
 
     updatePlanFloatBtn(id);
+
+    // Sprint 4: auto-enter Live Mode כשמגיעים ל-ui-main וההגדרה דלוקה
+    if (id === 'ui-main' && typeof isLiveModeEnabled === 'function' && isLiveModeEnabled()) {
+        setTimeout(() => { if (typeof enterWorkoutLiveMode === 'function') enterWorkoutLiveMode(); }, 60);
+    } else if (id !== 'ui-main' && typeof exitWorkoutLiveMode === 'function') {
+        exitWorkoutLiveMode(true);  // silent exit if leaving ui-main
+    }
 }
 
 function handleBackClick() {
@@ -721,6 +728,7 @@ function openSettings() {
     if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
     if (typeof updateAIStatus === 'function') updateAIStatus();
     _renderNutritionalToggle();
+    if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
 }
 
 // ─── NUTRITIONAL STATE ─────────────────────────────────────────────────────
@@ -1736,6 +1744,8 @@ function resetAndStartTimer(customTime = null) {
         if (circle) circle.style.strokeDashoffset = 283 - (progress * 283);
         if (clusterText) clusterText.innerText = `${mins}:${secs}`;
         if (clusterBar) clusterBar.style.strokeDashoffset = 283 - (progress * 283);
+        // Sprint 4: עדכון Live View אם פעיל
+        if (typeof updateLiveTimer === 'function') updateLiveTimer(mins, secs, progress);
     };
 
     state.timerInterval = setInterval(() => {
@@ -3577,4 +3587,176 @@ function clearAIHistory() {
         aiChatHistory = [];
         showAlert('ההיסטוריה נמחקה.');
     });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ─── SPRINT 4 — WORKOUT LIVE VIEW ───────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+
+let _liveTouchStartX = 0;
+let _liveTouchStartY = 0;
+let _liveTouchActive = false;
+let _liveSwipeAttached = false;
+
+function isLiveModeEnabled() {
+    if (typeof getAnalyticsPrefs !== 'function') return false;
+    return !!getAnalyticsPrefs().liveMode;
+}
+
+async function enterWorkoutLiveMode() {
+    const overlay = document.getElementById('workout-live-overlay');
+    if (!overlay || overlay.style.display === 'flex') return;
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('live-mode-active');
+
+    // Wake lock — שומר את המסך דלוק
+    try { if ('wakeLock' in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+
+    // Fullscreen — באייפון Safari לרוב נכשל בלי gesture, נסבול בשקט
+    try { if (document.documentElement.requestFullscreen && !document.fullscreenElement) await document.documentElement.requestFullscreen(); } catch (e) {}
+
+    updateLiveViewContent();
+    _attachLiveSwipe();
+    haptic('light');
+}
+
+async function exitWorkoutLiveMode(silent = false) {
+    const overlay = document.getElementById('workout-live-overlay');
+    if (!overlay || overlay.style.display === 'none') return;
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('live-mode-active');
+
+    try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) {}
+    if (!silent) haptic('light');
+}
+
+// קורא לנתוני state ומסנכרן את ה-DOM של ה-overlay
+function updateLiveViewContent() {
+    if (!document.body.classList.contains('live-mode-active')) return;
+
+    const setN = (state.setIdx || 0) + 1;
+    const setTotal = (state.currentEx && state.currentEx.sets) ? state.currentEx.sets.length : 1;
+    const counterEl = document.getElementById('live-set-counter');
+    if (counterEl) counterEl.textContent = `SET ${setN}/${setTotal}`;
+
+    const nameEl = document.getElementById('live-ex-name');
+    if (nameEl) nameEl.textContent = state.currentExName || '—';
+
+    // היעד לסט הבא — נשען על ה-pickers ב-ui-main (שהם source-of-truth לערכים)
+    const wPicker = document.getElementById('weight-picker');
+    const rPicker = document.getElementById('reps-picker');
+    const rirPicker = document.getElementById('rir-picker');
+    const targetW = wPicker && wPicker.value !== '' ? wPicker.value : '—';
+    const targetR = rPicker && rPicker.value !== '' ? rPicker.value : '—';
+    const targetRir = rirPicker && rirPicker.value !== '' ? rirPicker.value : '—';
+
+    const targetEl = document.getElementById('live-target-val');
+    if (targetEl) {
+        targetEl.innerHTML = `${targetW}<small>kg</small> × ${targetR}<small>reps</small> · RIR ${targetRir}`;
+    }
+
+    // אם הסט האחרון של התרגיל הושלם — להציג כפתור "המשך לתרגיל הבא"
+    const swipeCard = document.getElementById('live-swipe-card');
+    const ap = document.getElementById('action-panel');
+    if (ap && ap.style.display === 'block' && swipeCard) {
+        swipeCard.innerHTML = `
+            <button class="live-action-btn" onclick="(function(){ if (typeof finishCurrentExercise === 'function') finishCurrentExercise(); setTimeout(updateLiveViewContent, 80); })()">
+                המשך לתרגיל הבא
+            </button>`;
+        swipeCard.style.cursor = 'default';
+    } else if (swipeCard && !swipeCard.querySelector('.live-action-btn')) {
+        // אם השתנה חזרה — לבנות מחדש את ה-card הסטנדרטי
+        swipeCard.innerHTML = `
+            <div class="live-swipe-icon">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </div>
+            <span class="live-swipe-text">החלק לרישום הסט</span>`;
+        swipeCard.style.cursor = 'pointer';
+    }
+}
+
+// נקרא בכל tick של resetAndStartTimer דרך ה-hook ב-updateUI
+function updateLiveTimer(mins, secs, progress) {
+    if (!document.body.classList.contains('live-mode-active')) return;
+    const txt = document.getElementById('live-timer-text');
+    const bar = document.getElementById('live-timer-progress');
+    if (txt) txt.textContent = `${mins}:${secs}`;
+    if (bar) {
+        const circumference = 289;  // 2 × π × r (r=46)
+        bar.style.strokeDashoffset = (circumference - progress * circumference).toFixed(1);
+    }
+}
+
+function _attachLiveSwipe() {
+    const card = document.getElementById('live-swipe-card');
+    if (!card || _liveSwipeAttached) return;
+    _liveSwipeAttached = true;
+
+    card.addEventListener('touchstart', (e) => {
+        if (card.querySelector('.live-action-btn')) return;  // במצב action — לא swipe
+        _liveTouchStartX = e.touches[0].clientX;
+        _liveTouchStartY = e.touches[0].clientY;
+        _liveTouchActive = true;
+    }, { passive: true });
+
+    card.addEventListener('touchmove', (e) => {
+        if (!_liveTouchActive) return;
+        const dx = e.touches[0].clientX - _liveTouchStartX;
+        const dy = e.touches[0].clientY - _liveTouchStartY;
+        // אם תנועה אנכית דומיננטית — לבטל (משאיר scroll פעיל)
+        if (Math.abs(dy) > Math.abs(dx) * 1.5) { _liveTouchActive = false; return; }
+        // RTL: swipe "קדימה" = touch שמאלה בקואורדינטות מסך → dx שלילי
+        if (dx < 0) {
+            card.style.transform = `translateX(${dx}px)`;
+            card.classList.add('dragging');
+        }
+    }, { passive: true });
+
+    card.addEventListener('touchend', (e) => {
+        if (!_liveTouchActive) return;
+        _liveTouchActive = false;
+        const dx = (e.changedTouches[0].clientX) - _liveTouchStartX;
+        card.classList.remove('dragging');
+        card.style.transform = '';
+        if (dx < -80) {
+            haptic('success');
+            if (typeof nextStep === 'function') {
+                nextStep();
+                setTimeout(updateLiveViewContent, 80);
+            }
+        }
+    });
+
+    // Tap כ-fallback (אם המשתמש פשוט נוגע מבלי לסחוב)
+    card.addEventListener('click', (e) => {
+        if (card.querySelector('.live-action-btn')) return;
+        if (card.classList.contains('dragging')) return;
+        haptic('success');
+        if (typeof nextStep === 'function') {
+            nextStep();
+            setTimeout(updateLiveViewContent, 80);
+        }
+    });
+}
+
+function toggleLiveMode(enabled) {
+    if (typeof getAnalyticsPrefs !== 'function') return;
+    const p = getAnalyticsPrefs();
+    p.liveMode = !!enabled;
+    if (typeof saveAnalyticsPrefs === 'function') saveAnalyticsPrefs(p);
+    haptic('light');
+    if (!enabled && document.body.classList.contains('live-mode-active')) {
+        exitWorkoutLiveMode();
+    } else if (enabled && state.historyStack[state.historyStack.length - 1] === 'ui-main') {
+        // אם כבר במסך אימון — להפעיל מיד
+        enterWorkoutLiveMode();
+    }
+}
+
+// סנכרון מצב ה-toggle כשנכנסים להגדרות
+function syncLiveModeToggle() {
+    const tog = document.getElementById('live-mode-toggle');
+    if (tog) tog.checked = isLiveModeEnabled();
 }

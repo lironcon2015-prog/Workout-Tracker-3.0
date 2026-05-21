@@ -22,7 +22,7 @@
 | S1 — Giant Sets + AI Recommendations | ✅ Done | v15.17 | 2026-05-21 |
 | S2 — UI/UX Polish | ✅ Done | v15.19 | 2026-05-21 |
 | S3 — Analytics Engine | ✅ Done | v15.20 | 2026-05-21 |
-| S4 — Workout Live View | ⬜ Pending | — | — |
+| S4 — Workout Live View | ✅ Done | v15.25 | 2026-05-21 |
 
 > סטטוסים: ⬜ Pending · 🟡 In Progress · ✅ Done · ❌ Blocked
 

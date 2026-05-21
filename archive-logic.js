@@ -1913,10 +1913,44 @@ function selectMicroPoint(idx) {
     drawMicroLineChart(_microVals, _microDates);
 }
 
+// Sprint 4: מאפשר touchmove/mousemove על ה-SVG → בחירת הנקודה הקרובה ביותר
+function _attachMicroChartTouch() {
+    const svg = document.getElementById('micro-line-svg');
+    if (!svg || svg._touchAttached) return;
+    svg._touchAttached = true;
+
+    const handleAt = (clientX) => {
+        if (!_microVals || _microVals.length < 2) return;
+        const rect = svg.getBoundingClientRect();
+        if (!rect.width) return;
+        // SVG viewBox: 0 0 400 160, padding L=20 R=20
+        const padL = 20, padR = 20, W = 400;
+        const cW = W - padL - padR;
+        const n = _microVals.length;
+        const relX = (clientX - rect.left) / rect.width;
+        const vbX = relX * W;
+        const idx = Math.round(((vbX - padL) / cW) * (n - 1));
+        const clamped = Math.max(0, Math.min(n - 1, idx));
+        if (clamped !== _microSelectedPt) {
+            _microSelectedPt = clamped;
+            drawMicroLineChart(_microVals, _microDates);
+            if (typeof haptic === 'function') haptic('light');
+        }
+    };
+
+    svg.addEventListener('touchstart', (e) => { if (e.touches[0]) handleAt(e.touches[0].clientX); }, { passive: true });
+    svg.addEventListener('touchmove',  (e) => { if (e.touches[0]) { e.preventDefault(); handleAt(e.touches[0].clientX); } }, { passive: false });
+    // Mouse fallback ל-desktop
+    svg.addEventListener('mousedown',  (e) => handleAt(e.clientX));
+    svg.addEventListener('mousemove',  (e) => { if (e.buttons & 1) handleAt(e.clientX); });
+}
+
 function drawMicroLineChart(vals, dates) {
     const svg = document.getElementById('micro-line-svg');
     const datesEl = document.getElementById('micro-line-dates');
     if (!svg || !datesEl) return;
+    // Sprint 4: רישום מאזיני touch פעם אחת בלבד (idempotent דרך flag על האלמנט)
+    _attachMicroChartTouch();
 
     const n = vals.length;
     if (n < 2) {

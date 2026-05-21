@@ -162,7 +162,9 @@ const StorageManager = {
             // Sprint 3 — Analytics Engine
             heatmapWeeks: 12,
             heatmapMuscle: 'all',
-            plateauThreshold: 3  // מינימום שבועות flat שמסומנים כ-plateau
+            plateauThreshold: 3,  // מינימום שבועות flat שמסומנים כ-plateau
+            // Sprint 4 — Workout Live View
+            liveMode: false       // מצב fullscreen עם טיימר ענק וסוואייפ לרישום סט
             // consistencyGreen / consistencyOrange — נשמרים רק אם הוגדרו ידנית
         };
     },

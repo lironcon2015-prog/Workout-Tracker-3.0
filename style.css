@@ -4406,3 +4406,216 @@ body {
     border-radius: 10px; font-size: 0.78rem; line-height: 1.5;
     color: rgba(255,255,255,0.8);
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   SPRINT 4 — WORKOUT LIVE VIEW + iOS-style toggle
+   ════════════════════════════════════════════════════════════════════ */
+
+/* iOS-style switch (used in settings for Live Mode) */
+.stg-toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; gap: 14px;
+}
+.stg-toggle-info { flex: 1; min-width: 0; }
+.stg-toggle-hint {
+    font-size: 0.7rem; color: rgba(255,255,255,0.5);
+    margin-top: 4px; line-height: 1.45;
+    font-weight: 600;
+}
+.stg-switch {
+    position: relative; width: 50px; height: 30px;
+    flex-shrink: 0; display: inline-block;
+}
+.stg-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.stg-switch-slider {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.18);
+    border-radius: 9999px;
+    cursor: pointer; transition: background 0.25s;
+}
+.stg-switch-slider::before {
+    content: ''; position: absolute;
+    width: 26px; height: 26px;
+    left: 2px; top: 2px;
+    background: #fff; border-radius: 50%;
+    transition: transform 0.25s cubic-bezier(0.2,0.8,0.2,1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+}
+.stg-switch input:checked + .stg-switch-slider { background: var(--accent); }
+.stg-switch input:checked + .stg-switch-slider::before { transform: translateX(20px); }
+
+/* === LIVE OVERLAY === */
+.workout-live {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #000;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: space-between;
+    padding: 56px 24px 32px;
+    user-select: none; -webkit-user-select: none;
+    overscroll-behavior: contain;
+    direction: rtl;
+}
+body.live-mode-active { overflow: hidden; }
+
+.live-exit-btn {
+    position: fixed; top: 18px; left: 18px;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #fff;
+    transition: 0.2s;
+}
+.live-exit-btn:active { background: rgba(255,255,255,0.18); transform: scale(0.94); }
+
+.live-header { text-align: center; }
+.live-set-counter {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 0.7rem; color: var(--accent);
+    letter-spacing: 2.5px; text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.live-ex-name {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 1.8rem; color: #fff;
+    margin: 0; line-height: 1.1;
+    letter-spacing: -0.02em;
+}
+
+.live-timer-wrap {
+    position: relative; width: 280px; height: 280px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.live-timer-svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    transform: rotate(-90deg);
+}
+.live-timer-bg {
+    fill: none; stroke: rgba(255,255,255,0.06);
+    stroke-width: 3.5;
+}
+.live-timer-bar {
+    fill: none; stroke: var(--accent);
+    stroke-width: 3.5; stroke-linecap: round;
+    stroke-dasharray: 289;
+    stroke-dashoffset: 289;
+    transition: stroke-dashoffset 0.3s cubic-bezier(0.2,0.8,0.2,1);
+    filter: drop-shadow(0 0 8px rgba(10,132,255,0.5));
+}
+.live-timer-text {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 4.6rem; color: #fff;
+    line-height: 1; letter-spacing: -0.06em;
+    direction: ltr;
+    text-shadow: 0 0 30px rgba(10,132,255,0.3);
+}
+.live-timer-lbl {
+    position: absolute; bottom: 56px;
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 0.65rem; color: var(--accent);
+    letter-spacing: 3px; text-transform: uppercase;
+}
+
+.live-next-target {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    padding: 14px 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.live-target-lbl {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 800;
+    font-size: 0.65rem; color: rgba(255,255,255,0.45);
+    letter-spacing: 1.5px; text-transform: uppercase;
+}
+.live-target-val {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 1.35rem; color: #fff;
+    direction: ltr; letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+.live-target-val small {
+    font-size: 0.55em; font-weight: 700;
+    opacity: 0.55; margin: 0 2px;
+}
+
+.live-swipe-card {
+    width: 100%;
+    background: linear-gradient(135deg, rgba(10,132,255,0.18), rgba(94,92,230,0.10));
+    border: 1px solid rgba(10,132,255,0.28);
+    border-radius: 18px;
+    padding: 22px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.2,0.8,0.2,1), background 0.25s;
+    touch-action: pan-y;
+    position: relative; overflow: hidden;
+}
+.live-swipe-card.dragging {
+    transition: none;
+    background: linear-gradient(135deg, rgba(71,226,102,0.22), rgba(71,226,102,0.10));
+    border-color: rgba(71,226,102,0.4);
+}
+.live-swipe-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%; background: rgba(10,132,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); flex-shrink: 0;
+    animation: live-arrow-bounce 1.4s infinite cubic-bezier(0.4,0,0.6,1);
+}
+.live-swipe-card.dragging .live-swipe-icon {
+    background: rgba(71,226,102,0.3); color: var(--type-b);
+    animation: none;
+}
+@keyframes live-arrow-bounce {
+    0%, 100% { transform: translateX(0); }
+    50%      { transform: translateX(6px); }  /* RTL: visual left = forward */
+}
+.live-swipe-text {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 800;
+    font-size: 0.95rem; color: #fff;
+}
+
+/* Action panel (when set complete) */
+.live-action-panel {
+    width: 100%;
+    background: rgba(71,226,102,0.10);
+    border: 1px solid rgba(71,226,102,0.28);
+    border-radius: 18px;
+    padding: 18px;
+    text-align: center;
+}
+.live-action-btn {
+    width: 100%;
+    background: var(--type-b); color: #000;
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900; font-style: italic;
+    border: none; padding: 14px 24px;
+    border-radius: 14px; cursor: pointer;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+}
+
+/* Responsive: smaller phones */
+@media (max-height: 720px) {
+    .workout-live { padding-top: 48px; padding-bottom: 24px; }
+    .live-timer-wrap { width: 220px; height: 220px; }
+    .live-timer-text { font-size: 3.8rem; }
+    .live-ex-name { font-size: 1.5rem; }
+}
+@media (max-height: 600px) {
+    .live-timer-wrap { width: 180px; height: 180px; }
+    .live-timer-text { font-size: 3rem; }
+}

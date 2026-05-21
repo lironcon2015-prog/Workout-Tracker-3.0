@@ -1196,8 +1196,23 @@ function switchMainTab(name) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById('tabbtn-' + name); if (btn) btn.classList.add('active');
     if (name === 'workout') navigate('ui-week', true);
-    else if (name === 'analytics') { navigate('ui-analytics', true); renderAnalyticsDashboard(); }
-    else if (name === 'archive') { navigate('ui-archive', true); openArchive(); }
+    else if (name === 'analytics') {
+        navigate('ui-analytics', true);
+        // Sprint 2: flash skeleton בזמן המעבר; הרינדור עצמו מהיר אך המעבר הויזואלי משופר
+        if (typeof showSkeleton === 'function') showSkeleton('analytics-skeleton');
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            renderAnalyticsDashboard();
+            if (typeof hideSkeleton === 'function') hideSkeleton('analytics-skeleton');
+        }));
+    }
+    else if (name === 'archive') {
+        navigate('ui-archive', true);
+        if (typeof showSkeleton === 'function') showSkeleton('archive-skeleton');
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            openArchive();
+            if (typeof hideSkeleton === 'function') hideSkeleton('archive-skeleton');
+        }));
+    }
     haptic('light');
 }
 

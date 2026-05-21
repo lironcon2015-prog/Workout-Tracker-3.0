@@ -231,6 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }, 500);
     }
+    // Sprint 2: gestures
+    try { _initSwipeBackGesture(); } catch (e) {}
+    try { _initAllSheetsDrag(); }   catch (e) {}
 });
 
 function checkRecovery() {
@@ -358,12 +361,22 @@ async function initAudio() {
 
 // ─── NAVIGATION ────────────────────────────────────────────────────────────
 
+// כיוון ניווט נוכחי לאנימציה ('forward' או 'back'). מתאופס אוטומטית אחרי כל מעבר.
+let _navDirection = 'forward';
+function _setNavDirection(dir) { _navDirection = dir === 'back' ? 'back' : 'forward'; }
+
 // _applyScreenChrome — מקור האמת לעדכון ה-UI Chrome (active screen, tab-bar, strip, header buttons, back).
 // קוראים לו גם navigate() וגם restoreSession() כדי שאחרי refresh תהיה התנהגות זהה.
 function _applyScreenChrome(screenId) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active', 'enter-forward', 'enter-back');
+    });
     const target = document.getElementById(screenId);
-    if (target) target.classList.add('active');
+    if (target) {
+        target.classList.add('active');
+        target.classList.add(_navDirection === 'back' ? 'enter-back' : 'enter-forward');
+    }
+    _navDirection = 'forward';
 
     const inWorkout = WORKOUT_SCREENS.includes(screenId);
     const tabBar      = document.querySelector('.tab-bar');
@@ -428,6 +441,7 @@ function handleBackClick() {
         } else {
             stopRestTimer();
             state.historyStack.pop();
+            _setNavDirection('back');
             navigate('ui-confirm');
             return;
         }
@@ -485,11 +499,13 @@ function handleBackClick() {
                 state.lastLoggedSet = remaining.length > 0 ? remaining[remaining.length - 1] : null;
                 StorageManager.saveSessionState();
                 if (exData.isCalc) {
+                    _setNavDirection('back');
                     showConfirmScreen();
                 } else {
                     const ap = document.getElementById('action-panel');
                     if (ap) { ap.style.display = 'none'; ap.classList.remove('is-visible'); }
                     document.getElementById('btn-submit-set').style.display = 'block';
+                    _setNavDirection('back');
                     navigate('ui-main');
                     initPickers();
                 }
@@ -518,6 +534,7 @@ function handleBackClick() {
                 window.location.reload();
             });
         } else {
+            _setNavDirection('back');
             navigate('ui-week', true);
         }
         return;
@@ -526,6 +543,7 @@ function handleBackClick() {
     if (currentScreen === 'ui-workout-editor') {
         showConfirm("לצאת ללא שמירה?", () => {
             state.historyStack.pop();
+            _setNavDirection('back');
             navigate('ui-workout-manager');
         });
         return;
@@ -549,7 +567,153 @@ function _doBack(currentScreen) {
     }
 
     // navigate() הוא מקור האמת — מסנכרן tab-bar, session-strip, settings-btn, back-btn
+    _setNavDirection('back');
     navigate(prevScreen);
+}
+
+// ─── Sprint 2: Skeleton Loaders ──────────────────────────────────────────
+// מציג placeholder shimmer בקונטיינר עד שהתוכן האמיתי מרונדר.
+// שימוש: showSkeleton('ui-archive-skeleton'); … hideSkeleton('ui-archive-skeleton');
+function showSkeleton(containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.classList.add('is-visible');
+}
+function hideSkeleton(containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.classList.remove('is-visible');
+}
+
+// ─── Sprint 2: Swipe-Back Gesture ────────────────────────────────────────
+// מאפשר ניווט "אחורה" באמצעות סוואייפ מהקצה. ב-RTL — סוואייפ ימינה (מהשמאל).
+// כיוון נגזר מ-document.body direction כדי לא לבלבל RTL/LTR.
+function _initSwipeBackGesture() {
+    const EDGE_ZONE  = 32;   // px מהקצה ההתחלתי שבו הסוואייפ חייב להתחיל
+    const THRESHOLD  = 80;   // px מינימום של תזוזה אופקית
+    const VERT_LIMIT = 60;   // px מקסימום של תזוזה אנכית (מסנן גלילה)
+    const isRTL = (getComputedStyle(document.body).direction || 'ltr') === 'rtl';
+
+    let startX = 0, startY = 0, active = false, t0 = 0;
+
+    document.body.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        const t = e.touches[0];
+        // RTL: גסט back הוא ימינה — לכן מתחילים בקצה השמאלי.
+        // LTR: הפוך.
+        const fromEdge = isRTL
+            ? t.clientX < EDGE_ZONE
+            : (window.innerWidth - t.clientX) < EDGE_ZONE;
+        if (!fromEdge) return;
+        // אל תפעיל כש-bottom-sheet פתוח, מודאל פתוח, או על אלמנט אינטראקטיבי רגיש
+        if (document.querySelector('.bottom-sheet.open')) return;
+        // בדוק כל .modal-overlay שגלוי (display !== 'none' && !== '')
+        const openModal = Array.from(document.querySelectorAll('.modal-overlay')).some(m => {
+            const d = m.style.display; return d && d !== 'none';
+        });
+        if (openModal) return;
+        if (e.target.closest('input, textarea, select, .ios-picker, [data-no-swipe-back]')) return;
+        // אל תפעיל במסכים שאין להם back
+        const curScreen = state && state.historyStack && state.historyStack[state.historyStack.length - 1];
+        if (!curScreen || (typeof NO_BACK_SCREENS !== 'undefined' && NO_BACK_SCREENS.includes(curScreen))) return;
+        if (state.historyStack.length <= 1) return;
+        startX = t.clientX;
+        startY = t.clientY;
+        active = true;
+        t0 = Date.now();
+    }, { passive: true });
+
+    document.body.addEventListener('touchmove', (e) => {
+        if (!active) return;
+        const t = e.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        // אם הגלילה האנכית דומיננטית — בטל
+        if (Math.abs(dy) > Math.abs(dx) + 8) active = false;
+    }, { passive: true });
+
+    document.body.addEventListener('touchend', (e) => {
+        if (!active) return;
+        active = false;
+        const t  = e.changedTouches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        const dt = Date.now() - t0;
+        if (dt > 700) return; // איטי מדי — כנראה לא גסט
+        const dirOK = isRTL ? (dx > THRESHOLD) : (dx < -THRESHOLD);
+        if (dirOK && Math.abs(dy) < VERT_LIMIT) {
+            handleBackClick();
+        }
+    }, { passive: true });
+}
+
+// ─── Sprint 2: Bottom-Sheet Drag-to-Dismiss ──────────────────────────────
+// drag-down >100px על sheet → סוגר.
+// closer — פונקציה שסוגרת את ה-sheet (כל sheet יש לו closer ייעודי שלו).
+function _initSheetDragDismiss(sheetEl, closer) {
+    if (!sheetEl || typeof closer !== 'function') return;
+    const DISMISS = 100; // px לכיוון מטה לסגירה
+    let startY = 0, currentY = 0, dragging = false;
+
+    const onStart = (e) => {
+        if (!sheetEl.classList.contains('open')) return;
+        const touch = e.touches ? e.touches[0] : e;
+        // התחל גרירה רק כשנוגעים ב-handle או בחלק העליון של ה-sheet (כדי לא להפריע לגלילה פנימית)
+        const handle = sheetEl.querySelector('.sheet-handle');
+        const rect = sheetEl.getBoundingClientRect();
+        const isHandle = handle && handle.contains(e.target);
+        const isTopArea = (touch.clientY - rect.top) < 48;
+        // אם ה-sheet גלול פנימה למטה — אל תאפשר גרירה מאזור התוכן
+        if (!isHandle && !isTopArea) return;
+        if (sheetEl.scrollTop > 0 && !isHandle) return;
+        startY = touch.clientY;
+        currentY = startY;
+        dragging = true;
+        sheetEl.classList.add('dragging');
+    };
+
+    const onMove = (e) => {
+        if (!dragging) return;
+        const touch = e.touches ? e.touches[0] : e;
+        currentY = touch.clientY;
+        const dy = Math.max(0, currentY - startY); // רק כיוון מטה
+        sheetEl.style.transform = `translateY(${dy}px)`;
+    };
+
+    const onEnd = () => {
+        if (!dragging) return;
+        dragging = false;
+        sheetEl.classList.remove('dragging');
+        const dy = Math.max(0, currentY - startY);
+        sheetEl.style.transform = '';
+        if (dy > DISMISS) {
+            try { closer(); } catch (err) {}
+            haptic('warning');
+        }
+    };
+
+    sheetEl.addEventListener('touchstart', onStart, { passive: true });
+    sheetEl.addEventListener('touchmove',  onMove,  { passive: true });
+    sheetEl.addEventListener('touchend',   onEnd,   { passive: true });
+    sheetEl.addEventListener('touchcancel', onEnd,  { passive: true });
+}
+
+// מחבר drag-dismiss לכל ה-bottom sheets הקיימים. רץ פעם אחת ב-DOMContentLoaded.
+function _initAllSheetsDrag() {
+    const sheets = [
+        { id: 'sheet-modal',                closer: () => (typeof closeDayDrawer === 'function') && closeDayDrawer() },
+        { id: 'analytics-settings-sheet',   closer: () => (typeof closeAnalyticsSettings === 'function') && closeAnalyticsSettings() },
+        { id: 'hero-settings-sheet',        closer: () => (typeof closeHeroSettings === 'function') && closeHeroSettings() },
+        { id: 'micro-sort-sheet',           closer: () => (typeof closeMicroSortSheet === 'function') && closeMicroSortSheet() },
+        { id: 'alias-sheet',                closer: () => (typeof closeAliasSheet === 'function') && closeAliasSheet() },
+        { id: 'workout-plan-sheet',         closer: () => closePlanSheet() },
+        { id: 'range-copy-sheet',           closer: () => (typeof closeRangeSheet === 'function') && closeRangeSheet() },
+        { id: 'set-rec-sheet',              closer: () => dismissAIRecommendation() },
+    ];
+    sheets.forEach(s => {
+        const el = document.getElementById(s.id);
+        if (el) _initSheetDragDismiss(el, s.closer);
+    });
 }
 
 function openSettings() {

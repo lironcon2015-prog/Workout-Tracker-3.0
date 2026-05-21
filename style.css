@@ -4142,49 +4142,94 @@ body {
 #heatmap-muscle-chips .chip { padding: 5px 10px; font-size: 0.75rem; border-radius: 20px; flex-shrink: 0; }
 #heatmap-muscle-chips .chip.inactive { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); }
 
-.heatmap-wrap { display: flex; flex-direction: column; gap: 6px; direction: rtl; }
-.heatmap-day-labels {
-    display: grid; grid-template-columns: repeat(7, 1fr);
-    gap: 4px; direction: rtl; text-align: center;
-    font-size: 0.6rem; color: rgba(255,255,255,0.4);
-    font-weight: 900; font-style: italic; padding-bottom: 2px;
-}
-.heatmap-day-labels span { line-height: 1; }
-
-.heatmap-grid {
-    display: grid; grid-template-columns: repeat(7, 1fr);
+.heatmap-table {
+    display: grid;
+    grid-template-columns: 36px repeat(7, 1fr) 56px;
     gap: 4px; direction: rtl;
+    align-items: stretch;
+}
+.hm-corner { /* תא פינתי ריק */ }
+.hm-day-lbl, .hm-total-head {
+    font-size: 0.6rem; color: rgba(255,255,255,0.4);
+    font-weight: 900; font-style: italic; text-align: center;
+    padding-bottom: 4px; line-height: 1.2;
+}
+.hm-total-head { font-size: 0.55rem; }
+.hm-week-lbl {
+    font-size: 0.6rem; color: rgba(255,255,255,0.35);
+    font-weight: 900; font-style: italic; text-align: center;
+    display: flex; align-items: center; justify-content: center;
+    direction: ltr;
 }
 .heatmap-cell {
-    aspect-ratio: 1 / 1; border-radius: 4px;
-    background: rgba(10,132,255,0); border: 1px solid rgba(255,255,255,0.04);
+    aspect-ratio: 1 / 1; border-radius: 5px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04);
     cursor: pointer; transition: transform 0.15s, border-color 0.15s;
-    position: relative;
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
 }
-.heatmap-cell.has-vol { background: rgba(10,132,255,1); }
-.heatmap-cell:hover, .heatmap-cell.selected { transform: scale(1.15); border-color: rgba(255,255,255,0.4); z-index: 2; }
-.heatmap-cell.empty { background: rgba(255,255,255,0.03); }
+.heatmap-cell:hover, .heatmap-cell.selected { transform: scale(1.18); border-color: rgba(255,255,255,0.55); z-index: 2; }
+.heatmap-cell.empty { background: rgba(255,255,255,0.03); cursor: default; }
+.heatmap-cell.empty:hover { transform: none; border-color: rgba(255,255,255,0.04); }
+.hm-cell-val {
+    font-size: 0.52rem; font-weight: 900; font-style: italic;
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    pointer-events: none; line-height: 1; letter-spacing: -0.02em;
+    font-family: 'Heebo', sans-serif;
+}
+
+.hm-week-total {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px; padding: 0 2px;
+}
+.hm-total-val {
+    font-size: 0.7rem; font-weight: 900; font-style: italic;
+    color: #fff; font-family: 'Heebo', sans-serif; line-height: 1;
+    direction: ltr;
+}
+.hm-total-val.dim { color: rgba(255,255,255,0.3); }
+.hm-trend {
+    font-size: 0.55rem; font-weight: 800; line-height: 1;
+    font-family: 'Heebo', sans-serif; direction: ltr;
+}
+.hm-trend.up { color: var(--type-b); }
+.hm-trend.down { color: var(--danger); }
+.hm-trend.flat { color: rgba(255,255,255,0.3); }
 
 .heatmap-tooltip {
-    margin-top: 10px; min-height: 28px;
-    font-size: 0.72rem; color: rgba(255,255,255,0.7);
+    margin-top: 12px; min-height: 28px;
+    font-size: 0.72rem; color: rgba(255,255,255,0.75);
     background: rgba(10,132,255,0.08); border: 1px solid rgba(10,132,255,0.18);
-    border-radius: 10px; padding: 6px 12px; text-align: center;
-    display: none; font-weight: 600;
+    border-radius: 10px; padding: 8px 12px; text-align: center;
+    display: none; font-weight: 600; line-height: 1.5;
 }
 .heatmap-tooltip.show { display: block; }
 .heatmap-tooltip strong { color: var(--accent); font-weight: 900; }
+.heatmap-tooltip .hm-tip-breakdown {
+    display: block; margin-top: 4px; font-size: 0.65rem;
+    color: rgba(255,255,255,0.55); font-weight: 700;
+}
+
+.heatmap-footer {
+    margin-top: 10px; padding: 8px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(255,255,255,0.03); border-radius: 10px;
+    font-size: 0.65rem; color: rgba(255,255,255,0.55); font-weight: 700;
+}
+.heatmap-footer strong { color: #fff; font-weight: 900; font-style: italic; font-family: 'Heebo', sans-serif; }
 
 .heatmap-legend {
-    display: flex; align-items: center; justify-content: center; gap: 4px;
-    margin-top: 14px; font-size: 0.55rem; color: rgba(255,255,255,0.35);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 10px; font-size: 0.55rem; color: rgba(255,255,255,0.5);
     font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+    flex-wrap: wrap;
 }
-.hm-leg-cell {
-    width: 10px; height: 10px; border-radius: 2px; background: var(--accent);
-    border: 1px solid rgba(255,255,255,0.06);
+.hm-leg-item { display: inline-flex; align-items: center; gap: 4px; }
+.hm-leg-dot {
+    width: 9px; height: 9px; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.1);
 }
-.hm-leg-lbl { padding: 0 6px; }
+.hm-leg-lbl { padding: 0 4px; }
 
 /* --- Plateau Card --- */
 .plateau-card { border-left: 3px solid var(--type-c); }

@@ -2047,16 +2047,57 @@ function _linearRegression(pts) {
 
 // ─── HEATMAP ──────────────────────────────────────────────────────────
 
-// אגרגציה: שבועות × ימים → {vol, sets} פר תא. כולל סינון לפי שריר.
+// צבעים לפי שריר עיקרי — מציג בצורה ויזואלית מי "אכל" את היום
+const HEATMAP_MUSCLE_COLORS = {
+    'חזה':       '#ff453a',
+    'גב':        '#47e266',
+    'רגליים':    '#5E5CE6',
+    'כתפיים':    '#ffb868',
+    'ידיים':     '#0A84FF',
+    'בטן':       '#8E8E93',
+    'קליסטניקס': '#bf5af2',
+    '_mixed':    '#a8a8b3'
+};
+const HEATMAP_MAIN_MUSCLES = ['חזה', 'גב', 'רגליים', 'כתפיים', 'ידיים'];
+
+// פורמט נפח קצר — "5.2t" / "850" / "—"
+function _fmtVolShort(v) {
+    if (!v) return '—';
+    return v >= 1000 ? (v / 1000).toFixed(1) + 't' : Math.round(v).toString();
+}
+
+// Hex (#rrggbb) → rgba string עם alpha — שומר על טקסט בעוצמה מלאה
+function _hexToRGBA(hex, alpha) {
+    if (!hex || hex[0] !== '#' || hex.length !== 7) return `rgba(10,132,255,${alpha})`;
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// השריר הדומיננטי בתא — שריר עם > 50% מהנפח, אחרת 'mixed'
+function _dominantMuscle(breakdown) {
+    const entries = Object.entries(breakdown || {});
+    if (!entries.length) return '_mixed';
+    const total = entries.reduce((s, [, v]) => s + v, 0);
+    if (total === 0) return '_mixed';
+    entries.sort((a, b) => b[1] - a[1]);
+    const [topName, topVol] = entries[0];
+    if (topVol / total > 0.5) return topName;
+    return '_mixed';
+}
+
+// אגרגציה: שבועות × ימים → {vol, sets, breakdown} פר תא.
+// breakdown — מילון של שריר→נפח (שמיש בעיקר במצב 'all' לקבוע צבע דומיננטי).
 function _aggregateDailyByMuscle(archive, weeks, muscleFilter) {
     const today = _startOfWeek(Date.now());
     const startMs = today.getTime() - (weeks - 1) * 7 * 86400000;
-    const grid = []; // grid[weekIdx][dayIdx] = {vol, sets, date}
+    const grid = []; // grid[weekIdx][dayIdx] = {vol, sets, date, breakdown}
     for (let w = 0; w < weeks; w++) {
         const weekStart = startMs + w * 7 * 86400000;
         const row = [];
         for (let d = 0; d < 7; d++) {
-            row.push({ vol: 0, sets: 0, date: new Date(weekStart + d * 86400000) });
+            row.push({ vol: 0, sets: 0, date: new Date(weekStart + d * 86400000), breakdown: {} });
         }
         grid.push(row);
     }
@@ -2067,45 +2108,131 @@ function _aggregateDailyByMuscle(archive, weeks, muscleFilter) {
         const wkIdx = Math.floor((_startOfWeek(entry.timestamp).getTime() - startMs) / (7 * 86400000));
         if (wkIdx < 0 || wkIdx >= weeks) return;
         const dayIdx = wd.getDay();
-
         if (!entry.details) return;
-        let cellVol = 0, cellSets = 0;
+
         Object.entries(entry.details).forEach(([exName, ex]) => {
             const exData = state.exercises.find(e => e.name === exName);
             const muscles = exData ? (exData.muscles || []) : [];
             const include = (muscleFilter === 'all') || muscles.includes(muscleFilter);
             if (!include) return;
-            cellVol += (ex.vol || 0);
-            cellSets += (ex.sets ? ex.sets.length : 0);
+            const exVol = ex.vol || 0;
+            const exSets = ex.sets ? ex.sets.length : 0;
+            grid[wkIdx][dayIdx].vol += exVol;
+            grid[wkIdx][dayIdx].sets += exSets;
+            // פיזור נפח שווה בין השרירים הראשיים בלבד — כדי לבחור צבע דומיננטי
+            const mainMuscles = muscles.filter(m => HEATMAP_MAIN_MUSCLES.includes(m));
+            if (mainMuscles.length && exVol > 0) {
+                const per = exVol / mainMuscles.length;
+                mainMuscles.forEach(m => {
+                    grid[wkIdx][dayIdx].breakdown[m] = (grid[wkIdx][dayIdx].breakdown[m] || 0) + per;
+                });
+            }
         });
-        grid[wkIdx][dayIdx].vol += cellVol;
-        grid[wkIdx][dayIdx].sets += cellSets;
     });
 
     return grid;
 }
 
 function renderVolumeHeatmap(archive, weeks, muscleFilter) {
-    const gridEl = document.getElementById('heatmap-grid'); if (!gridEl) return;
+    const tableEl = document.getElementById('heatmap-grid'); if (!tableEl) return;
     const tooltipEl = document.getElementById('heatmap-tooltip');
+    const footerEl = document.getElementById('heatmap-footer');
+    const legendEl = document.getElementById('heatmap-legend');
 
     const data = _aggregateDailyByMuscle(archive, weeks, muscleFilter);
     const allVols = data.flat().map(c => c.vol).filter(v => v > 0);
     const maxVol = allVols.length ? Math.max(...allVols) : 1;
+    const labelThreshold = maxVol * 0.5;
 
-    // שורה אחרונה (השבוע הנוכחי) למטה — נציג מהישן (top) לחדש (bottom)
+    // סיכומים שבועיים
+    const weekTotals = data.map(row => row.reduce((s, c) => s + c.vol, 0));
+    const activeWeeks = weekTotals.filter(t => t > 0);
+    const avgWeek = activeWeeks.length ? activeWeeks.reduce((s, t) => s + t, 0) / activeWeeks.length : 0;
+
     let html = '';
-    data.forEach((row, wkIdx) => {
-        row.forEach((cell, dayIdx) => {
-            const isEmpty = cell.vol === 0;
-            const intensity = isEmpty ? 0 : 0.15 + 0.85 * Math.min(1, cell.vol / maxVol);
-            const cls = isEmpty ? 'heatmap-cell empty' : 'heatmap-cell has-vol';
-            const dStr = `${cell.date.getDate().toString().padStart(2,'0')}.${(cell.date.getMonth()+1).toString().padStart(2,'0')}`;
-            html += `<div class="${cls}" style="opacity:${intensity || 1};${isEmpty ? 'opacity:1;' : ''}" data-vol="${Math.round(cell.vol)}" data-sets="${cell.sets}" data-date="${dStr}" onclick="_onHeatmapCellClick(this)"></div>`;
-        });
+    // שורת כותרת: פינה ריקה + 7 תוויות ימים + תוויית "סה"כ"
+    html += '<div class="hm-corner"></div>';
+    ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].forEach(d => {
+        html += `<div class="hm-day-lbl">${d}</div>`;
     });
-    gridEl.innerHTML = html;
+    html += '<div class="hm-total-head">סה״כ</div>';
+
+    // שורות לפי שבוע (ישן בראש, חדש בתחתית)
+    data.forEach((row, wkIdx) => {
+        const sunday = row[0].date;
+        const wkLabel = `${sunday.getDate().toString().padStart(2, '0')}.${(sunday.getMonth() + 1).toString().padStart(2, '0')}`;
+        html += `<div class="hm-week-lbl">${wkLabel}</div>`;
+
+        row.forEach(cell => {
+            const isEmpty = cell.vol === 0;
+            const dStr = `${cell.date.getDate().toString().padStart(2, '0')}.${(cell.date.getMonth() + 1).toString().padStart(2, '0')}`;
+            if (isEmpty) {
+                html += `<div class="heatmap-cell empty" data-vol="0" data-sets="0" data-date="${dStr}" onclick="_onHeatmapCellClick(this)"></div>`;
+                return;
+            }
+            const intensity = 0.22 + 0.78 * Math.min(1, cell.vol / maxVol);
+            // צבע: לפי שריר דומיננטי במצב 'all', אחרת תמיד צבע השריר הנבחר
+            let baseColor;
+            if (muscleFilter === 'all') {
+                const dom = _dominantMuscle(cell.breakdown);
+                baseColor = HEATMAP_MUSCLE_COLORS[dom] || HEATMAP_MUSCLE_COLORS._mixed;
+            } else {
+                baseColor = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#0A84FF';
+            }
+            const bgRGBA = _hexToRGBA(baseColor, intensity);
+            const valLabel = cell.vol >= labelThreshold
+                ? `<span class="hm-cell-val">${_fmtVolShort(cell.vol)}</span>`
+                : '';
+            html += `<div class="heatmap-cell" style="background:${bgRGBA};" data-vol="${Math.round(cell.vol)}" data-sets="${cell.sets}" data-date="${dStr}" data-bk='${JSON.stringify(cell.breakdown).replace(/'/g, "&#39;")}' onclick="_onHeatmapCellClick(this)">${valLabel}</div>`;
+        });
+
+        // סיכום שבוע + חץ מגמה מול שבוע קודם
+        const total = weekTotals[wkIdx];
+        const totalStr = _fmtVolShort(total);
+        let trendHTML = '';
+        if (wkIdx > 0 && weekTotals[wkIdx - 1] > 0 && total > 0) {
+            const change = (total - weekTotals[wkIdx - 1]) / weekTotals[wkIdx - 1] * 100;
+            if (change >= 5)        trendHTML = `<span class="hm-trend up">↑${Math.round(change)}%</span>`;
+            else if (change <= -5)  trendHTML = `<span class="hm-trend down">↓${Math.round(Math.abs(change))}%</span>`;
+            else                    trendHTML = `<span class="hm-trend flat">–</span>`;
+        }
+        const dimCls = total === 0 ? ' dim' : '';
+        html += `<div class="hm-week-total">
+            <span class="hm-total-val${dimCls}">${totalStr}</span>
+            ${trendHTML}
+        </div>`;
+    });
+
+    tableEl.innerHTML = html;
     if (tooltipEl) tooltipEl.classList.remove('show');
+
+    // Footer: ממוצע שבועי
+    if (footerEl) {
+        if (activeWeeks.length) {
+            footerEl.innerHTML = `<span>ממוצע שבועי</span><strong>${_fmtVolShort(avgWeek)} <span style="opacity:0.5;font-size:0.85em">(${activeWeeks.length} שבועות פעילים)</span></strong>`;
+            footerEl.style.display = 'flex';
+        } else {
+            footerEl.style.display = 'none';
+        }
+    }
+
+    // Legend: צבעי שרירים במצב 'all', אחרת מקרא אינטנסיביות
+    if (legendEl) {
+        if (muscleFilter === 'all') {
+            legendEl.innerHTML = HEATMAP_MAIN_MUSCLES.map(m =>
+                `<span class="hm-leg-item"><span class="hm-leg-dot" style="background:${HEATMAP_MUSCLE_COLORS[m]}"></span>${m}</span>`
+            ).join('') + `<span class="hm-leg-item"><span class="hm-leg-dot" style="background:${HEATMAP_MUSCLE_COLORS._mixed}"></span>מעורב</span>`;
+        } else {
+            const c = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#0A84FF';
+            legendEl.innerHTML = `
+                <span class="hm-leg-lbl">פחות</span>
+                <span class="hm-leg-dot" style="background:${c};opacity:0.2"></span>
+                <span class="hm-leg-dot" style="background:${c};opacity:0.5"></span>
+                <span class="hm-leg-dot" style="background:${c};opacity:0.8"></span>
+                <span class="hm-leg-dot" style="background:${c};opacity:1"></span>
+                <span class="hm-leg-lbl">יותר</span>`;
+        }
+    }
 }
 
 function _onHeatmapCellClick(el) {
@@ -2114,11 +2241,20 @@ function _onHeatmapCellClick(el) {
     const tooltipEl = document.getElementById('heatmap-tooltip');
     if (!tooltipEl) return;
     const vol = parseInt(el.dataset.vol, 10), sets = parseInt(el.dataset.sets, 10), date = el.dataset.date;
-    if (vol === 0) {
+    if (!vol) {
         tooltipEl.innerHTML = `<span>${date} — ללא אימון</span>`;
     } else {
-        const volStr = vol >= 1000 ? (vol/1000).toFixed(1) + ' טון' : vol + ' ק"ג';
-        tooltipEl.innerHTML = `<strong>${date}</strong> · ${sets} סטים · <strong>${volStr}</strong>`;
+        const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + ' טון' : vol + ' ק"ג';
+        let breakdownStr = '';
+        try {
+            const bk = JSON.parse((el.dataset.bk || '{}').replace(/&#39;/g, "'"));
+            const items = Object.entries(bk).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            if (items.length) {
+                const tot = Object.values(bk).reduce((s, v) => s + v, 0);
+                breakdownStr = `<span class="hm-tip-breakdown">${items.map(([m, v]) => `${m} ${Math.round(v / tot * 100)}%`).join(' · ')}</span>`;
+            }
+        } catch (e) { /* ignore */ }
+        tooltipEl.innerHTML = `<strong>${date}</strong> · ${sets} סטים · <strong>${volStr}</strong>${breakdownStr}`;
     }
     tooltipEl.classList.add('show');
     haptic('light');

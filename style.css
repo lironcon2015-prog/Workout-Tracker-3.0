@@ -1025,6 +1025,95 @@ body {
     font-size: 0.6em; font-weight: 900; letter-spacing: 0.08em; display: none;
 }
 
+/* ── AI Set Recommendation ────────────────────────────────────────────── */
+.set-rec-zone { margin: 8px 0 12px; }
+.set-rec-trigger {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; width: 100%;
+    padding: 11px 18px;
+    background: linear-gradient(135deg, rgba(10,132,255,0.10), rgba(94,92,230,0.08));
+    border: 1px dashed rgba(10,132,255,0.4);
+    border-radius: 9999px;
+    color: #aac7ff;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s, transform 0.1s;
+}
+.set-rec-trigger:active { transform: scale(0.98); background: rgba(10,132,255,0.18); }
+.set-rec-trigger[disabled] { opacity: 0.6; cursor: wait; }
+
+.set-rec-result {
+    background: #1b1b1b;
+    border: 1px solid rgba(10,132,255,0.18);
+    border-radius: 1.4rem;
+    border-right: 3px solid #0A84FF;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+}
+.set-rec-result.loading { color: rgba(255,255,255,0.5); text-align: center; font-size: 0.85rem; padding: 16px; }
+.set-rec-result.error {
+    border-right-color: #ff453a;
+    color: rgba(255,69,58,0.85);
+    font-size: 0.78rem;
+    text-align: center;
+}
+.set-rec-header {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.62rem;
+    font-weight: 900;
+    color: #aac7ff;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+.set-rec-vals {
+    display: flex; gap: 12px; align-items: baseline;
+    font-family: 'Heebo', sans-serif;
+}
+.set-rec-num {
+    font-weight: 900;
+    font-style: italic;
+    color: #fff;
+    font-size: 1.4rem;
+    letter-spacing: -0.02em;
+}
+.set-rec-unit { font-size: 0.7rem; color: rgba(255,255,255,0.4); font-weight: 700; }
+.set-rec-reason {
+    font-size: 0.74rem;
+    color: rgba(255,255,255,0.65);
+    line-height: 1.45;
+}
+.set-rec-actions { display: flex; gap: 8px; margin-top: 4px; }
+.set-rec-apply {
+    flex: 1;
+    padding: 9px 14px;
+    background: #0A84FF;
+    border: none;
+    border-radius: 9999px;
+    color: #fff;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+.set-rec-apply:active { transform: scale(0.97); }
+.set-rec-dismiss {
+    padding: 9px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 9999px;
+    color: rgba(255,255,255,0.7);
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
 
 /* =========================================
    SUMMARY SCREEN UI CARDS

@@ -19,7 +19,7 @@
 | Sprint | סטטוס | גרסה אחרי | תאריך השלמה |
 |--------|-------|------------|---------------|
 | S0 — Foundation Refactor | ✅ Done | v15.14 | 2026-05-21 |
-| S1 — Giant Sets + AI Recommendations | ⬜ Pending | — | — |
+| S1 — Giant Sets + AI Recommendations | ✅ Done | v15.17 | 2026-05-21 |
 | S2 — UI/UX Polish | ⬜ Pending | — | — |
 | S3 — Analytics Engine | ⬜ Pending | — | — |
 | S4 — Workout Live View | ⬜ Pending | — | — |

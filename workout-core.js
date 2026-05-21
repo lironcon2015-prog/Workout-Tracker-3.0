@@ -1291,6 +1291,211 @@ function initPickers() {
     syncStepperDisplay('weight');
     syncStepperDisplay('reps');
     syncStepperDisplay('rir');
+
+    _resetSetRecZone();
+}
+
+// ─── AI SET RECOMMENDATION ─────────────────────────────────────────────────
+// המלצה חכמה לסט הבא — נשלחת ל-Gemini עם context מלא של ביצועים + מצב תזונתי.
+// מופעלת לחיצה ידנית כדי לחסוך קריאות API.
+
+let _pendingAIRecommendation = null;
+
+function _resetSetRecZone() {
+    _pendingAIRecommendation = null;
+    const zone    = document.getElementById('set-rec-zone');
+    const trigger = document.getElementById('set-rec-trigger');
+    const result  = document.getElementById('set-rec-result');
+    if (!zone || !trigger || !result) return;
+    const hasKey  = !!StorageManager.getAIConfig().apiKey;
+    zone.style.display    = hasKey ? '' : 'none';
+    trigger.style.display = 'flex';
+    trigger.removeAttribute('disabled');
+    result.style.display  = 'none';
+    result.className      = 'set-rec-result';
+    result.innerHTML      = '';
+}
+
+function _buildRecommendationPrompt(exName) {
+    const nutri    = getNutritionalContext();
+    const persona  = StorageManager.getAIPersona() || '';
+    const performances = (typeof getLastPerformances === 'function') ? getLastPerformances(exName, 5) : [];
+    const targetReps   = state.currentEx?.targetReps ?? '';
+    const targetRIR    = state.currentEx?.targetRIR ?? '';
+    const currentSetN  = (state.setIdx || 0) + 1;
+    const lastRM       = StorageManager.getLastRM ? StorageManager.getLastRM(exName) : '';
+
+    let history = '';
+    performances.forEach(p => {
+        const setsStr = (p.sets || []).join(' | ');
+        history += `  - ${p.date}: ${setsStr}\n`;
+    });
+    if (!history) history = '  (אין נתונים קודמים)\n';
+
+    return `You are a strength training coach. Recommend ONE next set for the user.
+
+Context:
+- Nutritional state: ${nutri}
+- Exercise: ${exName}
+- Set number (this session): ${currentSetN}
+- Target reps: ${targetReps || 'unspecified'}
+- Target RIR: ${targetRIR !== '' ? targetRIR : 'unspecified'}
+- Last 1RM: ${lastRM || 'unspecified'}
+- Persona: ${persona || 'unspecified'}
+
+Last sessions (newest first):
+${history}
+
+Guidelines:
+- CUT: prioritize maintaining strength; avoid aggressive load increases. Volume preservation preferred.
+- SURPLUS: progressive overload preferred (+weight step or +1 rep when targets met).
+- MAINTENANCE: consistency; small sustainable gains.
+- If last RIR>=2 and reps hit target → recommend +1 step weight.
+- If last RIR=0 and reps below target → recommend a small deload.
+- Otherwise → keep weight, suggest +1 rep.
+
+Respond with ONLY valid JSON (no markdown, no commentary, no code fences):
+{ "w": <number kg>, "r": <number reps>, "rir": <number>, "reason": "<short Hebrew explanation up to 80 chars>" }`;
+}
+
+async function _callGeminiOneShot(prompt) {
+    const config = StorageManager.getAIConfig();
+    if (!config.apiKey) throw new Error('API_KEY_MISSING');
+
+    const payload = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+            temperature: 0.35,
+            maxOutputTokens: 220,
+            responseMimeType: 'application/json',
+            thinkingConfig: { thinkingBudget: 0 }
+        }
+    };
+
+    let lastErr = '';
+    for (const modelName of config.models) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const parts = data.candidates?.[0]?.content?.parts || [];
+                return parts.find(p => !p.thought)?.text || '';
+            }
+            if (response.status === 429 || response.status === 503 || response.status === 404) {
+                lastErr = `${modelName}: ${response.status}`;
+                continue;
+            }
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(`API_ERROR_${response.status}: ${errData.error?.message || ''}`);
+        } catch(e) {
+            if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
+                lastErr = `${modelName}: ${e.message}`;
+                continue;
+            }
+            throw e;
+        }
+    }
+    const err = new Error('ALL_MODELS_FAILED');
+    err._details = lastErr;
+    throw err;
+}
+
+async function requestAIRecommendation() {
+    if (!state.currentExName) return;
+    const trigger = document.getElementById('set-rec-trigger');
+    const result  = document.getElementById('set-rec-result');
+    if (!trigger || !result) return;
+
+    haptic('light');
+    trigger.style.display = 'none';
+    result.className      = 'set-rec-result loading';
+    result.innerHTML      = '⏳ המאמן חושב על הסט הבא...';
+    result.style.display  = 'flex';
+
+    try {
+        const prompt   = _buildRecommendationPrompt(state.currentExName);
+        const raw      = await _callGeminiOneShot(prompt);
+        const cleaned  = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+        const rec      = JSON.parse(cleaned);
+        if (typeof rec.w !== 'number' || typeof rec.r !== 'number') throw new Error('BAD_RESPONSE');
+        _renderAIRecommendation(rec);
+    } catch (e) {
+        console.warn('GymPro: AI recommendation failed', e);
+        result.className = 'set-rec-result error';
+        result.innerHTML = e.message === 'API_KEY_MISSING'
+            ? 'נדרש להגדיר Gemini API Key בהגדרות.'
+            : 'לא הצלחתי לקבל המלצה — נסה שוב או שאל ב-AI Coach.';
+        setTimeout(() => _resetSetRecZone(), 3500);
+    }
+}
+
+function _renderAIRecommendation(rec) {
+    _pendingAIRecommendation = rec;
+    const result = document.getElementById('set-rec-result');
+    if (!result) return;
+    const reasonText = (rec.reason || '').replace(/[<>]/g, '');
+    result.className = 'set-rec-result';
+    result.innerHTML = `
+        <div class="set-rec-header">
+            <span class="material-symbols-outlined" style="font-size:0.9rem;">auto_awesome</span>
+            המלצת המאמן
+        </div>
+        <div class="set-rec-vals">
+            <span><span class="set-rec-num">${rec.w}</span><span class="set-rec-unit">kg</span></span>
+            <span><span class="set-rec-num">×${rec.r}</span></span>
+            <span><span class="set-rec-num">${rec.rir ?? '—'}</span><span class="set-rec-unit">RIR</span></span>
+        </div>
+        ${reasonText ? `<div class="set-rec-reason">${reasonText}</div>` : ''}
+        <div class="set-rec-actions">
+            <button class="set-rec-apply" onclick="applyAIRecommendation()">אשר</button>
+            <button class="set-rec-dismiss" onclick="dismissAIRecommendation()">בטל</button>
+        </div>
+    `;
+    haptic('success');
+}
+
+function applyAIRecommendation() {
+    const rec = _pendingAIRecommendation;
+    if (!rec) return;
+    const wPicker = document.getElementById('weight-picker');
+    const rPicker = document.getElementById('reps-picker');
+    const rirPicker = document.getElementById('rir-picker');
+
+    if (wPicker)   _setPickerValue(wPicker, rec.w);
+    if (rPicker)   _setPickerValue(rPicker, rec.r);
+    if (rirPicker && rec.rir !== undefined) _setPickerValue(rirPicker, rec.rir);
+
+    syncStepperDisplay('weight');
+    syncStepperDisplay('reps');
+    syncStepperDisplay('rir');
+
+    dismissAIRecommendation();
+    haptic('success');
+}
+
+// בוחר את ה-option הקרוב ביותר אם הערך המדויק לא קיים — מונע סטים שלא נשמרים
+function _setPickerValue(select, val) {
+    if (!select || val === undefined || val === null) return;
+    const target = parseFloat(val);
+    let bestIdx = -1, bestDiff = Infinity;
+    for (let i = 0; i < select.options.length; i++) {
+        const optVal = parseFloat(select.options[i].value);
+        if (isNaN(optVal)) continue;
+        const diff = Math.abs(optVal - target);
+        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+    }
+    if (bestIdx >= 0) select.selectedIndex = bestIdx;
+}
+
+function dismissAIRecommendation() {
+    _pendingAIRecommendation = null;
+    _resetSetRecZone();
+    haptic('light');
 }
 
 // ─── STEPPER HELPERS ───────────────────────────────────────────────────────

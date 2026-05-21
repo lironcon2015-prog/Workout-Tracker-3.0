@@ -2681,6 +2681,10 @@ body {
     font-size: 8px; font-weight: 700; letter-spacing: 1.5px;
     text-transform: uppercase; color: var(--accent); margin-bottom: 3px;
 }
+.ai-workout-ctx .ctx-nutri {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.55);
+}
 .ai-chat-messages {
     flex: 1; overflow-y: auto; overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch; touch-action: pan-y;
@@ -2770,6 +2774,48 @@ body {
 .stg-icon { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .stg-row-title { font-size: 0.95rem; font-weight: 800; color: #fff; flex: 1; }
 .stg-chevron { font-size: 1.3rem; color: rgba(255,255,255,0.3); flex-shrink: 0; }
+
+/* ── Nutritional State Toggle ────────────────────────────────────────── */
+.stg-nutri-bento { padding: 16px 18px; }
+.stg-nutri-hint {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: 0.02em;
+    margin-bottom: 12px;
+}
+.nutri-toggle {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+.nutri-pill {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 9999px;
+    background: #1b1b1b;
+    color: rgba(255,255,255,0.65);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.1s;
+}
+.nutri-pill:active { transform: scale(0.97); }
+.nutri-pill.active {
+    background: rgba(10,132,255,0.16);
+    border-color: rgba(10,132,255,0.55);
+    color: #aac7ff;
+    box-shadow: inset 0 0 0 1px rgba(10,132,255,0.25);
+}
+.stg-nutri-meta {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.4);
+    margin-top: 10px;
+    min-height: 14px;
+    text-align: center;
+}
 
 .stg-firebase-row {
     display: flex; align-items: center; justify-content: space-between;

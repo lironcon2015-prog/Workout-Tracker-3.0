@@ -556,6 +556,40 @@ function openSettings() {
     navigate('ui-settings');
     if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
     if (typeof updateAIStatus === 'function') updateAIStatus();
+    _renderNutritionalToggle();
+}
+
+// ─── NUTRITIONAL STATE ─────────────────────────────────────────────────────
+
+function _renderNutritionalToggle() {
+    const nutri = StorageManager.getNutritionalState();
+    document.querySelectorAll('#nutri-toggle .nutri-pill').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.state === nutri.state);
+    });
+    const metaEl = document.getElementById('nutri-meta');
+    if (metaEl) metaEl.textContent = nutri.startDate ? `במצב מאז ${nutri.startDate} (${_daysInState(nutri.startDate)} ימים)` : '';
+}
+
+function selectNutritionalState(state) {
+    StorageManager.setNutritionalState(state);
+    _renderNutritionalToggle();
+    haptic('success');
+}
+
+function _daysInState(startDate) {
+    if (!startDate) return 0;
+    const start = new Date(startDate);
+    const now = new Date();
+    return Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+}
+
+// getNutritionalContext — מחזיר string לשימוש ב-AI prompts.
+// משמש את _updateAIContextBanner ויחומש ע"י requestAIRecommendation (Sprint 1c).
+function getNutritionalContext() {
+    const n = StorageManager.getNutritionalState();
+    const days = _daysInState(n.startDate);
+    const label = { cut: 'CUT', maintenance: 'MAINTENANCE', surplus: 'SURPLUS' }[n.state] || 'MAINTENANCE';
+    return n.startDate ? `${label} (day ${days})` : label;
 }
 
 // ─── WORKOUT PLAN SHEET ────────────────────────────────────────────────────
@@ -2863,6 +2897,7 @@ function _escapeHtml(str) {
 function _updateAIContextBanner() {
     const banner = document.getElementById('ai-workout-ctx');
     if (!banner) return;
+    const nutri = getNutritionalContext();
     if (StorageManager.hasActiveSession() && state.currentExName) {
         const rm = StorageManager.getLastRM(state.currentExName);
         const sets = (state.log || [])
@@ -2870,10 +2905,12 @@ function _updateAIContextBanner() {
             .map(l => `${l.w}×${l.r} (RIR ${l.rir !== undefined ? l.rir : '—'})`)
             .join(' • ');
         banner.innerHTML = `<div class="ctx-lbl">הקשר אימון נוכחי</div>
-            <strong>${state.currentExName}</strong>${rm ? ` • 1RM: ${rm}kg` : ''}${sets ? `<br>${sets}` : ''}`;
+            <strong>${state.currentExName}</strong>${rm ? ` • 1RM: ${rm}kg` : ''}<br><span class="ctx-nutri">Nutritional: ${nutri}</span>${sets ? `<br>${sets}` : ''}`;
         banner.style.display = 'block';
     } else {
-        banner.style.display = 'none';
+        // גם ללא אימון פעיל — מציג את מצב התזונה כי הוא רלוונטי לכל שיחה עם המאמן
+        banner.innerHTML = `<div class="ctx-lbl">הקשר נוכחי</div><span class="ctx-nutri">Nutritional: ${nutri}</span>`;
+        banner.style.display = 'block';
     }
 }
 

@@ -18,6 +18,7 @@ const StorageManager = {
     KEY_AI_PERSONA:   'gympro_ai_persona',
     KEY_AI_HISTORY:   'gympro_ai_history',
     KEY_AI_DISPLAY_CUTOFF: 'gympro_ai_display_cutoff',
+    KEY_NUTRITION:    'gympro_nutrition',
 
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); }
@@ -164,6 +165,27 @@ const StorageManager = {
 
     saveAnalyticsPrefs(prefs) {
         this.saveData(this.KEY_ANALYTICS, prefs);
+    },
+
+    // ── Nutritional State ───────────────────────────────────────────────
+    // מצב תזונתי (maintenance/cut/surplus) משמש כ-context ל-AI Coach
+    // כדי לייצר המלצות מותאמות לעומס הקלורי הנוכחי של המשתמש.
+
+    getNutritionalState() {
+        return this.getData(this.KEY_NUTRITION) || {
+            state: 'maintenance',
+            startDate: null
+        };
+    },
+
+    setNutritionalState(state, startDate) {
+        const valid = ['maintenance', 'cut', 'surplus'];
+        if (!valid.includes(state)) return false;
+        this.saveData(this.KEY_NUTRITION, {
+            state: state,
+            startDate: startDate || new Date().toISOString().slice(0, 10)
+        });
+        return true;
     },
 
     // ── Backup / Restore ────────────────────────────────────────────────
@@ -426,6 +448,7 @@ const FirebaseManager = {
                 exercises:      StorageManager.getData(StorageManager.KEY_DB_EXERCISES),
                 meta:           StorageManager.getData(StorageManager.KEY_META),
                 analyticsPrefs: StorageManager.getAnalyticsPrefs(),
+                nutrition:      StorageManager.getNutritionalState(),
                 updatedAt:      Date.now()
             };
             await this._db.collection('gympro_data').doc('config').set(configData);
@@ -452,6 +475,7 @@ const FirebaseManager = {
             if (data.exercises)      StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, data.exercises);
             if (data.meta)           StorageManager.saveData(StorageManager.KEY_META, data.meta);
             if (data.analyticsPrefs) StorageManager.saveAnalyticsPrefs(data.analyticsPrefs);
+            if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
             showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);

@@ -13,13 +13,14 @@ function toggleWorkoutQuickMenu() {
     menu.style.display = isOpen ? 'none' : 'block';
 }
 
-// סגירת התפריט בלחיצה מחוץ לו
+// סגירת התפריט בלחיצה מחוץ לו — בודק כל אלמנט עם data-workout-menu-trigger
+// (כפתור בקלאסי + כפתור ב-Live overlay חולקים את אותו תפריט)
 document.addEventListener('click', (e) => {
     const menu = document.getElementById('workout-quick-menu');
-    const btn  = document.getElementById('btn-workout-menu');
-    if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
-        menu.style.display = 'none';
-    }
+    if (!menu || menu.style.display === 'none') return;
+    if (e.target.closest('[data-workout-menu-trigger]')) return;
+    if (menu.contains(e.target)) return;
+    menu.style.display = 'none';
 });
 
 // ─── AUTO CLOUD CONFIG SAVE ────────────────────────────────────────────────

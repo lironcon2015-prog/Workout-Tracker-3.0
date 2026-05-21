@@ -4509,6 +4509,7 @@ body.live-mode-active { overflow: hidden; }
     font-size: 1.8rem; color: #fff;
     margin: 0; line-height: 1.1;
     letter-spacing: -0.02em;
+    text-transform: uppercase;  /* תואם ל-#ex-display-name בקלאסי */
 }
 
 .live-timer-wrap {
@@ -4645,3 +4646,116 @@ body.live-mode-active { overflow: hidden; }
     .live-timer-wrap { width: 180px; height: 180px; }
     .live-timer-text { font-size: 3rem; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   WORKOUT QUICK MENU — כפתור פרימיום + פריטי משנה
+   ════════════════════════════════════════════════════════════════════ */
+
+/* כפתור משותף לטריגרים (session-strip ו-live overlay) */
+.workout-menu-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.16);
+    color: rgba(255,255,255,0.85);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0; flex-shrink: 0;
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    transition: transform 0.15s, background 0.18s, border-color 0.18s;
+    -webkit-tap-highlight-color: rgba(255,255,255,0.12);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.workout-menu-btn:active {
+    transform: scale(0.94);
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.28);
+}
+.workout-menu-btn .material-symbols-outlined {
+    font-size: 1.25rem;
+    pointer-events: none;
+}
+
+/* מיקום ה-trigger ב-Live overlay — מקבילה ל-X בצד הימני */
+.live-menu-btn {
+    position: fixed;
+    top:   calc(env(safe-area-inset-top, 0px) + 12px);
+    right: calc(env(safe-area-inset-right, 0px) + 16px);
+    z-index: 10000;
+    width: 44px; height: 44px;  /* תואם בגודל ל-live-exit-btn */
+    background: rgba(255,255,255,0.10);
+    border-color: rgba(255,255,255,0.18);
+}
+.live-menu-btn .material-symbols-outlined { font-size: 1.4rem; }
+
+/* כרטיס התפריט עצמו — Liquid Obsidian */
+.workout-quick-menu {
+    position: fixed;
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px) + 8px);
+    left:   calc(env(safe-area-inset-left, 0px) + 16px);
+    z-index: 10001;  /* מעל live overlay (9999) ומעל X (10000) */
+    min-width: 180px;
+    background: linear-gradient(180deg, rgba(32,32,38,0.92), rgba(20,20,24,0.92));
+    backdrop-filter: blur(32px) saturate(180%);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow:
+        0 16px 48px rgba(0,0,0,0.6),
+        0 4px 16px rgba(0,0,0,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    padding: 6px;
+    animation: wqm-pop 0.18s cubic-bezier(0.2,0.8,0.2,1);
+}
+@keyframes wqm-pop {
+    0%   { opacity: 0; transform: translateY(8px) scale(0.96); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* בעת Live mode — להציג את התפריט בצד הימני העליון (מתחת ללייב-menu-btn) */
+body.live-mode-active .workout-quick-menu {
+    bottom: auto;
+    left:   auto;
+    top:    calc(env(safe-area-inset-top, 0px) + 64px);
+    right:  calc(env(safe-area-inset-right, 0px) + 16px);
+    animation: wqm-pop-tr 0.18s cubic-bezier(0.2,0.8,0.2,1);
+}
+@keyframes wqm-pop-tr {
+    0%   { opacity: 0; transform: translateY(-8px) scale(0.96); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* פריטי המשנה — אייקון + טקסט, hover רך */
+.workout-menu-item {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; padding: 13px 14px;
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.92);
+    font-family: 'Heebo', sans-serif;
+    font-weight: 700; font-size: 0.92rem;
+    text-align: right; direction: rtl;
+    border-radius: 12px;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.workout-menu-item:hover  { background: rgba(255,255,255,0.05); }
+.workout-menu-item:active { background: rgba(255,255,255,0.10); transform: scale(0.98); }
+.workout-menu-item .material-symbols-outlined {
+    font-size: 1.25rem;
+    color: var(--accent);
+    width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+    font-variation-settings: 'FILL' 0, 'wght' 400;
+}
+.workout-menu-item:nth-child(2) .material-symbols-outlined { color: var(--secondary); }
+.workout-menu-item:nth-child(3) .material-symbols-outlined { color: var(--type-c); }
+.wq-item-text { flex: 1; }
+
+/* ════════════════════════════════════════════════════════════════════
+   Live Mode — bottom-sheets צריכים להיות מעל ה-overlay
+   ════════════════════════════════════════════════════════════════════ */
+body.live-mode-active .bottom-sheet-overlay { z-index: 10005 !important; }
+body.live-mode-active .bottom-sheet         { z-index: 10006 !important; }
+body.live-mode-active .modal-overlay        { z-index: 10005 !important; }

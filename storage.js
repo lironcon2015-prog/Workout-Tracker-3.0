@@ -158,7 +158,11 @@ const StorageManager = {
             name: '',
             workoutAliases: {},
             workoutAliasColors: {},
-            homePRRange: 8
+            homePRRange: 8,
+            // Sprint 3 — Analytics Engine
+            heatmapWeeks: 12,
+            heatmapMuscle: 'all',
+            plateauThreshold: 3  // מינימום שבועות flat שמסומנים כ-plateau
             // consistencyGreen / consistencyOrange — נשמרים רק אם הוגדרו ידנית
         };
     },

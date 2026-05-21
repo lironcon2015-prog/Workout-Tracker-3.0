@@ -1224,6 +1224,9 @@ function renderAnalyticsDashboard() {
     renderVolumeBarChart(archive, prefs.volumeRange, prefs.volumeMuscle || 'all');
     renderWorkoutTypeChart(archive);
     renderDonutChart(archive, prefs.muscleRange);
+    renderVolumeHeatmap(archive, prefs.heatmapWeeks || 12, prefs.heatmapMuscle || 'all');
+    syncHeatmapMuscleChips(prefs.heatmapMuscle || 'all');
+    syncHeatmapRangeChips(prefs.heatmapWeeks || 12);
     renderConsistencyTrack(archive, prefs.consistencyRange);
     populateMicroSelector(archive);
     syncVolMuscleChips(prefs.volumeMuscle || 'all');
@@ -1822,6 +1825,8 @@ function loadMicroData(exName) {
         if (heroEl) heroEl.innerHTML = `—`;
         _microVals = []; _microDates = []; _microRelevant = [];
         renderPRCard(exName, [], prefs);
+        renderPlateauCard(exName);
+        renderPRPredictionCard(exName);
         return;
     }
 
@@ -1850,6 +1855,8 @@ function loadMicroData(exName) {
 
     drawMicroLineChart(vals, _microDates);
     renderPRCard(exName, relevant, prefs);
+    renderPlateauCard(exName);
+    renderPRPredictionCard(exName);
 }
 
 function calc1RM(w, r, formula) {
@@ -2003,6 +2010,404 @@ function renderPRCard(exName, relevant, prefs) {
 }
 
 function togglePRCard() {}
+
+// ════════════════════════════════════════════════════════════════════
+// ─── SPRINT 3 — ANALYTICS ENGINE ────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+
+// מחזיר Date של תחילת השבוע (יום ראשון 00:00) שמכיל timestamp נתון
+function _startOfWeek(ts) {
+    const d = new Date(ts);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - d.getDay()); // יום ראשון = 0
+    return d;
+}
+
+// רגרסיה לינארית פשוטה: מקבל מערך {x,y} ומחזיר {slope,intercept,r2,stderr,n}
+function _linearRegression(pts) {
+    const n = pts.length;
+    if (n < 2) return { slope: 0, intercept: 0, r2: 0, stderr: 0, n };
+    const sx = pts.reduce((s, p) => s + p.x, 0);
+    const sy = pts.reduce((s, p) => s + p.y, 0);
+    const mx = sx / n, my = sy / n;
+    let num = 0, den = 0, ssTot = 0;
+    pts.forEach(p => {
+        num += (p.x - mx) * (p.y - my);
+        den += (p.x - mx) * (p.x - mx);
+        ssTot += (p.y - my) * (p.y - my);
+    });
+    const slope = den === 0 ? 0 : num / den;
+    const intercept = my - slope * mx;
+    let ssRes = 0;
+    pts.forEach(p => { const yh = slope * p.x + intercept; ssRes += (p.y - yh) ** 2; });
+    const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
+    const stderr = n > 2 ? Math.sqrt(ssRes / (n - 2)) : 0;
+    return { slope, intercept, r2, stderr, n };
+}
+
+// ─── HEATMAP ──────────────────────────────────────────────────────────
+
+// אגרגציה: שבועות × ימים → {vol, sets} פר תא. כולל סינון לפי שריר.
+function _aggregateDailyByMuscle(archive, weeks, muscleFilter) {
+    const today = _startOfWeek(Date.now());
+    const startMs = today.getTime() - (weeks - 1) * 7 * 86400000;
+    const grid = []; // grid[weekIdx][dayIdx] = {vol, sets, date}
+    for (let w = 0; w < weeks; w++) {
+        const weekStart = startMs + w * 7 * 86400000;
+        const row = [];
+        for (let d = 0; d < 7; d++) {
+            row.push({ vol: 0, sets: 0, date: new Date(weekStart + d * 86400000) });
+        }
+        grid.push(row);
+    }
+
+    archive.forEach(entry => {
+        if (entry.timestamp < startMs) return;
+        const wd = new Date(entry.timestamp);
+        const wkIdx = Math.floor((_startOfWeek(entry.timestamp).getTime() - startMs) / (7 * 86400000));
+        if (wkIdx < 0 || wkIdx >= weeks) return;
+        const dayIdx = wd.getDay();
+
+        if (!entry.details) return;
+        let cellVol = 0, cellSets = 0;
+        Object.entries(entry.details).forEach(([exName, ex]) => {
+            const exData = state.exercises.find(e => e.name === exName);
+            const muscles = exData ? (exData.muscles || []) : [];
+            const include = (muscleFilter === 'all') || muscles.includes(muscleFilter);
+            if (!include) return;
+            cellVol += (ex.vol || 0);
+            cellSets += (ex.sets ? ex.sets.length : 0);
+        });
+        grid[wkIdx][dayIdx].vol += cellVol;
+        grid[wkIdx][dayIdx].sets += cellSets;
+    });
+
+    return grid;
+}
+
+function renderVolumeHeatmap(archive, weeks, muscleFilter) {
+    const gridEl = document.getElementById('heatmap-grid'); if (!gridEl) return;
+    const tooltipEl = document.getElementById('heatmap-tooltip');
+
+    const data = _aggregateDailyByMuscle(archive, weeks, muscleFilter);
+    const allVols = data.flat().map(c => c.vol).filter(v => v > 0);
+    const maxVol = allVols.length ? Math.max(...allVols) : 1;
+
+    // שורה אחרונה (השבוע הנוכחי) למטה — נציג מהישן (top) לחדש (bottom)
+    let html = '';
+    data.forEach((row, wkIdx) => {
+        row.forEach((cell, dayIdx) => {
+            const isEmpty = cell.vol === 0;
+            const intensity = isEmpty ? 0 : 0.15 + 0.85 * Math.min(1, cell.vol / maxVol);
+            const cls = isEmpty ? 'heatmap-cell empty' : 'heatmap-cell has-vol';
+            const dStr = `${cell.date.getDate().toString().padStart(2,'0')}.${(cell.date.getMonth()+1).toString().padStart(2,'0')}`;
+            html += `<div class="${cls}" style="opacity:${intensity || 1};${isEmpty ? 'opacity:1;' : ''}" data-vol="${Math.round(cell.vol)}" data-sets="${cell.sets}" data-date="${dStr}" onclick="_onHeatmapCellClick(this)"></div>`;
+        });
+    });
+    gridEl.innerHTML = html;
+    if (tooltipEl) tooltipEl.classList.remove('show');
+}
+
+function _onHeatmapCellClick(el) {
+    document.querySelectorAll('.heatmap-cell').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    const tooltipEl = document.getElementById('heatmap-tooltip');
+    if (!tooltipEl) return;
+    const vol = parseInt(el.dataset.vol, 10), sets = parseInt(el.dataset.sets, 10), date = el.dataset.date;
+    if (vol === 0) {
+        tooltipEl.innerHTML = `<span>${date} — ללא אימון</span>`;
+    } else {
+        const volStr = vol >= 1000 ? (vol/1000).toFixed(1) + ' טון' : vol + ' ק"ג';
+        tooltipEl.innerHTML = `<strong>${date}</strong> · ${sets} סטים · <strong>${volStr}</strong>`;
+    }
+    tooltipEl.classList.add('show');
+    haptic('light');
+}
+
+function setHeatmapRange(weeks, btn) {
+    _updateChipGroup('heatmap-range-chips', btn);
+    const p = getAnalyticsPrefs(); p.heatmapWeeks = weeks; saveAnalyticsPrefs(p);
+    renderVolumeHeatmap(getArchiveClean(), weeks, p.heatmapMuscle || 'all');
+}
+
+function setHeatmapMuscle(muscle, btn) {
+    document.querySelectorAll('#heatmap-muscle-chips .chip').forEach(b => { b.classList.remove('active'); b.classList.add('inactive'); });
+    if (btn) { btn.classList.add('active'); btn.classList.remove('inactive'); }
+    const p = getAnalyticsPrefs(); p.heatmapMuscle = muscle; saveAnalyticsPrefs(p);
+    renderVolumeHeatmap(getArchiveClean(), p.heatmapWeeks || 12, muscle);
+}
+
+function syncHeatmapMuscleChips(muscle) {
+    document.querySelectorAll('#heatmap-muscle-chips .chip').forEach(b => {
+        b.classList.toggle('active', b.dataset.muscle === muscle);
+        b.classList.toggle('inactive', b.dataset.muscle !== muscle);
+    });
+}
+
+function syncHeatmapRangeChips(weeks) {
+    document.querySelectorAll('#heatmap-range-chips button').forEach(b => {
+        const onclick = b.getAttribute('onclick') || '';
+        const m = onclick.match(/setHeatmapRange\((\d+)/);
+        b.classList.toggle('active', m ? parseInt(m[1], 10) === weeks : false);
+    });
+}
+
+// ─── PLATEAU DETECTION ────────────────────────────────────────────────
+
+// אוסף max e1RM פר אימון של תרגיל, מהישן לחדש, מוגבל ל-`weeks` שבועות אחרונים
+function _getExerciseE1RMPoints(exName, weeks) {
+    const prefs = getAnalyticsPrefs();
+    const archive = getArchiveClean();
+    const cutoffMs = Date.now() - weeks * 7 * 86400000;
+    const pts = [];
+    [...archive].reverse().forEach(w => { // מהישן לחדש
+        if (w.timestamp < cutoffMs) return;
+        const sets = getEntryExerciseSets(w, exName);
+        if (!sets.length) return;
+        const best = Math.max(...sets.map(s => calc1RM(s.w, s.r, prefs.formula)));
+        pts.push({ ts: w.timestamp, e1rm: best, date: w.date || '' });
+    });
+    return pts;
+}
+
+function detectPlateau(exName) {
+    const prefs = getAnalyticsPrefs();
+    const threshold = prefs.plateauThreshold || 3;
+    const pts = _getExerciseE1RMPoints(exName, 8); // 8 שבועות אחורה לבדיקה
+    if (pts.length < threshold) return { status: 'insufficient', n: pts.length, threshold };
+
+    // נירמל ל-x = ימים מאז האימון הראשון בחלון
+    const t0 = pts[0].ts;
+    const regPts = pts.map(p => ({ x: (p.ts - t0) / 86400000, y: p.e1rm }));
+    const reg = _linearRegression(regPts);
+
+    // weeks span בפועל בנתונים
+    const spanDays = regPts[regPts.length - 1].x;
+    const spanWeeks = Math.max(1, Math.round(spanDays / 7));
+
+    const avgE1RM = pts.reduce((s, p) => s + p.e1rm, 0) / pts.length;
+    const slopePerWeek = reg.slope * 7;
+    // "Flat" = שיפוע בין -0.5kg ל-+0.5kg לשבוע; "ירידה" < -0.5; "צמיחה" > +0.5
+    // הסף לקיבעון מתבסס על מספר תצפיות (n) — מספיק `threshold` אימונים בלי צמיחה ברורה
+    let status;
+    if (slopePerWeek > 0.5) status = 'growing';
+    else if (slopePerWeek < -0.5) status = 'declining';
+    else status = 'plateau';
+
+    return {
+        status, n: pts.length, threshold, spanWeeks,
+        slopePerWeek, avgE1RM, currentE1RM: pts[pts.length - 1].e1rm,
+        firstE1RM: pts[0].e1rm
+    };
+}
+
+function renderPlateauCard(exName) {
+    const card = document.getElementById('plateau-card'); if (!card) return;
+    if (!exName) { card.style.display = 'none'; return; }
+    const res = detectPlateau(exName);
+    if (res.status === 'insufficient') { card.style.display = 'none'; return; }
+
+    card.style.display = 'block';
+    card.classList.remove('danger', 'ok');
+    const sub = document.getElementById('plateau-sub');
+    const badge = document.getElementById('plateau-badge');
+    const body = document.getElementById('plateau-body');
+    const aiBtn = document.getElementById('btn-plateau-ai');
+    const aiRes = document.getElementById('plateau-ai-result');
+
+    if (aiRes) { aiRes.style.display = 'none'; aiRes.innerHTML = ''; }
+
+    let badgeTxt = '', subTxt = '';
+    if (res.status === 'growing') {
+        card.classList.add('ok');
+        badgeTxt = 'צמיחה';
+        subTxt = `${exName} · ${res.spanWeeks} שבועות`;
+    } else if (res.status === 'declining') {
+        card.classList.add('danger');
+        badgeTxt = 'ירידה';
+        subTxt = `${exName} · נדרשת בדיקה`;
+    } else { // plateau
+        badgeTxt = 'קיבעון';
+        subTxt = `${exName} · ${res.spanWeeks} שבועות ללא צמיחה`;
+    }
+
+    if (sub) sub.textContent = subTxt;
+    if (badge) badge.textContent = badgeTxt;
+
+    const slopeStr = (res.slopePerWeek >= 0 ? '+' : '') + res.slopePerWeek.toFixed(2);
+    const diffStr = (res.currentE1RM - res.firstE1RM >= 0 ? '+' : '') + Math.round(res.currentE1RM - res.firstE1RM) + ' kg';
+    if (body) {
+        body.innerHTML = `
+            <div class="plateau-stat-row">
+                <span class="plateau-stat-lbl">E1RM נוכחי</span>
+                <span class="plateau-stat-val">${Math.round(res.currentE1RM)} kg</span>
+            </div>
+            <div class="plateau-stat-row">
+                <span class="plateau-stat-lbl">שינוי בתקופה</span>
+                <span class="plateau-stat-val">${diffStr}</span>
+            </div>
+            <div class="plateau-stat-row">
+                <span class="plateau-stat-lbl">שיפוע / שבוע</span>
+                <span class="plateau-stat-val">${slopeStr} kg</span>
+            </div>
+            <div class="plateau-stat-row">
+                <span class="plateau-stat-lbl">תצפיות</span>
+                <span class="plateau-stat-val">${res.n}</span>
+            </div>`;
+    }
+
+    // כפתור AI מוצג רק במצבי plateau/declining + יש מפתח API
+    if (aiBtn) {
+        const hasKey = (typeof StorageManager !== 'undefined' && StorageManager.getAIConfig)
+            ? !!StorageManager.getAIConfig().apiKey : false;
+        const showAI = hasKey && (res.status === 'plateau' || res.status === 'declining');
+        aiBtn.style.display = showAI ? 'flex' : 'none';
+        aiBtn.removeAttribute('disabled');
+        aiBtn.dataset.exName = exName;
+    }
+}
+
+async function requestAIPlateauAdvice() {
+    const btn = document.getElementById('btn-plateau-ai');
+    const result = document.getElementById('plateau-ai-result');
+    if (!btn || !result) return;
+    const exName = btn.dataset.exName;
+    if (!exName) return;
+
+    haptic('light');
+    btn.setAttribute('disabled', 'true');
+    result.style.display = 'block';
+    result.className = 'plateau-ai-result loading';
+    result.innerHTML = '⏳ המאמן בוחן את ההיסטוריה שלך...';
+
+    try {
+        const data = detectPlateau(exName);
+        const nutri = (typeof getNutritionalContext === 'function') ? getNutritionalContext() : 'MAINTENANCE';
+        const persona = StorageManager.getAIPersona ? (StorageManager.getAIPersona() || '') : '';
+        const pts = _getExerciseE1RMPoints(exName, 8);
+        const histLines = pts.map(p => `  - ${p.date || new Date(p.ts).toISOString().slice(0,10)}: ${Math.round(p.e1rm)}kg E1RM`).join('\n');
+
+        const prompt = `You are a strength training coach. The user is on a plateau (or decline) in a specific exercise. Provide a brief, actionable Hebrew recommendation.
+
+Context:
+- Exercise: ${exName}
+- Status: ${data.status === 'plateau' ? 'PLATEAU' : 'DECLINING'}
+- Weeks analyzed: ${data.spanWeeks}
+- Current E1RM: ${Math.round(data.currentE1RM)} kg
+- Change in period: ${(data.currentE1RM - data.firstE1RM).toFixed(1)} kg
+- Slope per week: ${data.slopePerWeek.toFixed(2)} kg/week
+- Nutritional state: ${nutri}
+- Persona: ${persona || 'unspecified'}
+
+E1RM history (oldest first):
+${histLines || '  (no data)'}
+
+Guidelines:
+- If CUT: a plateau in strength is expected. Suggest "wait it out" / maintain volume / focus on form.
+- If MAINTENANCE: try a deload week, then re-test. Or vary reps (e.g., 3×5 instead of 3×8).
+- If SURPLUS: a plateau is concerning. Recommend a technique change, exercise swap, or deload+reset.
+
+Respond in HEBREW, 2-3 short sentences (max 250 chars). No JSON, no markdown, plain text only.`;
+
+        const raw = (typeof _callGeminiOneShot === 'function')
+            ? await _callGeminiOneShot(prompt)
+            : '';
+        const text = (raw || '').trim().replace(/^["']|["']$/g, '');
+        if (!text) throw new Error('EMPTY_RESPONSE');
+
+        result.className = 'plateau-ai-result';
+        result.innerHTML = text.replace(/</g, '&lt;');
+        haptic('success');
+    } catch (e) {
+        console.warn('Plateau AI advice failed', e);
+        result.className = 'plateau-ai-result error';
+        result.innerHTML = e.message === 'API_KEY_MISSING'
+            ? 'נדרש להגדיר Gemini API Key בהגדרות.'
+            : 'לא הצלחתי לקבל המלצה — נסה שוב מאוחר יותר.';
+    } finally {
+        btn.removeAttribute('disabled');
+    }
+}
+
+// ─── PR PREDICTION ────────────────────────────────────────────────────
+
+function predictPR(exName) {
+    const pts = _getExerciseE1RMPoints(exName, 16); // עד 16 שבועות אחורה
+    if (pts.length < 4) return { ok: false, reason: 'insufficient_data', n: pts.length, min: 4 };
+
+    const t0 = pts[0].ts;
+    const regPts = pts.map(p => ({ x: (p.ts - t0) / 86400000, y: p.e1rm }));
+    const reg = _linearRegression(regPts);
+
+    if (reg.r2 < 0.5) return { ok: false, reason: 'low_confidence', n: pts.length, r2: reg.r2 };
+    if (reg.slope <= 0) return { ok: false, reason: 'no_trend', n: pts.length, slope: reg.slope };
+
+    // תחזית 4 שבועות (28 ימים) קדימה מהאימון האחרון
+    const lastX = regPts[regPts.length - 1].x;
+    const futureX = lastX + 28;
+    const projected = reg.slope * futureX + reg.intercept;
+    const currentE1RM = pts[pts.length - 1].e1rm;
+    const gain = projected - currentE1RM;
+
+    return {
+        ok: true, n: pts.length, r2: reg.r2,
+        currentE1RM, projected, gain,
+        ci: reg.stderr * 2, // ~95%
+        weeksAhead: 4
+    };
+}
+
+function renderPRPredictionCard(exName) {
+    const card = document.getElementById('pr-prediction-card'); if (!card) return;
+    if (!exName) { card.style.display = 'none'; return; }
+    const res = predictPR(exName);
+    card.style.display = 'block';
+
+    const sub = document.getElementById('pr-pred-sub');
+    const body = document.getElementById('pr-pred-body');
+    if (sub) sub.textContent = exName;
+
+    if (!res.ok) {
+        if (body) {
+            let msg;
+            if (res.reason === 'insufficient_data') msg = `אסוף עוד נתונים — נדרשים ${res.min} אימונים לפחות (יש ${res.n}).`;
+            else if (res.reason === 'low_confidence') msg = `המגמה לא יציבה מספיק (R² = ${(res.r2*100).toFixed(0)}%). נסה שוב כשתהיה מגמה ברורה יותר.`;
+            else msg = 'אין מגמת צמיחה נוכחית. התמקד בעקביות לפני תחזית.';
+            body.innerHTML = `<div class="pr-pred-empty">${msg}</div>`;
+        }
+        return;
+    }
+
+    const ciLo = Math.round(res.projected - res.ci);
+    const ciHi = Math.round(res.projected + res.ci);
+    const gainStr = (res.gain >= 0 ? '+' : '') + res.gain.toFixed(1);
+
+    if (body) {
+        body.innerHTML = `
+            <div class="pr-pred-hero">
+                <div>
+                    <div class="pr-pred-hero-lbl">תחזית בעוד ${res.weeksAhead} שבועות</div>
+                    <div class="pr-pred-hero-val">${Math.round(res.projected)}<span class="inline-unit">kg</span></div>
+                </div>
+                <div style="text-align:left;">
+                    <div class="pr-pred-hero-lbl">רווח</div>
+                    <div class="pr-pred-hero-val" style="font-size:1.4rem; color:var(--type-b);">${gainStr}<span class="inline-unit">kg</span></div>
+                </div>
+            </div>
+            <div class="pr-pred-meta">
+                <span>טווח סבירות (CI)</span>
+                <strong>${ciLo}–${ciHi} kg</strong>
+            </div>
+            <div class="pr-pred-meta">
+                <span>איכות מגמה (R²)</span>
+                <strong>${(res.r2 * 100).toFixed(0)}%</strong>
+            </div>
+            <div class="pr-pred-meta">
+                <span>תצפיות</span>
+                <strong>${res.n}</strong>
+            </div>`;
+    }
+}
 
 function switchAnalyticsTab(name, btn) {
     document.querySelectorAll('#analytics-seg .seg-btn').forEach(b => b.classList.remove('active'));

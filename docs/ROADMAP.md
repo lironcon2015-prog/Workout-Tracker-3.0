@@ -21,7 +21,7 @@
 | S0 — Foundation Refactor | ✅ Done | v15.14 | 2026-05-21 |
 | S1 — Giant Sets + AI Recommendations | ✅ Done | v15.17 | 2026-05-21 |
 | S2 — UI/UX Polish | ✅ Done | v15.19 | 2026-05-21 |
-| S3 — Analytics Engine | ⬜ Pending | — | — |
+| S3 — Analytics Engine | ✅ Done | v15.20 | 2026-05-21 |
 | S4 — Workout Live View | ⬜ Pending | — | — |
 
 > סטטוסים: ⬜ Pending · 🟡 In Progress · ✅ Done · ❌ Blocked

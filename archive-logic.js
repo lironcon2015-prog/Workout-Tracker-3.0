@@ -2151,32 +2151,32 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
     const activeWeeks = weekTotals.filter(t => t > 0);
     const avgWeek = activeWeeks.length ? activeWeeks.reduce((s, t) => s + t, 0) / activeWeeks.length : 0;
 
-    let html = '';
-    // שורת כותרת: פינה ריקה + 7 תוויות ימים + תוויית "סה"כ"
-    html += '<div class="hm-corner"></div>';
-    ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].forEach(d => {
-        html += `<div class="hm-day-lbl">${d}</div>`;
-    });
-    html += '<div class="hm-total-head">סה״כ</div>';
+    // Header — spacer + 7 day labels בגריד פנימי + "סה"כ"
+    const dayLabelsHTML = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
+        .map(d => `<div class="hm-day-lbl">${d}</div>`).join('');
+    let html = `<div class="hm-header">
+        <div></div>
+        <div class="hm-cells-grid">${dayLabelsHTML}</div>
+        <div class="hm-total-head">סה״כ</div>
+    </div>`;
 
     // שורות לפי שבוע (ישן בראש, חדש בתחתית)
     data.forEach((row, wkIdx) => {
         const sunday = row[0].date;
         const wkLabel = `${sunday.getDate().toString().padStart(2, '0')}.${(sunday.getMonth() + 1).toString().padStart(2, '0')}`;
-        html += `<div class="hm-week-lbl">${wkLabel}</div>`;
 
+        // התאים בגריד פנימי משלהם — מנותקים מגובה ה-week-total כך שאספקט-1:1 נשמר
+        let cellsHTML = '';
         row.forEach(cell => {
             const isEmpty = cell.vol === 0;
             const dStr = `${cell.date.getDate().toString().padStart(2, '0')}.${(cell.date.getMonth() + 1).toString().padStart(2, '0')}`;
             if (isEmpty) {
-                html += `<div class="heatmap-cell empty" data-vol="0" data-sets="0" data-date="${dStr}" onclick="_onHeatmapCellClick(this)"></div>`;
+                cellsHTML += `<div class="heatmap-cell empty" data-vol="0" data-sets="0" data-date="${dStr}" onclick="_onHeatmapCellClick(this)"></div>`;
                 return;
             }
-            // סקלה לוגריתמית סביב הממוצע: יום שווה לממוצע=0.7, חצי-ממוצע≈0.45, פי-2=0.95
-            // נותן הבדל ויזואלי חד בין ימים נמוכים, ממוצעים וגבוהים — בניגוד לסקלה מבוססת max
+            // סקלה לוגריתמית סביב הממוצע: יום=ממוצע→0.7, חצי-ממוצע≈0.45, פי-2≈0.98
             const ratio = cell.vol / avgDayVol;
             const intensity = Math.max(0.22, Math.min(1, 0.7 + Math.log2(ratio) * 0.28));
-            // צבע: לפי שריר דומיננטי במצב 'all', אחרת תמיד צבע השריר הנבחר
             let baseColor;
             if (muscleFilter === 'all') {
                 const dom = _dominantMuscle(cell.breakdown);
@@ -2185,7 +2185,7 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
                 baseColor = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#0A84FF';
             }
             const bgRGBA = _hexToRGBA(baseColor, intensity);
-            html += `<div class="heatmap-cell" style="background:${bgRGBA};" data-vol="${Math.round(cell.vol)}" data-sets="${cell.sets}" data-date="${dStr}" data-bk='${JSON.stringify(cell.breakdown).replace(/'/g, "&#39;")}' onclick="_onHeatmapCellClick(this)"></div>`;
+            cellsHTML += `<div class="heatmap-cell has-vol" style="background:${bgRGBA};" data-vol="${Math.round(cell.vol)}" data-sets="${cell.sets}" data-date="${dStr}" data-bk='${JSON.stringify(cell.breakdown).replace(/'/g, "&#39;")}' onclick="_onHeatmapCellClick(this)"></div>`;
         });
 
         // סיכום שבוע + חץ מגמה מול שבוע קודם
@@ -2199,9 +2199,14 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
             else                    trendHTML = `<span class="hm-trend flat">– 0%</span>`;
         }
         const dimCls = total === 0 ? ' dim' : '';
-        html += `<div class="hm-week-total">
-            <span class="hm-total-val${dimCls}">${totalStr}</span>
-            ${trendHTML}
+
+        html += `<div class="hm-row">
+            <div class="hm-week-lbl">${wkLabel}</div>
+            <div class="hm-cells-grid">${cellsHTML}</div>
+            <div class="hm-week-total">
+                <span class="hm-total-val${dimCls}">${totalStr}</span>
+                ${trendHTML}
+            </div>
         </div>`;
     });
 

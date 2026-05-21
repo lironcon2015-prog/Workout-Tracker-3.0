@@ -4142,31 +4142,44 @@ body {
 #heatmap-muscle-chips .chip { padding: 5px 10px; font-size: 0.75rem; border-radius: 20px; flex-shrink: 0; }
 #heatmap-muscle-chips .chip.inactive { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); }
 
+/* Heatmap — flex של שורות, כל שורה היא grid 3-עמודות, התאים בגריד פנימי */
 .heatmap-table {
-    display: grid;
-    grid-template-columns: 34px repeat(7, minmax(0, 1fr)) 54px;
-    column-gap: 5px; row-gap: 8px;
-    direction: rtl; align-items: stretch;
-    margin-top: 8px;
-    min-width: 0;
+    display: flex; flex-direction: column;
+    gap: 6px; margin-top: 6px;
+    direction: rtl; min-width: 0;
 }
-.hm-corner { /* תא פינתי ריק */ }
+.hm-header, .hm-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 56px;
+    column-gap: 6px;
+    align-items: center;
+    direction: rtl; min-width: 0;
+}
+.hm-header { padding-bottom: 2px; }
 
-/* כותרות ימים — Heebo italic-black, prominent */
+/* גריד פנימי לתאים/לייבלים — 7 עמודות שוות, ללא overflow */
+.hm-cells-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    column-gap: 5px;
+    direction: rtl; min-width: 0;
+}
+
+/* כותרות ימים — מיושרים מעל התאים, אותה רוחב עמודה */
 .hm-day-lbl {
     font-family: 'Heebo', sans-serif;
     font-style: italic; font-weight: 900;
     font-size: 0.95rem; color: rgba(255,255,255,0.7);
-    text-align: center; padding: 2px 0 10px;
-    line-height: 1; letter-spacing: -0.01em;
+    text-align: center; line-height: 1;
+    letter-spacing: -0.01em;
 }
 .hm-total-head {
     font-family: 'Heebo', sans-serif;
     font-style: italic; font-weight: 900;
     font-size: 0.55rem; color: rgba(255,255,255,0.4);
-    padding: 8px 0 10px; line-height: 1;
+    line-height: 1;
     letter-spacing: 0.8px; text-transform: uppercase;
-    display: flex; align-items: flex-end; justify-content: center;
+    text-align: center;
 }
 
 /* תוויות שבוע (תאריכים) */
@@ -4174,13 +4187,14 @@ body {
     font-family: 'Heebo', sans-serif;
     font-style: italic; font-weight: 800;
     font-size: 0.78rem; color: rgba(255,255,255,0.45);
-    display: flex; align-items: center; justify-content: center;
+    text-align: center;
     direction: ltr; letter-spacing: -0.01em;
 }
 
-/* תאי חום — רדיוס גדול, גלוי וברור */
+/* תאי חום — width:100% של עמודה + aspect-ratio = ריבועים מובטחים */
 .heatmap-cell {
     aspect-ratio: 1 / 1;
+    width: 100%;
     border-radius: 8px;
     background: rgba(255,255,255,0.025);
     border: 1px solid rgba(255,255,255,0.04);
@@ -4189,13 +4203,23 @@ body {
     position: relative;
     min-width: 0;
 }
-.heatmap-cell:hover:not(.empty) { transform: scale(1.18); border-color: rgba(255,255,255,0.35); z-index: 2; }
-.heatmap-cell.selected {
-    transform: scale(1.22); z-index: 3;
-    border-color: rgba(255,255,255,0.75);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5), 0 0 0 2px rgba(10,132,255,0.4);
+.heatmap-cell.has-vol:hover {
+    transform: scale(1.15); border-color: rgba(255,255,255,0.35); z-index: 2;
 }
-.heatmap-cell.empty { background: rgba(255,255,255,0.02); cursor: default; border-color: rgba(255,255,255,0.025); }
+.heatmap-cell.has-vol.selected {
+    transform: scale(1.2); z-index: 3;
+    border-color: rgba(255,255,255,0.75);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5), 0 0 0 2px rgba(10,132,255,0.4);
+}
+.heatmap-cell.empty {
+    background: rgba(255,255,255,0.02);
+    cursor: pointer; /* עדיין נלחץ — מציג tooltip "ללא אימון" */
+    border-color: rgba(255,255,255,0.025);
+}
+.heatmap-cell.empty.selected {
+    border-color: rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.04);
+}
 
 /* סיכום שבועי — מודגש, pill למגמה */
 .hm-week-total {
@@ -4220,7 +4244,7 @@ body {
 }
 .hm-trend.up   { background: rgba(71,226,102,0.14); color: var(--type-b); }
 .hm-trend.down { background: rgba(255,69,58,0.14);  color: var(--danger); }
-.hm-trend.flat { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); padding: 3px 9px; }
+.hm-trend.flat { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); }
 
 /* טולטיפ — כרטיס פרימיום */
 .heatmap-tooltip {

@@ -3677,6 +3677,46 @@ function _syncLiveResumeBtn() {
     btn.style.display = show ? 'inline-flex' : 'none';
 }
 
+// ─── Live Edit Sheet — עריכת weight/reps/RIR ממסך הטיימר ─────────────
+function openLiveEditSheet() {
+    if (!document.body.classList.contains('live-mode-active')) return;
+    const overlay = document.getElementById('live-edit-overlay');
+    const sheet = document.getElementById('live-edit-sheet');
+    if (!overlay || !sheet) return;
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => sheet.classList.add('open'));
+    _syncLiveEditSheetDisplays();
+    haptic('light');
+}
+
+function closeLiveEditSheet() {
+    const overlay = document.getElementById('live-edit-overlay');
+    const sheet = document.getElementById('live-edit-sheet');
+    if (!overlay || !sheet) return;
+    sheet.classList.remove('open');
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
+    haptic('light');
+}
+
+// קורא את ערכי ה-pickers הקלאסיים ומציג אותם בתוך ה-sheet
+function _syncLiveEditSheetDisplays() {
+    ['weight', 'reps', 'rir'].forEach(field => {
+        const picker = document.getElementById(field + '-picker');
+        const disp = document.getElementById('live-edit-' + field + '-disp');
+        if (!picker || !disp) return;
+        const opt = picker.options[picker.selectedIndex];
+        const raw = (opt && opt.text) || picker.value || '—';
+        disp.textContent = raw.replace(' kg', '');
+    });
+}
+
+// +/- מתוך ה-sheet — מפעיל את stepPicker הקיים ומסנכרן את כל התצוגות
+function _liveStepPicker(field, dir) {
+    if (typeof stepPicker === 'function') stepPicker(field, dir);
+    _syncLiveEditSheetDisplays();
+    updateLiveViewContent();
+}
+
 // קורא לנתוני state ומסנכרן את ה-DOM של ה-overlay
 function updateLiveViewContent() {
     if (!document.body.classList.contains('live-mode-active')) return;

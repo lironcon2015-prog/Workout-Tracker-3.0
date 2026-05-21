@@ -4531,7 +4531,8 @@ body.live-mode-active { overflow: hidden; }
     stroke-width: 3.5; stroke-linecap: round;
     stroke-dasharray: 289;
     stroke-dashoffset: 289;
-    transition: stroke-dashoffset 0.3s cubic-bezier(0.2,0.8,0.2,1);
+    /* 1s linear (תואם ל-.timer-bar) — מאפשר תנועה חלקה רציפה במקום קפיצות */
+    transition: stroke-dashoffset 1s linear;
     filter: drop-shadow(0 0 10px rgba(71,226,102,0.55));
 }
 .live-timer-text {
@@ -4762,3 +4763,107 @@ body.live-mode-active .modal-overlay        { z-index: 10005 !important; }
 /* session log משתמש ב-classes עצמאיות (לא bottom-sheet) — חייב bump משלו */
 body.live-mode-active .slog-overlay         { z-index: 10005 !important; }
 body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
+
+/* ════════════════════════════════════════════════════════════════════
+   LIVE — Edit Current Set (bottom-sheet)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Make the target card tappable with visual hint */
+.live-next-target { cursor: pointer; transition: background 0.18s, border-color 0.18s; }
+.live-next-target:active {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.16);
+}
+.live-target-head {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.live-target-edit-icon {
+    font-size: 0.85rem !important;
+    color: rgba(255,255,255,0.35);
+    line-height: 1;
+}
+
+/* Edit sheet body */
+.live-edit-sheet {
+    padding: 14px 18px calc(24px + env(safe-area-inset-bottom,0px));
+}
+.live-edit-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+}
+.live-edit-title {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 1.2rem; color: #fff; margin: 0;
+    letter-spacing: -0.01em;
+}
+.live-edit-close {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.85);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0;
+    transition: 0.15s;
+    -webkit-tap-highlight-color: rgba(255,255,255,0.1);
+}
+.live-edit-close:active { transform: scale(0.94); background: rgba(255,255,255,0.16); }
+.live-edit-close .material-symbols-outlined { font-size: 1.1rem; pointer-events: none; }
+
+.live-edit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+.live-edit-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 14px 8px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px;
+}
+.live-edit-card-lbl {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 800; font-size: 0.62rem;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase; letter-spacing: 0.6px;
+}
+.live-edit-card-val {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 1.9rem; color: #fff;
+    line-height: 1.1; letter-spacing: -0.04em;
+    direction: ltr;
+    font-variant-numeric: tabular-nums;
+    margin: 2px 0;
+}
+.live-edit-card-unit {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 700; font-size: 0.58rem;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    line-height: 1; min-height: 0.7rem;
+}
+.live-edit-pm-row {
+    display: flex; gap: 6px;
+    margin-top: 10px; width: 100%;
+}
+.live-edit-pm-btn {
+    flex: 1; padding: 8px 0;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 1.2rem; font-weight: 900;
+    cursor: pointer; min-height: 38px;
+    transition: 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+}
+.live-edit-pm-btn:active {
+    background: var(--secondary);
+    border-color: var(--secondary);
+    color: #000;
+    transform: scale(0.96);
+}

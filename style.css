@@ -4480,6 +4480,21 @@ body.live-mode-active { overflow: hidden; }
 /* קליק על האייקון יעבור לכפתור, לא ייתפס כקליק על ה-span */
 .live-exit-btn .material-symbols-outlined { pointer-events: none; }
 
+/* כפתור "חזרה ל-Live" — מופיע ב-ui-main כשהמשתמש יצא מ-Live אבל ההגדרה דלוקה */
+.live-resume-mini {
+    width: 26px; height: 26px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, rgba(71,226,102,0.20), rgba(71,226,102,0.10));
+    border: 1px solid rgba(71,226,102,0.45);
+    border-radius: 50%;
+    color: #b6f0c4;
+    cursor: pointer; padding: 0;
+    transition: transform 0.1s, background 0.18s;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.live-resume-mini:active { transform: scale(0.92); background: rgba(71,226,102,0.30); }
+.live-resume-mini .material-symbols-outlined { pointer-events: none; }
+
 .live-header { text-align: center; }
 .live-set-counter {
     font-family: 'Heebo', sans-serif;
@@ -4511,12 +4526,12 @@ body.live-mode-active { overflow: hidden; }
     stroke-width: 3.5;
 }
 .live-timer-bar {
-    fill: none; stroke: var(--accent);
+    fill: none; stroke: var(--secondary);  /* ירוק כמו הטיימר הקלאסי */
     stroke-width: 3.5; stroke-linecap: round;
     stroke-dasharray: 289;
     stroke-dashoffset: 289;
     transition: stroke-dashoffset 0.3s cubic-bezier(0.2,0.8,0.2,1);
-    filter: drop-shadow(0 0 8px rgba(10,132,255,0.5));
+    filter: drop-shadow(0 0 10px rgba(71,226,102,0.55));
 }
 .live-timer-text {
     font-family: 'Heebo', sans-serif;
@@ -4524,13 +4539,13 @@ body.live-mode-active { overflow: hidden; }
     font-size: 4.6rem; color: #fff;
     line-height: 1; letter-spacing: -0.06em;
     direction: ltr;
-    text-shadow: 0 0 30px rgba(10,132,255,0.3);
+    text-shadow: 0 0 30px rgba(71,226,102,0.30);
 }
 .live-timer-lbl {
     position: absolute; bottom: 56px;
     font-family: 'Heebo', sans-serif;
     font-style: italic; font-weight: 900;
-    font-size: 0.65rem; color: var(--accent);
+    font-size: 0.65rem; color: var(--secondary);
     letter-spacing: 3px; text-transform: uppercase;
 }
 

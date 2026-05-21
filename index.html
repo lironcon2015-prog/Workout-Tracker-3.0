@@ -1185,8 +1185,11 @@
             <div class="live-timer-lbl" id="live-timer-lbl">REST</div>
         </div>
 
-        <div class="live-next-target" id="live-next-target">
-            <span class="live-target-lbl">סט נוכחי</span>
+        <div class="live-next-target" id="live-next-target" onclick="openLiveEditSheet()">
+            <div class="live-target-head">
+                <span class="live-target-lbl">סט נוכחי</span>
+                <span class="material-symbols-outlined live-target-edit-icon">edit</span>
+            </div>
             <span class="live-target-val" id="live-target-val">—</span>
         </div>
 
@@ -1299,6 +1302,47 @@
         <button id="btn-workout-menu" class="workout-menu-btn" data-workout-menu-trigger onclick="toggleWorkoutQuickMenu()" aria-label="תפריט אימון">
             <span class="material-symbols-outlined">more_horiz</span>
         </button>
+    </div>
+
+    <!-- Live Mode: Edit Current Set Sheet (פותח לעריכת weight/reps/RIR) -->
+    <div id="live-edit-overlay" class="bottom-sheet-overlay" onclick="closeLiveEditSheet()"></div>
+    <div id="live-edit-sheet" class="bottom-sheet live-edit-sheet">
+        <div class="sheet-handle"></div>
+        <div class="live-edit-header">
+            <h3 class="live-edit-title">ערוך סט נוכחי</h3>
+            <button class="live-edit-close" onclick="closeLiveEditSheet()" aria-label="סגור">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="live-edit-grid">
+            <div class="live-edit-card">
+                <div class="live-edit-card-lbl">משקל</div>
+                <div id="live-edit-weight-disp" class="live-edit-card-val">—</div>
+                <div class="live-edit-card-unit">ק"ג</div>
+                <div class="live-edit-pm-row">
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('weight',-1)">−</button>
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('weight',1)">+</button>
+                </div>
+            </div>
+            <div class="live-edit-card">
+                <div class="live-edit-card-lbl">חזרות</div>
+                <div id="live-edit-reps-disp" class="live-edit-card-val">—</div>
+                <div class="live-edit-card-unit">REPS</div>
+                <div class="live-edit-pm-row">
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('reps',-1)">−</button>
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('reps',1)">+</button>
+                </div>
+            </div>
+            <div class="live-edit-card">
+                <div class="live-edit-card-lbl">RIR</div>
+                <div id="live-edit-rir-disp" class="live-edit-card-val">—</div>
+                <div class="live-edit-card-unit">&nbsp;</div>
+                <div class="live-edit-pm-row">
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('rir',-1)">−</button>
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('rir',1)">+</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Workout Quick Menu (תרגילים / היסטוריה / יומן) -->

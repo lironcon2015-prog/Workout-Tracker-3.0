@@ -408,11 +408,20 @@ function navigate(id, clearStack = false) {
 
     updatePlanFloatBtn(id);
 
-    // Sprint 4: auto-enter Live Mode כשמגיעים ל-ui-main וההגדרה דלוקה
-    if (id === 'ui-main' && typeof isLiveModeEnabled === 'function' && isLiveModeEnabled()) {
-        setTimeout(() => { if (typeof enterWorkoutLiveMode === 'function') enterWorkoutLiveMode(); }, 60);
-    } else if (id !== 'ui-main' && typeof exitWorkoutLiveMode === 'function') {
-        exitWorkoutLiveMode(true);  // silent exit if leaving ui-main
+    // Sprint 4: ניהול Live Mode במעברי מסכים
+    // — אוטו-launch ל-ui-main כשההגדרה דלוקה והמשתמש לא ביצע exit מפורש
+    // — exit silent כשעוזבים את ui-main (רק אם הוא באמת פעיל כעת)
+    // — reset של ה-suppression flag כשמגיעים למסך הבית (התחלת אימון חדש)
+    if (id === 'ui-week') _liveModeSuppressed = false;
+    if (id === 'ui-main' && typeof isLiveModeEnabled === 'function' && isLiveModeEnabled() && !_liveModeSuppressed) {
+        setTimeout(() => {
+            // בדיקה חוזרת — המשתמש יכול היה ללחוץ X בזמן הזה
+            if (!_liveModeSuppressed && isLiveModeEnabled() && typeof enterWorkoutLiveMode === 'function') {
+                enterWorkoutLiveMode();
+            }
+        }, 60);
+    } else if (id !== 'ui-main' && document.body.classList.contains('live-mode-active')) {
+        exitWorkoutLiveMode(true);  // silent exit if leaving ui-main while active
     }
 }
 
@@ -3597,6 +3606,9 @@ let _liveTouchStartX = 0;
 let _liveTouchStartY = 0;
 let _liveTouchActive = false;
 let _liveSwipeAttached = false;
+// כשהמשתמש לחץ X באופן מפורש — לא לאוטומציה את ה-launch מחדש עד שיתחיל אימון חדש
+// (מתאפס ב-navigate('ui-week'))
+let _liveModeSuppressed = false;
 
 function isLiveModeEnabled() {
     if (typeof getAnalyticsPrefs !== 'function') return false;
@@ -3629,7 +3641,19 @@ async function exitWorkoutLiveMode(silent = false) {
     document.body.classList.remove('live-mode-active');
 
     try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) {}
-    if (!silent) haptic('light');
+    if (!silent) {
+        // יציאה מפורשת ע"י המשתמש — מסמן שהוא רוצה את המסך הקלאסי לכל האימון הזה
+        _liveModeSuppressed = true;
+        haptic('light');
+    }
+}
+
+// Helper שמופעל מהכפתור "המשך לתרגיל הבא" בתוך ה-Live View
+function _liveContinueExercise() {
+    if (typeof finishCurrentExercise === 'function') {
+        finishCurrentExercise();
+        setTimeout(updateLiveViewContent, 80);
+    }
 }
 
 // קורא לנתוני state ומסנכרן את ה-DOM של ה-overlay
@@ -3657,23 +3681,34 @@ function updateLiveViewContent() {
         targetEl.innerHTML = `${targetW}<small>kg</small> × ${targetR}<small>reps</small> · RIR ${targetRir}`;
     }
 
-    // אם הסט האחרון של התרגיל הושלם — להציג כפתור "המשך לתרגיל הבא"
+    // החלפה דו-כיוונית בין מצב swipe למצב action-panel
+    // BUG FIX: התנאי הקודם בדק `!hasActionBtn` כתנאי לשחזור — דבר שגרם לתאריך השני
+    // להישאר עם כפתור "המשך לתרגיל הבא" משאריות התרגיל הקודם.
     const swipeCard = document.getElementById('live-swipe-card');
     const ap = document.getElementById('action-panel');
-    if (ap && ap.style.display === 'block' && swipeCard) {
-        swipeCard.innerHTML = `
-            <button class="live-action-btn" onclick="(function(){ if (typeof finishCurrentExercise === 'function') finishCurrentExercise(); setTimeout(updateLiveViewContent, 80); })()">
-                המשך לתרגיל הבא
-            </button>`;
-        swipeCard.style.cursor = 'default';
-    } else if (swipeCard && !swipeCard.querySelector('.live-action-btn')) {
-        // אם השתנה חזרה — לבנות מחדש את ה-card הסטנדרטי
-        swipeCard.innerHTML = `
-            <div class="live-swipe-icon">
-                <span class="material-symbols-outlined">arrow_back</span>
-            </div>
-            <span class="live-swipe-text">החלק לרישום הסט</span>`;
-        swipeCard.style.cursor = 'pointer';
+    const apVisible = !!(ap && ap.style.display === 'block');
+    const hasActionBtn = !!(swipeCard && swipeCard.querySelector('.live-action-btn'));
+
+    if (swipeCard) {
+        if (apVisible && !hasActionBtn) {
+            // מעבר ממצב swipe → action button
+            swipeCard.innerHTML = `
+                <button class="live-action-btn" onclick="_liveContinueExercise()">
+                    המשך לתרגיל הבא
+                </button>`;
+            swipeCard.style.cursor = 'default';
+        } else if (!apVisible && hasActionBtn) {
+            // מעבר חזרה ממצב action → swipe
+            swipeCard.innerHTML = `
+                <div class="live-swipe-icon">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </div>
+                <span class="live-swipe-text">החלק לרישום הסט</span>`;
+            swipeCard.style.cursor = 'pointer';
+            // איפוס transform למקרה שנשאר משחזור swipe באמצע drag
+            swipeCard.style.transform = '';
+            swipeCard.classList.remove('dragging');
+        }
     }
 }
 
@@ -3746,9 +3781,10 @@ function toggleLiveMode(enabled) {
     const p = getAnalyticsPrefs();
     p.liveMode = !!enabled;
     if (typeof saveAnalyticsPrefs === 'function') saveAnalyticsPrefs(p);
+    _liveModeSuppressed = false;  // אפס דריסה כשמשנים את ה-toggle
     haptic('light');
     if (!enabled && document.body.classList.contains('live-mode-active')) {
-        exitWorkoutLiveMode();
+        exitWorkoutLiveMode(true);  // silent — לא לסמן כ-suppressed
     } else if (enabled && state.historyStack[state.historyStack.length - 1] === 'ui-main') {
         // אם כבר במסך אימון — להפעיל מיד
         enterWorkoutLiveMode();

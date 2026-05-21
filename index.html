@@ -389,7 +389,21 @@
                     </div>
                 </div>
 
-                <!-- III. AI Coach -->
+                <!-- III. מצב תזונתי -->
+                <div class="settings-group">
+                    <div class="settings-group-label">Nutritional State</div>
+                    <div class="stg-bento stg-nutri-bento">
+                        <div class="stg-nutri-hint">משפיע על המלצות ה-AI Coach</div>
+                        <div class="nutri-toggle" id="nutri-toggle">
+                            <button class="nutri-pill" data-state="cut" onclick="selectNutritionalState('cut')">Cut</button>
+                            <button class="nutri-pill" data-state="maintenance" onclick="selectNutritionalState('maintenance')">Maintenance</button>
+                            <button class="nutri-pill" data-state="surplus" onclick="selectNutritionalState('surplus')">Surplus</button>
+                        </div>
+                        <div class="stg-nutri-meta" id="nutri-meta"></div>
+                    </div>
+                </div>
+
+                <!-- IV. AI Coach -->
                 <div class="settings-group">
                     <div class="settings-group-label">AI Coach</div>
                     <div class="stg-bento stg-ai-bento">
@@ -408,7 +422,7 @@
                     <div class="ai-security-note" style="margin-top:6px;">המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן. מומלץ להגביל אותו ל-GitHub Pages שלך ב-Google Cloud Console.</div>
                 </div>
 
-                <!-- IV. מערכת -->
+                <!-- V. מערכת -->
                 <div class="settings-group">
                     <div class="settings-group-label">מערכת</div>
                     <div class="stg-bento">

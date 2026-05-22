@@ -4553,6 +4553,7 @@ body.live-mode-active { overflow: hidden; }
 
 .live-next-target {
     width: 100%;
+    box-sizing: border-box;  /* מונע overflow מעבר ל-viewport — padding כלול ב-100% */
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.10);
     border-radius: 22px;
@@ -4579,6 +4580,7 @@ body.live-mode-active { overflow: hidden; }
 
 .live-swipe-card {
     width: 100%;
+    box-sizing: border-box;  /* מונע overflow מעבר ל-viewport — padding כלול ב-100% */
     background: linear-gradient(135deg, rgba(10,132,255,0.18), rgba(94,92,230,0.10));
     border: 1px solid rgba(10,132,255,0.28);
     border-radius: 18px;

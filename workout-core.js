@@ -1494,6 +1494,12 @@ function initPickers() {
     syncStepperDisplay('rir');
 
     _resetSetRecState();
+
+    // סנכרון Live View — חשוב: ה-pickers הם source-of-truth ל-updateLiveViewContent,
+    // אז אחרי שמילאנו אותם בערכים החדשים, צריך לרענן את מסך ה-Live כדי שלא יציג ערכים של תרגיל קודם
+    if (typeof updateLiveViewContent === 'function' && document.body.classList.contains('live-mode-active')) {
+        updateLiveViewContent();
+    }
 }
 
 // ─── AI SET RECOMMENDATION ─────────────────────────────────────────────────

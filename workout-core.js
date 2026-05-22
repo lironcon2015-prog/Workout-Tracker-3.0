@@ -311,6 +311,16 @@ function restoreSession() {
             case 'ui-exercise-db': if (typeof renderExerciseDatabase === 'function') renderExerciseDatabase(); break;
             case 'ui-archive': if (typeof openArchive === 'function') openArchive(); break;
         }
+
+        // Sprint 4: הפעלת Live overlay אחרי restore (משכפל את לוגיקת navigate()).
+        // בלי זה, חזרה לאימון מנקודת הפסקה לא תפתח את מסך הטיימר הגדול.
+        if (lastScreen === 'ui-main' && typeof isLiveModeEnabled === 'function' && isLiveModeEnabled() && !_liveModeSuppressed) {
+            if (typeof enterWorkoutLiveMode === 'function') enterWorkoutLiveMode();
+        }
+        if (lastScreen === 'ui-main' && typeof _syncLiveResumeBtn === 'function') {
+            setTimeout(_syncLiveResumeBtn, 80);
+        }
+
         haptic('success');
     } else {
         discardSession();

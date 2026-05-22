@@ -4901,3 +4901,13 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     background: rgba(255,255,255,0.06);
     border-color: rgba(255,255,255,0.2);
 }
+
+/* LOG SET תוך ה-sheet — מצטמצם מהמרגין הדיפולטי של btn-main ומקבל מראה הולם ל-sheet */
+.live-edit-log-btn {
+    margin-top: 18px;
+    padding: 16px;
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}

@@ -3716,6 +3716,13 @@ function openLiveEditSheet() {
     const mainNotes = document.getElementById('set-notes');
     const liveNotes = document.getElementById('live-edit-notes');
     if (mainNotes && liveNotes) liveNotes.value = mainNotes.value || '';
+    // הסתר את LOG SET כשהסט האחרון כבר נרשם (action panel פעיל) — אחרת ניצור log כפול
+    const logBtn = document.getElementById('live-edit-log-btn');
+    if (logBtn) {
+        const ap = document.getElementById('action-panel');
+        const apVisible = !!(ap && ap.style.display === 'block');
+        logBtn.style.display = apVisible ? 'none' : 'block';
+    }
     haptic('light');
 }
 
@@ -3724,6 +3731,21 @@ function _syncLiveNoteToMain() {
     const mainNotes = document.getElementById('set-notes');
     const liveNotes = document.getElementById('live-edit-notes');
     if (mainNotes && liveNotes) mainNotes.value = liveNotes.value;
+}
+
+// רישום סט ישירות מתוך ה-Live Edit Sheet — חוסך את המסע sheet → close → swipe.
+// סוגר את ה-sheet, מפעיל nextStep (אותה לוגיקה כמו swipe), ומרענן את ה-Live view.
+function _liveLogSetFromSheet() {
+    const ap = document.getElementById('action-panel');
+    const apVisible = !!(ap && ap.style.display === 'block');
+    if (apVisible) return;  // הגנה כפולה — לא רושמים אחרי שכבר נרשם הסט האחרון
+    closeLiveEditSheet();
+    haptic('success');
+    if (typeof nextStep === 'function') {
+        nextStep();
+        // ה-sheet נסגר ~300ms; updateLiveViewContent מסונכרן ע"י initPickers/nextStep, אבל ביטוח קצר
+        setTimeout(updateLiveViewContent, 80);
+    }
 }
 
 function closeLiveEditSheet() {

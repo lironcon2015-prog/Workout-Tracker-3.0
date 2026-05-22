@@ -4452,9 +4452,9 @@ body {
     align-items: center; justify-content: space-between;
     /* safe-area-inset לטיפול ב-notch של iPhone */
     padding-top:    calc(70px + env(safe-area-inset-top, 0px));
-    padding-right:  calc(32px + env(safe-area-inset-right, 0px));
+    padding-right:  calc(16px + env(safe-area-inset-right, 0px));
     padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
-    padding-left:   calc(32px + env(safe-area-inset-left, 0px));
+    padding-left:   calc(16px + env(safe-area-inset-left, 0px));
     user-select: none; -webkit-user-select: none;
     overscroll-behavior: contain;
     direction: rtl;

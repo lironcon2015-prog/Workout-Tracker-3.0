@@ -414,12 +414,8 @@ function navigate(id, clearStack = false) {
     // — reset של ה-suppression flag כשמגיעים למסך הבית (התחלת אימון חדש)
     if (id === 'ui-week') _liveModeSuppressed = false;
     if (id === 'ui-main' && typeof isLiveModeEnabled === 'function' && isLiveModeEnabled() && !_liveModeSuppressed) {
-        setTimeout(() => {
-            // בדיקה חוזרת — המשתמש יכול היה ללחוץ X בזמן הזה
-            if (!_liveModeSuppressed && isLiveModeEnabled() && typeof enterWorkoutLiveMode === 'function') {
-                enterWorkoutLiveMode();
-            }
-        }, 60);
+        // הפעלה סינכרונית — בלי setTimeout, כדי שה-overlay יעלה באותו frame ולא יהיה הבזק של ui-main הרגיל
+        if (typeof enterWorkoutLiveMode === 'function') enterWorkoutLiveMode();
     } else if (id !== 'ui-main' && document.body.classList.contains('live-mode-active')) {
         exitWorkoutLiveMode(true);  // silent exit if leaving ui-main while active
     }
@@ -1306,9 +1302,29 @@ function startRecording() {
 
     document.getElementById('btn-submit-set').style.display = 'block';
 
+    // איפוס תצוגת הטיימר ל-00:00 לפני הסט הראשון של תרגיל חדש —
+    // אחרת ה-live-timer מציג ערך שיורית מהתרגיל הקודם (1-4 שניות) עד שמוקלט הסט הראשון
+    _resetTimerDisplays();
+
     navigate('ui-main');
     initPickers();
     StorageManager.saveSessionState();
+}
+
+// איפוס מלא של כל תצוגות הטיימר (רגיל + cluster + live) ל-00:00
+function _resetTimerDisplays() {
+    const restText = document.getElementById('rest-timer');
+    const restBar = document.getElementById('timer-progress');
+    const clText = document.getElementById('cluster-timer-text');
+    const clBar = document.getElementById('cluster-timer-bar');
+    const liveText = document.getElementById('live-timer-text');
+    const liveBar = document.getElementById('live-timer-progress');
+    if (restText) restText.innerText = '00:00';
+    if (restBar) restBar.style.strokeDashoffset = 283;
+    if (clText) clText.innerText = '00:00';
+    if (clBar) clBar.style.strokeDashoffset = 283;
+    if (liveText) liveText.textContent = '00:00';
+    if (liveBar) liveBar.style.strokeDashoffset = 289;
 }
 
 function isUnilateral(exName) {
@@ -1760,6 +1776,10 @@ function resetAndStartTimer(customTime = null) {
         // Sprint 4: עדכון Live View אם פעיל
         if (typeof updateLiveTimer === 'function') updateLiveTimer(mins, secs, progress);
     };
+
+    // איפוס מיידי של ה-UI ל-00:00 — מונע ניצנוץ של ערך ישן בעשירית השנייה הראשונה
+    // (ה-tick הראשון של ה-interval רץ רק אחרי 100ms, ועד אז התצוגה הייתה משוחזרת מהקודם)
+    updateUI('00', '00', 0);
 
     state.timerInterval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
@@ -3686,7 +3706,18 @@ function openLiveEditSheet() {
     overlay.style.display = 'block';
     requestAnimationFrame(() => sheet.classList.add('open'));
     _syncLiveEditSheetDisplays();
+    // טען את ההערה הנוכחית מ-set-notes (מקור האמת) לתוך השדה ב-sheet
+    const mainNotes = document.getElementById('set-notes');
+    const liveNotes = document.getElementById('live-edit-notes');
+    if (mainNotes && liveNotes) liveNotes.value = mainNotes.value || '';
     haptic('light');
+}
+
+// מסנכרן הקלדה ב-Live Edit Sheet חזרה ל-set-notes (שהוא ה-source שנקרא ב-nextStep)
+function _syncLiveNoteToMain() {
+    const mainNotes = document.getElementById('set-notes');
+    const liveNotes = document.getElementById('live-edit-notes');
+    if (mainNotes && liveNotes) mainNotes.value = liveNotes.value;
 }
 
 function closeLiveEditSheet() {
@@ -3824,17 +3855,7 @@ function _attachLiveSwipe() {
             }
         }
     });
-
-    // Tap כ-fallback (אם המשתמש פשוט נוגע מבלי לסחוב)
-    card.addEventListener('click', (e) => {
-        if (card.querySelector('.live-action-btn')) return;
-        if (card.classList.contains('dragging')) return;
-        haptic('success');
-        if (typeof nextStep === 'function') {
-            nextStep();
-            setTimeout(updateLiveViewContent, 80);
-        }
-    });
+    // אין fallback ל-tap: בכוונה — תיעוד סט אסור שיקרה מטעות במגע, רק בהחלקה מפורשת
 }
 
 function toggleLiveMode(enabled) {

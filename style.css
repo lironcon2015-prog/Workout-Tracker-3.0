@@ -4867,3 +4867,37 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     color: #000;
     transform: scale(0.96);
 }
+
+.live-edit-notes-wrap {
+    margin-top: 14px;
+    display: flex; flex-direction: column; gap: 6px;
+}
+.live-edit-notes-lbl {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 800; font-size: 0.62rem;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase; letter-spacing: 0.6px;
+    padding-right: 4px;
+}
+.live-edit-notes-input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 12px 14px;
+    color: #fff;
+    font-family: 'Heebo', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 500;
+    width: 100%;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color 0.15s, background 0.15s;
+}
+.live-edit-notes-input::placeholder {
+    color: rgba(255,255,255,0.32);
+}
+.live-edit-notes-input:focus {
+    outline: none;
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.2);
+}

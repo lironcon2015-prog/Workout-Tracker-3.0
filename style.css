@@ -4523,17 +4523,17 @@ body.live-mode-active { overflow: hidden; }
     transform: rotate(-90deg);
 }
 .live-timer-bg {
-    fill: none; stroke: rgba(255,255,255,0.06);
-    stroke-width: 3.5;
+    fill: none; stroke: rgba(255,255,255,0.05);
+    stroke-width: 2;
 }
 .live-timer-bar {
     fill: none; stroke: var(--secondary);  /* ירוק כמו הטיימר הקלאסי */
-    stroke-width: 3.5; stroke-linecap: round;
+    stroke-width: 2; stroke-linecap: round;
     stroke-dasharray: 289;
     stroke-dashoffset: 289;
     /* 1s linear (תואם ל-.timer-bar) — מאפשר תנועה חלקה רציפה במקום קפיצות */
     transition: stroke-dashoffset 1s linear;
-    filter: drop-shadow(0 0 10px rgba(71,226,102,0.55));
+    filter: drop-shadow(0 0 8px rgba(71,226,102,0.5));
 }
 .live-timer-text {
     font-family: 'Heebo', sans-serif;

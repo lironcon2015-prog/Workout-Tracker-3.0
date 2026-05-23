@@ -19,6 +19,7 @@ const StorageManager = {
     KEY_AI_HISTORY:   'gympro_ai_history',
     KEY_AI_DISPLAY_CUTOFF: 'gympro_ai_display_cutoff',
     KEY_NUTRITION:    'gympro_nutrition',
+    KEY_SOUND:        'gympro_sound_enabled',
 
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); }

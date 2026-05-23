@@ -155,6 +155,8 @@ const NO_BACK_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive'];
 
 let audioContext;
 let wakeLock = null;
+// צלילים כבויים כברירת מחדל — מתנגנים רק אם המשתמש הדליק ידנית את כפתור הצלילים
+let soundEnabled = false;
 
 // ─── SESSION TIMER ─────────────────────────────────────────────────────────
 
@@ -208,6 +210,10 @@ document.addEventListener('visibilitychange', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     StorageManager.initDB();
+    // שחזור העדפת הצלילים (ברירת מחדל: כבוי) + סנכרון אייקון הכפתור
+    soundEnabled = StorageManager.getData(StorageManager.KEY_SOUND) === true;
+    const _soundBtn = document.getElementById('btn-sound');
+    if (_soundBtn) _soundBtn.classList.toggle('sound-active', soundEnabled);
     if (typeof renderWorkoutMenu === 'function') renderWorkoutMenu();
     checkRecovery();
     if (typeof renderHeroCard === 'function') renderHeroCard();
@@ -361,12 +367,17 @@ function playBeep(times = 1) {
     }
 }
 
-async function initAudio() {
+// toggle אמיתי: מדליק/מכבה צלילים, שומר את הבחירה, ומצפצף אישור רק בהדלקה.
+async function toggleSound() {
+    soundEnabled = !soundEnabled;
+    StorageManager.saveData(StorageManager.KEY_SOUND, soundEnabled);
     haptic('medium');
-    playBeep(1);
     const btn = document.getElementById('btn-sound');
-    if (btn) btn.classList.toggle('sound-active', true);
-    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+    if (btn) btn.classList.toggle('sound-active', soundEnabled);
+    if (soundEnabled) {
+        playBeep(1);  // צפצוף אישור — וגם פותח את ה-AudioContext על gesture המשתמש
+        try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+    }
 }
 
 // ─── NAVIGATION ────────────────────────────────────────────────────────────
@@ -1804,7 +1815,7 @@ function resetAndStartTimer(customTime = null) {
         const secs = (state.seconds % 60).toString().padStart(2, '0');
         const progress = Math.min(state.seconds / target, 1);
         updateUI(mins, secs, progress);
-        if (state.seconds === target) playBeep(2);
+        if (state.seconds === target && soundEnabled) playBeep(2);
     }, 100);
 
     StorageManager.saveSessionState();

@@ -3217,8 +3217,14 @@ async function callGeminiAPI(userMessage) {
             });
             if (response.ok) {
                 const data = await response.json();
-                const parts = data.candidates?.[0]?.content?.parts || [];
-                const text = parts.find(p => !p.thought)?.text || '';
+                const candidate = data.candidates?.[0];
+                const parts = candidate?.content?.parts || [];
+                // איחוד כל ה-parts (לא רק הראשון) — Gemini עלול לפצל תשובה ארוכה לכמה parts
+                let text = parts.filter(p => !p.thought).map(p => p.text || '').join('');
+                // זיהוי קטיעה אמיתית מתקרת הטוקנים — לסימון במקום בליעה שקטה
+                if (candidate?.finishReason === 'MAX_TOKENS' && text) {
+                    text += '\n\n[התשובה נקטעה עקב מגבלת אורך — כתוב "המשך" כדי להשלים]';
+                }
                 return text;
             }
             if (response.status === 429 || response.status === 503 || response.status === 404) {

@@ -3014,28 +3014,35 @@ function resetToFactorySettings() {
 // ─── AI COACH ──────────────────────────────────────────────────────────────
 
 /**
- * buildBlockContext — מחזיר שני בלוקים (נוכחי + קודם) כמחרוזות Raw Summary.
+ * buildBlockContext — מחזיר שלושה בלוקים (נוכחי + 2 קודמים) כמחרוזות Raw Summary.
  * בלוק = כל האימונים מה-week===1 האחרון ועד עכשיו.
  * fallback: אם אין week field — מחזיר 12 אחרונים כבלוק נוכחי.
  */
 function buildBlockContext() {
     const archive = StorageManager.getArchive();
-    if (!archive.length) return { current: [], previous: [] };
+    if (!archive.length) return { current: [], previous: [], previous2: [] };
 
     const currentStart = archive.findIndex(a => a.week === 1);
     if (currentStart === -1) {
         // אין week field — fallback ל-12 אחרונים
-        return { current: archive.slice(0, Math.min(12, archive.length)), previous: [] };
+        return { current: archive.slice(0, Math.min(12, archive.length)), previous: [], previous2: [] };
     }
 
     const currentBlock = archive.slice(0, currentStart + 1);
 
     const prevStart = archive.findIndex((a, i) => i > currentStart && a.week === 1);
-    const previousBlock = prevStart === -1
-        ? archive.slice(currentStart + 1)
-        : archive.slice(currentStart + 1, prevStart + 1);
+    if (prevStart === -1) {
+        return { current: currentBlock, previous: archive.slice(currentStart + 1), previous2: [] };
+    }
+    const previousBlock = archive.slice(currentStart + 1, prevStart + 1);
 
-    return { current: currentBlock, previous: previousBlock };
+    // בלוק לפני־קודם (השלישי אחורה)
+    const prev2Start = archive.findIndex((a, i) => i > prevStart && a.week === 1);
+    const previous2Block = prev2Start === -1
+        ? archive.slice(prevStart + 1)
+        : archive.slice(prevStart + 1, prev2Start + 1);
+
+    return { current: currentBlock, previous: previousBlock, previous2: previous2Block };
 }
 
 /**
@@ -3162,7 +3169,7 @@ function buildSystemPrompt() {
         prompt += `(ארכיון מלא — ${all.length} אימונים)\n\n`;
         all.forEach(item => { if (item.summary) prompt += item.summary + '\n\n'; });
     } else {
-        const { current, previous } = buildBlockContext();
+        const { current, previous, previous2 } = buildBlockContext();
         if (current.length) {
             prompt += `--- בלוק נוכחי ---\n`;
             [...current].reverse().forEach(item => { if (item.summary) prompt += item.summary + '\n\n'; });
@@ -3171,7 +3178,11 @@ function buildSystemPrompt() {
             prompt += `--- בלוק קודם ---\n`;
             [...previous].reverse().forEach(item => { if (item.summary) prompt += item.summary + '\n\n'; });
         }
-        if (!current.length && !previous.length) prompt += `אין היסטוריית אימונים.\n`;
+        if (previous2.length) {
+            prompt += `--- בלוק לפני־קודם ---\n`;
+            [...previous2].reverse().forEach(item => { if (item.summary) prompt += item.summary + '\n\n'; });
+        }
+        if (!current.length && !previous.length && !previous2.length) prompt += `אין היסטוריית אימונים.\n`;
     }
 
     return prompt;
@@ -3193,7 +3204,7 @@ async function callGeminiAPI(userMessage) {
             ...last10.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
             { role: 'user', parts: [{ text: userMessage }] }
         ],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 600, thinkingConfig: { thinkingBudget: 0 } }
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } }
     };
 
     for (const modelName of config.models) {
@@ -3536,6 +3547,10 @@ function copyAIHistory(mode, range) {
 
     let history = StorageManager.getAIHistory();
     if (!history.length) { showAlert('אין היסטוריית שיחות להעתקה.'); return; }
+
+    // סינון לפי cutoff — הודעות שנוקו מהתצוגה לא יועתקו
+    const cutoff = StorageManager.getAIDisplayCutoff();
+    if (cutoff > 0) history = history.filter(m => (m.timestamp || 0) > cutoff);
 
     // סינון לפי טווח
     if (range && range !== 'all') {

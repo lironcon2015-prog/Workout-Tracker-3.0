@@ -3023,25 +3023,36 @@ function buildBlockContext() {
     const archive = StorageManager.getArchive();
     if (!archive.length) return { current: [], previous: [], previous2: [] };
 
-    const currentStart = archive.findIndex(a => a.week === 1);
-    if (currentStart === -1) {
-        // אין week field — fallback ל-12 אחרונים
+    // מוצא את גבול הבלוק החל מ-startFrom (חדש→ישן). גבול = ה-Week-1 הישן ביותר ברצף Week-1 רצוף
+    // (כי לשבוע 1 של בלוק יש לרוב כמה אימונים — Workout A, B, C — כולם week:1).
+    // מחזיר -1 אם אין Week-1 מ-startFrom והלאה.
+    function findBlockEnd(startFrom) {
+        let i = startFrom;
+        // דלג על אימונים שאינם Week-1 (Week 2/3/deload של אותו בלוק, החדשים יותר)
+        while (i < archive.length && archive[i].week !== 1) i++;
+        if (i >= archive.length) return -1;
+        // הרחב את הגבול כל עוד גם האימון הבא (הישן יותר) הוא Week-1 — אותו שבוע 1, workout אחר
+        while (i + 1 < archive.length && archive[i + 1].week === 1) i++;
+        return i;
+    }
+
+    const currentEnd = findBlockEnd(0);
+    if (currentEnd === -1) {
+        // אין Week-1 כלל — fallback ל-12 אחרונים
         return { current: archive.slice(0, Math.min(12, archive.length)), previous: [], previous2: [] };
     }
+    const currentBlock = archive.slice(0, currentEnd + 1);
 
-    const currentBlock = archive.slice(0, currentStart + 1);
-
-    const prevStart = archive.findIndex((a, i) => i > currentStart && a.week === 1);
-    if (prevStart === -1) {
-        return { current: currentBlock, previous: archive.slice(currentStart + 1), previous2: [] };
+    const prevEnd = findBlockEnd(currentEnd + 1);
+    if (prevEnd === -1) {
+        return { current: currentBlock, previous: archive.slice(currentEnd + 1), previous2: [] };
     }
-    const previousBlock = archive.slice(currentStart + 1, prevStart + 1);
+    const previousBlock = archive.slice(currentEnd + 1, prevEnd + 1);
 
-    // בלוק לפני־קודם (השלישי אחורה)
-    const prev2Start = archive.findIndex((a, i) => i > prevStart && a.week === 1);
-    const previous2Block = prev2Start === -1
-        ? archive.slice(prevStart + 1)
-        : archive.slice(prevStart + 1, prev2Start + 1);
+    const prev2End = findBlockEnd(prevEnd + 1);
+    const previous2Block = prev2End === -1
+        ? archive.slice(prevEnd + 1)
+        : archive.slice(prevEnd + 1, prev2End + 1);
 
     return { current: currentBlock, previous: previousBlock, previous2: previous2Block };
 }
@@ -3113,7 +3124,8 @@ function buildAnalyticsSnapshot() {
 /**
  * buildSystemPrompt — מרכיב את ה-System Instruction המלא לכל קריאת API.
  */
-function buildSystemPrompt() {
+function buildSystemPrompt(opts = {}) {
+    const slim = opts.slim === true;
     let prompt = `אתה מאמן הכוח האישי של אפליקציית GYMPRO ELITE — מומחה לעומס פרוגרסיבי (Progressive Overload), תכנון אימונים וניתוח ביצועים. אתה פונה ישירות למתאמן.
 
 # פורמט פלט
@@ -3128,6 +3140,7 @@ function buildSystemPrompt() {
 # מקורות ואמינות
 - הסתמך אך ורק על הנתונים שמופיעים למטה (פרופיל, מצב נוכחי, מצב תזונתי, אנליטיקה, היסטוריית בלוקים) ועל ידע מבוסס-מחקר בפיזיולוגיה ואימוני כוח. אל תמציא מספרים, מגמות או עובדות, ואל תסתמך על "ברו-סיינס".
 - הנתונים שלמטה הם מקור האמת על המתאמן. אם נדרש מידע שאינו מופיע — אמור זאת ובקש אותו, במקום לנחש.
+- אם נשאלת על תאריך, אימון, משקל או מספר שלא מופיעים מילולית בנתונים שלמטה — השב במפורש "הנתון לא קיים במידע שיש לי כרגע". אל תמציא ערכים ואל תסיק תאריכים מהקשר.
 
 # מתודולוגיה
 - בהשוואה בין בלוקים: השווה תמיד שבועות מקבילים (שבוע N בבלוק הנוכחי מול שבוע N בבלוק קודם), לא מספרים מוחלטים מתקופות שונות.
@@ -3197,7 +3210,7 @@ function buildSystemPrompt() {
             prompt += `--- בלוק קודם ---\n`;
             [...previous].reverse().forEach(item => { if (item.summary) prompt += item.summary + '\n\n'; });
         }
-        if (previous2.length) {
+        if (previous2.length && !slim) {
             prompt += `--- בלוק לפני־קודם ---\n`;
             [...previous2].reverse().forEach(item => { if (item.summary) prompt += item.summary + '\n\n'; });
         }
@@ -3225,7 +3238,7 @@ async function callGeminiAPI(userMessage) {
         : '\n\n# הנחיית אורך לשיחה זו\nענה בקצרה ולעניין — שורות ספורות בלבד, ללא הרחבות מיותרות.';
 
     const payload = {
-        system_instruction: { parts: [{ text: buildSystemPrompt() + depthDirective }] },
+        system_instruction: { parts: [{ text: buildSystemPrompt({ slim: !deep }) + depthDirective }] },
         contents: [
             ...last10.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
             { role: 'user', parts: [{ text: userMessage }] }

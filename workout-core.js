@@ -1782,6 +1782,81 @@ function stepPicker(field, dir) {
     haptic('light');
 }
 
+// ─── CUSTOM VALUE INPUT ────────────────────────────────────────────────────
+// לחיצה על המספר פותחת שדה הקלדה — מאפשר ערך חופשי שלא בהכרח תואם לאינקרמנט
+// של ה-picker (למשל 47.5 ק"ג או 13 חזרות). הערך מוזרק כ-option ל-select.
+
+// _insertSortedOption — מזריק option ממוין לפי ערך מספרי. אם כבר קיים — רק בוחר.
+function _insertSortedOption(select, val, text) {
+    for (let i = 0; i < select.options.length; i++) {
+        if (parseFloat(select.options[i].value) === val) { select.selectedIndex = i; return; }
+    }
+    const o = new Option(text, val);
+    let inserted = false;
+    for (let i = 0; i < select.options.length; i++) {
+        if (parseFloat(select.options[i].value) > val) { select.add(o, select.options[i]); inserted = true; break; }
+    }
+    if (!inserted) select.add(o);
+    o.selected = true;
+}
+
+// commitCustomValue — מאמת ומחיל ערך חופשי לפי שדה.
+function commitCustomValue(field, raw) {
+    let num = parseFloat(raw);
+    if (isNaN(num)) return false;
+    const selId = { weight: 'weight-picker', reps: 'reps-picker', rir: 'rir-picker' };
+    const sel = document.getElementById(selId[field]);
+    if (!sel) return false;
+    if (field === 'weight') {
+        if (num < 0) num = 0;
+        num = parseFloat(num.toFixed(2));
+        _insertSortedOption(sel, num, num + ' kg');
+    } else if (field === 'reps') {
+        num = Math.max(1, Math.round(num));
+        _insertSortedOption(sel, num, String(num));
+    } else { // rir
+        if (num < 0) num = 0;
+        _insertSortedOption(sel, num, num === 0 ? 'Fail' : String(num));
+    }
+    syncStepperDisplay(field);
+    haptic('light');
+    return true;
+}
+
+function editPickerValue(field) {
+    const dispId = { weight: 'weight-display', reps: 'reps-display', rir: 'rir-display' };
+    const disp = document.getElementById(dispId[field]);
+    if (!disp || disp.querySelector('input')) return;
+
+    const current = disp.textContent.trim();
+    const startVal = current === 'Fail' ? '0' : current.replace(/[^\d.]/g, '');
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.inputMode = 'decimal';
+    input.className = 'stepper-edit-input';
+    input.value = startVal;
+    if (field === 'reps') { input.step = '1'; input.min = '1'; }
+    else { input.step = '0.5'; input.min = '0'; }
+
+    disp.textContent = '';
+    disp.appendChild(input);
+    input.focus();
+    input.select();
+
+    const finish = (commit) => {
+        if (input._done) return;
+        input._done = true;
+        if (commit && input.value !== '') commitCustomValue(field, input.value);
+        else syncStepperDisplay(field); // ביטול — שחזור התצוגה הקודמת
+    };
+    input.addEventListener('blur', () => finish(true));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+}
+
 // ─── TIMER ─────────────────────────────────────────────────────────────────
 
 function resetAndStartTimer(customTime = null) {

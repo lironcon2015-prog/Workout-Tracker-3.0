@@ -1132,7 +1132,16 @@ function updateFirebaseStatus() {
     if (!el) return;
     if (FirebaseManager.isConfigured()) {
         const cfg = FirebaseManager.getFirebaseConfig();
-        el.innerHTML = `<span style="color:var(--type-b);font-weight:700;">&#9679; מחובר</span> <span style="color:var(--text-dim);font-size:0.85em;">${cfg.projectId}</span>`;
+        let html = `<span style="color:var(--type-b);font-weight:700;">&#9679; מחובר</span> <span style="color:var(--text-dim);font-size:0.85em;">${cfg.projectId}</span>`;
+        // שורת "סונכרן לאחרונה" / התראת כשל (#3)
+        const sync = FirebaseManager.getSyncStatus();
+        if (sync.archiveAt) {
+            const when = new Date(sync.archiveAt).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            html += sync.archiveOk
+                ? `<br><span style="color:var(--text-dim);font-size:0.85em;">&#10003; סונכרן: ${when}</span>`
+                : `<br><span style="color:#FF453A;font-weight:700;font-size:0.85em;">&#9888; הסנכרון האחרון נכשל (${when}) — גבה ידנית</span>`;
+        }
+        el.innerHTML = html;
     } else {
         el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
     }
@@ -1151,6 +1160,8 @@ function manualBackupArchive() {
     // גיבוי ענן
     if (FirebaseManager.isConfigured()) {
         FirebaseManager.saveArchiveToCloud().then(ok => {
+            if (ok && typeof dismissCloudSyncBanner === 'function') dismissCloudSyncBanner();
+            if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
             showAlert(ok ? 'גיבוי הורד + הועלה לענן!' : 'גיבוי הורד. שגיאה בשמירה לענן.');
         });
     } else {

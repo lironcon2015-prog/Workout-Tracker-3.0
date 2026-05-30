@@ -22,6 +22,20 @@ function showCloudToast(msg, success) {
     }, 3000);
 }
 
+// באנר התראה מתמשך כשהגיבוי האחרון לענן נכשל (#3) — מוצג ב-load, לא קשור ללוגיקת ההעתקה
+function maybeShowCloudSyncBanner() {
+    if (typeof FirebaseManager === 'undefined' || !FirebaseManager.isConfigured()) return;
+    const sync = FirebaseManager.getSyncStatus();
+    if (!sync || sync.archiveOk !== false) return;  // מוצג רק על כשל מפורש
+    const banner = document.getElementById('cloud-sync-banner');
+    if (banner) banner.classList.add('show');
+}
+
+function dismissCloudSyncBanner() {
+    const banner = document.getElementById('cloud-sync-banner');
+    if (banner) banner.classList.remove('show');
+}
+
 // ─── CUSTOM MODAL SYSTEM ───────────────────────────────────────────────────
 
 function showAlert(msg, onOk) {
@@ -219,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     checkRecovery();
     if (typeof renderHeroCard === 'function') renderHeroCard();
     if (typeof renderHomePRCard === 'function') renderHomePRCard();
+    maybeShowCloudSyncBanner();
     fetch('./version.json')
         .then(r => r.json())
         .then(d => {

@@ -65,6 +65,19 @@
 | 1 | `details` ב-ArchiveEntry לא שומר cluster per-round — רק per-exercise | נמוכה |
 | 2 | archive entries ישנים (לפני 14.12.0-24) חסרים שדה `week` — AI block comparison נופל ל-fallback | נמוכה |
 | 3 | `updatePlanFloatBtn` עדיין מחפש `.header-tools` ב-ui-main שנמחק — מוחלף ע"י `#workout-quick-menu` | נמוכה |
+| 4 | סיכום מאמן (`aiSummary`) מוגבל ל-6000 תווים; כל הארכיון במסמך Firestore בודד — סיכון 1MB ב-100+ אימונים | בינונית |
+| 5 | עריכת סט במסך הסיכום אחרי שנוצר `aiSummary` לא מרעננת אותו — הסיכום עלול להפוך לא-מסונכרן | נמוכה |
+
+---
+
+## סיכום מאמן אוטומטי (Coach Summary) — v15.47
+
+- **שמירה מיידית:** `finish()` שומר את האימון לארכיון מיד (upsert לפי `state.archivedTimestamp`), לא רק ב-`copyResult`. מונע אובדן מידע אם המשתמש לא מסיים. `_saveToArchive` הפך ל-upsert.
+- **טריגרים:** כל אימון → סיכום אימון; מתג "סיום שבוע" (תפריט שלוש-נקודות, ברירת מחדל ON בשבת, `state.weekEndFlag`) → סיכום שבועי+השוואה; +`week===3` → סיכום בלוק.
+- **`_callGeminiOneShot(prompt, {freeText:true})`** — מצב טקסט חופשי (2048 טוקנים) בנוסף למצב JSON המקורי.
+- **פרומפטים ניתנים לעריכה:** `StorageManager.COACH_PROMPT_DEFAULTS` + override ב-`KEY_COACH_PROMPTS`, נערכים ב-`coach-prompts-sheet`. מסונכרנים ב-`saveConfigToCloud` (`coachPrompts`).
+- **`aiSummary` מסונכרן אוטומטית** דרך `saveArchiveToCloud` (שולח כל הארכיון as-is, ללא whitelist).
+- שני מתגי העתקה: מסך סיכום (`KEY_COPY_INCLUDE_COACH`) וארכיון (`KEY_ARCHIVE_COPY_COACH`, ברירת מחדל כבוי).
 
 ---
 

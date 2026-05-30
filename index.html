@@ -434,6 +434,7 @@
                             <input type="text" id="ai-models-input" class="stg-ai-input" placeholder="gemini-3-flash-preview, gemini-3.1-flash-lite, gemini-2.5-flash, gemini-2.5-flash-lite">
                         </div>
                         <button class="stg-ai-save" onclick="saveAISettings()">שמור הגדרות AI</button>
+                        <button class="cloud-btn full-w" style="margin-top:4px;border-radius:12px;" onclick="openCoachPromptsSheet()">ערוך פרומפטים של סיכום</button>
                         <button class="cloud-btn full-w" style="margin-top:4px;color:var(--danger);border-color:rgba(255,69,58,0.3);background:rgba(255,69,58,0.06);border-radius:12px;" onclick="clearAIHistory()">מחק היסטוריית שיחות</button>
                     </div>
                     <div class="ai-security-note" style="margin-top:6px;">המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן. מומלץ להגביל אותו ל-GitHub Pages שלך ב-Google Cloud Console.</div>
@@ -879,6 +880,10 @@
                             <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">content_copy</span>
                             <span>העתק הכל</span>
                         </button>
+                        <label class="archive-coach-toggle" id="archive-coach-toggle-wrap">
+                            <input type="checkbox" id="archive-coach-toggle" onchange="toggleArchiveCopyCoach(this.checked)">
+                            <span>כלול סיכומי מאמן</span>
+                        </label>
                     </div>
                     <div id="archive-list" class="vertical-stack"></div>
                 </div>
@@ -1364,6 +1369,11 @@
             <span class="material-symbols-outlined">edit_note</span>
             <span class="wq-item-text">יומן</span>
         </button>
+        <button id="wq-weekend-item" class="workout-menu-item wq-weekend-item" onclick="toggleWeekEnd()">
+            <span class="material-symbols-outlined">event_available</span>
+            <span class="wq-item-text">סיום שבוע</span>
+            <span id="wq-weekend-state" class="wq-weekend-state">כבוי</span>
+        </button>
     </div>
 
     <!-- Archive Range Copy Sheet -->
@@ -1523,6 +1533,23 @@
                   placeholder="למשל: מתאמן 3 פעמים בשבוע, מתמקד בכוח. יש לי רגישות בכתף ימין. המטרה שלי היא 140kg Bench..."></textarea>
         <button class="btn-main primary-gradient" onclick="saveAIPersona()">שמור פרופיל</button>
         <button class="btn-text" onclick="closeAIPersonaSheet()">ביטול</button>
+    </div>
+
+    <!-- Coach Summary Prompts Bottom Sheet -->
+    <div id="coach-prompts-overlay" class="bottom-sheet-overlay" onclick="closeCoachPromptsSheet()"></div>
+    <div id="coach-prompts-sheet" class="bottom-sheet" style="max-height:85vh;overflow-y:auto;">
+        <div class="sheet-handle"></div>
+        <h3>פרומפטים לסיכום מאמן</h3>
+        <p class="sub-text">נתונים זמינים: <code>{workoutText}</code> <code>{nutrition}</code> <code>{persona}</code> <code>{recentWorkouts}</code> <code>{weekWorkouts}</code> <code>{parallelWorkout}</code> <code>{blockWorkouts}</code> <code>{analytics}</code></p>
+        <label class="coach-prompt-label">סיכום אימון (כל אימון)</label>
+        <textarea id="coach-prompt-workout" class="ai-persona-textarea coach-prompt-textarea"></textarea>
+        <label class="coach-prompt-label">סיכום שבועי (סוף שבוע)</label>
+        <textarea id="coach-prompt-week" class="ai-persona-textarea coach-prompt-textarea"></textarea>
+        <label class="coach-prompt-label">סיכום בלוק (סוף בלוק)</label>
+        <textarea id="coach-prompt-block" class="ai-persona-textarea coach-prompt-textarea"></textarea>
+        <button class="btn-main primary-gradient" onclick="saveCoachPrompts()">שמור פרומפטים</button>
+        <button class="btn-text" onclick="resetCoachPrompts()">שחזר ברירת מחדל</button>
+        <button class="btn-text" onclick="closeCoachPromptsSheet()">ביטול</button>
     </div>
 
     <!-- Thumb Manage Sheet -->

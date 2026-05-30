@@ -317,6 +317,7 @@ function restoreSession() {
                 break;
             case 'ui-exercise-db': if (typeof renderExerciseDatabase === 'function') renderExerciseDatabase(); break;
             case 'ui-archive': if (typeof openArchive === 'function') openArchive(); break;
+            case 'ui-summary': buildSummaryUI(); break;
         }
 
         // Sprint 4: הפעלת Live overlay אחרי restore (משכפל את לוגיקת navigate()).
@@ -1617,18 +1618,18 @@ Respond with ONLY valid JSON (no markdown, no commentary, no code fences):
 { "w": <number kg>, "r": <number reps>, "rir": <number>, "reason": "<short Hebrew explanation up to 80 chars>" }`;
 }
 
-async function _callGeminiOneShot(prompt) {
+async function _callGeminiOneShot(prompt, opts = {}) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
 
+    // freeText — מצב טקסט חופשי (סיכומי מאמן) ברמת "מעמיק": ללא אילוץ JSON, תקרת טוקנים גבוהה
+    const generationConfig = opts.freeText
+        ? { temperature: 0.7, maxOutputTokens: opts.maxTokens || 2048, thinkingConfig: { thinkingBudget: 0 } }
+        : { temperature: 0.35, maxOutputTokens: 220, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
+
     const payload = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-            temperature: 0.35,
-            maxOutputTokens: 220,
-            responseMimeType: 'application/json',
-            thinkingConfig: { thinkingBudget: 0 }
-        }
+        generationConfig
     };
 
     let lastErr = '';
@@ -1643,6 +1644,8 @@ async function _callGeminiOneShot(prompt) {
             if (response.ok) {
                 const data = await response.json();
                 const parts = data.candidates?.[0]?.content?.parts || [];
+                // freeText — איחוד כל ה-parts (תשובה ארוכה עלולה להתפצל); אחרת ה-part הראשון בלבד
+                if (opts.freeText) return parts.filter(p => !p.thought).map(p => p.text || '').join('');
                 return parts.find(p => !p.thought)?.text || '';
             }
             if (response.status === 429 || response.status === 503 || response.status === 404) {
@@ -2466,11 +2469,50 @@ function _renderSwapMenu(searchVal) {
     }
 }
 
+// ─── COACH SUMMARY STATE ───────────────────────────────────────────────────
+let _coachSummaryText = null;       // טקסט הסיכום שנוצר ע"י המאמן לאימון הנוכחי
+let _coachSummaryPromise = null;    // ה-Promise של היצירה (כדי ש"שמור וסגור" יוכל להמתין)
+
+// ─── WEEK-END MARKER (תפריט שלוש-נקודות) ───────────────────────────────────
+// סימון "סיום שבוע" נקבע במהלך האימון. ברירת מחדל: לחוץ ביום שבת (getDay()===6).
+// מפעיל סיכום שבועי/בלוק במסך הסיכום.
+
+function isWeekEndMarked() {
+    if (typeof state.weekEndFlag === 'boolean') return state.weekEndFlag;
+    return new Date().getDay() === 6; // שבת
+}
+
+function _syncWeekEndMenuItem() {
+    const item = document.getElementById('wq-weekend-item');
+    const lbl  = document.getElementById('wq-weekend-state');
+    if (!item || !lbl) return;
+    const on = isWeekEndMarked();
+    item.classList.toggle('active', on);
+    lbl.textContent = on ? 'פעיל' : 'כבוי';
+}
+
+function toggleWeekEnd() {
+    state.weekEndFlag = !isWeekEndMarked();
+    _syncWeekEndMenuItem();
+    StorageManager.saveSessionState();
+    haptic('light');
+}
+
 // ─── FINISH WORKOUT & SUMMARY ──────────────────────────────────────────────
 
 function finish() {
     stopRestTimer();
     state.workoutDurationMins = state.sessionElapsedSecs ? Math.round(state.sessionElapsedSecs / 60) : 0;
+
+    // שמירה מיידית לארכיון — מונע אובדן מידע אם המשתמש לא ילחץ "שמור וסגור".
+    // upsert לפי state.archivedTimestamp; כאן מתחיל אימון חדש אז מאפסים.
+    _coachSummaryText = null;
+    _coachSummaryPromise = null;
+    state.archivedTimestamp = null;
+    _saveToArchive('');
+    if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
+        FirebaseManager.saveArchiveToCloud().catch(() => {});
+    }
 
     const summaryNote = document.getElementById('summary-note');
     if (summaryNote) summaryNote.value = '';
@@ -2585,6 +2627,21 @@ function buildSummaryUI() {
 
     const totalVolStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : totalVol + 'kg';
 
+    const hasAIKey = !!StorageManager.getAIConfig().apiKey;
+    const coachCardHtml = hasAIKey ? `
+        <div id="coach-summary-card" class="coach-summary-card">
+            <div class="coach-card-header">
+                <span class="coach-card-title"><span class="material-symbols-outlined">neurology</span> סיכום המאמן</span>
+                <span id="coach-scope-badge" class="coach-scope-badge"></span>
+            </div>
+            <div id="coach-card-body" class="coach-card-body"></div>
+        </div>` : '';
+    const copyToggleHtml = hasAIKey ? `
+        <label class="coach-copy-toggle">
+            <input type="checkbox" id="copy-include-coach" ${StorageManager.getCopyIncludeCoach() ? 'checked' : ''} onchange="StorageManager.setCopyIncludeCoach(this.checked)">
+            <span>כלול סיכום מאמן בהעתקה</span>
+        </label>` : '';
+
     const html = `
         <div class="summary-header">
             <div class="summary-subtitle">${dateStr} • ${timeStr}</div>
@@ -2607,18 +2664,40 @@ function buildSummaryUI() {
             </div>
         </div>
 
+        ${coachCardHtml}
+
         <input type="text" id="summary-note" class="summary-note-input" placeholder="איך היה האימון? (הערה כללית לארכיון)...">
 
         ${cardsHtml}
 
-        <button class="btn-main primary-gradient pulse" onclick="copyResult()" style="margin-top:10px;box-shadow: 0 15px 40px rgba(62,144,255,0.25), inset 0 1px 0 rgba(255,255,255,0.2);">שמור וסגור</button>
+        ${copyToggleHtml}
+        <button id="summary-save-btn" class="btn-main primary-gradient pulse" onclick="copyResult()" style="margin-top:10px;box-shadow: 0 15px 40px rgba(62,144,255,0.25), inset 0 1px 0 rgba(255,255,255,0.2);">שמור וסגור</button>
     `;
 
     area.innerHTML = html;
+
+    // יצירת סיכום המאמן אוטומטית (אם יש API key) — לא חוסם את המסך
+    if (hasAIKey) generateCoachSummary();
 }
 
-function copyResult() {
+async function copyResult() {
     const note = (document.getElementById('summary-note') ? document.getElementById('summary-note').value.trim() : '');
+    const includeCoach = StorageManager.getCopyIncludeCoach();
+
+    // אם רוצים סיכום מאמן בהעתקה והוא עדיין נטען — ממתינים לו (עד 8 שניות)
+    if (includeCoach && _coachSummaryPromise && !_coachSummaryText) {
+        const btn = document.getElementById('summary-save-btn');
+        const origLabel = btn ? btn.textContent : '';
+        if (btn) { btn.textContent = 'ממתין לסיכום…'; btn.disabled = true; }
+        try {
+            await Promise.race([
+                _coachSummaryPromise.catch(() => {}),
+                new Promise(res => setTimeout(res, 8000))
+            ]);
+        } catch (e) {}
+        if (btn) { btn.textContent = origLabel; btn.disabled = false; }
+    }
+
     _saveToArchive(note);
 
     // גיבוי אוטומטי לענן אחרי שמירת אימון
@@ -2628,15 +2707,19 @@ function copyResult() {
         });
     }
 
-    const archive = StorageManager.getArchive();
-    if (archive.length > 0) {
-        const summaryText = archive[0].summary || '';
+    const entry = StorageManager.getArchive().find(a => a.timestamp === state.archivedTimestamp)
+               || StorageManager.getArchive()[0];
+    if (entry) {
+        let clipboardText = entry.summary || '';
+        if (includeCoach && entry.aiSummary) {
+            clipboardText += `\n\n=== סיכום המאמן ===\n${entry.aiSummary}`;
+        }
         if (navigator.clipboard) {
-            navigator.clipboard.writeText(summaryText).catch(() => {});
+            navigator.clipboard.writeText(clipboardText).catch(() => {});
         } else {
             try {
                 const el = document.createElement('textarea');
-                el.value = summaryText;
+                el.value = clipboardText;
                 document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
             } catch (e) {}
         }
@@ -2773,8 +2856,14 @@ function _saveToArchive(note) {
         note: l.note || '', isCluster: !!l.isCluster, round: l.round || null, skip: !!l.skip
     }));
 
+    // upsert לפי timestamp — finish() יוצר את הרשומה מיד, ועדכונים נוספים (הערה, aiSummary,
+    // עריכת סטים) ממזגים לאותה רשומה במקום ליצור כפילות.
+    const ts = state.archivedTimestamp || Date.now();
+    state.archivedTimestamp = ts;
+    const aiSummary = (_coachSummaryText || _existingAiSummary(ts) || '').slice(0, 6000);
+
     const archiveEntry = {
-        timestamp: Date.now(),
+        timestamp: ts,
         date: archiveDateStr,
         time: timeStr,
         type: state.type,
@@ -2785,11 +2874,113 @@ function _saveToArchive(note) {
         exOrder,
         log: archivedLog,
         note,
-        rmValues: state.rmUsed || {}
+        rmValues: state.rmUsed || {},
+        aiSummary
     };
 
-    StorageManager.saveToArchive(archiveEntry);
+    const updated = StorageManager.updateArchiveEntry(ts, archiveEntry);
+    if (!updated) StorageManager.saveToArchive(archiveEntry);
     haptic('success');
+}
+
+// _existingAiSummary — שולף aiSummary שכבר נשמר ברשומה (שחזור/חזרה למסך)
+function _existingAiSummary(ts) {
+    const entry = StorageManager.getArchive().find(a => a.timestamp === ts);
+    return entry && entry.aiSummary ? entry.aiSummary : '';
+}
+
+// ─── COACH SUMMARY (סיכום מאמן אוטומטי) ─────────────────────────────────────
+
+// _coachScope — קובע את היקף הסיכום לפי מתג "סיום שבוע" ומספר השבוע
+function _coachScope() {
+    const wk = state.week;
+    if (isWeekEndMarked() && wk === 3) return 'block';
+    if (isWeekEndMarked() && [1, 2, 3].includes(wk)) return 'week';
+    return 'workout';
+}
+
+// _fillTemplate — החלפת placeholders ע"י split/join (בטוח מ-$ בטקסט ההחלפה)
+function _fillTemplate(tpl, map) {
+    let out = tpl;
+    Object.keys(map).forEach(k => { out = out.split('{' + k + '}').join(map[k]); });
+    return out;
+}
+
+function _buildCoachSummaryPrompt(scope) {
+    const ts = state.archivedTimestamp;
+    const archive = StorageManager.getArchive();
+    const currentEntry = archive.find(a => a.timestamp === ts);
+    const workoutText = (currentEntry && currentEntry.summary) || '';
+    const nutrition = (typeof getNutritionalContext === 'function' && getNutritionalContext()) || 'לא הוגדר';
+    const persona = (StorageManager.getAIPersona && StorageManager.getAIPersona()) || 'לא הוגדר';
+
+    const ctx = (typeof buildBlockContext === 'function')
+        ? buildBlockContext() : { current: [], previous: [], previous2: [] };
+
+    const recentWorkouts = archive
+        .filter(a => a.timestamp !== ts && a.type === state.type && a.summary)
+        .slice(0, 3).map(a => a.summary).join('\n\n') || 'אין נתונים';
+
+    const weekWorkouts = ctx.current
+        .filter(a => a.week === state.week && a.summary)
+        .map(a => a.summary).join('\n\n') || 'אין נתונים';
+
+    const parallelWorkout = ctx.previous
+        .filter(a => a.week === state.week && a.type === state.type && a.summary)
+        .map(a => a.summary).join('\n\n') || 'אין נתונים מהבלוק הקודם';
+
+    const blockWorkouts = ctx.current
+        .filter(a => a.summary).map(a => a.summary).join('\n\n') || 'אין נתונים';
+
+    const analytics = (typeof buildAnalyticsSnapshot === 'function' && buildAnalyticsSnapshot()) || 'אין נתונים';
+
+    return _fillTemplate(StorageManager.getCoachPrompt(scope), {
+        workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics
+    });
+}
+
+function generateCoachSummary() {
+    const body  = document.getElementById('coach-card-body');
+    const badge = document.getElementById('coach-scope-badge');
+    if (!body) return;
+
+    const scope = _coachScope();
+    const scopeLabels = { workout: 'סיכום אימון', week: 'סיכום שבועי', block: 'סיכום בלוק' };
+    if (badge) badge.textContent = scopeLabels[scope] || '';
+
+    // אם כבר נוצר (שחזור/חזרה למסך) — הצג ואל תייצר מחדש (חיסכון בקריאת API)
+    const existing = _coachSummaryText || _existingAiSummary(state.archivedTimestamp);
+    if (existing) {
+        _coachSummaryText = existing;
+        body.className = 'coach-card-body';
+        body.innerHTML = _renderMarkdown(existing);
+        return;
+    }
+
+    body.className = 'coach-card-body loading';
+    body.innerHTML = `<div class="coach-loading"><span class="coach-spinner"></span> המאמן מנתח את האימון…</div>`;
+
+    const prompt = _buildCoachSummaryPrompt(scope);
+    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true })
+        .then(text => {
+            const clean = (text || '').trim();
+            if (!clean) throw new Error('EMPTY_RESPONSE');
+            _coachSummaryText = clean;
+            body.className = 'coach-card-body';
+            body.innerHTML = _renderMarkdown(clean);
+            if (state.archivedTimestamp) {
+                StorageManager.updateArchiveEntry(state.archivedTimestamp, { aiSummary: clean.slice(0, 6000) });
+                StorageManager.saveSessionState();
+            }
+            return clean;
+        })
+        .catch(err => {
+            console.warn('GymPro: coach summary failed', err);
+            body.className = 'coach-card-body error';
+            body.innerHTML = `<div class="coach-error">⚠️ לא הצלחתי להפיק סיכום כרגע. <button class="coach-retry-btn" onclick="generateCoachSummary()">נסה שוב</button></div>`;
+            // לא זורקים מחדש — ה-Promise נפתר (resolved) כדי ש-copyResult יוכל להמתין לו בבטחה
+            return null;
+        });
 }
 
 // ─── SESSION LOG MODAL ─────────────────────────────────────────────────────
@@ -3027,7 +3218,11 @@ function saveSetEdit() {
     closeEditModal();
     StorageManager.saveSessionState();
     if (fromLog) { openSessionLog(); }
-    else if (fromSummary) { buildSummaryUI(); }
+    else if (fromSummary) {
+        const noteEl = document.getElementById('summary-note');
+        _saveToArchive(noteEl ? noteEl.value.trim() : ''); // upsert — שומר את העריכה ברשומה
+        buildSummaryUI();
+    }
 }
 
 function deleteSetFromLog() {
@@ -3045,7 +3240,11 @@ function deleteSetFromLog() {
     closeEditModal();
     StorageManager.saveSessionState();
     if (fromLog) { openSessionLog(); }
-    else if (fromSummary) { buildSummaryUI(); }
+    else if (fromSummary) {
+        const noteEl = document.getElementById('summary-note');
+        _saveToArchive(noteEl ? noteEl.value.trim() : ''); // upsert — שומר את העריכה ברשומה
+        buildSummaryUI();
+    }
 }
 
 function closeEditModal() {
@@ -3689,6 +3888,52 @@ function saveAIPersona() {
     StorageManager.saveAIPersona(textarea.value.trim());
     closeAIPersonaSheet();
     showAlert('הפרופיל נשמר!');
+}
+
+// ─── COACH PROMPTS EDITOR ──────────────────────────────────────────────────
+
+function openCoachPromptsSheet() {
+    const p = StorageManager.getCoachPrompts();
+    const w = document.getElementById('coach-prompt-workout');
+    const wk = document.getElementById('coach-prompt-week');
+    const b = document.getElementById('coach-prompt-block');
+    if (w) w.value = p.workout;
+    if (wk) wk.value = p.week;
+    if (b) b.value = p.block;
+    document.getElementById('coach-prompts-overlay').style.display = 'block';
+    document.getElementById('coach-prompts-sheet').classList.add('open');
+}
+
+function closeCoachPromptsSheet() {
+    document.getElementById('coach-prompts-overlay').style.display = 'none';
+    document.getElementById('coach-prompts-sheet').classList.remove('open');
+}
+
+function saveCoachPrompts() {
+    const w  = document.getElementById('coach-prompt-workout');
+    const wk = document.getElementById('coach-prompt-week');
+    const b  = document.getElementById('coach-prompt-block');
+    StorageManager.saveCoachPrompts({
+        workout: w ? w.value.trim() : '',
+        week:    wk ? wk.value.trim() : '',
+        block:   b ? b.value.trim() : ''
+    });
+    if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
+    closeCoachPromptsSheet();
+    showAlert('הפרומפטים נשמרו!');
+}
+
+function resetCoachPrompts() {
+    StorageManager.resetCoachPrompts();
+    const d = StorageManager.COACH_PROMPT_DEFAULTS;
+    const w  = document.getElementById('coach-prompt-workout');
+    const wk = document.getElementById('coach-prompt-week');
+    const b  = document.getElementById('coach-prompt-block');
+    if (w) w.value = d.workout;
+    if (wk) wk.value = d.week;
+    if (b) b.value = d.block;
+    if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
+    showAlert('הפרומפטים שוחזרו לברירת מחדל.');
 }
 
 /**

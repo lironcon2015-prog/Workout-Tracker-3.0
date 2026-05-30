@@ -11,6 +11,8 @@ function toggleWorkoutQuickMenu() {
     if (!menu) return;
     const isOpen = menu.style.display !== 'none';
     menu.style.display = isOpen ? 'none' : 'block';
+    // רענון מצב מתג "סיום שבוע" בכל פתיחה
+    if (!isOpen && typeof _syncWeekEndMenuItem === 'function') _syncWeekEndMenuItem();
 }
 
 // סגירת התפריט בלחיצה מחוץ לו — בודק כל אלמנט עם data-workout-menu-trigger

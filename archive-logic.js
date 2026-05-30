@@ -44,6 +44,8 @@ function getWorkoutTotalSets(item) {
 function openArchive() {
     selectedArchiveIds = new Set();
     updateCopySelectedBtn();
+    const coachToggle = document.getElementById('archive-coach-toggle');
+    if (coachToggle) coachToggle.checked = StorageManager.getArchiveCopyCoach();
     if (state.archiveView === 'calendar') {
         switchArchiveView('calendar');
     } else {
@@ -258,11 +260,25 @@ function updateCopySelectedBtn() {
     }
 }
 
+// _archiveCopyText — טקסט להעתקה של רשומת ארכיון. מצרף סיכום מאמן אם המתג דלוק.
+function _archiveCopyText(item) {
+    let txt = item.summary || '';
+    if (StorageManager.getArchiveCopyCoach() && item.aiSummary) {
+        txt += `\n\n=== סיכום המאמן ===\n${item.aiSummary}`;
+    }
+    return txt;
+}
+
+function toggleArchiveCopyCoach(on) {
+    StorageManager.setArchiveCopyCoach(on);
+    haptic('light');
+}
+
 function copyBulkLog(mode) {
     const history = StorageManager.getArchive();
     const itemsToCopy = mode === 'all' ? history : history.filter(item => selectedArchiveIds.has(item.timestamp));
     if (itemsToCopy.length === 0) { showAlert("לא נבחרו אימונים להעתקה"); return; }
-    const bulkText = itemsToCopy.map(item => item.summary).join("\n\n========================================\n\n");
+    const bulkText = itemsToCopy.map(item => _archiveCopyText(item)).join("\n\n========================================\n\n");
     if (navigator.clipboard) {
         navigator.clipboard.writeText(bulkText).then(() => {
             haptic('success');
@@ -455,14 +471,15 @@ function openArchiveDetail(idx) {
     editBtn.onclick = () => enterArchiveEditMode();
 
     copyBtn.onclick = () => {
+        const copyText = _archiveCopyText(item);
         if (navigator.clipboard) {
-            navigator.clipboard.writeText(item.summary || '').then(() => {
+            navigator.clipboard.writeText(copyText).then(() => {
                 haptic('success');
                 showAlert("הסיכום הועתק!");
             });
         } else {
             const el = document.createElement("textarea");
-            el.value = item.summary || '';
+            el.value = copyText;
             document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
             showAlert("הסיכום הועתק!");
         }
@@ -3047,7 +3064,7 @@ function _updateRangeCopyBtn() {
 function executeCopyByRange() {
     var items = _getRangeItems();
     if (!items.length) { showAlert("אין אימונים בטווח שנבחר"); return; }
-    var text = items.map(function(item) { return item.summary; }).join("\n\n========================================\n\n");
+    var text = items.map(function(item) { return _archiveCopyText(item); }).join("\n\n========================================\n\n");
     if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(function() {
             haptic('success'); closeRangeSheet(); showAlert('הועתקו ' + items.length + ' אימונים בהצלחה!');

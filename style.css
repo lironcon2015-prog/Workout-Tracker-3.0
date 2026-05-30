@@ -4936,3 +4936,91 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     letter-spacing: 0.06em;
     text-transform: uppercase;
 }
+
+/* ─── Coach Summary Card (מסך הסיכום) ─────────────────────────────────────── */
+.coach-summary-card {
+    background: #1b1b1b;
+    border: 1px solid var(--border-hi);
+    border-radius: 1.5rem;
+    padding: 18px 18px 20px;
+    margin: 14px 0;
+}
+.coach-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+}
+.coach-card-title {
+    display: flex; align-items: center; gap: 7px;
+    font-weight: 900; font-size: 1.05rem; color: #fff;
+}
+.coach-card-title .material-symbols-outlined { font-size: 1.25rem; color: var(--accent); }
+.coach-scope-badge {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em;
+    color: var(--accent);
+    background: rgba(10,132,255,0.12);
+    border: 1px solid rgba(10,132,255,0.3);
+    border-radius: 9999px; padding: 4px 11px;
+}
+.coach-card-body { color: #d6d6d6; font-size: 0.95rem; line-height: 1.7; }
+.coach-card-body strong { color: #fff; font-weight: 900; }
+.coach-loading {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--text-dim); font-size: 0.9rem; padding: 6px 0;
+}
+.coach-spinner {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-top-color: var(--accent);
+    animation: coach-spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+@keyframes coach-spin { to { transform: rotate(360deg); } }
+.coach-card-body.loading { opacity: 0.95; }
+.coach-error { color: var(--text-dim); font-size: 0.9rem; }
+.coach-retry-btn {
+    background: rgba(255,255,255,0.08); border: none; color: var(--accent);
+    font-weight: 800; border-radius: 9999px; padding: 4px 14px;
+    margin-right: 6px; cursor: pointer; font-family: inherit; font-size: 0.85rem;
+}
+
+/* מתג "כלול סיכום מאמן" במסך הסיכום */
+.coach-copy-toggle {
+    display: flex; align-items: center; gap: 9px;
+    color: var(--text-dim); font-size: 0.88rem; font-weight: 600;
+    margin: 16px 2px 4px; cursor: pointer;
+}
+.coach-copy-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+/* מתג "סיום שבוע" בתפריט שלוש-הנקודות */
+.wq-weekend-item { justify-content: flex-start; }
+.wq-weekend-state {
+    margin-inline-start: auto;
+    font-size: 0.72rem; font-weight: 800;
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.06);
+    border-radius: 9999px; padding: 3px 10px;
+}
+.wq-weekend-item.active .wq-weekend-state {
+    color: #0a0a0a; background: var(--secondary);
+}
+.wq-weekend-item.active .material-symbols-outlined { color: var(--secondary); }
+
+/* מתג "כלול סיכומי מאמן" בארכיון */
+.archive-coach-toggle {
+    display: flex; align-items: center; gap: 7px;
+    color: var(--text-dim); font-size: 0.8rem; font-weight: 600;
+    cursor: pointer; padding: 4px 6px; white-space: nowrap;
+}
+.archive-coach-toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* גיליון עריכת פרומפטים */
+.coach-prompt-label {
+    display: block; font-size: 0.82rem; font-weight: 800;
+    color: var(--text-dim); margin: 14px 2px 6px;
+}
+.coach-prompt-textarea { min-height: 130px; font-size: 0.82rem; line-height: 1.5; }
+#coach-prompts-sheet .sub-text code {
+    background: rgba(255,255,255,0.07); border-radius: 5px;
+    padding: 1px 5px; font-size: 0.72rem; color: var(--accent);
+    display: inline-block; margin: 1px;
+}

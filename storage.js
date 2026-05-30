@@ -20,6 +20,9 @@ const StorageManager = {
     KEY_AI_DISPLAY_CUTOFF: 'gympro_ai_display_cutoff',
     KEY_NUTRITION:    'gympro_nutrition',
     KEY_SOUND:        'gympro_sound_enabled',
+    KEY_COPY_INCLUDE_COACH: 'gympro_copy_include_coach',
+    KEY_ARCHIVE_COPY_COACH: 'gympro_archive_copy_coach',
+    KEY_COACH_PROMPTS:      'gympro_coach_prompts',
 
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); }
@@ -134,11 +137,12 @@ const StorageManager = {
         this.saveData(this.KEY_ARCHIVE, history);
     },
 
-    updateArchiveEntry(timestamp, updatedEntry) {
+    updateArchiveEntry(timestamp, patch) {
         let history = this.getArchive();
         const idx = history.findIndex(h => h.timestamp === timestamp);
         if (idx === -1) return false;
-        history[idx] = updatedEntry;
+        // מיזוג — תומך גם בהחלפה מלאה (אובייקט שלם) וגם ב-patch חלקי (למשל {aiSummary})
+        history[idx] = Object.assign({}, history[idx], patch);
         this.saveData(this.KEY_ARCHIVE, history);
         return true;
     },
@@ -304,6 +308,105 @@ const StorageManager = {
         localStorage.setItem(this.KEY_AI_PERSONA, text);
     },
 
+    // ── Coach Summary (סיכום מאמן אוטומטי) ──────────────────────────────────
+
+    // מתג מסך הסיכום — האם לכלול את סיכום המאמן בהעתקה (נזכר בין אימונים)
+    getCopyIncludeCoach() {
+        return localStorage.getItem(this.KEY_COPY_INCLUDE_COACH) === '1';
+    },
+    setCopyIncludeCoach(on) {
+        localStorage.setItem(this.KEY_COPY_INCLUDE_COACH, on ? '1' : '0');
+    },
+
+    // מתג הארכיון — האם לכלול סיכומי מאמן בהעתקות (ברירת מחדל: כבוי)
+    getArchiveCopyCoach() {
+        return localStorage.getItem(this.KEY_ARCHIVE_COPY_COACH) === '1';
+    },
+    setArchiveCopyCoach(on) {
+        localStorage.setItem(this.KEY_ARCHIVE_COPY_COACH, on ? '1' : '0');
+    },
+
+    // פרומפטי ברירת מחדל לסיכום מאמן — ניתנים לעריכה ע"י המשתמש (override)
+    COACH_PROMPT_DEFAULTS: {
+        workout:
+`אתה מאמן כוח מקצועי. נתח את האימון וכתוב סיכום מעמיק בעברית בפורמט Markdown, פותח בכותרת "## סיכום האימון".
+התייחס ל: ביצוע מול היעד, נפח כולל ומגמה מול האימונים האחרונים של אותה תוכנית, איכות הסטים (RIR), נקודות חוזק, ונקודה אחת לשיפור בפעם הבאה.
+
+=== האימון הנוכחי ===
+{workoutText}
+
+=== מצב תזונתי ===
+{nutrition}
+
+=== פרופיל המתאמן ===
+{persona}
+
+=== אימונים אחרונים (אותה תוכנית) ===
+{recentWorkouts}`,
+        week:
+`אתה מאמן כוח מקצועי. כתוב סיכום מעמיק בעברית בפורמט Markdown לסיום שבוע אימונים. כלול בדיוק את הכותרות הבאות:
+"## סיכום האימון" — ניתוח האימון שהסתיים היום.
+"## סיכום השבוע" — נפח כולל, עקביות, והתקדמות בתרגילי מפתח לאורך השבוע.
+"## השוואה לבלוק הקודם" — השווה לשבוע/אימון המקביל בבלוק הקודם והדגש שיפור או נסיגה במספרים.
+
+=== האימון שהסתיים היום ===
+{workoutText}
+
+=== אימוני השבוע (הבלוק הנוכחי) ===
+{weekWorkouts}
+
+=== האימון המקביל בבלוק הקודם ===
+{parallelWorkout}
+
+=== מצב תזונתי ===
+{nutrition}
+
+=== פרופיל המתאמן ===
+{persona}`,
+        block:
+`אתה מאמן כוח מקצועי. כתוב סיכום מעמיק ומקיף בעברית בפורמט Markdown לסיום בלוק אימונים (מזוסייקל). כלול בדיוק את הכותרות הבאות:
+"## סיכום האימון" — האימון שהסתיים היום.
+"## סיכום השבוע" — שבוע 3 שהסתיים.
+"## סיכום הבלוק" — התקדמות כוח ונפח לאורך 3 השבועות, תרגילים שהתקדמו או נתקעו, ומגמת העומס.
+"## המלצות לבלוק הבא" — 2-3 המלצות קונקרטיות לתכנון הבלוק הבא.
+
+=== האימון שהסתיים היום ===
+{workoutText}
+
+=== אימוני הבלוק הנוכחי ===
+{blockWorkouts}
+
+=== אנליטיקה מצרפית ===
+{analytics}
+
+=== מצב תזונתי ===
+{nutrition}
+
+=== פרופיל המתאמן ===
+{persona}`
+    },
+
+    getCoachPrompts() {
+        const stored = this.getData(this.KEY_COACH_PROMPTS) || {};
+        return {
+            workout: stored.workout || this.COACH_PROMPT_DEFAULTS.workout,
+            week:    stored.week    || this.COACH_PROMPT_DEFAULTS.week,
+            block:   stored.block   || this.COACH_PROMPT_DEFAULTS.block
+        };
+    },
+
+    getCoachPrompt(scope) {
+        return this.getCoachPrompts()[scope] || this.COACH_PROMPT_DEFAULTS.workout;
+    },
+
+    saveCoachPrompts(obj) {
+        this.saveData(this.KEY_COACH_PROMPTS, obj || {});
+    },
+
+    resetCoachPrompts() {
+        localStorage.removeItem(this.KEY_COACH_PROMPTS);
+    },
+
     getAIHistory() {
         try { return JSON.parse(localStorage.getItem(this.KEY_AI_HISTORY)) || []; }
         catch(e) { console.error('GymPro: AI history read error', e); return []; }
@@ -456,6 +559,7 @@ const FirebaseManager = {
                 meta:           StorageManager.getData(StorageManager.KEY_META),
                 analyticsPrefs: StorageManager.getAnalyticsPrefs(),
                 nutrition:      StorageManager.getNutritionalState(),
+                coachPrompts:   StorageManager.getData(StorageManager.KEY_COACH_PROMPTS) || {},
                 updatedAt:      Date.now()
             };
             await this._db.collection('gympro_data').doc('config').set(configData);
@@ -483,6 +587,7 @@ const FirebaseManager = {
             if (data.meta)           StorageManager.saveData(StorageManager.KEY_META, data.meta);
             if (data.analyticsPrefs) StorageManager.saveAnalyticsPrefs(data.analyticsPrefs);
             if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
+            if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
             showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);

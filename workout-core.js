@@ -1624,36 +1624,52 @@ async function _callGeminiOneShot(prompt, opts = {}) {
 
     // freeText — מצב טקסט חופשי (סיכומי מאמן) ברמת "מעמיק": ללא אילוץ JSON, תקרת טוקנים גבוהה
     const generationConfig = opts.freeText
-        ? { temperature: 0.7, maxOutputTokens: opts.maxTokens || 2048, thinkingConfig: { thinkingBudget: 0 } }
+        ? { temperature: 0.7, maxOutputTokens: opts.maxTokens || 4096, thinkingConfig: { thinkingBudget: 0 } }
         : { temperature: 0.35, maxOutputTokens: 220, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
 
-    const payload = {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig
-    };
+    // freeText — מאפשרים עד 3 סבבי המשך אם התשובה נחתכה (finishReason === 'MAX_TOKENS')
+    const MAX_CONT_ROUNDS = opts.freeText ? 3 : 0;
 
     let lastErr = '';
+    modelLoop:
     for (const modelName of config.models) {
         try {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (response.ok) {
+            // שיחה רב-תורית — מתחילה מה-prompt, וגדלה עם כל סבב המשך
+            const contents = [{ role: 'user', parts: [{ text: prompt }] }];
+            let fullText = '';
+
+            for (let round = 0; round <= MAX_CONT_ROUNDS; round++) {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents, generationConfig })
+                });
+                if (!response.ok) {
+                    if (response.status === 429 || response.status === 503 || response.status === 404) {
+                        lastErr = `${modelName}: ${response.status}`;
+                        continue modelLoop; // עבור למודל הבא
+                    }
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(`API_ERROR_${response.status}: ${errData.error?.message || ''}`);
+                }
                 const data = await response.json();
-                const parts = data.candidates?.[0]?.content?.parts || [];
-                // freeText — איחוד כל ה-parts (תשובה ארוכה עלולה להתפצל); אחרת ה-part הראשון בלבד
-                if (opts.freeText) return parts.filter(p => !p.thought).map(p => p.text || '').join('');
-                return parts.find(p => !p.thought)?.text || '';
+                const candidate = data.candidates?.[0];
+                const parts = candidate?.content?.parts || [];
+                if (!opts.freeText) return parts.find(p => !p.thought)?.text || '';
+
+                // freeText — איחוד כל ה-parts (תשובה ארוכה עלולה להתפצל)
+                const chunk = parts.filter(p => !p.thought).map(p => p.text || '').join('');
+                fullText += chunk;
+
+                // אם המודל סיים מרצונו (STOP) או שאין עוד מה לחתוך — מחזירים
+                if (candidate?.finishReason !== 'MAX_TOKENS' || !chunk) return fullText.trim();
+
+                // נחתך באמצע — מבקשים המשך מהנקודה שבה עצר, בלי לחזור על מה שנכתב
+                contents.push({ role: 'model', parts: [{ text: chunk }] });
+                contents.push({ role: 'user', parts: [{ text: 'המשך בדיוק מהמקום שבו עצרת, ללא חזרה על מה שכבר נכתב וללא הקדמה.' }] });
             }
-            if (response.status === 429 || response.status === 503 || response.status === 404) {
-                lastErr = `${modelName}: ${response.status}`;
-                continue;
-            }
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(`API_ERROR_${response.status}: ${errData.error?.message || ''}`);
+            return fullText.trim();
         } catch(e) {
             if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
                 lastErr = `${modelName}: ${e.message}`;

@@ -640,7 +640,22 @@ body {
     font-variant-numeric: tabular-nums; letter-spacing: -2px; line-height: 1;
     min-width: 50px; text-align: center;
     font-family: 'Heebo', 'Inter', sans-serif;
+    cursor: pointer;
 }
+.stepper-num-display:active { opacity: 0.6; }
+.stepper-edit-input {
+    width: 100%; min-width: 50px; max-width: 110px;
+    background: rgba(255,255,255,0.06);
+    border: none; border-radius: 12px;
+    color: var(--accent, #fff);
+    font-size: 2.4rem; font-weight: 900;
+    font-variant-numeric: tabular-nums; letter-spacing: -2px; line-height: 1;
+    text-align: center; outline: none;
+    font-family: 'Heebo', 'Inter', sans-serif;
+    padding: 2px 0; -moz-appearance: textfield;
+}
+.stepper-edit-input::-webkit-outer-spin-button,
+.stepper-edit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .stepper-unit-lbl { display: none; }
 
 .input-label { font-size: 0.8em; color: var(--text-dim); display: block; margin-bottom: 5px; }

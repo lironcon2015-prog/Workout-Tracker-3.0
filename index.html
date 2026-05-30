@@ -753,7 +753,7 @@
                     <div class="glass-card compact stepper-card">
                         <label>Weight (kg)</label>
                         <select id="weight-picker" class="ios-picker" style="display:none;"></select>
-                        <div id="weight-display" class="stepper-num-display">—</div>
+                        <div id="weight-display" class="stepper-num-display" onclick="editPickerValue('weight')">—</div>
                         <div class="stepper-row">
                             <button class="stepper-pm-btn" onclick="stepPicker('weight',-1)">−</button>
                             <button class="stepper-pm-btn" onclick="stepPicker('weight',1)">+</button>
@@ -762,7 +762,7 @@
                     <div class="glass-card compact stepper-card">
                         <label>Reps</label>
                         <select id="reps-picker" class="ios-picker" style="display:none;"></select>
-                        <div id="reps-display" class="stepper-num-display">—</div>
+                        <div id="reps-display" class="stepper-num-display" onclick="editPickerValue('reps')">—</div>
                         <div class="stepper-row">
                             <button class="stepper-pm-btn" onclick="stepPicker('reps',-1)">−</button>
                             <button class="stepper-pm-btn" onclick="stepPicker('reps',1)">+</button>
@@ -771,7 +771,7 @@
                     <div class="glass-card compact stepper-card">
                         <label>RIR</label>
                         <select id="rir-picker" class="ios-picker" style="display:none;"></select>
-                        <div id="rir-display" class="stepper-num-display">—</div>
+                        <div id="rir-display" class="stepper-num-display" onclick="editPickerValue('rir')">—</div>
                         <div class="stepper-row">
                             <button class="stepper-pm-btn" onclick="stepPicker('rir',-1)">−</button>
                             <button class="stepper-pm-btn" onclick="stepPicker('rir',1)">+</button>

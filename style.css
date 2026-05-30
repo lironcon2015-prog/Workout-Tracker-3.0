@@ -656,6 +656,10 @@ body {
 }
 .stepper-edit-input::-webkit-outer-spin-button,
 .stepper-edit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.live-edit-input {
+    font-size: 1.7rem; font-style: italic; direction: ltr;
+    max-width: 90px; margin: 2px auto;
+}
 .stepper-unit-lbl { display: none; }
 
 .input-label { font-size: 0.8em; color: var(--text-dim); display: block; margin-bottom: 5px; }
@@ -4856,7 +4860,9 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     direction: ltr;
     font-variant-numeric: tabular-nums;
     margin: 2px 0;
+    cursor: pointer;
 }
+.live-edit-card-val:active { opacity: 0.6; }
 .live-edit-card-unit {
     font-family: 'Heebo', sans-serif;
     font-weight: 700; font-size: 0.58rem;

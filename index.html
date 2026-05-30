@@ -1571,5 +1571,11 @@
     <script src="editor-logic.js"></script>
     <script src="archive-logic.js"></script>
     <div id="cloud-toast" class="cloud-toast"></div>
+    <div id="cloud-sync-banner" class="cloud-sync-banner">
+        <span class="csb-icon material-symbols-outlined">cloud_off</span>
+        <span class="csb-text">הגיבוי האחרון לענן נכשל. הנתונים נשמרו במכשיר אך לא בענן.</span>
+        <button class="csb-action" onclick="manualBackupArchive()">גבה עכשיו</button>
+        <button class="csb-close" onclick="dismissCloudSyncBanner()" aria-label="סגור">&times;</button>
+    </div>
 </body>
 </html>

@@ -455,6 +455,8 @@ const StorageManager = {
 
 const FirebaseManager = {
     KEY_FIREBASE_CONFIG: 'gympro_firebase_config',
+    KEY_SYNC_STATUS: 'gympro_cloud_sync',  // מעקב הצלחת/כשל סנכרון ארכיון אחרון
+    ARCHIVE_CHUNK_SIZE: 20,                 // אימונים לכל מסמך — שומר כל chunk הרבה מתחת ל-1MB
     _db: null,
     _initialized: false,
     _authReady: null,  // Promise שמסתיים כשה-Anonymous Auth הושלם
@@ -513,19 +515,60 @@ const FirebaseManager = {
         return true;
     },
 
+    // ── Sync Status (#3) ───────────────────────────────────────────────────────
+    // מעקב אחר הצלחת הסנכרון האחרון של הארכיון — מאפשר התראה אמיתית ושורת "סונכרן לאחרונה".
+
+    getSyncStatus() {
+        try { return JSON.parse(localStorage.getItem(this.KEY_SYNC_STATUS)) || {}; }
+        catch { return {}; }
+    },
+
+    _recordArchiveSync(ok) {
+        try {
+            localStorage.setItem(this.KEY_SYNC_STATUS, JSON.stringify({ archiveOk: ok, archiveAt: Date.now() }));
+        } catch { /* מקרה קצה — אחסון מלא; לא קריטי */ }
+    },
+
     // ── Archive ──────────────────────────────────────────────────────────────
+    // הארכיון מפוצל למספר מסמכים (chunks) בקולקציה gympro_data כדי לעקוף את מחסום
+    // 1MB-למסמך של Firestore. מבנה: archive_meta + archive_0, archive_1, ...
+    // הכתיבה אטומית (batch). מסמך הארכיון הישן (archive) ממוגרר אוטומטית ונמחק.
 
     async saveArchiveToCloud() {
-        if (!await this._ensureReady()) return false;
+        if (!await this._ensureReady()) { this._recordArchiveSync(false); return false; }
         try {
             const archive = StorageManager.getArchive();
-            await this._db.collection('gympro_data').doc('archive').set({
-                items: archive,
-                updatedAt: Date.now()
-            });
+            const col = this._db.collection('gympro_data');
+            const size = this.ARCHIVE_CHUNK_SIZE;
+            const chunkCount = Math.max(1, Math.ceil(archive.length / size));
+            const now = Date.now();
+
+            // כמה chunks היו קודם — כדי למחוק עודפים אם הארכיון התכווץ
+            let prevCount = 0;
+            try {
+                const metaDoc = await col.doc('archive_meta').get();
+                if (metaDoc.exists) prevCount = metaDoc.data().chunkCount || 0;
+            } catch { /* אין meta קודם — מיגרציה ראשונה */ }
+
+            const batch = this._db.batch();
+            for (let i = 0; i < chunkCount; i++) {
+                const items = archive.slice(i * size, (i + 1) * size);
+                batch.set(col.doc(`archive_${i}`), { items, updatedAt: now });
+            }
+            // מחיקת chunks מיותרים (הארכיון התכווץ מאז הסנכרון הקודם)
+            for (let i = chunkCount; i < prevCount; i++) {
+                batch.delete(col.doc(`archive_${i}`));
+            }
+            batch.set(col.doc('archive_meta'), { chunkCount, total: archive.length, updatedAt: now });
+            // מחיקת מסמך הארכיון הישן (מיגרציה ממבנה single-doc) — מקור אמת יחיד
+            batch.delete(col.doc('archive'));
+
+            await batch.commit();
+            this._recordArchiveSync(true);
             return true;
         } catch(e) {
             console.error('GymPro saveArchive error:', e);
+            this._recordArchiveSync(false);
             return false;
         }
     },
@@ -536,12 +579,29 @@ const FirebaseManager = {
             return;
         }
         try {
-            const doc = await this._db.collection('gympro_data').doc('archive').get();
-            if (!doc.exists || !doc.data().items) {
+            const col = this._db.collection('gympro_data');
+            const metaDoc = await col.doc('archive_meta').get();
+
+            let items = null;
+            if (metaDoc.exists && metaDoc.data().chunkCount) {
+                // מבנה chunks חדש — איחוד לפי הסדר (chunk 0 = החדשים ביותר)
+                const chunkCount = metaDoc.data().chunkCount;
+                const docs = await Promise.all(
+                    Array.from({ length: chunkCount }, (_, i) => col.doc(`archive_${i}`).get())
+                );
+                items = [];
+                docs.forEach(d => { if (d.exists && Array.isArray(d.data().items)) items.push(...d.data().items); });
+            } else {
+                // Fallback — מבנה ישן (מסמך archive בודד) לפני מיגרציה
+                const legacy = await col.doc('archive').get();
+                if (legacy.exists && legacy.data().items) items = legacy.data().items;
+            }
+
+            if (!items) {
                 showAlert('לא נמצאו נתוני ארכיון בענן.');
                 return;
             }
-            StorageManager.saveData(StorageManager.KEY_ARCHIVE, doc.data().items);
+            StorageManager.saveData(StorageManager.KEY_ARCHIVE, items);
             showAlert('הארכיון שוחזר מהענן!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);

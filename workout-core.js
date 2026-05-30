@@ -3977,6 +3977,41 @@ function _liveStepPicker(field, dir) {
     updateLiveViewContent();
 }
 
+// לחיצה על המספר ב-sheet "ערוך סט נוכחי" — הקלדת ערך חופשי, כמו בפיקרים הראשיים
+function editLivePickerValue(field) {
+    const disp = document.getElementById('live-edit-' + field + '-disp');
+    if (!disp || disp.querySelector('input')) return;
+
+    const current = disp.textContent.trim();
+    const startVal = current === 'Fail' ? '0' : current.replace(/[^\d.]/g, '');
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.inputMode = 'decimal';
+    input.className = 'stepper-edit-input live-edit-input';
+    input.value = startVal;
+    if (field === 'reps') { input.step = '1'; input.min = '1'; }
+    else { input.step = '0.5'; input.min = '0'; }
+
+    disp.textContent = '';
+    disp.appendChild(input);
+    input.focus();
+    input.select();
+
+    const finish = (commit) => {
+        if (input._done) return;
+        input._done = true;
+        if (commit && input.value !== '') commitCustomValue(field, input.value);
+        _syncLiveEditSheetDisplays();
+        updateLiveViewContent();
+    };
+    input.addEventListener('blur', () => finish(true));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+}
+
 // קורא לנתוני state ומסנכרן את ה-DOM של ה-overlay
 function updateLiveViewContent() {
     if (!document.body.classList.contains('live-mode-active')) return;

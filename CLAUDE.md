@@ -106,20 +106,31 @@
 האפליקציה היא PWA. ה-Service Worker מזהה עדכון **רק** כשקובץ `sw.js` משתנה.
 אם לא מעלים גרסה — המשתמש ממשיך לשרת מה-cache הישן למרות שה-commit נדחף.
 
-### GitHub Actions — auto-merge + מגבלה קריטית
+### חובה: push + merge ל-main בכל שינוי — תמיד
 
-קיים workflow ב-`.github/workflows/auto-merge-to-main.yml`.
+> 🔴 **כלל מוחלט:** סיום עבודה = **גם push לענף `claude/**` וגם merge ידני ל-`main`**.
+> push לבדו **אינו** מספיק. המשתמש רואה את האפליקציה מ-`main` בלבד — אם לא מיזגת, השינוי לא הגיע אליו.
+> אל תחכה לבקשה "מזג". בכל פעם שאתה דוחף קוד — מזג מיד אחריו, אלא אם המשתמש ביקש מפורשות לא למזג.
 
-> ⚠️ **מגבלה:** ה-workflow מתרסק על push שני+ לאותו branch (branch כבר קיים).
-> **הפתרון הקבוע:** לאחר כל push לbranch `claude/**`, בצע merge ידני:
+קיים workflow ב-`.github/workflows/auto-merge-to-main.yml`, **אך אסור להסתמך עליו**:
+ה-workflow מתרסק על push שני+ לאותו branch (branch כבר קיים), ולכן לרוב המיזוג לא יקרה אוטומטית.
+**המיזוג הידני הוא ברירת המחדל, לא חריג.**
+
+**הרצף המלא בסיום כל שינוי קוד (חובה לבצע את כל הצעדים):**
 
 ```bash
+# 1. push לענף העבודה
+git push -u origin claude/BRANCH_NAME
+
+# 2. merge ידני ל-main — תמיד, בכל push
 git checkout main
 git pull origin main
 git merge --no-ff origin/claude/BRANCH_NAME -m "merge: תיאור (vXX)"
 git push origin main
 git checkout claude/BRANCH_NAME   # חזרה לענף העבודה
 ```
+
+**אימות:** אחרי המיזוג ודא ש-`grep CACHE_VERSION sw.js` ב-`main` מציג את הגרסה החדשה.
 
 ### תבנית גרסה
 ```
@@ -153,7 +164,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-15.47
+15.49
 
 ---
 

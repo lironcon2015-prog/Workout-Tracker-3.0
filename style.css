@@ -5208,6 +5208,8 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-export-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #353535; color: var(--text); border: none; border-radius: 12px; padding: 10px 8px; font-size: 0.74rem; font-weight: 700; font-family: inherit; cursor: pointer; }
 .bl-export-btn:active { transform: scale(0.97); }
 .bl-export-btn .material-symbols-outlined { font-size: 1.05rem; }
+/* גיבוי/ייצוא בתחתית מסך הארכיון */
+.archive-backup-bottom { margin-top: 28px; }
 .bl-plot { position: relative; height: 170px; padding-right: 32px; }
 .bl-svg { width: 100%; height: 100%; display: block; }
 .bl-yaxis { position: absolute; top: 0; bottom: 0; right: 0; width: 32px; pointer-events: none; }

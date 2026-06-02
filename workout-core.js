@@ -165,7 +165,7 @@ let managerState = {
 // ─── NAVIGATION CONSTANTS ──────────────────────────────────────────────────
 // מקור אמת יחיד — משמש גם ב-navigate() וגם ב-restoreSession()
 const WORKOUT_SCREENS = ['ui-workout-type', 'ui-confirm', 'ui-main', 'ui-1rm', 'ui-cluster-rest', 'ui-variation', 'ui-swap-list', 'ui-ask-extra', 'ui-extra-cluster', 'ui-summary'];
-const NO_BACK_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive'];
+const NO_BACK_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive', 'ui-bodylog'];
 
 let audioContext;
 let wakeLock = null;

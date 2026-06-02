@@ -20,6 +20,7 @@ const StorageManager = {
     KEY_AI_DISPLAY_CUTOFF: 'gympro_ai_display_cutoff',
     KEY_NUTRITION:    'gympro_nutrition',
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
+    KEY_BODYLOG:      'gympro_bodylog',
     KEY_SOUND:        'gympro_sound_enabled',
     KEY_COPY_INCLUDE_COACH: 'gympro_copy_include_coach',
     KEY_ARCHIVE_COPY_COACH: 'gympro_archive_copy_coach',
@@ -274,6 +275,43 @@ const StorageManager = {
         const last = log[log.length - 1];
         if (last) this.saveData(this.KEY_NUTRITION, { state: last.state, startDate: last.startDate });
         return true;
+    },
+
+    // getNutritionStateOnDate — איזה מצב תזונתי היה פעיל בתאריך נתון, לפי לוג המעברים.
+    // מחזיר null אם התאריך קודם לרשומה הראשונה בלוג (אין מידע).
+    getNutritionStateOnDate(dateStr) {
+        const log = this.getNutritionLog();
+        if (!log.length || !dateStr) return null;
+        const ts = this._dateStrToTs(dateStr) + 12 * 3600 * 1000; // אמצע היום — למניעת קצוות
+        let active = null;
+        for (const e of log) { if (e.startTs <= ts) active = e.state; else break; }
+        return active;
+    },
+
+    // ── Body Log (שקילות: משקל + אחוז שומן) ─────────────────────────────────
+    getBodyLog() { return this.getData(this.KEY_BODYLOG) || []; },
+
+    // upsertBodyEntry — הוספה/דריסה לפי תאריך (אחת ליום). שומר ממוין מהישן לחדש.
+    upsertBodyEntry(entry) {
+        const log = this.getBodyLog();
+        const idx = log.findIndex(e => e.date === entry.date);
+        const rec = {
+            date: entry.date,
+            weight: Number(entry.weight),
+            bodyFat: (entry.bodyFat === '' || entry.bodyFat == null) ? null : Number(entry.bodyFat),
+            nutritionState: entry.nutritionState || null,
+            note: entry.note || '',
+            source: entry.source || 'manual',
+            createdAt: idx >= 0 ? (log[idx].createdAt || Date.now()) : Date.now()
+        };
+        if (idx >= 0) log[idx] = rec; else log.push(rec);
+        log.sort((a, b) => a.date < b.date ? -1 : 1);
+        this.saveData(this.KEY_BODYLOG, log);
+        return rec;
+    },
+
+    deleteBodyEntry(date) {
+        this.saveData(this.KEY_BODYLOG, this.getBodyLog().filter(e => e.date !== date));
     },
 
     // ── Backup / Restore ────────────────────────────────────────────────
@@ -697,6 +735,7 @@ const FirebaseManager = {
                 analyticsPrefs: StorageManager.getAnalyticsPrefs(),
                 nutrition:      StorageManager.getNutritionalState(),
                 nutritionLog:   StorageManager.getNutritionLog(),
+                bodylog:        StorageManager.getBodyLog(),
                 coachPrompts:   StorageManager.getData(StorageManager.KEY_COACH_PROMPTS) || {},
                 updatedAt:      Date.now()
             };
@@ -726,6 +765,7 @@ const FirebaseManager = {
             if (data.analyticsPrefs) StorageManager.saveAnalyticsPrefs(data.analyticsPrefs);
             if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
             if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
+            if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
             if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
             showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
         } catch(e) {

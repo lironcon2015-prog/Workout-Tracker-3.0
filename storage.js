@@ -342,6 +342,9 @@ const StorageManager = {
             exercises: this.getData(this.KEY_DB_EXERCISES),
             meta: this.getData(this.KEY_META),
             aliases: prefs.workoutAliases || {},
+            nutrition: this.getNutritionalState(),
+            nutritionLog: this.getNutritionLog(),
+            bodylog: this.getBodyLog(),
             analyticsPrefs: {
                 heroMetrics:        prefs.heroMetrics,
                 volumeRange:        prefs.volumeRange,
@@ -384,6 +387,9 @@ const StorageManager = {
                 });
             }
             this.saveAnalyticsPrefs(prefs);
+            if (data.nutrition)    this.saveData(this.KEY_NUTRITION, data.nutrition);
+            if (data.nutritionLog) this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
+            if (data.bodylog)      this.saveData(this.KEY_BODYLOG, data.bodylog);
             showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
         });
     },

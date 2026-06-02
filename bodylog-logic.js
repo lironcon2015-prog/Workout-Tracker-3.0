@@ -15,7 +15,8 @@ const _BL_STATE_LBL = { cut: 'Cut', maintenance: 'Maintenance', surplus: 'Surplu
 // ─── עזרי תאריך ─────────────────────────────────────────────────────────────
 function _blDTs(d) { const [y, m, da] = d.split('-').map(Number); return new Date(y, m - 1, da).getTime(); }
 function _blTodayStr() { return new Date().toISOString().slice(0, 10); }
-function _blShortDate(d) { const p = d.split('-'); return `${p[2]}.${p[1]}`; }
+function _blShortDate(d) { const p = d.split('-'); return `${p[2]}.${p[1]}`; }          // DD.MM (ציר הגרף)
+function _blListDate(d) { const p = d.split('-'); return `${p[2]}.${p[1]}.${p[0]}`; }   // DD.MM.YYYY (לוג השקילות)
 function _blCutoff(days) { return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10); }
 
 // ─── רינדור ראשי ────────────────────────────────────────────────────────────
@@ -72,17 +73,21 @@ function _kpi(label, val, sub, trend) {
 
 // ─── גרפים ──────────────────────────────────────────────────────────────────
 function _renderBodyCharts(log) {
+    _blSel = {}; // איפוס בחירה (tooltip) בכל רינדור מלא — מונע בחירה "תקועה" אחרי שינוי טווח/נתונים
     const data = _blFilter(log).sort((a, b) => a.date < b.date ? -1 : 1);
-    _drawBlChart('bl-weight-svg', 'bl-weight-dates', 'bl-weight-yaxis', data.map(e => ({ date: e.date, val: e.weight })), true);
+    _drawBlChart('bl-weight-svg', 'bl-weight-dates', 'bl-weight-yaxis', data.map(e => ({ date: e.date, val: e.weight })), true, 'kg');
     const fatData = data.filter(e => e.bodyFat != null).map(e => ({ date: e.date, val: e.bodyFat }));
     const fatCard = document.getElementById('bl-fat-card');
     if (fatData.length >= 1) {
         if (fatCard) fatCard.style.display = 'block';
-        _drawBlChart('bl-fat-svg', 'bl-fat-dates', 'bl-fat-yaxis', fatData, false);
+        _drawBlChart('bl-fat-svg', 'bl-fat-dates', 'bl-fat-yaxis', fatData, false, '%');
     } else if (fatCard) {
         fatCard.style.display = 'none';
     }
 }
+
+// מצב בחירה לגרפים (tooltip): index נבחר, פונקציית redraw, וגאומטריה ל-hit-testing — לכל svg.
+let _blSel = {}, _blRedraw = {}, _blTapMeta = {};
 
 // _niceNum / _niceTicks — בוחרים ערכי-ציר עגולים (1/2/5 × 10^k) שמכסים את טווח הנתונים,
 // כדי שציר ה-Y יציג מספרים ברורים (84, 86, 88) במקום גבולות "מרופדים" שרירותיים.
@@ -104,7 +109,7 @@ function _niceTicks(min, max, count) {
     return { ticks, lo: niceMin, hi: niceMax, step };
 }
 
-function _drawBlChart(svgId, datesId, yaxisId, points, withMA) {
+function _drawBlChart(svgId, datesId, yaxisId, points, withMA, unit) {
     const svg = document.getElementById(svgId);
     const datesEl = document.getElementById(datesId);
     const yaxisEl = document.getElementById(yaxisId);
@@ -114,6 +119,7 @@ function _drawBlChart(svgId, datesId, yaxisId, points, withMA) {
         svg.innerHTML = `<text x="200" y="85" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="13" font-family="Heebo">אין מספיק נתונים למגמה</text>`;
         if (datesEl) datesEl.innerHTML = '';
         if (yaxisEl) yaxisEl.innerHTML = '';
+        _blRenderTip(svg, svgId, points, -1);
         return;
     }
     const vals = points.map(p => p.val);
@@ -148,6 +154,15 @@ function _drawBlChart(svgId, datesId, yaxisId, points, withMA) {
     }).join('');
     const last = pts[n - 1];
 
+    // נקודה נבחרת (לחיצה על הגרף) — קו אנכי + נקודה מודגשת
+    const sel = (svgId in _blSel) ? _blSel[svgId] : -1;
+    let selMark = '';
+    if (sel >= 0 && sel < n) {
+        const sx = pts[sel][0].toFixed(1), sy = pts[sel][1].toFixed(1);
+        selMark = `<line x1="${sx}" y1="${pad.t}" x2="${sx}" y2="${(pad.t + cH).toFixed(1)}" stroke="rgba(10,132,255,0.45)" stroke-width="1"/>
+                   <circle cx="${sx}" cy="${sy}" r="6" fill="#0A84FF" stroke="#fff" stroke-width="1.5"/>`;
+    }
+
     svg.innerHTML = `
         <defs><linearGradient id="bl-grad-${svgId}" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stop-color="#0A84FF"/><stop offset="100%" stop-color="transparent"/></linearGradient></defs>
@@ -155,7 +170,8 @@ function _drawBlChart(svgId, datesId, yaxisId, points, withMA) {
         <path d="${areaPath}" fill="url(#bl-grad-${svgId})" opacity="0.22"/>
         <path d="${linePath}" fill="none" stroke="#0A84FF" stroke-width="3" stroke-linecap="round"/>
         ${maPath}
-        <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5" fill="#0A84FF"/>`;
+        <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5" fill="#0A84FF"/>
+        ${selMark}`;
 
     // תוויות ציר Y כ-HTML חד (לא מעוות ע"י מתיחת ה-SVG). top באחוזים מגובה ה-plot.
     if (yaxisEl) {
@@ -169,6 +185,49 @@ function _drawBlChart(svgId, datesId, yaxisId, points, withMA) {
         datesEl.innerHTML = points.map((p, i) =>
             (i % step2 === 0 || i === n - 1) ? `<span>${_blShortDate(p.date)}</span>` : '').join('');
     }
+
+    // tooltip + hit-testing — לחיצה על הגרף מציגה את המשקל/השומן באותו יום
+    _blRenderTip(svg, svgId, points, sel, px, py, W, H, unit);
+    _blTapMeta[svgId] = { n, padL: pad.l, cW, W };
+    _blRedraw[svgId] = () => _drawBlChart(svgId, datesId, yaxisId, points, withMA, unit);
+    _blAttachTap(svg, svgId);
+}
+
+// _blAttachTap — רושם מאזין לחיצה/מגע פעם אחת לכל svg; ממפה X→index קרוב ומרענן.
+function _blAttachTap(svg, svgId) {
+    if (svg.dataset.tapBound) return;
+    svg.dataset.tapBound = '1';
+    const onTap = (ev) => {
+        const meta = _blTapMeta[svgId];
+        if (!meta) return;
+        const rect = svg.getBoundingClientRect();
+        if (!rect.width) return;
+        const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const vbX = ((clientX - rect.left) / rect.width) * meta.W;
+        let idx = Math.round(((vbX - meta.padL) / (meta.cW || 1)) * (meta.n - 1));
+        idx = Math.max(0, Math.min(meta.n - 1, idx));
+        _blSel[svgId] = idx;
+        if (_blRedraw[svgId]) _blRedraw[svgId]();
+        if (typeof haptic === 'function') haptic('light');
+    };
+    svg.addEventListener('click', onTap);
+    svg.addEventListener('touchstart', onTap, { passive: true });
+}
+
+// _blRenderTip — תווית HTML צפה מעל הנקודה הנבחרת (חדה, לא מעוותת ע"י מתיחת ה-SVG).
+function _blRenderTip(svg, svgId, points, sel, px, py, W, H, unit) {
+    const plot = svg.parentElement;
+    let tip = document.getElementById(svgId + '-tip');
+    if (sel == null || sel < 0 || sel >= points.length) { if (tip) tip.style.display = 'none'; return; }
+    if (!tip) { tip = document.createElement('div'); tip.id = svgId + '-tip'; tip.className = 'bl-tip'; plot.appendChild(tip); }
+    const p = points[sel];
+    const unitLbl = unit === '%' ? '%' : ' ק"ג';
+    tip.innerHTML = `<span class="bl-tip-date">${_blListDate(p.date)}</span><span class="bl-tip-val">${p.val.toFixed(1)}${unitLbl}</span>`;
+    tip.style.display = 'flex';
+    const w = svg.clientWidth || plot.clientWidth, h = svg.clientHeight || 170;
+    const leftPx = Math.max(30, Math.min(w - 30, (px(sel) / W) * w));
+    tip.style.left = leftPx + 'px';
+    tip.style.top = Math.max(2, (py(p.val) / H) * h - 6) + 'px';
 }
 
 // ─── רשימת שקילות ───────────────────────────────────────────────────────────
@@ -191,7 +250,7 @@ function _renderBodyList(log) {
         const fat = e.bodyFat != null ? `<span class="bl-row-fat">${e.bodyFat.toFixed(1)}%</span>` : '';
         return `<div class="bl-row" onclick="openBodyEntryModal('${e.date}')">
             <div class="bl-row-main">
-                <span class="bl-row-date">${_blShortDate(e.date)}</span>
+                <span class="bl-row-date">${_blListDate(e.date)}</span>
                 <span class="bl-row-weight">${e.weight.toFixed(1)}<small> ק"ג</small></span>
                 ${deltaHtml}
             </div>
@@ -262,7 +321,14 @@ function saveBodyEntry() {
 
     closeBodyEntryModal();
     renderBodyLog();
+    _blSyncCloud();
     haptic('success');
+}
+
+// _blSyncCloud — מעלה את הקונפיג (כולל ה-bodylog) לענן אחרי כל שינוי שקילה,
+// בדיוק כמו עריכת תוכנית אימון. ללא Firebase מוגדר — no-op שקט.
+function _blSyncCloud() {
+    if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
 }
 
 function deleteBodyEntryUI() {
@@ -271,6 +337,7 @@ function deleteBodyEntryUI() {
         StorageManager.deleteBodyEntry(_blEditDate);
         closeBodyEntryModal();
         renderBodyLog();
+        _blSyncCloud();
     });
 }
 
@@ -440,10 +507,9 @@ function _parseFlexDate(raw) {
     if (m) { let y = m[3]; if (y.length === 2) y = '20' + y; return `${y}-${pad(m[2])}-${pad(m[1])}`; }
     m = raw.match(/^(\d{1,2})[.\/-](\d{1,2})$/);
     if (m) {
-        const d = +m[1], mo = +m[2], now = new Date();
-        let y = now.getFullYear();
-        if (new Date(y, mo - 1, d).getTime() > now.getTime() + 86400000) y -= 1; // עתידי → שנה קודמת
-        return `${y}-${pad(mo)}-${pad(d)}`;
+        // ללא שנה בקובץ — משלימים בשנה הנוכחית
+        const y = new Date().getFullYear();
+        return `${y}-${pad(m[2])}-${pad(m[1])}`;
     }
     return null;
 }
@@ -546,6 +612,7 @@ function confirmBodyImport() {
     });
     closeBodyImportModal();
     renderBodyLog();
+    _blSyncCloud();
     showAlert(`יובאו ${count} שקילות בהצלחה.`);
 }
 

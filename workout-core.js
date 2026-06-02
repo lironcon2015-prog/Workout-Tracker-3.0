@@ -1429,7 +1429,7 @@ function _resetTimerDisplays() {
     if (restText) restText.innerText = '00:00';
     if (restBar) restBar.style.strokeDashoffset = 283;
     if (clText) clText.innerText = '00:00';
-    if (clBar) clBar.style.strokeDashoffset = 283;
+    if (clBar) clBar.style.strokeDashoffset = 289;
     if (liveText) liveText.textContent = '00:00';
     if (liveBar) liveBar.style.strokeDashoffset = 289;
 }
@@ -1978,7 +1978,8 @@ function resetAndStartTimer(customTime = null) {
         if (text) text.innerText = `${mins}:${secs}`;
         if (circle) circle.style.strokeDashoffset = 283 - (progress * 283);
         if (clusterText) clusterText.innerText = `${mins}:${secs}`;
-        if (clusterBar) clusterBar.style.strokeDashoffset = 283 - (progress * 283);
+        // r=46 → circumference 289 (זהה לטיימר ה-Live)
+        if (clusterBar) clusterBar.style.strokeDashoffset = 289 - (progress * 289);
         // Sprint 4: עדכון Live View אם פעיל
         if (typeof updateLiveTimer === 'function') updateLiveTimer(mins, secs, progress);
     };
@@ -2148,7 +2149,11 @@ function renderClusterRestUI() {
         btnSkip.style.display = 'none';
     }
     const listDiv = document.getElementById('cluster-next-list');
-    listDiv.innerHTML = state.activeCluster.exercises.map((e, i) => `<div>${i + 1}. ${e.name}</div>`).join('');
+    const exs = state.activeCluster.exercises;
+    listDiv.classList.toggle('cluster-intro-list--scroll', exs.length >= 4);
+    listDiv.innerHTML = exs.map((e, i) =>
+        `<div class="cluster-intro-row"><span class="cluster-intro-tag">${i + 1}</span><span class="cluster-intro-name">${e.name}</span></div>`
+    ).join('');
 }
 
 function startNextRound() {

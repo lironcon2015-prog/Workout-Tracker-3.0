@@ -20,6 +20,9 @@ const StorageManager = {
     KEY_AI_DISPLAY_CUTOFF: 'gympro_ai_display_cutoff',
     KEY_NUTRITION:    'gympro_nutrition',
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
+    KEY_NUTRITION_DAILY: 'gympro_nutrition_daily',   // ייבוא MFP — קלוריות/מאקרו לפי יום
+    KEY_MFP_BRIDGE_URL:   'gympro_mfp_bridge_url',    // Apps Script Web App URL
+    KEY_MFP_BRIDGE_TOKEN: 'gympro_mfp_bridge_token',  // token סודי לגשר
     KEY_BODYLOG:      'gympro_bodylog',
     KEY_SOUND:        'gympro_sound_enabled',
     KEY_COPY_INCLUDE_COACH: 'gympro_copy_include_coach',
@@ -419,6 +422,33 @@ const StorageManager = {
         localStorage.setItem(this.KEY_GEMINI_KEY, apiKey.trim());
         const models = modelsString.split(',').map(s => s.trim()).filter(Boolean);
         localStorage.setItem(this.KEY_AI_MODELS, models.join(','));
+    },
+
+    // ── MyFitnessPal Nutrition (ייבוא מ-Gmail דרך Apps Script) ───────────
+    getNutritionDaily() {
+        return this.getData(this.KEY_NUTRITION_DAILY) || [];
+    },
+
+    // saveNutritionDaily — upsert לפי תאריך (ייבוא חדש דורס יום קיים), ממוין מהישן לחדש.
+    saveNutritionDaily(days) {
+        const map = {};
+        this.getNutritionDaily().forEach(d => { if (d && d.date) map[d.date] = d; });
+        (days || []).forEach(d => { if (d && d.date) map[d.date] = d; });
+        const merged = Object.values(map).sort((a, b) => a.date < b.date ? -1 : 1);
+        this.saveData(this.KEY_NUTRITION_DAILY, merged);
+        return merged;
+    },
+
+    getMfpBridge() {
+        return {
+            url:   localStorage.getItem(this.KEY_MFP_BRIDGE_URL) || '',
+            token: localStorage.getItem(this.KEY_MFP_BRIDGE_TOKEN) || ''
+        };
+    },
+
+    saveMfpBridge(url, token) {
+        localStorage.setItem(this.KEY_MFP_BRIDGE_URL, (url || '').trim());
+        localStorage.setItem(this.KEY_MFP_BRIDGE_TOKEN, (token || '').trim());
     },
 
     getAIPersona() {

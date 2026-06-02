@@ -518,6 +518,24 @@
                     <div class="ai-security-note" style="margin-top:6px;">המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן. מומלץ להגביל אותו ל-GitHub Pages שלך ב-Google Cloud Console.</div>
                 </div>
 
+                <!-- IV-b. גשר תזונה (MyFitnessPal → Gmail) -->
+                <div class="settings-group">
+                    <div class="settings-group-label">ייבוא תזונה (MyFitnessPal)</div>
+                    <div class="stg-bento stg-ai-bento">
+                        <div id="mfp-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
+                            <input type="text" id="mfp-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+                        </div>
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">SECRET TOKEN</label>
+                            <input type="password" id="mfp-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
+                        </div>
+                        <button class="stg-ai-save" onclick="saveMfpBridgeSettings()">שמור הגדרות גשר</button>
+                    </div>
+                    <div class="ai-security-note" style="margin-top:6px;">הגשר רץ בחשבון ה-Gmail שלך (Google Apps Script) ומושך את ייצוא ה-MyFitnessPal האחרון. ה-token נשמר מקומית בלבד. הכפתור לייבוא נמצא במסך Composition.</div>
+                </div>
+
                 <!-- V. מערכת -->
                 <div class="settings-group">
                     <div class="settings-group-label">מערכת</div>
@@ -1268,6 +1286,9 @@
                 </div>
 
                 <div class="bodylog-kpis" id="bodylog-kpis"></div>
+
+                <!-- כרטיס תזונה — נתוני MyFitnessPal מיובאים מ-Gmail -->
+                <div class="bl-chart-card" id="bl-nutrition-card"></div>
 
                 <div class="bl-range-chips" id="bl-range-chips">
                     <button class="bl-chip" data-range="7" onclick="setBodyRange(7)">7 ימים</button>

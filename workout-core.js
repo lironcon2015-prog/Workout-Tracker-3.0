@@ -774,6 +774,7 @@ function openSettings() {
     navigate('ui-settings');
     if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
     if (typeof updateAIStatus === 'function') updateAIStatus();
+    if (typeof updateMfpBridgeStatus === 'function') updateMfpBridgeStatus();
     _renderNutritionalToggle();
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
 }
@@ -4148,6 +4149,74 @@ function saveAISettings() {
     StorageManager.saveAIConfig(keyInput.value.trim(), modelsInput.value);
     updateAIStatus();
     showAlert('הגדרות AI נשמרו!');
+}
+
+// ─── גשר תזונה MyFitnessPal (Apps Script) ────────────────────────────────────
+function saveMfpBridgeSettings() {
+    const urlInput   = document.getElementById('mfp-bridge-url-input');
+    const tokenInput = document.getElementById('mfp-bridge-token-input');
+    if (!urlInput || !tokenInput) return;
+    StorageManager.saveMfpBridge(urlInput.value.trim(), tokenInput.value.trim());
+    updateMfpBridgeStatus();
+    showAlert('הגדרות גשר התזונה נשמרו!');
+}
+
+function updateMfpBridgeStatus() {
+    const el = document.getElementById('mfp-bridge-status');
+    if (!el) return;
+    const { url, token } = StorageManager.getMfpBridge();
+    if (url) {
+        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span>';
+        const ui = document.getElementById('mfp-bridge-url-input');
+        const ti = document.getElementById('mfp-bridge-token-input');
+        if (ui && !ui.value) ui.value = url;
+        if (ti && !ti.value) ti.value = token;
+    } else {
+        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
+    }
+}
+
+/**
+ * importNutritionFromGmail — מושך את ייצוא ה-MyFitnessPal האחרון דרך הגשר,
+ * מאחסן את הנתונים היומיים ומרענן את כרטיס התזונה במסך Composition.
+ */
+async function importNutritionFromGmail() {
+    const { url, token } = StorageManager.getMfpBridge();
+    if (!url) {
+        showAlert('יש להגדיר קודם את כתובת הגשר (Apps Script) בהגדרות → "ייבוא תזונה".');
+        if (typeof openSettings === 'function') openSettings();
+        return;
+    }
+    const btn = document.getElementById('bl-nutri-import-btn');
+    if (btn) btn.disabled = true;
+    haptic('light');
+    showCloudToast('⏳ מושך תזונה מ-Gmail…', true);
+    try {
+        const sep = url.includes('?') ? '&' : '?';
+        const res = await fetch(`${url}${sep}token=${encodeURIComponent(token)}`, { method: 'GET' });
+        const data = await res.json();
+        if (!data || data.ok !== true) {
+            const msgs = {
+                BAD_TOKEN:        'token שגוי — בדוק את ההגדרות.',
+                NO_EXPORT_EMAIL:  'לא נמצא מייל ייצוא מ-MyFitnessPal.',
+                NO_DOWNLOAD_LINK: 'לא נמצא קישור הורדה במייל.',
+                LINK_EXPIRED:     'קישור ההורדה פג תוקף — בקש ייצוא חדש ב-MyFitnessPal.',
+                NO_NUTRITION_CSV: 'הייצוא לא הכיל קובץ תזונה.'
+            };
+            throw new Error(msgs[data && data.error] || (data && data.error) || 'שגיאה לא ידועה מהגשר.');
+        }
+        const days = Array.isArray(data.days) ? data.days : [];
+        if (!days.length) throw new Error('הייצוא לא הכיל ימי תזונה.');
+        StorageManager.saveNutritionDaily(days);
+        if (typeof renderBodyLog === 'function') renderBodyLog();
+        showCloudToast(`✅ יובאו ${days.length} ימי תזונה`, true);
+    } catch (e) {
+        console.error('GymPro: nutrition import error', e);
+        const offline = (e instanceof TypeError);   // fetch נכשל (רשת/CORS)
+        showCloudToast('⚠️ ' + (offline ? 'נכשלה הפנייה לגשר — בדוק חיבור/URL.' : e.message), false);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }
 
 /**

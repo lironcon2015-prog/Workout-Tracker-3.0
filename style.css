@@ -2977,6 +2977,14 @@ body {
     min-height: 14px;
     text-align: center;
 }
+.stg-nutri-meta--tappable {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    transition: color 0.15s;
+}
+.stg-nutri-meta--tappable:active { color: rgba(255,255,255,0.75); }
 
 .stg-firebase-row {
     display: flex; align-items: center; justify-content: space-between;

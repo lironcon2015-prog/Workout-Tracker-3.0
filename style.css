@@ -2125,6 +2125,19 @@ body {
 #ui-cluster-rest .secondary-action {
     width: 100% !important;
 }
+/* טיימר מנוחה בין סבבים — מוגדל למקסימום בלי שהאלמנטים יצאו מהמסך (ללא גלילה).
+   שמירה על הפרופורציה: גודל הטקסט גדל יחד עם קוטר העיגול. */
+#ui-cluster-rest .timer-wrap {
+    width: min(78vw, 300px);
+    height: min(78vw, 300px);
+}
+#ui-cluster-rest .timer-wrap.my-xl {
+    margin-top: var(--sp-md) !important;
+    margin-bottom: var(--sp-md) !important;
+}
+#ui-cluster-rest .timer-text {
+    font-size: clamp(2.6rem, 14vw, 3.6rem);
+}
 
 /* ── Horizontal bar chart — label clickable ── */
 .hbar-label { cursor: pointer; transition: color 0.15s; }

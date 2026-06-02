@@ -820,6 +820,7 @@ function openNutriDateModal() {
     const input = document.getElementById('nutri-date-input');
     input.value = n.startDate || todayStr;
     input.max = todayStr; // אין משמעות לתאריך עתידי
+    _renderNutritionLog();
     document.getElementById('nutri-date-modal').style.display = 'flex';
 }
 
@@ -842,10 +843,41 @@ function saveNutriDateOverride() {
 // getNutritionalContext — מחזיר string לשימוש ב-AI prompts.
 // משמש את _updateAIContextBanner ויחומש ע"י requestAIRecommendation (Sprint 1c).
 function getNutritionalContext() {
+    const LBL = { cut: 'CUT', maintenance: 'MAINTENANCE', surplus: 'SURPLUS' };
     const n = StorageManager.getNutritionalState();
-    const days = _daysInState(n.startDate);
-    const label = { cut: 'CUT', maintenance: 'MAINTENANCE', surplus: 'SURPLUS' }[n.state] || 'MAINTENANCE';
-    return n.startDate ? `${label} (day ${days})` : label;
+    const label = LBL[n.state] || 'MAINTENANCE';
+    if (!n.startDate) return label;
+    let ctx = `${label} (day ${_daysInState(n.startDate)})`;
+    // פאזה קודמת — נותן ל-AI הקשר מגמה (ממה עברת ולכמה זמן)
+    const log = StorageManager.getNutritionLog();
+    if (log.length >= 2) {
+        const last = log[log.length - 1];
+        const prev = log[log.length - 2];
+        const prevDays = Math.max(0, Math.round((last.startTs - prev.startTs) / 86400000));
+        ctx += `, prev ${LBL[prev.state] || prev.state} ${prevDays}d`;
+    }
+    return ctx;
+}
+
+// _renderNutritionLog — מצייר את ציר הזמן התזונתי בתוך מודאל "במצב מאז".
+function _renderNutritionLog() {
+    const cont = document.getElementById('nutri-log-list');
+    if (!cont) return;
+    const log = StorageManager.getNutritionLog();
+    if (!log.length) { cont.innerHTML = '<div class="nutri-log-empty">אין היסטוריה עדיין</div>'; return; }
+    const LBL = { cut: 'Cut', maintenance: 'Maintenance', surplus: 'Surplus' };
+    const now = Date.now();
+    const rows = log.map((e, i) => {
+        const endTs = (i < log.length - 1) ? log[i + 1].startTs : now;
+        const days = Math.max(0, Math.round((endTs - e.startTs) / 86400000));
+        return { state: e.state, startDate: e.startDate, days, isCurrent: i === log.length - 1 };
+    }).reverse(); // מהחדש לישן
+    cont.innerHTML = rows.map(r => `
+        <div class="nutri-log-row${r.isCurrent ? ' nutri-log-row--current' : ''}">
+            <span class="nutri-log-dot nutri-log-dot--${r.state}"></span>
+            <span class="nutri-log-state">${LBL[r.state] || r.state}</span>
+            <span class="nutri-log-meta">${r.startDate} · ${r.days} ימים${r.isCurrent ? ' · נוכחי' : ''}</span>
+        </div>`).join('');
 }
 
 // ─── WORKOUT PLAN SHEET ────────────────────────────────────────────────────

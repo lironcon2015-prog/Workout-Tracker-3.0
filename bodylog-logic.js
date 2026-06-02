@@ -25,6 +25,40 @@ function renderBodyLog() {
     _renderBodyKpis(log);
     _renderBodyCharts(log);
     _renderBodyList(log);
+    _renderNutritionCard();
+}
+
+// ─── כרטיס תזונה (MyFitnessPal) ──────────────────────────────────────────────
+function _renderNutritionCard() {
+    const card = document.getElementById('bl-nutrition-card');
+    if (!card) return;
+    const days = StorageManager.getNutritionDaily();
+    const importBtn = `<button id="bl-nutri-import-btn" class="bl-nutri-import" onclick="importNutritionFromGmail()">
+            <span class="material-symbols-outlined">cloud_download</span><span>ייבא מ-Gmail</span></button>`;
+
+    if (!days.length) {
+        card.innerHTML = `<div class="bl-nutri-head">
+                <div class="bl-chart-title">תזונה · MyFitnessPal</div>${importBtn}</div>
+            <p class="bl-nutri-hint">אין עדיין נתוני תזונה. בקש ייצוא ב-MyFitnessPal ולחץ "ייבא מ-Gmail" כדי למשוך את הייצוא האחרון.</p>`;
+        return;
+    }
+
+    const last7 = days.slice(-7);
+    const avg = k => Math.round(last7.reduce((s, d) => s + (d[k] || 0), 0) / last7.length);
+    const latest = days[days.length - 1];
+    card.innerHTML = `<div class="bl-nutri-head">
+            <div class="bl-chart-title">תזונה · MyFitnessPal <small>— ממוצע ${last7.length} ימים</small></div>${importBtn}</div>
+        <div class="bl-nutri-grid">
+            ${_nutriKpi('קלוריות', avg('calories'), 'kcal')}
+            ${_nutriKpi('חלבון', avg('protein'), 'g')}
+            ${_nutriKpi('פחמימה', avg('carbs'), 'g')}
+            ${_nutriKpi('שומן', avg('fat'), 'g')}
+        </div>
+        <div class="bl-nutri-foot">עודכן לאחרונה: ${_blListDate(latest.date)} · ${days.length} ימים בסך הכל</div>`;
+}
+
+function _nutriKpi(label, val, unit) {
+    return `<div class="bl-nutri-kpi"><div class="bl-nutri-val">${val}<span class="bl-nutri-unit">${unit}</span></div><div class="bl-nutri-lbl">${label}</div></div>`;
 }
 
 function setBodyRange(r) {

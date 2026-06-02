@@ -786,20 +786,57 @@ function _renderNutritionalToggle() {
         btn.classList.toggle('active', btn.dataset.state === nutri.state);
     });
     const metaEl = document.getElementById('nutri-meta');
-    if (metaEl) metaEl.textContent = nutri.startDate ? `במצב מאז ${nutri.startDate} (${_daysInState(nutri.startDate)} ימים)` : '';
+    if (metaEl) metaEl.textContent = nutri.startDate
+        ? `במצב מאז ${nutri.startDate} (${_daysInState(nutri.startDate)} ימים)`
+        : 'קבע תאריך תחילת מצב';
 }
 
 function selectNutritionalState(state) {
-    StorageManager.setNutritionalState(state);
+    const current = StorageManager.getNutritionalState();
+    // שמור על תאריך ההתחלה אם המצב לא השתנה — ספירת הימים נמדדת מהכניסה האמיתית לשלב,
+    // ולא מתאפסת בכל לחיצה חוזרת על אותו pill.
+    const keepDate = (current.state === state && current.startDate) ? current.startDate : undefined;
+    StorageManager.setNutritionalState(state, keepDate);
     _renderNutritionalToggle();
     haptic('success');
 }
 
+// _daysInState — מחשב ימים לפי חצות מקומית בשני הקצוות, כדי למנוע סטיית יום
+// שנובעת מפרשנות UTC של מחרוזת "YYYY-MM-DD" מול שעון מקומי.
 function _daysInState(startDate) {
     if (!startDate) return 0;
-    const start = new Date(startDate);
+    const [y, m, d] = startDate.split('-').map(Number);
+    if (!y || !m || !d) return 0;
+    const start = new Date(y, m - 1, d);
     const now = new Date();
-    return Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.max(0, Math.round((today - start) / 86400000));
+}
+
+// ── Override ידני של תאריך תחילת המצב התזונתי (מסך משני) ──
+function openNutriDateModal() {
+    const n = StorageManager.getNutritionalState();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const input = document.getElementById('nutri-date-input');
+    input.value = n.startDate || todayStr;
+    input.max = todayStr; // אין משמעות לתאריך עתידי
+    document.getElementById('nutri-date-modal').style.display = 'flex';
+}
+
+function closeNutriDateModal() {
+    document.getElementById('nutri-date-modal').style.display = 'none';
+}
+
+function saveNutriDateOverride() {
+    const val = document.getElementById('nutri-date-input').value;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (!val) { showAlert('בחר תאריך.'); return; }
+    if (val > todayStr) { showAlert('לא ניתן לבחור תאריך עתידי.'); return; }
+    const n = StorageManager.getNutritionalState();
+    StorageManager.setNutritionalState(n.state, val);
+    _renderNutritionalToggle();
+    closeNutriDateModal();
+    haptic('success');
 }
 
 // getNutritionalContext — מחזיר string לשימוש ב-AI prompts.

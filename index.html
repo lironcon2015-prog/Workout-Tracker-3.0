@@ -190,6 +190,20 @@
         </div>
     </div>
 
+    <!-- Nutritional State Start-Date Override -->
+    <div id="nutri-date-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>תאריך תחילת המצב</h3>
+            <p class="sub-text" style="margin-bottom:16px;">קבע ידנית מאיזה תאריך נספרת תקופת המצב התזונתי. ה-AI Coach יסתמך על התאריך הזה.</p>
+            <div class="glass-card compact m-0" style="margin-bottom:20px;text-align:right;">
+                <label>תאריך התחלה</label>
+                <input type="date" id="nutri-date-input" class="minimal-input m-0">
+            </div>
+            <button class="btn-main primary-gradient" onclick="saveNutriDateOverride()">שמור</button>
+            <button class="btn-text" onclick="closeNutriDateModal()">ביטול</button>
+        </div>
+    </div>
+
     <!-- Bottom Sheet -->
     <div id="sheet-overlay" class="bottom-sheet-overlay" onclick="closeDayDrawer()"></div>
     <div id="sheet-modal" class="bottom-sheet">
@@ -416,7 +430,7 @@
                             <button class="nutri-pill" data-state="maintenance" onclick="selectNutritionalState('maintenance')">Maintenance</button>
                             <button class="nutri-pill" data-state="surplus" onclick="selectNutritionalState('surplus')">Surplus</button>
                         </div>
-                        <div class="stg-nutri-meta" id="nutri-meta"></div>
+                        <div class="stg-nutri-meta stg-nutri-meta--tappable" id="nutri-meta" onclick="openNutriDateModal()" role="button" tabindex="0"></div>
                     </div>
                 </div>
 

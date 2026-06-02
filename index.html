@@ -1274,49 +1274,88 @@
                     </div>
                 </div>
 
-                <!-- כניסת צילום בראש העמוד — לחיצה = מצלמה מיידית; כפתור צד = הזנה ידנית -->
-                <div class="bl-capture-bar">
-                    <button class="bl-capture-cta" onclick="openBodyCaptureInput()">
-                        <span class="material-symbols-outlined">photo_camera</span>
-                        <span>צלם שקילה</span>
-                    </button>
-                    <button class="bl-manual-btn" onclick="openBodyEntryModal()" aria-label="הזנה ידנית">
-                        <span class="material-symbols-outlined">keyboard</span>
-                    </button>
+                <!-- תתי-מסכים: שקילה / תזונה -->
+                <div class="bl-subtab" id="bl-subtab">
+                    <button class="bl-subtab-btn active" data-tab="weight" onclick="setBodyTab('weight')">שקילה</button>
+                    <button class="bl-subtab-btn" data-tab="nutrition" onclick="setBodyTab('nutrition')">תזונה</button>
                 </div>
 
-                <div class="bodylog-kpis" id="bodylog-kpis"></div>
-
-                <!-- כרטיס תזונה — נתוני MyFitnessPal מיובאים מ-Gmail -->
-                <div class="bl-chart-card" id="bl-nutrition-card"></div>
-
+                <!-- צ'יפי טווח — משותפים לשתי התצוגות -->
                 <div class="bl-range-chips" id="bl-range-chips">
                     <button class="bl-chip" data-range="7" onclick="setBodyRange(7)">7 ימים</button>
                     <button class="bl-chip active" data-range="30" onclick="setBodyRange(30)">30 יום</button>
                     <button class="bl-chip" data-range="90" onclick="setBodyRange(90)">90 יום</button>
                     <button class="bl-chip" data-range="all" onclick="setBodyRange('all')">הכל</button>
+                    <button class="bl-chip" data-range="custom" onclick="setBodyRange('custom')">מותאם</button>
+                </div>
+                <div class="bl-custom-range" id="bl-custom-range" style="display:none;">
+                    <input type="date" id="bl-custom-from" class="bl-custom-input" onchange="applyCustomRange()">
+                    <span class="bl-custom-sep">—</span>
+                    <input type="date" id="bl-custom-to" class="bl-custom-input" onchange="applyCustomRange()">
                 </div>
 
-                <div class="bl-chart-card">
-                    <div class="bl-chart-title">משקל (ק"ג) <small>— קו מקווקו = ממוצע נע</small></div>
-                    <div class="bl-plot">
-                        <div class="bl-yaxis" id="bl-weight-yaxis"></div>
-                        <svg id="bl-weight-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                <!-- ========== תצוגת שקילה ========== -->
+                <div id="bl-view-weight">
+                    <!-- כניסת צילום — לחיצה = מצלמה מיידית; כפתור צד = הזנה ידנית -->
+                    <div class="bl-capture-bar">
+                        <button class="bl-capture-cta" onclick="openBodyCaptureInput()">
+                            <span class="material-symbols-outlined">photo_camera</span>
+                            <span>צלם שקילה</span>
+                        </button>
+                        <button class="bl-manual-btn" onclick="openBodyEntryModal()" aria-label="הזנה ידנית">
+                            <span class="material-symbols-outlined">keyboard</span>
+                        </button>
                     </div>
-                    <div class="bl-x-axis" id="bl-weight-dates"></div>
-                </div>
 
-                <div class="bl-chart-card" id="bl-fat-card" style="display:none;">
-                    <div class="bl-chart-title">אחוז שומן (%)</div>
-                    <div class="bl-plot">
-                        <div class="bl-yaxis" id="bl-fat-yaxis"></div>
-                        <svg id="bl-fat-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                    <div class="bodylog-kpis" id="bodylog-kpis"></div>
+
+                    <div class="bl-chart-card">
+                        <div class="bl-chart-title">משקל (ק"ג) <small>— קו מקווקו = ממוצע נע</small></div>
+                        <div class="bl-plot">
+                            <div class="bl-yaxis" id="bl-weight-yaxis"></div>
+                            <svg id="bl-weight-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                        </div>
+                        <div class="bl-x-axis" id="bl-weight-dates"></div>
                     </div>
-                    <div class="bl-x-axis" id="bl-fat-dates"></div>
+
+                    <div class="bl-chart-card" id="bl-fat-card" style="display:none;">
+                        <div class="bl-chart-title">אחוז שומן (%)</div>
+                        <div class="bl-plot">
+                            <div class="bl-yaxis" id="bl-fat-yaxis"></div>
+                            <svg id="bl-fat-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                        </div>
+                        <div class="bl-x-axis" id="bl-fat-dates"></div>
+                    </div>
+
+                    <div class="bl-list-head">היסטוריית שקילות</div>
+                    <div id="bodylog-list" class="bodylog-list"></div>
                 </div>
 
-                <div class="bl-list-head">היסטוריית שקילות</div>
-                <div id="bodylog-list" class="bodylog-list"></div>
+                <!-- ========== תצוגת תזונה (MyFitnessPal) ========== -->
+                <div id="bl-view-nutrition" style="display:none;">
+                    <div class="bl-chart-card" id="bl-nutrition-card"></div>
+
+                    <div class="bl-chart-card" id="bl-cal-card">
+                        <div class="bl-chart-title">קלוריות (kcal) <small>— קו מקווקו = ממוצע נע</small></div>
+                        <div class="bl-plot">
+                            <div class="bl-yaxis" id="bl-cal-yaxis"></div>
+                            <svg id="bl-cal-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                        </div>
+                        <div class="bl-x-axis" id="bl-cal-dates"></div>
+                    </div>
+
+                    <div class="bl-chart-card" id="bl-protein-card">
+                        <div class="bl-chart-title">חלבון (g) <small>— קו מקווקו = ממוצע נע</small></div>
+                        <div class="bl-plot">
+                            <div class="bl-yaxis" id="bl-protein-yaxis"></div>
+                            <svg id="bl-protein-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                        </div>
+                        <div class="bl-x-axis" id="bl-protein-dates"></div>
+                    </div>
+
+                    <div class="bl-list-head">היסטוריית תזונה</div>
+                    <div id="bl-nutrition-list" class="bodylog-list"></div>
+                </div>
 
                 <input type="file" id="bl-camera-input" accept="image/*" capture="environment" style="display:none;" onchange="_onBodyPhotoSelected(this.files[0]); this.value='';">
                 <input type="file" id="bl-csv-input" accept=".csv,.xlsx,.xls,text/csv" style="display:none;" onchange="_onBodyFileSelected(this.files[0]); this.value='';">

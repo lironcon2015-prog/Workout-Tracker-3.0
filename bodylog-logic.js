@@ -4,8 +4,11 @@
  * המצב התזונתי לכל שקילה נגזר אוטומטית מלוג המעברים (StorageManager).
  * ==========================================================================*/
 
-let _blRange = 30;            // טווח גרף נוכחי: 7 / 30 / 90 / 'all'
+let _blRange = 30;            // טווח גרף נוכחי: 7 / 30 / 90 / 'all' / 'custom'
+let _blCustom = { from: '', to: '' };  // גבולות טווח מותאם (YYYY-MM-DD)
+let _blTab = 'weight';        // תת-מסך פעיל: 'weight' | 'nutrition'
 let _blListExpanded = false;  // האם רשימת השקילות מורחבת (מעבר ל-7 האחרונות)
+let _blNutriExpanded = false; // האם רשימת התזונה מורחבת
 let _blEditDate = null;       // התאריך שנערך כרגע (null = רשומה חדשה)
 let _bodyImportRows = [];     // שורות מפורסרות מ-CSV הממתינות לאישור
 let _bodyImportMap = {};      // מיפוי תווית "שלב" גולמית → מצב תזונתי
@@ -25,54 +28,165 @@ function renderBodyLog() {
     _renderBodyKpis(log);
     _renderBodyCharts(log);
     _renderBodyList(log);
-    _renderNutritionCard();
+    _renderNutritionView();
+    _applyTabVisibility();
 }
 
-// ─── כרטיס תזונה (MyFitnessPal) ──────────────────────────────────────────────
-function _renderNutritionCard() {
+// ─── תתי-מסכים: שקילה / תזונה ────────────────────────────────────────────────
+function _applyTabVisibility() {
+    document.querySelectorAll('#bl-subtab .bl-subtab-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.tab === _blTab));
+    const w = document.getElementById('bl-view-weight');
+    const n = document.getElementById('bl-view-nutrition');
+    if (w) w.style.display = _blTab === 'weight' ? '' : 'none';
+    if (n) n.style.display = _blTab === 'nutrition' ? '' : 'none';
+}
+
+function setBodyTab(tab) {
+    _blTab = tab;
+    _applyTabVisibility();
+    _refreshActiveView();   // ציור מחדש כדי שגאומטריית ה-tooltip תתעדכן בתצוגה הגלויה
+    haptic('light');
+}
+
+function _refreshActiveView() {
+    if (_blTab === 'weight') _renderBodyCharts(StorageManager.getBodyLog());
+    else _renderNutritionView();
+}
+
+// ─── טווח (משותף לשתי התצוגות) ───────────────────────────────────────────────
+function setBodyRange(r) {
+    _blRange = r;
+    document.querySelectorAll('#bl-range-chips .bl-chip').forEach(b =>
+        b.classList.toggle('active', String(b.dataset.range) === String(r)));
+    const cr = document.getElementById('bl-custom-range');
+    if (cr) cr.style.display = (r === 'custom') ? 'flex' : 'none';
+    if (r === 'custom') {
+        const f = document.getElementById('bl-custom-from');
+        const t = document.getElementById('bl-custom-to');
+        const today = _blTodayStr();
+        if (t) { t.max = today; if (!t.value) t.value = today; }
+        if (f) { f.max = today; if (!f.value) f.value = _blCutoff(30); }
+        _blCustom = { from: f ? f.value : '', to: t ? t.value : '' };
+    }
+    _refreshActiveView();
+    haptic('light');
+}
+
+function applyCustomRange() {
+    const f = document.getElementById('bl-custom-from');
+    const t = document.getElementById('bl-custom-to');
+    _blCustom = { from: f ? f.value : '', to: t ? t.value : '' };
+    _refreshActiveView();
+}
+
+function _rangeLabel() {
+    if (_blRange === 'all') return 'כל הימים';
+    if (_blRange === 'custom')
+        return (_blCustom.from && _blCustom.to) ? `${_blListDate(_blCustom.from)}–${_blListDate(_blCustom.to)}` : 'טווח מותאם';
+    return `${_blRange} ימים אחרונים`;
+}
+
+function _blFilter(log) {
+    if (_blRange === 'all') return log.slice();
+    if (_blRange === 'custom') {
+        const { from, to } = _blCustom;
+        return log.filter(e => (!from || e.date >= from) && (!to || e.date <= to));
+    }
+    const cutoff = _blCutoff(_blRange);
+    return log.filter(e => e.date >= cutoff);
+}
+
+// ─── תצוגת תזונה (MyFitnessPal) ──────────────────────────────────────────────
+function _renderNutritionView() {
+    const all = StorageManager.getNutritionDaily();
+    _renderNutritionCard(all);
+    _renderNutritionCharts(all);
+    _renderNutritionList(all);
+}
+
+function _renderNutritionCard(allDays) {
     const card = document.getElementById('bl-nutrition-card');
     if (!card) return;
-    const days = StorageManager.getNutritionDaily();
-    const importBtn = `<button id="bl-nutri-import-btn" class="bl-nutri-import" onclick="importNutritionFromGmail()">
-            <span class="material-symbols-outlined">cloud_download</span><span>ייבא מ-Gmail</span></button>`;
+    const all = allDays || StorageManager.getNutritionDaily();
+    const importBtn = `<button id="bl-nutri-import-btn" class="bl-nutri-import" onclick="importNutritionFromGmail()"><span class="material-symbols-outlined">cloud_download</span><span>ייבא מ-Gmail</span></button>`;
+    const exportBtn = `<button class="bl-nutri-import" onclick="exportNutritionCsv()"><span class="material-symbols-outlined">download</span><span>ייצא CSV</span></button>`;
 
-    if (!days.length) {
-        card.innerHTML = `<div class="bl-nutri-head">
-                <div class="bl-chart-title">תזונה · MyFitnessPal</div>${importBtn}</div>
+    if (!all.length) {
+        card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">תזונה · MyFitnessPal</div>${importBtn}</div>
             <p class="bl-nutri-hint">אין עדיין נתוני תזונה. בקש ייצוא ב-MyFitnessPal ולחץ "ייבא מ-Gmail" כדי למשוך את הייצוא האחרון.</p>`;
         return;
     }
-
-    const last7 = days.slice(-7);
-    const avg = k => Math.round(last7.reduce((s, d) => s + (d[k] || 0), 0) / last7.length);
-    const latest = days[days.length - 1];
+    const inRange = _blFilter(all).sort((a, b) => a.date < b.date ? -1 : 1);
+    const base = inRange.length ? inRange : all;
+    const avg = k => Math.round(base.reduce((s, d) => s + (d[k] || 0), 0) / base.length);
+    const latest = all[all.length - 1];
     card.innerHTML = `<div class="bl-nutri-head">
-            <div class="bl-chart-title">תזונה · MyFitnessPal <small>— ממוצע ${last7.length} ימים</small></div>${importBtn}</div>
+            <div class="bl-chart-title">ממוצע תזונה <small>— ${_rangeLabel()}</small></div>
+            <div class="bl-nutri-actions">${importBtn}${exportBtn}</div></div>
         <div class="bl-nutri-grid">
             ${_nutriKpi('קלוריות', avg('calories'), 'kcal')}
             ${_nutriKpi('חלבון', avg('protein'), 'g')}
             ${_nutriKpi('פחמימה', avg('carbs'), 'g')}
             ${_nutriKpi('שומן', avg('fat'), 'g')}
         </div>
-        <div class="bl-nutri-foot">עודכן לאחרונה: ${_blListDate(latest.date)} · ${days.length} ימים בסך הכל</div>`;
+        <div class="bl-nutri-foot">${base.length} ימים בטווח · עודכן לאחרונה ${_blListDate(latest.date)} · ${all.length} ימים בסך הכל</div>`;
 }
 
 function _nutriKpi(label, val, unit) {
     return `<div class="bl-nutri-kpi"><div class="bl-nutri-val">${val}<span class="bl-nutri-unit">${unit}</span></div><div class="bl-nutri-lbl">${label}</div></div>`;
 }
 
-function setBodyRange(r) {
-    _blRange = r;
-    document.querySelectorAll('#bl-range-chips .bl-chip').forEach(b =>
-        b.classList.toggle('active', String(b.dataset.range) === String(r)));
-    _renderBodyCharts(StorageManager.getBodyLog());
-    haptic('light');
+function _renderNutritionCharts(allDays) {
+    const all = allDays || StorageManager.getNutritionDaily();
+    const days = _blFilter(all).sort((a, b) => a.date < b.date ? -1 : 1);
+    _drawBlChart('bl-cal-svg', 'bl-cal-dates', 'bl-cal-yaxis', days.map(d => ({ date: d.date, val: d.calories })), true, 'kcal');
+    _drawBlChart('bl-protein-svg', 'bl-protein-dates', 'bl-protein-yaxis', days.map(d => ({ date: d.date, val: d.protein })), true, 'g');
 }
 
-function _blFilter(log) {
-    if (_blRange === 'all') return log.slice();
-    const cutoff = _blCutoff(_blRange);
-    return log.filter(e => e.date >= cutoff);
+function _renderNutritionList(allDays) {
+    const el = document.getElementById('bl-nutrition-list');
+    if (!el) return;
+    const all = allDays || StorageManager.getNutritionDaily();
+    if (!all.length) { el.innerHTML = ''; return; }
+    const sorted = all.slice().sort((a, b) => a.date < b.date ? 1 : -1); // חדש→ישן
+    const show = _blNutriExpanded ? sorted : sorted.slice(0, _BL_LIST_LIMIT);
+    const rowsHtml = show.map(d => `<div class="bl-row">
+            <div class="bl-row-main">
+                <span class="bl-row-date">${_blListDate(d.date)}</span>
+                <span class="bl-row-weight">${d.calories}<small> kcal</small></span>
+            </div>
+            <div class="bl-row-meta bl-nutri-macros">
+                <span class="bl-macro bl-macro--p">P ${d.protein}</span>
+                <span class="bl-macro bl-macro--c">C ${d.carbs}</span>
+                <span class="bl-macro bl-macro--f">F ${d.fat}</span>
+            </div>
+        </div>`).join('');
+    const toggle = sorted.length > _BL_LIST_LIMIT
+        ? `<button class="bl-list-toggle" onclick="toggleNutriListExpand()">${_blNutriExpanded ? 'הצג פחות' : `הצג הכל (${sorted.length})`}</button>`
+        : '';
+    el.innerHTML = rowsHtml + toggle;
+}
+
+function toggleNutriListExpand() { _blNutriExpanded = !_blNutriExpanded; _renderNutritionList(); }
+
+// ─── ייצוא תזונה ל-CSV ────────────────────────────────────────────────────────
+function exportNutritionCsv() {
+    const all = StorageManager.getNutritionDaily();
+    if (!all.length) { showAlert('אין נתוני תזונה לייצוא.'); return; }
+    let days = _blFilter(all).sort((a, b) => a.date < b.date ? -1 : 1);
+    if (!days.length) days = all.slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    const header = ['Date', 'Calories', 'Protein (g)', 'Carbs (g)', 'Fat (g)', 'Meals'];
+    const rows = days.map(d => [d.date, d.calories, d.protein, d.carbs, d.fat, d.meals != null ? d.meals : '']);
+    const esc = c => { const s = String(c); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const csv = [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM — תאימות אקסל
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `gympro_nutrition_${_blTodayStr()}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    haptic('success');
 }
 
 // ─── KPIs ───────────────────────────────────────────────────────────────────

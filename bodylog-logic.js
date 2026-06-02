@@ -5,6 +5,7 @@
  * ==========================================================================*/
 
 let _blRange = 30;            // טווח גרף נוכחי: 7 / 30 / 90 / 'all'
+let _blListExpanded = false;  // האם רשימת השקילות מורחבת (מעבר ל-7 האחרונות)
 let _blEditDate = null;       // התאריך שנערך כרגע (null = רשומה חדשה)
 let _bodyImportRows = [];     // שורות מפורסרות מ-CSV הממתינות לאישור
 let _bodyImportMap = {};      // מיפוי תווית "שלב" גולמית → מצב תזונתי
@@ -138,13 +139,17 @@ function _drawBlChart(svgId, datesId, points, unit, withMA) {
 }
 
 // ─── רשימת שקילות ───────────────────────────────────────────────────────────
+const _BL_LIST_LIMIT = 7;     // ברירת מחדל: 7 שקילות אחרונות
+function toggleBodyListExpand() { _blListExpanded = !_blListExpanded; _renderBodyList(StorageManager.getBodyLog()); }
+
 function _renderBodyList(log) {
     const el = document.getElementById('bodylog-list');
     if (!el) return;
     if (!log.length) { el.innerHTML = ''; return; }
     const sorted = log.slice().sort((a, b) => a.date < b.date ? 1 : -1); // חדש→ישן
-    el.innerHTML = sorted.map((e, i) => {
-        const prev = sorted[i + 1]; // הישן יותר
+    const show = _blListExpanded ? sorted : sorted.slice(0, _BL_LIST_LIMIT);
+    const rowsHtml = show.map((e, i) => {
+        const prev = sorted[i + 1]; // הישן יותר (מהמערך המלא, גם בגבול 7)
         const delta = prev ? e.weight - prev.weight : null;
         const dCls = delta == null ? '' : (delta > 0 ? 'up' : delta < 0 ? 'down' : '');
         const dArrow = delta == null ? '' : (delta > 0 ? '▲' : delta < 0 ? '▼' : '');
@@ -160,6 +165,10 @@ function _renderBodyList(log) {
             <div class="bl-row-meta">${fat}${chip}</div>
         </div>`;
     }).join('');
+    const toggle = sorted.length > _BL_LIST_LIMIT
+        ? `<button class="bl-list-toggle" onclick="toggleBodyListExpand()">${_blListExpanded ? 'הצג פחות' : `הצג הכל (${sorted.length})`}</button>`
+        : '';
+    el.innerHTML = rowsHtml + toggle;
 }
 
 // ─── הזנה ידנית / עריכה ─────────────────────────────────────────────────────
@@ -301,11 +310,14 @@ async function _callGeminiVision(base64, mimeType) {
     throw new Error(lastErr || 'VISION_FAILED');
 }
 
-// ─── ייבוא CSV ──────────────────────────────────────────────────────────────
+// ─── ייבוא CSV / Excel ───────────────────────────────────────────────────────
 function openBodyImportInput() { document.getElementById('bl-csv-input').click(); }
 
-function _onBodyCsvSelected(file) {
+// _onBodyFileSelected — מנתב לפי סיומת: CSV נקרא מקומית, XLSX דרך SheetJS (טעינה עצלה).
+function _onBodyFileSelected(file) {
     if (!file) return;
+    const name = (file.name || '').toLowerCase();
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) { _onBodyXlsxSelected(file); return; }
     const reader = new FileReader();
     reader.onload = () => {
         try { _bodyImportRows = _parseBodyCsv(String(reader.result)); _renderImportPreview(); }
@@ -313,6 +325,38 @@ function _onBodyCsvSelected(file) {
     };
     reader.onerror = () => showAlert('שגיאה בקריאת הקובץ.');
     reader.readAsText(file, 'utf-8');
+}
+
+function _onBodyXlsxSelected(file) {
+    _ensureSheetJS().then(() => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const wb = XLSX.read(new Uint8Array(reader.result), { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+                _bodyImportRows = _rowsFromAoA(aoa);
+                _renderImportPreview();
+            } catch (e) { showAlert('שגיאה בקריאת קובץ ה-Excel: ' + (e.message || e)); }
+        };
+        reader.onerror = () => showAlert('שגיאה בקריאת הקובץ.');
+        reader.readAsArrayBuffer(file);
+    }).catch(() => showAlert('טעינת מנוע ה-Excel נכשלה (נדרש אינטרנט). שמור את הקובץ כ-CSV ונסה שוב.'));
+}
+
+// _ensureSheetJS — טוען את SheetJS מ-CDN פעם אחת, רק כשמייבאים xlsx (לא מנפח את ה-cache).
+let _sheetJsPromise = null;
+function _ensureSheetJS() {
+    if (typeof XLSX !== 'undefined') return Promise.resolve();
+    if (_sheetJsPromise) return _sheetJsPromise;
+    _sheetJsPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload = () => resolve();
+        s.onerror = () => { _sheetJsPromise = null; reject(new Error('SHEETJS_LOAD_FAILED')); };
+        document.head.appendChild(s);
+    });
+    return _sheetJsPromise;
 }
 
 function _detectDelim(line) {
@@ -385,12 +429,20 @@ function _parseBodyCsv(text) {
     const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
     if (lines.length < 2) return [];
     const delim = _detectDelim(lines[0]);
-    const headers = _splitCsvLine(lines[0], delim).map(h => h.trim());
+    const aoa = lines.map(l => _splitCsvLine(l, delim).map(c => c.trim()));
+    return _rowsFromAoA(aoa);
+}
+
+// _rowsFromAoA — בונה רשומות מתוך מערך-של-מערכים (שורה ראשונה = כותרות).
+// משותף ל-CSV ול-Excel.
+function _rowsFromAoA(aoa) {
+    if (!aoa || aoa.length < 2) return [];
+    const headers = aoa[0].map(h => String(h == null ? '' : h).trim());
     const col = _mapColumns(headers);
     if (col.date == null || col.weight == null) throw new Error('לא זוהו עמודות תאריך + משקל');
     const out = [];
-    for (let i = 1; i < lines.length; i++) {
-        const cells = _splitCsvLine(lines[i], delim);
+    for (let i = 1; i < aoa.length; i++) {
+        const cells = (aoa[i] || []).map(c => String(c == null ? '' : c));
         const date = _parseFlexDate((cells[col.date] || '').trim());
         const wRaw = (cells[col.weight] || '').replace(',', '.').replace(/[^\d.]/g, '');
         const weight = parseFloat(wRaw);

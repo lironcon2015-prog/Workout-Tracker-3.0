@@ -5187,8 +5187,35 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-state-chip--maintenance { color: #c7c7cc; background: rgba(142,142,147,0.18); }
 .bl-state-chip--surplus { color: #5be584; background: rgba(48,209,88,0.16); }
 
-/* Add actions */
-.bl-add-row { display: flex; flex-direction: column; gap: 4px; margin-top: 18px; }
+/* Capture bar (ראש העמוד) */
+.bl-capture-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+.bl-capture-cta {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(135deg, #0A84FF, #0066cc);
+    border: none; border-radius: 16px; color: #fff;
+    font-family: 'Heebo', sans-serif; font-weight: 800; font-size: 1rem;
+    padding: 15px 0; cursor: pointer; transition: transform 0.1s, opacity 0.15s;
+    box-shadow: 0 6px 20px rgba(10,132,255,0.32);
+}
+.bl-capture-cta:active { transform: scale(0.98); opacity: 0.92; }
+.bl-capture-cta .material-symbols-outlined { font-size: 1.35rem; }
+.bl-manual-btn {
+    width: 52px; flex-shrink: 0; border-radius: 16px;
+    background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+    color: var(--text); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.15s, transform 0.1s;
+}
+.bl-manual-btn:active { transform: scale(0.94); background: rgba(255,255,255,0.12); }
+.bl-manual-btn .material-symbols-outlined { font-size: 1.35rem; }
+
+/* List expand toggle */
+.bl-list-toggle {
+    width: 100%; margin-top: 4px; padding: 11px 0; border-radius: 12px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    color: var(--accent); font-weight: 700; font-size: 0.82rem; cursor: pointer;
+    transition: background 0.15s;
+}
+.bl-list-toggle:active { background: rgba(255,255,255,0.1); }
 
 /* OCR hint inside entry modal */
 .bl-ocr-hint { font-size: 0.78rem; font-weight: 600; padding: 9px 12px; border-radius: 10px; margin-bottom: 14px; text-align: center; }

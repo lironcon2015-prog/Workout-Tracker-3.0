@@ -237,7 +237,7 @@
     <!-- Body Log — CSV import preview -->
     <div id="bl-import-modal" class="modal-overlay">
         <div class="modal-content" style="width:92%;max-width:440px;">
-            <h3>ייבוא שקילות מ-CSV</h3>
+            <h3>ייבוא שקילות (CSV / Excel)</h3>
             <p class="sub-text" id="bl-import-summary" style="margin-bottom:12px;"></p>
             <div id="bl-import-mapping" class="bl-map-wrap"></div>
             <div id="bl-import-preview" class="bl-preview-wrap"></div>
@@ -1246,15 +1246,26 @@
             <!-- =================== BODY LOG (שקילות) =================== -->
             <div id="ui-bodylog" class="screen">
                 <div class="bodylog-header">
-                    <h1 class="bodylog-title">שקילות</h1>
+                    <h1 class="bodylog-title">Composition</h1>
                     <div class="bodylog-top-actions">
-                        <button class="bl-icon-btn" onclick="openBodyImportInput()" aria-label="ייבוא CSV">
+                        <button class="bl-icon-btn" onclick="openBodyImportInput()" aria-label="ייבוא">
                             <span class="material-symbols-outlined">upload_file</span>
                         </button>
-                        <button class="bl-icon-btn" onclick="openBodyExportSheet()" aria-label="ייצוא CSV">
+                        <button class="bl-icon-btn" onclick="openBodyExportSheet()" aria-label="ייצוא">
                             <span class="material-symbols-outlined">download</span>
                         </button>
                     </div>
+                </div>
+
+                <!-- כניסת צילום בראש העמוד — לחיצה = מצלמה מיידית; כפתור צד = הזנה ידנית -->
+                <div class="bl-capture-bar">
+                    <button class="bl-capture-cta" onclick="openBodyCaptureInput()">
+                        <span class="material-symbols-outlined">photo_camera</span>
+                        <span>צלם שקילה</span>
+                    </button>
+                    <button class="bl-manual-btn" onclick="openBodyEntryModal()" aria-label="הזנה ידנית">
+                        <span class="material-symbols-outlined">keyboard</span>
+                    </button>
                 </div>
 
                 <div class="bodylog-kpis" id="bodylog-kpis"></div>
@@ -1281,15 +1292,8 @@
                 <div class="bl-list-head">היסטוריית שקילות</div>
                 <div id="bodylog-list" class="bodylog-list"></div>
 
-                <div class="bl-add-row">
-                    <button class="btn-main primary-gradient" onclick="openBodyCaptureInput()">
-                        <span class="material-symbols-outlined" style="vertical-align:middle;margin-left:6px;font-size:1.2rem;">photo_camera</span>צלם שקילה
-                    </button>
-                    <button class="btn-text" onclick="openBodyEntryModal()">+ הזנה ידנית</button>
-                </div>
-
                 <input type="file" id="bl-camera-input" accept="image/*" capture="environment" style="display:none;" onchange="_onBodyPhotoSelected(this.files[0]); this.value='';">
-                <input type="file" id="bl-csv-input" accept=".csv,text/csv" style="display:none;" onchange="_onBodyCsvSelected(this.files[0]); this.value='';">
+                <input type="file" id="bl-csv-input" accept=".csv,.xlsx,.xls,text/csv" style="display:none;" onchange="_onBodyFileSelected(this.files[0]); this.value='';">
             </div><!-- /ui-bodylog -->
 
         </main>
@@ -1360,7 +1364,7 @@
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 20h16"/><path d="M5 20a7 7 0 0 1 14 0"/><line x1="12" y1="13" x2="15" y2="10"/>
             </svg>
-            <span class="tab-label">גוף</span>
+            <span class="tab-label">Composition</span>
         </button>
     </nav>
 

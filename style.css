@@ -2125,19 +2125,22 @@ body {
 #ui-cluster-rest .secondary-action {
     width: 100% !important;
 }
-/* טיימר מנוחה בין סבבים — מוגדל למקסימום בלי שהאלמנטים יצאו מהמסך (ללא גלילה).
-   שמירה על הפרופורציה: גודל הטקסט גדל יחד עם קוטר העיגול. */
-#ui-cluster-rest .timer-wrap {
-    width: min(78vw, 300px);
-    height: min(78vw, 300px);
+/* פירוט "הסבב הבא" — מראה מודרני ותואם לכרטיסיות הקלאסטר (במקום רשימת DOS) */
+.cluster-next-preview {
+    width: 100%;
+    text-align: right;
 }
-#ui-cluster-rest .timer-wrap.my-xl {
-    margin-top: var(--sp-md) !important;
-    margin-bottom: var(--sp-md) !important;
+.cluster-next-head {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 800;
+    font-size: 0.78rem;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 10px;
+    padding-inline-start: 2px;
 }
-#ui-cluster-rest .timer-text {
-    font-size: clamp(2.6rem, 14vw, 3.6rem);
-}
+#ui-cluster-rest .cluster-intro-list { margin: 0; }
 
 /* ── Horizontal bar chart — label clickable ── */
 .hbar-label { cursor: pointer; transition: color 0.15s; }

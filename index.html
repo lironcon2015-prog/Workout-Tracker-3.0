@@ -733,16 +733,17 @@
                 <div class="confirm-box">
                     <p class="color-dim">מנוחה בין סבבים</p>
                     <h2 id="cluster-status-text"></h2>
-                    <div class="timer-wrap my-xl mx-auto">
-                        <svg class="timer-svg" viewBox="0 0 100 100">
-                            <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
-                            <circle id="cluster-timer-bar" class="timer-bar" cx="50" cy="50" r="45"></circle>
+                    <div class="live-timer-wrap mx-auto my-lg">
+                        <svg class="live-timer-svg" viewBox="0 0 100 100">
+                            <circle class="live-timer-bg" cx="50" cy="50" r="46"></circle>
+                            <circle id="cluster-timer-bar" class="live-timer-bar" cx="50" cy="50" r="46"></circle>
                         </svg>
-                        <div id="cluster-timer-text" class="timer-text">00:00</div>
+                        <div id="cluster-timer-text" class="live-timer-text">00:00</div>
+                        <div class="live-timer-lbl">REST</div>
                     </div>
-                    <div id="next-round-preview" class="glass-card compact text-right mb-lg">
-                        <label>הסבב הבא כולל:</label>
-                        <div id="cluster-next-list" class="text-sm color-white"></div>
+                    <div id="next-round-preview" class="cluster-next-preview mb-lg">
+                        <div class="cluster-next-head">הסבב הבא</div>
+                        <div id="cluster-next-list" class="cluster-intro-list"></div>
                     </div>
                     <button id="btn-cluster-main" class="btn-main primary-gradient" onclick="startNextRound()">התחל סבב הבא</button>
                     <button id="btn-extra-round" class="btn-text secondary-action mt-md" style="display:none;" onclick="addExtraRound()">+ בצע סבב נוסף</button>

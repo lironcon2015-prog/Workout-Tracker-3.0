@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 15.53
+ * Version: 15.54
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v15.53';
+const CACHE_VERSION = 'gympro-v15.54';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -13,6 +13,7 @@ const FILES_TO_CACHE = [
     './workout-core.js',
     './archive-logic.js',
     './editor-logic.js',
+    './bodylog-logic.js',
     './storage.js',
     './data.js',
     './manifest.json',

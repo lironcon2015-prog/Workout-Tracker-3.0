@@ -1230,6 +1230,10 @@ function switchMainTab(name) {
             if (typeof hideSkeleton === 'function') hideSkeleton('archive-skeleton');
         }));
     }
+    else if (name === 'bodylog') {
+        navigate('ui-bodylog', true);
+        if (typeof renderBodyLog === 'function') renderBodyLog();
+    }
     haptic('light');
 }
 

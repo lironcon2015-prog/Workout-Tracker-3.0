@@ -1278,14 +1278,20 @@
                 </div>
 
                 <div class="bl-chart-card">
-                    <div class="bl-chart-title">משקל (ק"ג) <small>— קו אמצע = ממוצע נע</small></div>
-                    <svg id="bl-weight-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                    <div class="bl-chart-title">משקל (ק"ג) <small>— קו מקווקו = ממוצע נע</small></div>
+                    <div class="bl-plot">
+                        <div class="bl-yaxis" id="bl-weight-yaxis"></div>
+                        <svg id="bl-weight-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                    </div>
                     <div class="bl-x-axis" id="bl-weight-dates"></div>
                 </div>
 
                 <div class="bl-chart-card" id="bl-fat-card" style="display:none;">
                     <div class="bl-chart-title">אחוז שומן (%)</div>
-                    <svg id="bl-fat-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                    <div class="bl-plot">
+                        <div class="bl-yaxis" id="bl-fat-yaxis"></div>
+                        <svg id="bl-fat-svg" class="bl-svg" viewBox="0 0 400 170" preserveAspectRatio="none"></svg>
+                    </div>
                     <div class="bl-x-axis" id="bl-fat-dates"></div>
                 </div>
 

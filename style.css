@@ -5162,10 +5162,8 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-empty { grid-column: 1 / -1; text-align: center; color: var(--text-dim); font-size: 0.9rem; padding: 28px 12px; background: #1b1b1b; border: 1px dashed rgba(255,255,255,0.12); border-radius: 18px; }
 
 /* Range chips */
-/* ── תתי-מסכים (שקילה / תזונה) ── */
-.bl-subtab { display: flex; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 9999px; padding: 4px; margin-bottom: 14px; }
-.bl-subtab-btn { flex: 1; padding: 9px 0; border-radius: 9999px; font-size: 0.85rem; font-weight: 800; background: transparent; border: none; color: var(--text-dim); cursor: pointer; transition: background 0.15s, color 0.15s; }
-.bl-subtab-btn.active { background: var(--accent); color: #fff; }
+/* ── שורת פעולות שקילה (ייבוא/ייצוא) — בראש תצוגת השקילה ── */
+.bl-weight-actions { justify-content: flex-start; margin-bottom: 12px; }
 
 /* ── טווח מותאם ── */
 .bl-custom-range { display: flex; align-items: center; gap: 8px; margin: -4px 0 14px; }
@@ -5205,6 +5203,11 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-macro--p { color: #4a86e8; }
 .bl-macro--c { color: #ffad47; }
 .bl-macro--f { color: #f6c5be; }
+/* כפתורי ייצוא תזונה */
+.bl-nutri-exports { display: flex; gap: 8px; margin-top: 12px; }
+.bl-export-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #353535; color: var(--text); border: none; border-radius: 12px; padding: 10px 8px; font-size: 0.74rem; font-weight: 700; font-family: inherit; cursor: pointer; }
+.bl-export-btn:active { transform: scale(0.97); }
+.bl-export-btn .material-symbols-outlined { font-size: 1.05rem; }
 .bl-plot { position: relative; height: 170px; padding-right: 32px; }
 .bl-svg { width: 100%; height: 100%; display: block; }
 .bl-yaxis { position: absolute; top: 0; bottom: 0; right: 0; width: 32px; pointer-events: none; }

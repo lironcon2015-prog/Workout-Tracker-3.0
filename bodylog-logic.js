@@ -34,7 +34,7 @@ function renderBodyLog() {
 
 // ─── תתי-מסכים: שקילה / תזונה ────────────────────────────────────────────────
 function _applyTabVisibility() {
-    document.querySelectorAll('#bl-subtab .bl-subtab-btn').forEach(b =>
+    document.querySelectorAll('#bl-subtab .seg-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.tab === _blTab));
     const w = document.getElementById('bl-view-weight');
     const n = document.getElementById('bl-view-nutrition');
@@ -110,7 +110,6 @@ function _renderNutritionCard(allDays) {
     if (!card) return;
     const all = allDays || StorageManager.getNutritionDaily();
     const importBtn = `<button id="bl-nutri-import-btn" class="bl-nutri-import" onclick="importNutritionFromGmail()"><span class="material-symbols-outlined">cloud_download</span><span>ייבא מ-Gmail</span></button>`;
-    const exportBtn = `<button class="bl-nutri-import" onclick="exportNutritionCsv()"><span class="material-symbols-outlined">download</span><span>ייצא CSV</span></button>`;
 
     if (!all.length) {
         card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">תזונה · MyFitnessPal</div>${importBtn}</div>
@@ -122,15 +121,18 @@ function _renderNutritionCard(allDays) {
     const avg = k => Math.round(base.reduce((s, d) => s + (d[k] || 0), 0) / base.length);
     const latest = all[all.length - 1];
     card.innerHTML = `<div class="bl-nutri-head">
-            <div class="bl-chart-title">ממוצע תזונה <small>— ${_rangeLabel()}</small></div>
-            <div class="bl-nutri-actions">${importBtn}${exportBtn}</div></div>
+            <div class="bl-chart-title">ממוצע תזונה <small>— ${_rangeLabel()}</small></div>${importBtn}</div>
         <div class="bl-nutri-grid">
             ${_nutriKpi('קלוריות', avg('calories'), 'kcal')}
             ${_nutriKpi('חלבון', avg('protein'), 'g')}
             ${_nutriKpi('פחמימה', avg('carbs'), 'g')}
             ${_nutriKpi('שומן', avg('fat'), 'g')}
         </div>
-        <div class="bl-nutri-foot">${base.length} ימים בטווח · עודכן לאחרונה ${_blListDate(latest.date)} · ${all.length} ימים בסך הכל</div>`;
+        <div class="bl-nutri-foot">${base.length} ימים בטווח · עודכן לאחרונה ${_blListDate(latest.date)} · ${all.length} ימים בסך הכל</div>
+        <div class="bl-nutri-exports">
+            <button class="bl-export-btn" onclick="exportNutritionCsv()"><span class="material-symbols-outlined">table_view</span>ייצא סיכום יומי</button>
+            <button class="bl-export-btn" onclick="exportNutritionRawCsv()"><span class="material-symbols-outlined">description</span>ייצא קובץ MFP מלא</button>
+        </div>`;
 }
 
 function _nutriKpi(label, val, unit) {
@@ -184,6 +186,38 @@ function exportNutritionCsv() {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `gympro_nutrition_${_blTodayStr()}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    haptic('success');
+}
+
+// _parseRawNutrition — מפרסר את ה-CSV הגולמי של MFP ל-{header, rows, dateIdx}.
+function _parseRawNutrition(text) {
+    if (!text) return null;
+    const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+    if (lines.length < 2) return null;
+    const delim = _detectDelim(lines[0]);
+    const aoa = lines.map(l => _splitCsvLine(l, delim).map(c => c.trim()));
+    const header = aoa[0];
+    let dateIdx = header.findIndex(h => h.toLowerCase().includes('date') || h.includes('תאריך'));
+    if (dateIdx < 0) dateIdx = 0;
+    return { header, rows: aoa.slice(1), dateIdx };
+}
+
+// exportNutritionRawCsv — מייצא את הקובץ הגולמי המקורי של MFP (per-meal),
+// אגרגציה נאמנה של כל הקבצים שהועלו, ללא פאראפרזה של המערכת.
+function exportNutritionRawCsv() {
+    const raw = StorageManager.getNutritionRaw();
+    if (!raw || !Array.isArray(raw.rows) || !raw.rows.length) {
+        showAlert('אין קובץ MFP גולמי שמור. ייבא מ-Gmail (בגרסה החדשה של הגשר) כדי לשמור אותו.');
+        return;
+    }
+    const esc = c => { const s = String(c == null ? '' : c); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const csv = [raw.header, ...raw.rows].map(r => r.map(esc).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `MyFitnessPal_full_${_blTodayStr()}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
     haptic('success');

@@ -64,12 +64,14 @@ function _run(e) {
     })[0];
     if (!csv) return { ok: false, error: 'NO_NUTRITION_CSV' };
 
-    const days = _aggregateNutrition(csv.getDataAsString());
+    const rawText = csv.getDataAsString();
+    const days = _aggregateNutrition(rawText);
     return {
       ok: true,
       source: 'MyFitnessPal',
       emailDate: Utilities.formatDate(msg.getDate(), 'UTC', 'yyyy-MM-dd'),
-      days: days
+      days: days,
+      rawCsv: rawText          // הקובץ הגולמי המקורי (שורה לכל ארוחה) — לייצוא נאמן
     };
   } catch (err) {
     return { ok: false, error: String(err) };

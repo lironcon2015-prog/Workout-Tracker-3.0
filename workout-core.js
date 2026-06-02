@@ -4208,6 +4208,11 @@ async function importNutritionFromGmail() {
         const days = Array.isArray(data.days) ? data.days : [];
         if (!days.length) throw new Error('הייצוא לא הכיל ימי תזונה.');
         StorageManager.saveNutritionDaily(days);
+        // שמירת הקובץ הגולמי המקורי (per-meal) לייצוא נאמן בהמשך
+        if (data.rawCsv && typeof _parseRawNutrition === 'function') {
+            const raw = _parseRawNutrition(data.rawCsv);
+            if (raw) StorageManager.saveNutritionRaw(raw);
+        }
         if (typeof renderBodyLog === 'function') renderBodyLog();
         showCloudToast(`✅ יובאו ${days.length} ימי תזונה`, true);
     } catch (e) {

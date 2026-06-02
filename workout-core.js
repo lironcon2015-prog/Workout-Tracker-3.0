@@ -2132,28 +2132,39 @@ function handleClusterFlow() {
 }
 
 function renderClusterRestUI() {
-    const btnMain = document.getElementById('btn-cluster-main');
     const btnSkip = document.getElementById('btn-cluster-skip-text');
-    if (state.clusterRound < state.activeCluster.rounds) {
+    const btnExtra = document.getElementById('btn-extra-round');
+    const head = document.getElementById('cluster-next-head');
+    const isResting = state.clusterRound < state.activeCluster.rounds;
+
+    if (isResting) {
+        // מנוחה בין סבבים — התחלת הסבב הבא בלחיצה על התרגיל הראשון (בוטל כפתור נפרד שגלש מהמסך)
         document.getElementById('cluster-status-text').innerText = `סיום סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
-        document.getElementById('btn-extra-round').style.display = 'none';
-        btnMain.innerText = "התחל סבב הבא";
-        btnMain.onclick = startNextRound;
+        btnExtra.style.display = 'none';
         btnSkip.style.display = 'block';
+        btnSkip.innerText = 'סיים סבב זה והמשך';
+        if (head) head.innerText = 'לחץ על התרגיל הראשון כדי להתחיל';
     } else {
+        // כל הסבבים הושלמו
         document.getElementById('cluster-status-text').innerText = `הסבבים הושלמו (${state.activeCluster.rounds})`;
-        document.getElementById('btn-extra-round').style.display = 'block';
         document.getElementById('cluster-timer-text').innerText = "✓";
-        btnMain.innerText = "סיום";
-        btnMain.onclick = finishCluster;
-        btnSkip.style.display = 'none';
+        btnExtra.style.display = 'block';
+        btnSkip.style.display = 'block';
+        btnSkip.innerText = 'סיום';
+        if (head) head.innerText = 'הסבב כלל';
     }
+    btnSkip.onclick = finishCluster;
+
     const listDiv = document.getElementById('cluster-next-list');
     const exs = state.activeCluster.exercises;
     listDiv.classList.toggle('cluster-intro-list--scroll', exs.length >= 4);
-    listDiv.innerHTML = exs.map((e, i) =>
-        `<div class="cluster-intro-row"><span class="cluster-intro-tag">${i + 1}</span><span class="cluster-intro-name">${e.name}</span></div>`
-    ).join('');
+    listDiv.innerHTML = exs.map((e, i) => {
+        const isStart = isResting && i === 0; // התרגיל הראשון = טריגר התחלת הסבב
+        const cls = 'cluster-intro-row' + (isStart ? ' cluster-intro-row--start' : '');
+        const attrs = isStart ? ' onclick="startNextRound()" role="button" tabindex="0"' : '';
+        const go = isStart ? '<span class="material-symbols-outlined cluster-intro-go">play_arrow</span>' : '';
+        return `<div class="${cls}"${attrs}><span class="cluster-intro-tag">${i + 1}</span><span class="cluster-intro-name">${e.name}</span>${go}</div>`;
+    }).join('');
 }
 
 function startNextRound() {

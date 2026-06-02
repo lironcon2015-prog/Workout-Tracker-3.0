@@ -130,7 +130,10 @@ function _renderNutritionCard(allDays) {
         </div>
         <div class="bl-nutri-foot">${base.length} ימים בטווח · עודכן לאחרונה ${_blListDate(latest.date)} · ${all.length} ימים בסך הכל</div>
         <div class="bl-nutri-exports">
-            <button class="bl-export-btn" onclick="exportNutritionCsv()"><span class="material-symbols-outlined">table_view</span>ייצא סיכום יומי</button>
+            <button class="bl-export-btn" onclick="exportNutritionCsv('all')"><span class="material-symbols-outlined">table_view</span>ייצא יומי</button>
+            <button class="bl-export-btn" onclick="exportNutritionCsv('range')"><span class="material-symbols-outlined">date_range</span>ייצא תקופה</button>
+        </div>
+        <div class="bl-nutri-exports">
             <button class="bl-export-btn" onclick="exportNutritionRawCsv()"><span class="material-symbols-outlined">description</span>ייצא קובץ MFP מלא</button>
         </div>`;
 }
@@ -173,11 +176,18 @@ function _renderNutritionList(allDays) {
 function toggleNutriListExpand() { _blNutriExpanded = !_blNutriExpanded; _renderNutritionList(); }
 
 // ─── ייצוא תזונה ל-CSV ────────────────────────────────────────────────────────
-function exportNutritionCsv() {
+// exportNutritionCsv — סיכום יומי (יום → קק"ל + מאקרו).
+// scope==='range' → רק הטווח הנבחר; אחרת → כל ההיסטוריה.
+function exportNutritionCsv(scope) {
     const all = StorageManager.getNutritionDaily();
     if (!all.length) { showAlert('אין נתוני תזונה לייצוא.'); return; }
-    let days = _blFilter(all).sort((a, b) => a.date < b.date ? -1 : 1);
-    if (!days.length) days = all.slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    let days;
+    if (scope === 'range') {
+        days = _blFilter(all).sort((a, b) => a.date < b.date ? -1 : 1);
+        if (!days.length) { showAlert('אין נתוני תזונה בטווח שנבחר.'); return; }
+    } else {
+        days = all.slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    }
     const header = ['Date', 'Calories', 'Protein (g)', 'Carbs (g)', 'Fat (g)', 'Meals'];
     const rows = days.map(d => [d.date, d.calories, d.protein, d.carbs, d.fat, d.meals != null ? d.meals : '']);
     const esc = c => { const s = String(c); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
@@ -185,7 +195,7 @@ function exportNutritionCsv() {
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM — תאימות אקסל
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `gympro_nutrition_${_blTodayStr()}.csv`;
+    a.download = `gympro_nutrition_${scope === 'range' ? 'range' : 'all'}_${_blTodayStr()}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
     haptic('success');

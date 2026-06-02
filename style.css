@@ -2116,6 +2116,8 @@ body {
 }
 
 /* ── Cluster Rest Screen — button alignment ── */
+/* יישור לראש המסך במקום מרכוז אנכי — מונע גלישת אלמנטים מחוץ למסך כשהתוכן גבוה */
+#ui-cluster-rest { justify-content: flex-start; padding-top: 18px; }
 #ui-cluster-rest .confirm-box {
     width: 100%;
     max-width: 380px;
@@ -4108,6 +4110,19 @@ body {
     font-size: 0.88rem;
     font-weight: 700;
     color: #fff;
+}
+/* התרגיל הראשון במנוחת קלאסטר = כפתור התחלת הסבב (החליף את הכפתור שגלש מהמסך) */
+.cluster-intro-row--start {
+    background: linear-gradient(135deg, rgba(10,132,255,0.22), rgba(10,132,255,0.10));
+    border-color: rgba(10,132,255,0.55);
+    cursor: pointer;
+    transition: transform 0.1s, background 0.15s;
+}
+.cluster-intro-row--start:active { transform: scale(0.98); }
+.cluster-intro-row--start .cluster-intro-tag { background: #0A84FF; color: #fff; }
+.cluster-intro-go {
+    color: #0A84FF; font-size: 1.5rem; flex-shrink: 0;
+    margin-inline-start: auto;
 }
 
 /* ════════════════════

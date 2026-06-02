@@ -2986,6 +2986,49 @@ body {
 }
 .stg-nutri-meta--tappable:active { color: rgba(255,255,255,0.75); }
 
+/* ── Nutritional timeline (מודאל "במצב מאז") ── */
+.nutri-log-list {
+    max-height: 34vh;
+    overflow-y: auto;
+    margin-bottom: 18px;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.nutri-log-empty {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.4);
+    text-align: center;
+    padding: 10px 0;
+}
+.nutri-log-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+}
+.nutri-log-row--current {
+    background: rgba(255,255,255,0.09);
+    border: 1px solid var(--border-hi);
+}
+.nutri-log-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+}
+.nutri-log-dot--cut         { background: #0A84FF; }
+.nutri-log-dot--maintenance { background: #8E8E93; }
+.nutri-log-dot--surplus     { background: #30D158; }
+.nutri-log-state {
+    font-size: 0.85rem; font-weight: 700; color: var(--text);
+}
+.nutri-log-meta {
+    font-size: 0.72rem; color: rgba(255,255,255,0.45);
+    margin-inline-start: auto;
+}
+
 .stg-firebase-row {
     display: flex; align-items: center; justify-content: space-between;
     padding: 20px 20px 16px;

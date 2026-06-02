@@ -19,6 +19,7 @@ const StorageManager = {
     KEY_AI_HISTORY:   'gympro_ai_history',
     KEY_AI_DISPLAY_CUTOFF: 'gympro_ai_display_cutoff',
     KEY_NUTRITION:    'gympro_nutrition',
+    KEY_NUTRITION_LOG: 'gympro_nutrition_log',
     KEY_SOUND:        'gympro_sound_enabled',
     KEY_COPY_INCLUDE_COACH: 'gympro_copy_include_coach',
     KEY_ARCHIVE_COPY_COACH: 'gympro_archive_copy_coach',
@@ -182,20 +183,96 @@ const StorageManager = {
     // מצב תזונתי (maintenance/cut/surplus) משמש כ-context ל-AI Coach
     // כדי לייצר המלצות מותאמות לעומס הקלורי הנוכחי של המשתמש.
 
-    getNutritionalState() {
-        return this.getData(this.KEY_NUTRITION) || {
-            state: 'maintenance',
-            startDate: null
-        };
+    // חלון חסד: החלפת מצב בתוך הזמן הזה נחשבת "משחק בכפתורים" ולא מעבר אמיתי
+    NUTRITION_GRACE_MS: 10 * 60 * 1000,
+
+    _todayStr() { return new Date().toISOString().slice(0, 10); },
+
+    // המרת "YYYY-MM-DD" לחצות מקומית (ms) — עקבי עם _daysInState
+    _dateStrToTs(dateStr) {
+        const [y, m, d] = String(dateStr).split('-').map(Number);
+        return (y && m && d) ? new Date(y, m - 1, d).getTime() : Date.now();
     },
 
+    // getNutritionLog — ציר הזמן התזונתי (מהישן לחדש). ממגרר מהמפתח הישן בקריאה ראשונה.
+    getNutritionLog() {
+        const log = this.getData(this.KEY_NUTRITION_LOG);
+        if (Array.isArray(log) && log.length) return log;
+        // מיגרציה מ-gympro_nutrition הישן → רשומה ראשונה
+        const old = this.getData(this.KEY_NUTRITION);
+        if (old && old.state) {
+            const startDate = old.startDate || this._todayStr();
+            const seeded = [{ state: old.state, startDate, startTs: this._dateStrToTs(startDate) }];
+            this.saveData(this.KEY_NUTRITION_LOG, seeded);
+            return seeded;
+        }
+        return [];
+    },
+
+    getNutritionalState() {
+        const log = this.getNutritionLog();
+        if (log.length) {
+            const last = log[log.length - 1];
+            return { state: last.state, startDate: last.startDate };
+        }
+        return { state: 'maintenance', startDate: null };
+    },
+
+    // setNutritionalState — נקודת הכניסה היחידה לשינוי מצב תזונתי.
+    //   startDate מפורש  = Override אמין (עורך את תאריך הפאזה הנוכחית, ללא חלון חסד).
+    //   ללא startDate    = החלפה דרך pill — כפופה לחלון חסד + קיפול-חזרה כדי לסנן רעש.
     setNutritionalState(state, startDate) {
         const valid = ['maintenance', 'cut', 'surplus'];
         if (!valid.includes(state)) return false;
-        this.saveData(this.KEY_NUTRITION, {
-            state: state,
-            startDate: startDate || new Date().toISOString().slice(0, 10)
-        });
+        const log = this.getNutritionLog();
+        const now = Date.now();
+
+        // אין היסטוריה — רשומה ראשונה
+        if (!log.length) {
+            const sd = startDate || this._todayStr();
+            log.push({ state, startDate: sd, startTs: this._dateStrToTs(sd) });
+            return this._commitNutritionLog(log);
+        }
+
+        const last = log[log.length - 1];
+
+        // Override מפורש — עריכת תאריך הפאזה הנוכחית (או הוספה אם מצב שונה)
+        if (startDate) {
+            if (last.state === state) {
+                last.startDate = startDate;
+                last.startTs = this._dateStrToTs(startDate);
+            } else {
+                log.push({ state, startDate, startTs: this._dateStrToTs(startDate) });
+            }
+            return this._commitNutritionLog(log);
+        }
+
+        // אותו מצב, ללא Override — אין שינוי
+        if (last.state === state) return true;
+
+        const withinGrace = (now - last.startTs) < this.NUTRITION_GRACE_MS;
+        const prev = log.length >= 2 ? log[log.length - 2] : null;
+
+        if (withinGrace) {
+            if (prev && prev.state === state) {
+                log.pop(); // קיפול חזרה — חזרה למצב הקודם, מחיקת הרשומה הזמנית
+            } else {
+                last.state = state; // משחק בכפתורים — דריסת המצב, שמירת זמן ההתחלה
+            }
+        } else {
+            // מעבר אמיתי — רשומה חדשה
+            const sd = this._todayStr();
+            log.push({ state, startDate: sd, startTs: now });
+        }
+        return this._commitNutritionLog(log);
+    },
+
+    // _commitNutritionLog — שומר את הלוג ומסנכרן את המפתח הישן (תאימות לאחור)
+    _commitNutritionLog(log) {
+        if (log.length > 50) log = log.slice(-50); // שמירת עד 50 מעברים אחרונים
+        this.saveData(this.KEY_NUTRITION_LOG, log);
+        const last = log[log.length - 1];
+        if (last) this.saveData(this.KEY_NUTRITION, { state: last.state, startDate: last.startDate });
         return true;
     },
 
@@ -619,6 +696,7 @@ const FirebaseManager = {
                 meta:           StorageManager.getData(StorageManager.KEY_META),
                 analyticsPrefs: StorageManager.getAnalyticsPrefs(),
                 nutrition:      StorageManager.getNutritionalState(),
+                nutritionLog:   StorageManager.getNutritionLog(),
                 coachPrompts:   StorageManager.getData(StorageManager.KEY_COACH_PROMPTS) || {},
                 updatedAt:      Date.now()
             };
@@ -647,6 +725,7 @@ const FirebaseManager = {
             if (data.meta)           StorageManager.saveData(StorageManager.KEY_META, data.meta);
             if (data.analyticsPrefs) StorageManager.saveAnalyticsPrefs(data.analyticsPrefs);
             if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
+            if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
             showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
         } catch(e) {

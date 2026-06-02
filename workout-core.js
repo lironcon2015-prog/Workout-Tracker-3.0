@@ -4192,9 +4192,9 @@ async function importNutritionFromGmail() {
     haptic('light');
     showCloudToast('⏳ מושך תזונה מ-Gmail…', true);
     try {
-        const sep = url.includes('?') ? '&' : '?';
-        const res = await fetch(`${url}${sep}token=${encodeURIComponent(token)}`, { method: 'GET' });
-        const data = await res.json();
+        // JSONP במקום fetch — Apps Script עושה redirect ל-googleusercontent ללא
+        // כותרות CORS, כך ש-fetch חוצה-מקור תמיד נכשל. <script> אינו כפוף ל-CORS.
+        const data = await _jsonpRequest(url, token);
         if (!data || data.ok !== true) {
             const msgs = {
                 BAD_TOKEN:        'token שגוי — בדוק את ההגדרות.',
@@ -4212,11 +4212,39 @@ async function importNutritionFromGmail() {
         showCloudToast(`✅ יובאו ${days.length} ימי תזונה`, true);
     } catch (e) {
         console.error('GymPro: nutrition import error', e);
-        const offline = (e instanceof TypeError);   // fetch נכשל (רשת/CORS)
-        showCloudToast('⚠️ ' + (offline ? 'נכשלה הפנייה לגשר — בדוק חיבור/URL.' : e.message), false);
+        showCloudToast('⚠️ ' + e.message, false);
     } finally {
         if (btn) btn.disabled = false;
     }
+}
+
+/**
+ * _jsonpRequest — קורא ל-Apps Script דרך JSONP (הזרקת <script>) כדי לעקוף CORS.
+ * הגשר מחזיר callback(<json>) כשמועבר פרמטר callback. כולל timeout וניקוי.
+ */
+function _jsonpRequest(url, token, timeoutMs = 90000) {
+    return new Promise((resolve, reject) => {
+        const cb = '_mfpCb' + Date.now() + Math.floor(Math.random() * 1e4);
+        const script = document.createElement('script');
+        let done = false;
+        const cleanup = () => {
+            clearTimeout(timer);
+            if (script.parentNode) script.parentNode.removeChild(script);
+            try { delete window[cb]; } catch (_) { window[cb] = undefined; }
+        };
+        const timer = setTimeout(() => {
+            if (done) return; done = true; cleanup();
+            reject(new Error('פסק זמן — הגשר לא הגיב (ייתכן שהייצוא גדול, נסה שוב).'));
+        }, timeoutMs);
+        window[cb] = (data) => { if (done) return; done = true; cleanup(); resolve(data); };
+        script.onerror = () => {
+            if (done) return; done = true; cleanup();
+            reject(new Error('נכשלה הפנייה לגשר — בדוק את ה-URL וההרשאות.'));
+        };
+        const sep = url.includes('?') ? '&' : '?';
+        script.src = `${url}${sep}token=${encodeURIComponent(token)}&callback=${cb}`;
+        document.body.appendChild(script);
+    });
 }
 
 /**

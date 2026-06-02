@@ -24,12 +24,24 @@ const SECRET_TOKEN = 'CHANGE_ME_to_a_random_secret';
 const MFP_QUERY = 'from:no-reply@myfitnesspal.com subject:"Your MyFitnessPal Export"';
 
 function doGet(e) {
+  const result = _run(e);
+  // JSONP — אם הועבר callback, עוטף את ה-JSON בקריאה לפונקציה (עוקף CORS בדפדפן).
+  const cb = e && e.parameter && e.parameter.callback;
+  if (cb) {
+    return ContentService
+      .createTextOutput(cb + '(' + JSON.stringify(result) + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return _json(result);
+}
+
+function _run(e) {
   try {
     const token = (e && e.parameter && e.parameter.token) || '';
-    if (token !== SECRET_TOKEN) return _json({ ok: false, error: 'BAD_TOKEN' });
+    if (token !== SECRET_TOKEN) return { ok: false, error: 'BAD_TOKEN' };
 
     const threads = GmailApp.search(MFP_QUERY, 0, 1);
-    if (!threads.length) return _json({ ok: false, error: 'NO_EXPORT_EMAIL' });
+    if (!threads.length) return { ok: false, error: 'NO_EXPORT_EMAIL' };
 
     const msgs = threads[0].getMessages();
     const msg = msgs[msgs.length - 1];          // ההודעה האחרונה בשרשור
@@ -37,30 +49,30 @@ function doGet(e) {
 
     // חילוץ קישור ה-ZIP מ-S3 מתוך גוף ה-HTML
     const m = html.match(/https:\/\/[^"'<>\s]*s3\.amazonaws\.com[^"'<>\s]*\.zip[^"'<>\s]*/i);
-    if (!m) return _json({ ok: false, error: 'NO_DOWNLOAD_LINK' });
+    if (!m) return { ok: false, error: 'NO_DOWNLOAD_LINK' };
 
     // ניקוי entities שעלולים להופיע ב-HTML
     const zipUrl = m[0].replace(/&amp;/g, '&');
 
     const resp = UrlFetchApp.fetch(zipUrl, { muteHttpExceptions: true });
-    if (resp.getResponseCode() !== 200) return _json({ ok: false, error: 'LINK_EXPIRED' });
+    if (resp.getResponseCode() !== 200) return { ok: false, error: 'LINK_EXPIRED' };
 
     const blob = resp.getBlob().setContentType('application/zip');
     const files = Utilities.unzip(blob);
     const csv = files.filter(function (f) {
       return /Nutrition-Summary.*\.csv$/i.test(f.getName());
     })[0];
-    if (!csv) return _json({ ok: false, error: 'NO_NUTRITION_CSV' });
+    if (!csv) return { ok: false, error: 'NO_NUTRITION_CSV' };
 
     const days = _aggregateNutrition(csv.getDataAsString());
-    return _json({
+    return {
       ok: true,
       source: 'MyFitnessPal',
       emailDate: Utilities.formatDate(msg.getDate(), 'UTC', 'yyyy-MM-dd'),
       days: days
-    });
+    };
   } catch (err) {
-    return _json({ ok: false, error: String(err) });
+    return { ok: false, error: String(err) };
   }
 }
 

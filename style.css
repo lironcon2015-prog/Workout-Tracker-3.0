@@ -5162,6 +5162,16 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-empty { grid-column: 1 / -1; text-align: center; color: var(--text-dim); font-size: 0.9rem; padding: 28px 12px; background: #1b1b1b; border: 1px dashed rgba(255,255,255,0.12); border-radius: 18px; }
 
 /* Range chips */
+/* ── תתי-מסכים (שקילה / תזונה) ── */
+.bl-subtab { display: flex; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 9999px; padding: 4px; margin-bottom: 14px; }
+.bl-subtab-btn { flex: 1; padding: 9px 0; border-radius: 9999px; font-size: 0.85rem; font-weight: 800; background: transparent; border: none; color: var(--text-dim); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.bl-subtab-btn.active { background: var(--accent); color: #fff; }
+
+/* ── טווח מותאם ── */
+.bl-custom-range { display: flex; align-items: center; gap: 8px; margin: -4px 0 14px; }
+.bl-custom-input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: var(--text); padding: 8px 10px; font-size: 0.8rem; font-family: inherit; }
+.bl-custom-sep { color: var(--text-dim); }
+
 .bl-range-chips { display: flex; gap: 8px; margin-bottom: 14px; }
 .bl-chip {
     flex: 1; padding: 8px 0; border-radius: 9999px; font-size: 0.78rem; font-weight: 700;
@@ -5188,6 +5198,13 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-nutri-unit { font-size: 0.55rem; font-weight: 600; color: var(--text-dim); margin-right: 2px; }
 .bl-nutri-lbl { font-size: 0.66rem; color: var(--text-dim); margin-top: 3px; }
 .bl-nutri-foot { font-size: 0.64rem; color: var(--text-dim); text-align: center; margin-top: 9px; }
+.bl-nutri-actions { display: flex; gap: 6px; flex-shrink: 0; }
+/* שורות מאקרו בהיסטוריית התזונה */
+.bl-nutri-macros { display: flex; gap: 6px; }
+.bl-macro { font-size: 0.66rem; font-weight: 700; padding: 2px 7px; border-radius: 9999px; background: #111; color: var(--text-dim); }
+.bl-macro--p { color: #4a86e8; }
+.bl-macro--c { color: #ffad47; }
+.bl-macro--f { color: #f6c5be; }
 .bl-plot { position: relative; height: 170px; padding-right: 32px; }
 .bl-svg { width: 100%; height: 100%; display: block; }
 .bl-yaxis { position: absolute; top: 0; bottom: 0; right: 0; width: 32px; pointer-events: none; }

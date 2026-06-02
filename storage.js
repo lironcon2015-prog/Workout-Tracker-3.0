@@ -347,6 +347,7 @@ const StorageManager = {
             aliases: prefs.workoutAliases || {},
             nutrition: this.getNutritionalState(),
             nutritionLog: this.getNutritionLog(),
+            nutritionDaily: this.getNutritionDaily(),
             bodylog: this.getBodyLog(),
             analyticsPrefs: {
                 heroMetrics:        prefs.heroMetrics,
@@ -390,9 +391,10 @@ const StorageManager = {
                 });
             }
             this.saveAnalyticsPrefs(prefs);
-            if (data.nutrition)    this.saveData(this.KEY_NUTRITION, data.nutrition);
-            if (data.nutritionLog) this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
-            if (data.bodylog)      this.saveData(this.KEY_BODYLOG, data.bodylog);
+            if (data.nutrition)      this.saveData(this.KEY_NUTRITION, data.nutrition);
+            if (data.nutritionLog)   this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
+            if (data.nutritionDaily) this.saveData(this.KEY_NUTRITION_DAILY, data.nutritionDaily);
+            if (data.bodylog)        this.saveData(this.KEY_BODYLOG, data.bodylog);
             showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
         });
     },
@@ -771,6 +773,7 @@ const FirebaseManager = {
                 analyticsPrefs: StorageManager.getAnalyticsPrefs(),
                 nutrition:      StorageManager.getNutritionalState(),
                 nutritionLog:   StorageManager.getNutritionLog(),
+                nutritionDaily: StorageManager.getNutritionDaily(),
                 bodylog:        StorageManager.getBodyLog(),
                 coachPrompts:   StorageManager.getData(StorageManager.KEY_COACH_PROMPTS) || {},
                 updatedAt:      Date.now()
@@ -801,6 +804,7 @@ const FirebaseManager = {
             if (data.analyticsPrefs) StorageManager.saveAnalyticsPrefs(data.analyticsPrefs);
             if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
             if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
+            if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
             if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
             if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
             showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });

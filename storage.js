@@ -21,6 +21,7 @@ const StorageManager = {
     KEY_NUTRITION:    'gympro_nutrition',
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
     KEY_NUTRITION_DAILY: 'gympro_nutrition_daily',   // ייבוא MFP — קלוריות/מאקרו לפי יום
+    KEY_NUTRITION_RAW:   'gympro_nutrition_raw',      // הקובץ הגולמי המקורי (שורה לכל ארוחה)
     KEY_MFP_BRIDGE_URL:   'gympro_mfp_bridge_url',    // Apps Script Web App URL
     KEY_MFP_BRIDGE_TOKEN: 'gympro_mfp_bridge_token',  // token סודי לגשר
     KEY_BODYLOG:      'gympro_bodylog',
@@ -348,6 +349,7 @@ const StorageManager = {
             nutrition: this.getNutritionalState(),
             nutritionLog: this.getNutritionLog(),
             nutritionDaily: this.getNutritionDaily(),
+            nutritionRaw: this.getNutritionRaw(),
             bodylog: this.getBodyLog(),
             analyticsPrefs: {
                 heroMetrics:        prefs.heroMetrics,
@@ -394,6 +396,7 @@ const StorageManager = {
             if (data.nutrition)      this.saveData(this.KEY_NUTRITION, data.nutrition);
             if (data.nutritionLog)   this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) this.saveData(this.KEY_NUTRITION_DAILY, data.nutritionDaily);
+            if (data.nutritionRaw)   this.saveData(this.KEY_NUTRITION_RAW, data.nutritionRaw);
             if (data.bodylog)        this.saveData(this.KEY_BODYLOG, data.bodylog);
             showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
         });
@@ -439,6 +442,26 @@ const StorageManager = {
         const merged = Object.values(map).sort((a, b) => a.date < b.date ? -1 : 1);
         this.saveData(this.KEY_NUTRITION_DAILY, merged);
         return merged;
+    },
+
+    // ── הקובץ הגולמי של MFP (per-meal) ───────────────────────────────────
+    getNutritionRaw() {
+        return this.getData(this.KEY_NUTRITION_RAW) || null;
+    },
+
+    // saveNutritionRaw — ממזג קובץ גולמי חדש: לכל תאריך שמופיע בקובץ החדש,
+    // השורות הישנות של אותו תאריך מוסרות ומוחלפות (העדכני מנצח). ללא כפילויות.
+    saveNutritionRaw(incoming) {
+        if (!incoming || !Array.isArray(incoming.rows) || !incoming.rows.length) return;
+        const di = incoming.dateIdx != null ? incoming.dateIdx : 0;
+        const cur = this.getNutritionRaw();
+        const newDates = new Set(incoming.rows.map(r => String(r[di] || '').trim()));
+        const curDi = (cur && cur.dateIdx != null) ? cur.dateIdx : di;
+        const kept = (cur && Array.isArray(cur.rows) ? cur.rows : [])
+            .filter(r => !newDates.has(String(r[curDi] || '').trim()));
+        const merged = kept.concat(incoming.rows)
+            .sort((a, b) => (String(a[di] || '') < String(b[di] || '') ? -1 : 1));
+        this.saveData(this.KEY_NUTRITION_RAW, { header: incoming.header, rows: merged, dateIdx: di });
     },
 
     getMfpBridge() {

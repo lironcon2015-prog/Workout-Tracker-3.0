@@ -1264,20 +1264,14 @@
             <div id="ui-bodylog" class="screen">
                 <div class="bodylog-header">
                     <h1 class="bodylog-title">Composition</h1>
-                    <div class="bodylog-top-actions">
-                        <button class="bl-icon-btn" onclick="openBodyImportInput()" aria-label="ייבוא">
-                            <span class="material-symbols-outlined">upload_file</span>
-                        </button>
-                        <button class="bl-icon-btn" onclick="openBodyExportSheet()" aria-label="ייצוא">
-                            <span class="material-symbols-outlined">download</span>
-                        </button>
-                    </div>
                 </div>
 
-                <!-- תתי-מסכים: שקילה / תזונה -->
-                <div class="bl-subtab" id="bl-subtab">
-                    <button class="bl-subtab-btn active" data-tab="weight" onclick="setBodyTab('weight')">שקילה</button>
-                    <button class="bl-subtab-btn" data-tab="nutrition" onclick="setBodyTab('nutrition')">תזונה</button>
+                <!-- בורר תתי-מסכים (שקילה / תזונה) — בסגנון מסך האנליטיקה -->
+                <div class="analytics-header-sticky">
+                    <div class="segment-wrapper" id="bl-subtab">
+                        <button class="seg-btn active" data-tab="weight" onclick="setBodyTab('weight')">שקילה</button>
+                        <button class="seg-btn" data-tab="nutrition" onclick="setBodyTab('nutrition')">תזונה</button>
+                    </div>
                 </div>
 
                 <!-- צ'יפי טווח — משותפים לשתי התצוגות -->
@@ -1296,6 +1290,15 @@
 
                 <!-- ========== תצוגת שקילה ========== -->
                 <div id="bl-view-weight">
+                    <div class="bodylog-top-actions bl-weight-actions">
+                        <button class="bl-icon-btn" onclick="openBodyImportInput()" aria-label="ייבוא שקילות">
+                            <span class="material-symbols-outlined">upload_file</span>
+                        </button>
+                        <button class="bl-icon-btn" onclick="openBodyExportSheet()" aria-label="ייצוא שקילות">
+                            <span class="material-symbols-outlined">download</span>
+                        </button>
+                    </div>
+
                     <!-- כניסת צילום — לחיצה = מצלמה מיידית; כפתור צד = הזנה ידנית -->
                     <div class="bl-capture-bar">
                         <button class="bl-capture-cta" onclick="openBodyCaptureInput()">

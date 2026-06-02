@@ -5160,8 +5160,15 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-chart-card { background: #1b1b1b; border: 1px solid var(--border); border-radius: 20px; padding: 16px 14px 10px; margin-bottom: 14px; }
 .bl-chart-title { font-size: 0.82rem; font-weight: 800; color: var(--text); margin-bottom: 8px; }
 .bl-chart-title small { font-weight: 500; color: var(--text-dim); font-size: 0.68rem; }
-.bl-svg { width: 100%; height: 170px; display: block; }
-.bl-x-axis { display: flex; justify-content: space-between; margin-top: 4px; padding: 0 4px; }
+.bl-plot { position: relative; height: 170px; padding-right: 32px; }
+.bl-svg { width: 100%; height: 100%; display: block; }
+.bl-yaxis { position: absolute; top: 0; bottom: 0; right: 0; width: 32px; pointer-events: none; }
+.bl-yaxis span {
+    position: absolute; right: 4px; transform: translateY(-50%);
+    font-size: 0.6rem; color: rgba(255,255,255,0.42); font-weight: 700;
+    font-family: 'Heebo', sans-serif; direction: ltr;
+}
+.bl-x-axis { display: flex; justify-content: space-between; margin-top: 4px; padding-right: 32px; }
 .bl-x-axis span { font-size: 0.62rem; color: var(--text-dim); font-family: 'Heebo', sans-serif; }
 
 /* List */

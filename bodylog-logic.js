@@ -73,39 +73,62 @@ function _kpi(label, val, sub, trend) {
 // ─── גרפים ──────────────────────────────────────────────────────────────────
 function _renderBodyCharts(log) {
     const data = _blFilter(log).sort((a, b) => a.date < b.date ? -1 : 1);
-    _drawBlChart('bl-weight-svg', 'bl-weight-dates', data.map(e => ({ date: e.date, val: e.weight })), 'kg', true);
+    _drawBlChart('bl-weight-svg', 'bl-weight-dates', 'bl-weight-yaxis', data.map(e => ({ date: e.date, val: e.weight })), true);
     const fatData = data.filter(e => e.bodyFat != null).map(e => ({ date: e.date, val: e.bodyFat }));
     const fatCard = document.getElementById('bl-fat-card');
     if (fatData.length >= 1) {
         if (fatCard) fatCard.style.display = 'block';
-        _drawBlChart('bl-fat-svg', 'bl-fat-dates', fatData, '%', false);
+        _drawBlChart('bl-fat-svg', 'bl-fat-dates', 'bl-fat-yaxis', fatData, false);
     } else if (fatCard) {
         fatCard.style.display = 'none';
     }
 }
 
-function _drawBlChart(svgId, datesId, points, unit, withMA) {
+// _niceNum / _niceTicks — בוחרים ערכי-ציר עגולים (1/2/5 × 10^k) שמכסים את טווח הנתונים,
+// כדי שציר ה-Y יציג מספרים ברורים (84, 86, 88) במקום גבולות "מרופדים" שרירותיים.
+function _niceNum(range, round) {
+    const exp = Math.floor(Math.log10(range || 1));
+    const frac = (range || 1) / Math.pow(10, exp);
+    let nf;
+    if (round) nf = frac < 1.5 ? 1 : frac < 3 ? 2 : frac < 7 ? 5 : 10;
+    else nf = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+    return nf * Math.pow(10, exp);
+}
+function _niceTicks(min, max, count) {
+    if (max === min) { max = min + 1; min = min - 1; } // ערך יחיד/שטוח — טווח מינימלי
+    const step = _niceNum((max - min) / Math.max(1, count - 1), true);
+    const niceMin = Math.floor(min / step) * step;
+    const niceMax = Math.ceil(max / step) * step;
+    const ticks = [];
+    for (let v = niceMin; v <= niceMax + step * 0.5; v += step) ticks.push(+v.toFixed(5));
+    return { ticks, lo: niceMin, hi: niceMax, step };
+}
+
+function _drawBlChart(svgId, datesId, yaxisId, points, withMA) {
     const svg = document.getElementById(svgId);
     const datesEl = document.getElementById(datesId);
+    const yaxisEl = document.getElementById(yaxisId);
     if (!svg) return;
     const n = points.length;
     if (n < 2) {
         svg.innerHTML = `<text x="200" y="85" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="13" font-family="Heebo">אין מספיק נתונים למגמה</text>`;
         if (datesEl) datesEl.innerHTML = '';
+        if (yaxisEl) yaxisEl.innerHTML = '';
         return;
     }
     const vals = points.map(p => p.val);
-    const W = 400, H = 170, pad = { t: 18, b: 16, l: 36, r: 14 };
+    const W = 400, H = 170, pad = { t: 14, b: 14, l: 8, r: 12 };
     const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
-    const spread = Math.max(...vals) - Math.min(...vals);
-    const mn = Math.min(...vals) - (spread > 0 ? spread * 0.2 : 1);
-    const mx = Math.max(...vals) + (spread > 0 ? spread * 0.2 : 1);
+
+    // ציר Y על ערכים עגולים שמקיפים את הנתונים (+מעט אוויר), לא על מינ/מקס מרופדים
+    const dMin = Math.min(...vals), dMax = Math.max(...vals);
+    const { ticks, lo, hi, step } = _niceTicks(dMin, dMax, 4);
     const px = i => pad.l + (i / (n - 1)) * cW;
-    const py = v => pad.t + cH - ((v - mn) / ((mx - mn) || 1)) * cH;
+    const py = v => pad.t + cH - ((v - lo) / ((hi - lo) || 1)) * cH;
     const pts = vals.map((v, i) => [px(i), py(v)]);
     const smooth = ps => (typeof getSmoothPath === 'function') ? getSmoothPath(ps) : ('M' + ps.map(p => p.join(',')).join(' L'));
     const linePath = smooth(pts);
-    const areaPath = linePath + ` L${pts[n - 1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H} Z`;
+    const areaPath = linePath + ` L${pts[n - 1][0].toFixed(1)},${(pad.t + cH).toFixed(1)} L${pts[0][0].toFixed(1)},${(pad.t + cH).toFixed(1)} Z`;
 
     // ממוצע נע 7 נקודות — מחליק רעש יומי במשקל
     let maPath = '';
@@ -118,23 +141,33 @@ function _drawBlChart(svgId, datesId, points, unit, withMA) {
         maPath = `<path d="${smooth(mpts)}" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.5"/>`;
     }
 
-    const yl = [mx, (mx + mn) / 2, mn].map(v =>
-        `<text x="4" y="${(py(v) + 3).toFixed(1)}" fill="rgba(255,255,255,0.35)" font-size="9" font-family="Heebo">${v.toFixed(1)}</text>`).join('');
+    // קווי רשת אופקיים בכל tick (נמתחים עם ה-SVG — לא מעוותים שום טקסט)
+    const grid = ticks.map(t => {
+        const y = py(t).toFixed(1);
+        return `<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+    }).join('');
     const last = pts[n - 1];
 
     svg.innerHTML = `
         <defs><linearGradient id="bl-grad-${svgId}" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stop-color="#0A84FF"/><stop offset="100%" stop-color="transparent"/></linearGradient></defs>
-        ${yl}
+        ${grid}
         <path d="${areaPath}" fill="url(#bl-grad-${svgId})" opacity="0.22"/>
         <path d="${linePath}" fill="none" stroke="#0A84FF" stroke-width="3" stroke-linecap="round"/>
         ${maPath}
         <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5" fill="#0A84FF"/>`;
 
+    // תוויות ציר Y כ-HTML חד (לא מעוות ע"י מתיחת ה-SVG). top באחוזים מגובה ה-plot.
+    if (yaxisEl) {
+        const dec = step < 1 ? 1 : 0;
+        yaxisEl.innerHTML = ticks.map(t =>
+            `<span style="top:${(py(t) / H * 100).toFixed(2)}%">${t.toFixed(dec)}</span>`).join('');
+    }
+
     if (datesEl) {
-        const step = Math.ceil(n / 6);
+        const step2 = Math.ceil(n / 6);
         datesEl.innerHTML = points.map((p, i) =>
-            (i % step === 0 || i === n - 1) ? `<span>${_blShortDate(p.date)}</span>` : '').join('');
+            (i % step2 === 0 || i === n - 1) ? `<span>${_blShortDate(p.date)}</span>` : '').join('');
     }
 }
 

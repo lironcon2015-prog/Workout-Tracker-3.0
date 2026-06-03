@@ -135,7 +135,8 @@ function _renderNutritionCard(allDays) {
         </div>
         <div class="bl-nutri-exports">
             <button class="bl-export-btn" onclick="exportNutritionRawCsv()"><span class="material-symbols-outlined">description</span>ייצא קובץ MFP מלא</button>
-        </div>`;
+        </div>
+        <button class="bl-nutri-reset" onclick="resetNutritionData()"><span class="material-symbols-outlined">delete</span>מחק נתוני תזונה</button>`;
 }
 
 function _nutriKpi(label, val, unit) {
@@ -199,6 +200,17 @@ function exportNutritionCsv(scope) {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
     haptic('success');
+}
+
+// resetNutritionData — מוחק את כל נתוני התזונה (לאחר אישור). שאיבה מחדש תתחיל מאפס.
+function resetNutritionData() {
+    showConfirm('פעולה זו תמחק את כל נתוני התזונה (סיכום יומי + הקובץ הגולמי) ואינה ניתנת לשחזור. שים לב: שאיבה מ-Gmail מושכת רק את הייצוא האחרון, אז היסטוריה ישנה לא תחזור. להמשיך?', () => {
+        StorageManager.clearNutrition();
+        _blNutriExpanded = false;
+        renderBodyLog();
+        if (typeof showCloudToast === 'function') showCloudToast('🗑️ נתוני התזונה נמחקו', true);
+        haptic('warning');
+    });
 }
 
 // _parseRawNutrition — מפרסר את ה-CSV הגולמי של MFP ל-{header, rows, dateIdx}.

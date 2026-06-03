@@ -146,8 +146,22 @@ function _nutriKpi(label, val, unit) {
 function _renderNutritionCharts(allDays) {
     const all = allDays || StorageManager.getNutritionDaily();
     const days = _blFilter(all).sort((a, b) => a.date < b.date ? -1 : 1);
-    _drawBlChart('bl-cal-svg', 'bl-cal-dates', 'bl-cal-yaxis', days.map(d => ({ date: d.date, val: d.calories })), true, 'kcal');
-    _drawBlChart('bl-protein-svg', 'bl-protein-dates', 'bl-protein-yaxis', days.map(d => ({ date: d.date, val: d.protein })), true, 'g');
+    const cal  = _cleanNutriOutliers(days.map(d => ({ date: d.date, val: d.calories })));
+    const prot = _cleanNutriOutliers(days.map(d => ({ date: d.date, val: d.protein })));
+    _drawBlChart('bl-cal-svg', 'bl-cal-dates', 'bl-cal-yaxis', cal, true, 'kcal');
+    _drawBlChart('bl-protein-svg', 'bl-protein-dates', 'bl-protein-yaxis', prot, true, 'g');
+}
+
+// _cleanNutriOutliers — רק חריגה כלפי מטה של יותר מ-50% מהממוצע (כנראה הזנה חסרה)
+// מוחלפת בממוצע. חריגה כלפי מעלה אינה טעות ונשמרת. משפיע על הגרף בלבד.
+function _cleanNutriOutliers(points) {
+    if (points.length < 4) return points;
+    const vals = points.map(p => p.val);
+    const mean0 = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const floor = mean0 * 0.5;                          // 50% מתחת לממוצע
+    const kept = vals.filter(v => v >= floor);
+    const mean = Math.round(kept.length ? kept.reduce((a, b) => a + b, 0) / kept.length : mean0);
+    return points.map(p => p.val < floor ? { date: p.date, val: mean } : p);
 }
 
 function _renderNutritionList(allDays) {

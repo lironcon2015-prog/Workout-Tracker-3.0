@@ -425,8 +425,10 @@ function _blRenderTip(svg, svgId, points, sel, px, py, W, H, unit) {
     if (sel == null || sel < 0 || sel >= points.length) { if (tip) tip.style.display = 'none'; return; }
     if (!tip) { tip = document.createElement('div'); tip.id = svgId + '-tip'; tip.className = 'bl-tip'; plot.appendChild(tip); }
     const p = points[sel];
-    const unitLbl = unit === '%' ? '%' : ' ק"ג';
-    tip.innerHTML = `<span class="bl-tip-date">${_blListDate(p.date)}</span><span class="bl-tip-val">${p.val.toFixed(1)}${unitLbl}</span>`;
+    // יחידה רק היכן שרלוונטי: ק"ג למשקל, % לשומן; בתזונה (kcal/g) — ללא יחידה.
+    const unitLbl = unit === '%' ? '%' : unit === 'kg' ? ' ק"ג' : '';
+    const valStr = (unit === 'kg' || unit === '%') ? p.val.toFixed(1) : String(Math.round(p.val));
+    tip.innerHTML = `<span class="bl-tip-date">${_blListDate(p.date)}</span><span class="bl-tip-val">${valStr}${unitLbl}</span>`;
     tip.style.display = 'flex';
     const w = svg.clientWidth || plot.clientWidth, h = svg.clientHeight || 170;
     const leftPx = Math.max(30, Math.min(w - 30, (px(sel) / W) * w));

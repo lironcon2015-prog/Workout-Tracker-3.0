@@ -5138,7 +5138,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 /* ════════════════════════════════════════════
    BODY LOG — מסך שקילות (משקל + אחוז שומן)
    ════════════════════════════════════════════ */
-#ui-bodylog { padding: 18px 16px 100px; }
+#ui-bodylog { padding: 0 16px 100px; }   /* ללא padding-top — הבורר מתיישר עם שאר המסכים */
 .bodylog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .bodylog-title { font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 1.9rem; color: #fff; margin: 0; }
 .bodylog-top-actions { display: flex; gap: 8px; }
@@ -5162,8 +5162,6 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-empty { grid-column: 1 / -1; text-align: center; color: var(--text-dim); font-size: 0.9rem; padding: 28px 12px; background: #1b1b1b; border: 1px dashed rgba(255,255,255,0.12); border-radius: 18px; }
 
 /* Range chips */
-/* בורר שקילה/תזונה — נדחף מעט כלפי מעלה כדי להתיישר עם בוררי שאר המסכים */
-#ui-bodylog .analytics-header-sticky { padding-top: 0; margin-top: -3px; }
 
 /* ── שורת פעולות שקילה (ייבוא/ייצוא) — בראש תצוגת השקילה ── */
 .bl-weight-actions { justify-content: flex-start; margin-bottom: 12px; }

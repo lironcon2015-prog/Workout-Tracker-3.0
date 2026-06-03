@@ -3590,6 +3590,48 @@ function buildAnalyticsSnapshot() {
     return snap;
 }
 
+// _buildNutritionAIContext — סיכום נתוני התזונה (MyFitnessPal) ל-AI: ממוצעים + פירוט אחרון.
+function _buildNutritionAIContext(slim) {
+    const days = (StorageManager.getNutritionDaily() || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    if (!days.length) return '';
+    const avgN = (arr, k) => arr.length ? Math.round(arr.reduce((s, d) => s + (d[k] || 0), 0) / arr.length) : 0;
+    const macro = arr => `${avgN(arr, 'calories')} קק"ל | חלבון ${avgN(arr, 'protein')}g | פחמימה ${avgN(arr, 'carbs')}g | שומן ${avgN(arr, 'fat')}g`;
+    const last = days[days.length - 1];
+    let s = `\n=== תזונה בפועל (MyFitnessPal) ===\n`;
+    s += `ימים מתועדים: ${days.length} | עדכון אחרון: ${last.date}\n`;
+    s += `ממוצע 7 ימים: ${macro(days.slice(-7))}\n`;
+    s += `ממוצע 30 ימים: ${macro(days.slice(-30))}\n`;
+    if (!slim) {
+        const recent = days.slice(-14);
+        s += `פירוט ${recent.length} הימים האחרונים (תאריך — קק"ל | חלבון/פחמימה/שומן g):\n`;
+        recent.forEach(d => { s += `${d.date} — ${d.calories} | ${d.protein}/${d.carbs}/${d.fat}\n`; });
+    }
+    return s;
+}
+
+// _buildBodylogAIContext — סיכום שקילות/הרכב גוף ל-AI: משקל אחרון, מגמה, ופירוט אחרון.
+function _buildBodylogAIContext(slim) {
+    const log = (StorageManager.getBodyLog() || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    if (!log.length) return '';
+    const last = log[log.length - 1];
+    let s = `\n=== הרכב גוף / שקילות ===\n`;
+    s += `שקילה אחרונה: ${last.weight}kg`;
+    if (last.bodyFat != null) s += ` | שומן ${last.bodyFat}%`;
+    s += ` (${last.date}) | סך שקילות: ${log.length}\n`;
+    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const ref = log.filter(e => e.date <= cutoff).slice(-1)[0] || log[0];
+    if (ref && ref !== last) {
+        const d = last.weight - ref.weight;
+        s += `שינוי ~30 יום: ${d >= 0 ? '+' : ''}${d.toFixed(1)}kg\n`;
+    }
+    if (!slim) {
+        const recent = log.slice(-12);
+        s += `שקילות אחרונות (תאריך — משקל):\n`;
+        recent.forEach(e => { s += `${e.date} — ${e.weight}kg${e.bodyFat != null ? ` (${e.bodyFat}%)` : ''}\n`; });
+    }
+    return s;
+}
+
 /**
  * buildSystemPrompt — מרכיב את ה-System Instruction המלא לכל קריאת API.
  */
@@ -3607,7 +3649,7 @@ function buildSystemPrompt(opts = {}) {
 - כשמתבקש "סיכום", "ניתוח", "סקירה", "דוח" או הסבר מעמיק — ספק תשובה מלאה, מובנית ויסודית בהודעה אחת. כסה את כל ההיבטים הרלוונטיים, אל תקצר באופן מלאכותי ואל תפצל לחלקים שמחייבים "המשך".
 
 # מקורות ואמינות
-- הסתמך אך ורק על הנתונים שמופיעים למטה (פרופיל, מצב נוכחי, מצב תזונתי, אנליטיקה, היסטוריית בלוקים) ועל ידע מבוסס-מחקר בפיזיולוגיה ואימוני כוח. אל תמציא מספרים, מגמות או עובדות, ואל תסתמך על "ברו-סיינס".
+- הסתמך אך ורק על הנתונים שמופיעים למטה (פרופיל, מצב נוכחי, מצב תזונתי, תזונה בפועל מ-MyFitnessPal, הרכב גוף/שקילות, אנליטיקה, היסטוריית בלוקים) ועל ידע מבוסס-מחקר בפיזיולוגיה ואימוני כוח. אל תמציא מספרים, מגמות או עובדות, ואל תסתמך על "ברו-סיינס".
 - הנתונים שלמטה הם מקור האמת על המתאמן. אם נדרש מידע שאינו מופיע — אמור זאת ובקש אותו, במקום לנחש.
 - אם נשאלת על תאריך, אימון, משקל או מספר שלא מופיעים מילולית בנתונים שלמטה — השב במפורש "הנתון לא קיים במידע שיש לי כרגע". אל תמציא ערכים ואל תסיק תאריכים מהקשר.
 
@@ -3623,6 +3665,10 @@ function buildSystemPrompt(opts = {}) {
     // מצב תזונתי — משפיע ישירות על ההמלצות (Cut/Maintenance/Surplus)
     const nutriCtx = getNutritionalContext();
     if (nutriCtx) prompt += `\n=== מצב תזונתי ===\n${nutriCtx}\n`;
+
+    // נתוני תזונה בפועל (MyFitnessPal) + שקילות — לניתוח קלורי/מאקרו ומגמת משקל
+    prompt += _buildNutritionAIContext(slim);
+    prompt += _buildBodylogAIContext(slim);
 
     // מצב נוכחי
     prompt += `\n=== מצב נוכחי ===\n`;

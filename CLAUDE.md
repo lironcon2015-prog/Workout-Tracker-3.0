@@ -54,7 +54,7 @@
 ### Stack
 
 - Vanilla JS (ES6+), HTML5, CSS3 — ללא Frameworks
-- מבנה קבצים: `index.html`, `style.css`, `workout-core.js`, `archive-logic.js`, `editor-logic.js`, `storage.js`, `data.js`
+- מבנה קבצים: `index.html`, `style.css`, `workout-core.js`, `archive-logic.js`, `editor-logic.js`, `bodylog-logic.js`, `storage.js`, `data.js`
 - Storage: LocalStorage דרך StorageManager
 - Offline First: אפס תלות בשרת, 0ms latency
 
@@ -98,7 +98,7 @@
 **בכל commit שמשנה קבצי אפליקציה** (workout-core.js, style.css, index.html, archive-logic.js, editor-logic.js, storage.js, data.js) —
 חובה לעדכן **באותו commit**:
 
-1. **`sw.js`** — העלה את `CACHE_VERSION` ב-1 (למשל `gympro-v14.12.0-54` → `gympro-v14.12.0-55`)
+1. **`sw.js`** — העלה את `CACHE_VERSION` ב-1 (למשל `gympro-v15.75` → `gympro-v15.76`)
    ועדכן גם את שורת הקומנט `* Version: X`
 2. **`version.json`** — עדכן את `"version"` לאותו מספר (ללא `gympro-v` prefix)
 
@@ -147,10 +147,12 @@ version.json: { "version": "15.X" }
 | `index.html` | מבנה HTML + כל ה-UI screens |
 | `workout-core.js` | לוגיקת אימון, ניווט (`navigate`), state גלובלי, AI coach |
 | `style.css` | עיצוב (RTL, Liquid Obsidian, Hebrew PWA) |
-| `archive-logic.js` | ארכיון אימונים |
+| `archive-logic.js` | ארכיון אימונים + `switchMainTab` + סנכרון ענן (Firestore chunked) |
 | `editor-logic.js` | עורך תוכנית + `renderWorkoutMenu` + `checkForUpdate` |
-| `storage.js` | StorageManager (localStorage) |
+| `bodylog-logic.js` | מסך Composition: שקילות (משקל/שומן) + תזונה (MyFitnessPal: גרפים, ממוצעים, ייצוא) |
+| `storage.js` | StorageManager (localStorage) + FirebaseManager (סנכרון ענן) |
 | `data.js` | נתוני ברירת מחדל |
+| `docs/mfp-nutrition-bridge.gs` | Google Apps Script — גשר שמושך ייצוא MyFitnessPal מ-Gmail (JSONP) |
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
 

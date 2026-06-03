@@ -639,6 +639,7 @@ const FirebaseManager = {
     KEY_FIREBASE_CONFIG: 'gympro_firebase_config',
     KEY_SYNC_STATUS: 'gympro_cloud_sync',  // מעקב הצלחת/כשל סנכרון ארכיון אחרון
     ARCHIVE_CHUNK_SIZE: 20,                 // אימונים לכל מסמך — שומר כל chunk הרבה מתחת ל-1MB
+    NUTRITION_RAW_CHUNK_SIZE: 1000,         // שורות per-meal לכל מסמך (~150KB) — מניעה מוחלטת של חריגת 1MB
     _db: null,
     _initialized: false,
     _authReady: null,  // Promise שמסתיים כשה-Anonymous Auth הושלם
@@ -790,6 +791,75 @@ const FirebaseManager = {
         }
     },
 
+    // ── Nutrition Raw (קובץ MFP גולמי) ────────────────────────────────────────
+    // מפוצל ל-chunks (nutrition_raw_meta + nutrition_raw_0/1/...) — מניעה מוחלטת
+    // של חריגת 1MB-למסמך, בדיוק כמו הארכיון. ה-header/dateIdx נשמרים ב-meta.
+    async saveNutritionRawToCloud() {
+        if (!await this._ensureReady()) return false;
+        try {
+            const raw = StorageManager.getNutritionRaw();           // { header, rows, dateIdx } | null
+            const rows = (raw && Array.isArray(raw.rows)) ? raw.rows : [];
+            const col = this._db.collection('gympro_data');
+            const size = this.NUTRITION_RAW_CHUNK_SIZE;
+            const chunkCount = rows.length ? Math.ceil(rows.length / size) : 0;
+            const now = Date.now();
+
+            let prevCount = 0;
+            try {
+                const metaDoc = await col.doc('nutrition_raw_meta').get();
+                if (metaDoc.exists) prevCount = metaDoc.data().chunkCount || 0;
+            } catch { /* פעם ראשונה */ }
+
+            const batch = this._db.batch();
+            for (let i = 0; i < chunkCount; i++) {
+                batch.set(col.doc(`nutrition_raw_${i}`), { rows: rows.slice(i * size, (i + 1) * size), updatedAt: now });
+            }
+            // מחיקת chunks מיותרים (הקובץ התכווץ מאז הסנכרון הקודם)
+            for (let i = chunkCount; i < prevCount; i++) {
+                batch.delete(col.doc(`nutrition_raw_${i}`));
+            }
+            batch.set(col.doc('nutrition_raw_meta'), {
+                chunkCount,
+                header:  raw ? raw.header : null,
+                dateIdx: raw && raw.dateIdx != null ? raw.dateIdx : 0,
+                total:   rows.length,
+                updatedAt: now
+            });
+            await batch.commit();
+            return true;
+        } catch(e) {
+            console.error('GymPro saveNutritionRaw error:', e);
+            return false;
+        }
+    },
+
+    // _loadNutritionRawSilent — מאחד את ה-chunks וטוען ל-localStorage. ללא UI;
+    // נקרא מתוך loadConfigFromCloud. לא דורס מקומי אם אין נתונים בענן.
+    async _loadNutritionRawSilent() {
+        try {
+            const col = this._db.collection('gympro_data');
+            const metaDoc = await col.doc('nutrition_raw_meta').get();
+            if (!metaDoc.exists) return;
+            const meta = metaDoc.data();
+            const chunkCount = meta.chunkCount || 0;
+            if (!chunkCount) return;                                  // אין raw בענן — אל תדרוס מקומי
+            const docs = await Promise.all(
+                Array.from({ length: chunkCount }, (_, i) => col.doc(`nutrition_raw_${i}`).get())
+            );
+            const rows = [];
+            docs.forEach(d => { if (d.exists && Array.isArray(d.data().rows)) rows.push(...d.data().rows); });
+            if (rows.length) {
+                StorageManager.saveData(StorageManager.KEY_NUTRITION_RAW, {
+                    header:  meta.header || (rows[0] || []),
+                    rows,
+                    dateIdx: meta.dateIdx != null ? meta.dateIdx : 0
+                });
+            }
+        } catch(e) {
+            console.error('GymPro loadNutritionRaw error:', e);
+        }
+    },
+
     // ── Config ───────────────────────────────────────────────────────────────
 
     async saveConfigToCloud() {
@@ -836,6 +906,7 @@ const FirebaseManager = {
             if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
             if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
             if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
+            await this._loadNutritionRawSilent();   // הקובץ הגולמי מסונכרן ב-chunks נפרדים
             showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
@@ -852,7 +923,8 @@ const FirebaseManager = {
         try {
             const archiveOk = await this.saveArchiveToCloud();
             const configOk  = await this.saveConfigToCloud();
-            if (archiveOk && configOk) {
+            const rawOk     = await this.saveNutritionRawToCloud();
+            if (archiveOk && configOk && rawOk) {
                 showAlert('כל הנתונים הועלו לענן בהצלחה!');
             } else {
                 showAlert('חלק מהנתונים לא הועלו. בדוק חיבור ונסה שוב.');

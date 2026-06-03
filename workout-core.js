@@ -4338,6 +4338,11 @@ async function importNutritionFromGmail() {
             if (raw) StorageManager.saveNutritionRaw(raw);
         }
         if (typeof renderBodyLog === 'function') renderBodyLog();
+        // סנכרון אוטומטי לענן (אם Firebase מוגדר): תזונה יומית בקונפיג + הקובץ הגולמי ב-chunks
+        if (typeof FirebaseManager !== 'undefined') {
+            FirebaseManager.saveConfigToCloud().catch(() => {});
+            FirebaseManager.saveNutritionRawToCloud().catch(() => {});
+        }
         showCloudToast(`✅ יובאו ${days.length} ימי תזונה`, true);
     } catch (e) {
         console.error('GymPro: nutrition import error', e);

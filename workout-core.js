@@ -255,6 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // Sprint 2: gestures
     try { _initSwipeBackGesture(); } catch (e) {}
+    try { _initTabSwipeGesture(); }  catch (e) {}
     try { _initAllSheetsDrag(); }   catch (e) {}
 });
 
@@ -698,6 +699,62 @@ function _initSwipeBackGesture() {
         if (dirOK && Math.abs(dy) < VERT_LIMIT) {
             handleBackClick();
         }
+    }, { passive: true });
+}
+
+// ─── מעבר בין מסכי הטאבים בהחלקת אצבע (RTL-aware) ─────────────────────────
+// החלקה אופקית על מסכי הטאבים הראשיים מחליפה טאב, בהתאם לכיוון הפיזי של ה-tab-bar.
+const _TAB_SWIPE_ORDER = ['workout', 'analytics', 'archive', 'bodylog'];   // סדר ה-DOM ב-tab-bar
+const _TAB_SWIPE_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive', 'ui-bodylog'];
+
+function _currentMainTab() {
+    const active = document.querySelector('.tab-btn.active');
+    return active ? active.id.replace('tabbtn-', '') : null;
+}
+
+function _initTabSwipeGesture() {
+    const THRESHOLD = 60;    // px אופקי מינימלי למעבר
+    const VERT_LIMIT = 45;   // px אנכי מקסימלי (מסנן גלילה אנכית)
+    const isRTL = (getComputedStyle(document.body).direction || 'ltr') === 'rtl';
+    let startX = 0, startY = 0, active = false, t0 = 0;
+
+    document.body.addEventListener('touchstart', (e) => {
+        active = false;
+        if (e.touches.length !== 1) return;
+        // רק כשמסך טאב ראשי פעיל (לא בתוך flow אימון, מודאל או sheet)
+        const cur = document.querySelector('.screen.active');
+        if (!cur || !_TAB_SWIPE_SCREENS.includes(cur.id)) return;
+        if (document.querySelector('.bottom-sheet.open')) return;
+        const openModal = Array.from(document.querySelectorAll('.modal-overlay')).some(m => {
+            const d = m.style.display; return d && d !== 'none';
+        });
+        if (openModal) return;
+        // אל תפעיל על אלמנטים אינטראקטיביים/גרפים/אזורים שמסומנים לא-להחליק
+        if (e.target.closest('input, textarea, select, svg, canvas, .ios-picker, [data-no-swipe-back], [data-no-tab-swipe]')) return;
+        const t = e.touches[0];
+        startX = t.clientX; startY = t.clientY; active = true; t0 = Date.now();
+    }, { passive: true });
+
+    document.body.addEventListener('touchmove', (e) => {
+        if (!active) return;
+        const t = e.touches[0];
+        if (Math.abs(t.clientY - startY) > Math.abs(t.clientX - startX) + 8) active = false; // גלילה אנכית
+    }, { passive: true });
+
+    document.body.addEventListener('touchend', (e) => {
+        if (!active) return;
+        active = false;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - startX, dy = t.clientY - startY;
+        if (Date.now() - t0 > 600) return;                          // איטי מדי
+        if (Math.abs(dx) < THRESHOLD || Math.abs(dy) > VERT_LIMIT) return;
+        const cur = _currentMainTab();
+        const idx = _TAB_SWIPE_ORDER.indexOf(cur);
+        if (idx < 0) return;
+        // "התוכן עוקב אחרי האצבע": RTL — שמאלה=הטאב הקודם ב-DOM, ימינה=הבא. LTR הפוך.
+        const target = isRTL ? idx + (dx < 0 ? -1 : 1) : idx + (dx < 0 ? 1 : -1);
+        if (target < 0 || target >= _TAB_SWIPE_ORDER.length) return;
+        if (typeof switchMainTab === 'function') switchMainTab(_TAB_SWIPE_ORDER[target]);
     }, { passive: true });
 }
 

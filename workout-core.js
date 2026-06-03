@@ -712,14 +712,27 @@ function _currentMainTab() {
     return active ? active.id.replace('tabbtn-', '') : null;
 }
 
+// _hasHorizontalScroll — האם הנגיעה התחילה בתוך אלמנט שניתן לגלול אופקית
+// (גרף נגלל, heatmap, כרטיס מידע) — אם כן, ההחלקה משמשת לצפייה במידע, לא למעבר מסך.
+function _hasHorizontalScroll(el) {
+    while (el && el !== document.body) {
+        if (el.scrollWidth > el.clientWidth + 4) {
+            const ox = getComputedStyle(el).overflowX;
+            if (ox === 'auto' || ox === 'scroll') return true;
+        }
+        el = el.parentElement;
+    }
+    return false;
+}
+
 function _initTabSwipeGesture() {
     const THRESHOLD = 60;    // px אופקי מינימלי למעבר
     const VERT_LIMIT = 45;   // px אנכי מקסימלי (מסנן גלילה אנכית)
     const isRTL = (getComputedStyle(document.body).direction || 'ltr') === 'rtl';
-    let startX = 0, startY = 0, active = false, t0 = 0;
+    let startX = 0, startY = 0, active = false, horiz = false, t0 = 0;
 
     document.body.addEventListener('touchstart', (e) => {
-        active = false;
+        active = false; horiz = false;
         if (e.touches.length !== 1) return;
         // רק כשמסך טאב ראשי פעיל (לא בתוך flow אימון, מודאל או sheet)
         const cur = document.querySelector('.screen.active');
@@ -731,15 +744,23 @@ function _initTabSwipeGesture() {
         if (openModal) return;
         // אל תפעיל על אלמנטים אינטראקטיביים/גרפים/אזורים שמסומנים לא-להחליק
         if (e.target.closest('input, textarea, select, svg, canvas, .ios-picker, [data-no-swipe-back], [data-no-tab-swipe]')) return;
+        // אל תפריע לכרטיס/גרף שגליל אופקית — שם ההחלקה משמשת לצפייה במידע
+        if (_hasHorizontalScroll(e.target)) return;
         const t = e.touches[0];
         startX = t.clientX; startY = t.clientY; active = true; t0 = Date.now();
     }, { passive: true });
 
+    // לא-passive בכוונה: כך אפשר preventDefault שחוסם את גסט-הקצה של ספארי (המסך הלבן)
     document.body.addEventListener('touchmove', (e) => {
         if (!active) return;
         const t = e.touches[0];
-        if (Math.abs(t.clientY - startY) > Math.abs(t.clientX - startX) + 8) active = false; // גלילה אנכית
-    }, { passive: true });
+        const dx = t.clientX - startX, dy = t.clientY - startY;
+        if (!horiz) {
+            if (Math.abs(dy) > Math.abs(dx) + 8) { active = false; return; } // גלילה אנכית — שחרר
+            if (Math.abs(dx) > 10) horiz = true;                            // נעילת כיוון אופקי
+        }
+        if (horiz && e.cancelable) e.preventDefault();   // חוסם ניווט-קצה של הדפדפן + גלילה אופקית של הדף
+    }, { passive: false });
 
     document.body.addEventListener('touchend', (e) => {
         if (!active) return;

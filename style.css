@@ -227,6 +227,7 @@ body {
     min-height: 0;
     scrollbar-width: none;
     overscroll-behavior-y: contain;
+    overscroll-behavior-x: none;   /* מצמצם ניווט-קצה של הדפדפן בהחלקה אופקית */
     -webkit-overflow-scrolling: touch;
 }
 .content-area::-webkit-scrollbar { display: none; }

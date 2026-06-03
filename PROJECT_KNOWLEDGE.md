@@ -64,8 +64,8 @@
 |---|-------|-------|
 | 1 | `details` ב-ArchiveEntry לא שומר cluster per-round — רק per-exercise | נמוכה |
 | 2 | archive entries ישנים (לפני 14.12.0-24) חסרים שדה `week` — AI block comparison נופל ל-fallback | נמוכה |
-| 3 | `updatePlanFloatBtn` עדיין מחפש `.header-tools` ב-ui-main שנמחק — מוחלף ע"י `#workout-quick-menu` | נמוכה |
-| 4 | סיכום מאמן (`aiSummary`) מוגבל ל-6000 תווים; כל הארכיון במסמך Firestore בודד — סיכון 1MB ב-100+ אימונים | בינונית |
+| 3 | ✅ נפתר — `updatePlanFloatBtn` כבר לא מחפש `.header-tools`, רק מנקה כפתורים מוזרקים | — |
+| 4 | ✅ נפתר — הארכיון מפוצל ל-chunks (`ARCHIVE_CHUNK_SIZE=20`, `archive_meta`+`archive_N`). הקובץ הגולמי של MFP מפוצל גם הוא (`nutrition_raw_meta`+`nutrition_raw_N`, 1000 שורות/מסמך). מסמך `config` נשאר קל (נתונים קטנים) | — |
 | 5 | עריכת סט במסך הסיכום אחרי שנוצר `aiSummary` לא מרעננת אותו — הסיכום עלול להפוך לא-מסונכרן | נמוכה |
 
 ---
@@ -78,6 +78,18 @@
 - **פרומפטים ניתנים לעריכה:** `StorageManager.COACH_PROMPT_DEFAULTS` + override ב-`KEY_COACH_PROMPTS`, נערכים ב-`coach-prompts-sheet`. מסונכרנים ב-`saveConfigToCloud` (`coachPrompts`).
 - **`aiSummary` מסונכרן אוטומטית** דרך `saveArchiveToCloud` (שולח כל הארכיון as-is, ללא whitelist).
 - שני מתגי העתקה: מסך סיכום (`KEY_COPY_INCLUDE_COACH`) וארכיון (`KEY_ARCHIVE_COPY_COACH`, ברירת מחדל כבוי).
+
+---
+
+## סנכרון ענן — מבנה Firestore (v15.75)
+
+קולקציה אחת `gympro_data` עם מסמכים נפרדים, כל אחד מתחת ל-1MB:
+- `archive_meta` + `archive_0/1/...` — ארכיון אימונים (20/מסמך).
+- `nutrition_raw_meta` + `nutrition_raw_0/1/...` — קובץ MFP גולמי per-meal (1000 שורות/מסמך). ה-`header`+`dateIdx` ב-meta.
+- `config` — תוכניות, תרגילים, prefs, מצב תזונתי, **תזונה יומית** (`nutritionDaily`), **שקילות** (`bodylog`), coachPrompts. נתונים קטנים → מסמך בודד בטוח.
+- `ai_history` — היסטוריית שיחות.
+
+**מניעת 1MB מוחלטת:** כל דאטה שגדל ללא חסם (ארכיון, raw תזונה) מפוצל ל-chunks עם ניקוי עודפים אוטומטי. סנכרון אוטומטי: ארכיון אחרי אימון; config+raw אחרי ייבוא תזונה (fire-and-forget, מוגן ב-`_ensureReady`).
 
 ---
 

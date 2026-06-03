@@ -434,6 +434,12 @@ const StorageManager = {
         return this.getData(this.KEY_NUTRITION_DAILY) || [];
     },
 
+    // clearNutrition — מוחק את כל נתוני התזונה (סיכום יומי + קובץ גולמי).
+    clearNutrition() {
+        localStorage.removeItem(this.KEY_NUTRITION_DAILY);
+        localStorage.removeItem(this.KEY_NUTRITION_RAW);
+    },
+
     // saveNutritionDaily — upsert לפי תאריך (ייבוא חדש דורס יום קיים), ממוין מהישן לחדש.
     saveNutritionDaily(days) {
         const map = {};

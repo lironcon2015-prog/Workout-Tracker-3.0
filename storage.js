@@ -812,7 +812,8 @@ const FirebaseManager = {
 
             const batch = this._db.batch();
             for (let i = 0; i < chunkCount; i++) {
-                batch.set(col.doc(`nutrition_raw_${i}`), { rows: rows.slice(i * size, (i + 1) * size), updatedAt: now });
+                // Firestore אוסר מערך-בתוך-מערך; שומרים את שורות ה-chunk כמחרוזת JSON אחת
+                batch.set(col.doc(`nutrition_raw_${i}`), { rowsJson: JSON.stringify(rows.slice(i * size, (i + 1) * size)), updatedAt: now });
             }
             // מחיקת chunks מיותרים (הקובץ התכווץ מאז הסנכרון הקודם)
             for (let i = chunkCount; i < prevCount; i++) {
@@ -847,7 +848,15 @@ const FirebaseManager = {
                 Array.from({ length: chunkCount }, (_, i) => col.doc(`nutrition_raw_${i}`).get())
             );
             const rows = [];
-            docs.forEach(d => { if (d.exists && Array.isArray(d.data().rows)) rows.push(...d.data().rows); });
+            docs.forEach(d => {
+                if (!d.exists) return;
+                const data = d.data();
+                if (typeof data.rowsJson === 'string') {
+                    try { const arr = JSON.parse(data.rowsJson); if (Array.isArray(arr)) rows.push(...arr); } catch {}
+                } else if (Array.isArray(data.rows)) {
+                    rows.push(...data.rows);   // תאימות לאחור (אם נשמר פעם כמערך)
+                }
+            });
             if (rows.length) {
                 StorageManager.saveData(StorageManager.KEY_NUTRITION_RAW, {
                     header:  meta.header || (rows[0] || []),

@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.82
+## גרסה נוכחית: 15.81
 
 ---
 
@@ -46,45 +46,31 @@
 
 ---
 
-## שפה עיצובית — MONOLITH / Platinum Obsidian (v15.82)
+## שפה עיצובית — Liquid Obsidian → Deep Obsidian (v15.81)
 
-**v15.82 — מונוכרום יוקרתי.** המעבר הגדול: מ-"Deep Obsidian" צבעוני (v15.81) ל-**MONOLITH** — חד, מדויק, פחות צבע. השינויים:
-
-| ציר | לפני (v15.81) | אחרי (v15.82) |
-|-----|---------------|----------------|
-| **צבע** | rainbow `--type-a/b/c/free` (כחול/ירוק/כתום/סגול), glows, גרפים 5-6 צבעים, אייקונים צבעוניים | **מונוכרום מלא** + אקסנט יחיד **פלטינה `#E8EAED`**. כל צבע רווי hardcoded נוקה מ-CSS/JS/HTML (perl sweep) ומופה לטוקן |
-| **גיאומטריה** | 28-32px (`2rem`) "ידידותי" | `--r-md` **12px** חד; סולם `8/10/12/16px` |
-| **טיפוגרפיה** | הכל Heebo `900` + `italic` + uppercase + letter-spacing שלילי עמוק | **בלי italic, בלי 900** → `600` כותרות/מספרים, `400` גוף; eyebrow labels קטנים בלבד |
-| **דקורציה** | watermark "GYMPRO", מספרי רקע ענקיים, radial glows, text-shadow glows, drop-shadow ירוק | **הוסר הכל**; עומק מ-hairline + ערך בלבד |
-| **כפתור primary** | gradient כחול + glow כחול | **פלטינה fill** + `--on-accent` כהה (Vercel-style), צל ניטרלי |
-| **גרפים/heatmap** | 5-6 צבעים | סולם אפורים+פלטינה; heatmap = אינטנסיביות באופסיטי |
-
-**מערכת טוקנים ב-`:root`:**
+**v15.81 — מערכת surface אחידה.** לפני: 4+ רקעי כרטיסיות מתחרים (`rgba(31,31,31,0.55)` glass / `#1b1b1b` solid / `rgba(31,31,31,0.45)` obsidian / gradient), 3 ערכי radius, צללים מומצאים מקומית, glassmorphism כבד לא-עקבי. אחרי: מערכת טוקנים אחת ב-`:root`.
 
 | טוקן | ערך | שימוש |
 |------|-----|--------|
-| `--bg` | `#050506` | shell |
-| `--surface-1..4` | `#0d0d0f / #141416 / #1c1c1f / #28282c` | היררכיית עומק |
-| `--text` / `--text-dim` / `--text-mute` | `#ECECEE / #8A8A90 / #56565C` | 3 רמות דיו לניגודיות |
-| `--accent` / `--accent-dim` / `--on-accent` | `#E8EAED / #B6BAC2 / #0A0A0B` | פלטינה — fill לכפתורים, דיו כהה עליהם |
-| `--danger` | `#C25B54` | אדום מעודן (היה `#ff453a`) |
-| `--type-a/b/c/free` | מופו ל-ink tones | **מנטרל את ה-rainbow אוטומטית** גם ב-JS שקורא `var(--type-*)` |
-| `--hairline/-hi`, `--top-glint`, `--elev-1..3` | ניטרלי | הפרדה + elevation, **אפס צל צבעוני** |
-| `--r-xs/sm/md/lg` | `8/10/12/16px` | סולם radius חד |
+| `--bg` | `#070708` | shell (היה `#0a0a0a`) |
+| `--surface-1..4` | `#101013 / #161619 / #1e1e22 / #26262c` | היררכיית עומק — ככל שגבוה יותר, בהיר יותר |
+| `--hairline` / `--hairline-hi` | `rgba(255,255,255,.06)` / `.10` | border + border-top ("אור מלמעלה") |
+| `--top-glint` | `inset 0 1px 0 rgba(255,255,255,.05)` | תפיסת אור עליונה |
+| `--elev-1..3` | צל ambient+key מדורג | elevation אחיד |
+| `--r-sm/md/lg/pill` | `14 / 20 / 28px / 9999px` | סולם radius אחיד |
 
-**עקרונות / מלכודות:**
-- **חוק מונוכרום:** אסור hex רווי hardcoded. צבע חדש = טוקן. כל glow/gradient צבעוני הוסר; success → פלטינה.
-- עומק מ-**surface hierarchy + hairline**, לא מ-blur/glow. כרטיסיות תוכן **solid**.
-- כפתור primary = **פלטינה fill + `--on-accent` כהה** (לא gradient). אם מוסיפים CTA — אותו דפוס.
-- `body::before` — vignette ניטרלי עדין; עומק ברמת המסך.
-- מיפוי `--type-*` ל-ink tones הוא ה-hook המרכזי: שינוי שם אחד מנטרל עשרות שימושים ב-JS. `meta.color` של תוכניות (בחירת משתמש) עדיין מכובד — רק הדיפולטים/פלטת הבחירה (`WORKOUT_COLORS`) עברו לטונים מונוכרומטיים.
-- אם צריך להחזיר הבחנה צבעונית בעתיד — לשנות את `--type-*` ב-`:root` בלבד.
+**עקרונות:**
+- עומק נבנה מ-**surface hierarchy + hairline + צל**, לא מ-blur. כרטיסיות תוכן הן **solid** (אין `backdrop-filter`).
+- glassmorphism נשמר **רק** ב-bottom sheets / modals (מרחפים מעל המסך) — `blur(20px)` עדין.
+- כפתורי CTA ראשיים (`.action-card`, `.freestyle-finish-btn`) שומרים צל **צבעוני** מכוון; כל שאר הצללים ניטרליים.
+- `body::before` — vignette רדיאלי קבוע (מקור אור עדין בראש המסך → שחור מוחלט בתחתית), עומק ברמת המסך.
+- טוקנים ישנים (`--card-bg`, `--ios-radius`, `--border`, `--border-hi`) **מופו מחדש** לטוקנים החדשים — שימושים קיימים לא נשברו.
 
 | מה | ערך |
 |----|-----|
-| כרטיסיות | `var(--surface-2)` solid, `--r-md` (12px), `--elev-1/2` |
-| פונט ראשי | Heebo/Inter, `600` כותרות (לא 900, לא italic), `rem` |
-| Pill buttons | `--surface-4`, `--r-pill`, `align-self: flex-start` |
+| כרטיסיות | `var(--surface-2)` solid, `var(--r-lg)` (28px), `--elev-2/3` |
+| פונט ראשי | Heebo 900 לכותרות, `rem` units |
+| Pill buttons | `#353535` / `--surface-4`, `border-radius: 9999px`, `align-self: flex-start` |
 | Freestyle card | `border: 2px dashed rgba(255,255,255,0.2)` |
 | Session strip | `height: 50px`, fixed bottom, `z-index: 199`, מוסתר מחוץ ל-workout flow |
 

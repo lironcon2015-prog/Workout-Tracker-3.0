@@ -700,7 +700,7 @@ function renderClusterItem(cluster, idx, list) {
             </div>
         </div>
         <div class="km-cluster-title-row km-cluster-title-row--${labelInfo.type}">
-            <span class="material-symbols-outlined" style="color:#5E5CE6;font-size:1.1rem;line-height:1;">hub</span>
+            <span class="material-symbols-outlined" style="color:#8A8A90;font-size:1.1rem;line-height:1;">hub</span>
             <span class="km-cluster-title">${labelInfo.title}</span>
             <span class="km-cluster-meta">${cluster.exercises.length} תרגילים</span>
             <span class="km-cluster-meta">${cluster.rounds} סבבים</span>
@@ -985,14 +985,15 @@ function openArchiveFromDrawer(timestamp) {
 
 // ─── WORKOUT COLOR SELECTION ───────────────────────────────────────────────
 
+// MONOLITH — tonal monochrome swatches (platinum → onyx)
 const WORKOUT_COLORS = [
-    { hex: '#0A84FF', name: 'Cobalt'   },
-    { hex: '#30D158', name: 'Emerald'  },
-    { hex: '#FF9F0A', name: 'Amber'    },
-    { hex: '#FF6B6B', name: 'Coral'    },
-    { hex: '#5AC8FA', name: 'Teal'     },
-    { hex: '#5E5CE6', name: 'Indigo'   },
-    { hex: '#98989D', name: 'Graphite' }
+    { hex: '#E8EAED', name: 'Platinum' },
+    { hex: '#B6BAC2', name: 'Silver'   },
+    { hex: '#8A8A90', name: 'Steel'    },
+    { hex: '#6A6A70', name: 'Graphite' },
+    { hex: '#56565C', name: 'Slate'    },
+    { hex: '#3A3A40', name: 'Onyx'     },
+    { hex: '#28282C', name: 'Carbon'   }
 ];
 
 let _selectedEditorColor = '';
@@ -1139,7 +1140,7 @@ function updateFirebaseStatus() {
             const when = new Date(sync.archiveAt).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
             html += sync.archiveOk
                 ? `<br><span style="color:var(--text-dim);font-size:0.85em;">&#10003; סונכרן: ${when}</span>`
-                : `<br><span style="color:#FF453A;font-weight:700;font-size:0.85em;">&#9888; הסנכרון האחרון נכשל (${when}) — גבה ידנית</span>`;
+                : `<br><span style="color:#C25B54;font-weight:700;font-size:0.85em;">&#9888; הסנכרון האחרון נכשל (${when}) — גבה ידנית</span>`;
         }
         el.innerHTML = html;
     } else {

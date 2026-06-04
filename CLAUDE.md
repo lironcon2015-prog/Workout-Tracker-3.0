@@ -58,21 +58,23 @@
 - Storage: LocalStorage דרך StorageManager
 - Offline First: אפס תלות בשרת, 0ms latency
 
-### שפה עיצובית — Liquid Obsidian
+### שפה עיצובית — MONOLITH (v15.82)
 
-האפליקציה עברה ממ-Glassmorphism גנרי ל-**Liquid Obsidian** — עיצוב ייחודי עם:
+האפליקציה עברה ל-**MONOLITH (Platinum Obsidian)** — מונוכרום יוקרתי, חד ומדויק. כל הצבע מנוהל דרך טוקנים ב-`:root`; **אין צבעים רוויים hardcoded** בקוד (פרט ל-`--danger #C25B54` המעודן).
 
 | מאפיין | ערך |
 |--------|-----|
-| רקע אפליקציה | `#0a0a0a` (שחור טהור כמעט) |
-| כרטיסיות אימון | `#1b1b1b` solid, `border-radius: 2rem` |
-| פונט | Heebo (Hebrew-first), `font-weight: 900` לכותרות |
-| כפתורי "pill" | `background: #353535`, `border-radius: 9999px`, `align-self: flex-start` |
-| תמונות תרגיל | 96×96px, `border-radius: 18px`, מ-Google LH3 |
+| רקע אפליקציה | `--bg #050506` + vignette ניטרלי עדין (`body::before`) |
+| Surfaces | `--surface-1..4` (`#0d0d0f → #28282c`) — עומק דרך היררכיית ערך, לא glow |
+| כרטיסיות | `var(--surface-2)` solid, `--r-md` (12px), `var(--top-glint), var(--elev-1/2)` |
+| אקסנט יחיד | **פלטינה `--accent #E8EAED`** — כפתורי primary (fill + `--on-accent` כהה), active, מספרים מרכזיים |
+| גיאומטריה | סולם חד: `--r-xs/sm/md/lg` = `8/10/12/16px` (היה 28-32px) |
+| טיפוגרפיה | Heebo/Inter, **בלי italic, בלי 900** — `600` לכותרות/מספרים, `400` לגוף; eyebrow labels קטנים (uppercase + tracking) בלבד |
+| גרפים/heatmap | מונוכרום: סולם אפורים + פלטינה (`COLORS`/`DONUT_COLORS`/`HEATMAP_MUSCLE_COLORS` ב-archive-logic.js) |
 | Freestyle card | `border: 2px dashed rgba(255,255,255,0.2)` |
-| Timer strip | 50px height, `justify-content: space-between`, dot פולסינג ירוק |
 | Session strip | קבוע בתחתית, `z-index: 199`, מוסתר מחוץ ל-flow |
 
+**חוק מונוכרום:** צבע חדש = דרך טוקן בלבד. אסור hardcoded hex רווי. success → פלטינה (לא ירוק); אקסנט רק במקום אחד מוצדק.
 **כלל RTL:** ב-`flex-direction: row` — `flex-start` = ימין ויזואלית, `flex-end` = שמאל ויזואלית.
 **כלל יחידות:** השתמש תמיד ב-`rem` (לא `em`) לטיפוגרפיה — `em` תלוי בהקשר ולא צפוי.
 
@@ -166,7 +168,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-15.81
+15.82
 
 ---
 

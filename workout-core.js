@@ -2867,7 +2867,7 @@ function buildSummaryUI() {
         ${cardsHtml}
 
         ${copyToggleHtml}
-        <button id="summary-save-btn" class="btn-main primary-gradient pulse" onclick="copyResult()" style="margin-top:10px;">שמור וסגור</button>
+        <button id="summary-save-btn" class="btn-main primary-gradient pulse" onclick="copyResult()" style="margin-top:10px;box-shadow: 0 15px 40px rgba(62,144,255,0.25), inset 0 1px 0 rgba(255,255,255,0.2);">שמור וסגור</button>
     `;
 
     area.innerHTML = html;

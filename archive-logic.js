@@ -1291,7 +1291,7 @@ function renderHeroMetricsGrid(archive) {
             <span class="material-symbols-outlined bento-icon-bg">schedule</span>
             <div class="bento-lbl">זמן כולל</div>
             <div class="bento-val font-headline italic-black" style="color:var(--text);">${Math.round(totalDurMins / 60)}<span class="inline-unit">שעות</span></div>
-            ${avgDur ? `<div class="bento-sub" style="color:#8A8A90;">ממוצע ${avgDur} דקות</div>` : ''}
+            ${avgDur ? `<div class="bento-sub" style="color:#47e266;">ממוצע ${avgDur} דקות</div>` : ''}
         </div>
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">calendar_today</span>
@@ -1366,7 +1366,7 @@ function renderWorkoutTypeChart(archive) {
 
     if (!entries.length) { el.innerHTML = '<p class="color-dim text-sm text-center">אין נתונים</p>'; return; }
     const maxAvg = Math.max(...entries.map(e => e.avg)) || 1;
-    const COLORS =['#E8EAED', '#B6BAC2', '#8A8A90', '#56565C', '#3A3A40'];
+    const COLORS =['#0A84FF', '#47e266', '#ffb868', '#5E5CE6', '#ff453a'];
 
     el.innerHTML = entries.map((e, i) => {
         const pct = (e.avg / maxAvg * 100).toFixed(1);
@@ -1624,7 +1624,7 @@ function _saveAliasGroup() {
 
 // ─── DONUT CHART ──────────────────────────────────────────────────────────
 
-const DONUT_COLORS =['#E8EAED', '#B6BAC2', '#8A8A90', '#56565C', '#3A3A40', '#2A2A2E'];
+const DONUT_COLORS =['#0A84FF', '#47e266', '#ffb868', '#BF5AF2', '#ff453a', '#AEAEB2'];
 
 function renderDonutChart(archive, range) {
     const svgEl = document.getElementById('donut-svg-el');
@@ -2012,11 +2012,11 @@ function drawMicroLineChart(vals, dates) {
         const tipY = Math.max(sy - 28, pad.t + 2);
 
         selectedOverlay = `
-            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" fill="#E8EAED" opacity="0.25"/>
-            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="#E8EAED"/>
+            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" fill="#0A84FF" opacity="0.25"/>
+            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="#0A84FF"/>
             <rect x="${(tipX - labelW / 2).toFixed(1)}" y="${(tipY - 10).toFixed(1)}"
                 width="${labelW.toFixed(1)}" height="17" rx="5"
-                fill="rgba(18,18,20,0.92)" stroke="#E8EAED" stroke-width="0.8"/>
+                fill="rgba(18,18,20,0.92)" stroke="#0A84FF" stroke-width="0.8"/>
             <text x="${tipX.toFixed(1)}" y="${(tipY + 3).toFixed(1)}"
                 fill="#fff" font-size="9.5" text-anchor="middle"
                 font-weight="700" font-family="-apple-system,Inter,sans-serif">${label}</text>`;
@@ -2025,14 +2025,14 @@ function drawMicroLineChart(vals, dates) {
     svg.innerHTML = `
         <defs>
             <linearGradient id="chart-grad" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="#E8EAED"></stop>
+                <stop offset="0%" stop-color="#0A84FF"></stop>
                 <stop offset="100%" stop-color="transparent"></stop>
             </linearGradient>
         </defs>
         <path d="${areaPath}" fill="url(#chart-grad)" opacity="0.25"></path>
-        <path d="${linePath}" fill="none" stroke="#E8EAED" stroke-width="4" stroke-linecap="round"></path>
-        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="6" fill="#E8EAED"></circle>
-        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="12" fill="none" stroke="#E8EAED" stroke-width="2" opacity="0.4"></circle>
+        <path d="${linePath}" fill="none" stroke="#0A84FF" stroke-width="4" stroke-linecap="round"></path>
+        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="6" fill="#0A84FF"></circle>
+        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="12" fill="none" stroke="#0A84FF" stroke-width="2" opacity="0.4"></circle>
         ${selectedOverlay}
     `;
 
@@ -2103,16 +2103,15 @@ function _linearRegression(pts) {
 // ─── HEATMAP ──────────────────────────────────────────────────────────
 
 // צבעים לפי שריר עיקרי — מציג בצורה ויזואלית מי "אכל" את היום
-// MONOLITH — monochrome heatmap: intensity encoded by opacity, all muscles platinum
 const HEATMAP_MUSCLE_COLORS = {
-    'חזה':       '#E8EAED',
-    'גב':        '#E8EAED',
-    'רגליים':    '#E8EAED',
-    'כתפיים':    '#E8EAED',
-    'ידיים':     '#E8EAED',
-    'בטן':       '#E8EAED',
-    'קליסטניקס': '#E8EAED',
-    '_mixed':    '#8A8A90'
+    'חזה':       '#ff453a',
+    'גב':        '#47e266',
+    'רגליים':    '#5E5CE6',
+    'כתפיים':    '#ffb868',
+    'ידיים':     '#0A84FF',
+    'בטן':       '#8E8E93',
+    'קליסטניקס': '#bf5af2',
+    '_mixed':    '#a8a8b3'
 };
 const HEATMAP_MAIN_MUSCLES = ['חזה', 'גב', 'רגליים', 'כתפיים', 'ידיים'];
 
@@ -2124,7 +2123,7 @@ function _fmtVolShort(v) {
 
 // Hex (#rrggbb) → rgba string עם alpha — שומר על טקסט בעוצמה מלאה
 function _hexToRGBA(hex, alpha) {
-    if (!hex || hex[0] !== '#' || hex.length !== 7) return `rgba(232,234,237,${alpha})`;
+    if (!hex || hex[0] !== '#' || hex.length !== 7) return `rgba(10,132,255,${alpha})`;
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
@@ -2238,7 +2237,7 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
                 const dom = _dominantMuscle(cell.breakdown);
                 baseColor = HEATMAP_MUSCLE_COLORS[dom] || HEATMAP_MUSCLE_COLORS._mixed;
             } else {
-                baseColor = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#E8EAED';
+                baseColor = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#0A84FF';
             }
             const bgRGBA = _hexToRGBA(baseColor, intensity);
             cellsHTML += `<div class="heatmap-cell has-vol" style="background:${bgRGBA};" data-vol="${Math.round(cell.vol)}" data-sets="${cell.sets}" data-date="${dStr}" data-bk='${JSON.stringify(cell.breakdown).replace(/'/g, "&#39;")}' onclick="_onHeatmapCellClick(this)"></div>`;
@@ -2291,7 +2290,7 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
                 `<span class="hm-leg-item"><span class="hm-leg-dot" style="background:${HEATMAP_MUSCLE_COLORS[m]}"></span>${m}</span>`
             ).join('') + `<span class="hm-leg-item"><span class="hm-leg-dot" style="background:${HEATMAP_MUSCLE_COLORS._mixed}"></span>מעורב</span>`;
         } else {
-            const c = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#E8EAED';
+            const c = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#0A84FF';
             legendEl.innerHTML = `
                 <span class="hm-leg-lbl">פחות</span>
                 <span class="hm-leg-grad">
@@ -2719,7 +2718,7 @@ const HOME_PR_EXERCISES = {
     bench: 'Bench Press (Main)',
     ohp:   'Overhead Press (Main)'
 };
-const HOME_PR_COLORS = { bench: '#E8EAED', ohp: '#B6BAC2' };
+const HOME_PR_COLORS = { bench: '#47e266', ohp: '#ffb868' };
 
 let _homePRCurrent = 'bench';
 let _homePRSelectedIdx = null;
@@ -2899,7 +2898,7 @@ function _homePRDrawChart(sessions, _all) {
     const prPt  = pts[prIdx];
     const labelY  = Math.max(prPt[1] - 14, pT - 2);
     const labelX  = Math.min(Math.max(prPt[0], 18), W - 18);
-    const colAlpha = 'rgba(232,234,237,0.18)';
+    const colAlpha = col === '#0A84FF' ? 'rgba(10,132,255,0.22)' : 'rgba(255,159,10,0.22)';
     const gradId   = 'hprg_' + _homePRCurrent;
 
     const dotsHtml = pts.map((p, i) => {

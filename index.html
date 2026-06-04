@@ -309,6 +309,7 @@
                     <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop" alt="Dark Gym">
                 </div>
                 <div class="hero-analytics-card" id="hero-card">
+                    <div class="hero-watermark">GYMPRO</div>
                     <button class="hero-edit-btn" onclick="openHeroSettings()">ערוך תצוגה</button>
                     <div class="hero-content">
                         <h2>מוכן לאימון?</h2>
@@ -387,22 +388,22 @@
                     <div class="settings-group-label">ניהול תוכנית</div>
                     <div class="stg-bento">
                         <button class="stg-nav-row" onclick="openWorkoutManager()">
-                            <div class="stg-icon" style="background:rgba(232,234,237,0.10);">
-                                <span class="material-symbols-outlined" style="color:var(--text-dim);font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">fitness_center</span>
+                            <div class="stg-icon" style="background:rgba(10,132,255,0.15);">
+                                <span class="material-symbols-outlined" style="color:#0A84FF;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">fitness_center</span>
                             </div>
                             <span class="stg-row-title">תוכניות אימון</span>
                             <span class="material-symbols-outlined stg-chevron">chevron_left</span>
                         </button>
                         <button class="stg-nav-row" onclick="openExerciseDatabase()">
-                            <div class="stg-icon" style="background:rgba(232,234,237,0.10);">
-                                <span class="material-symbols-outlined" style="color:var(--text-dim);font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">exercise</span>
+                            <div class="stg-icon" style="background:rgba(71,226,102,0.12);">
+                                <span class="material-symbols-outlined" style="color:#47e266;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">exercise</span>
                             </div>
                             <span class="stg-row-title">מאגר תרגילים</span>
                             <span class="material-symbols-outlined stg-chevron">chevron_left</span>
                         </button>
                         <button class="stg-nav-row stg-nav-row--last" onclick="openAnalyticsSettings()">
-                            <div class="stg-icon" style="background:rgba(232,234,237,0.10);">
-                                <span class="material-symbols-outlined" style="color:var(--text-dim);font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">analytics</span>
+                            <div class="stg-icon" style="background:rgba(255,159,10,0.12);">
+                                <span class="material-symbols-outlined" style="color:#FF9F0A;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">analytics</span>
                             </div>
                             <span class="stg-row-title">הגדרות אנליטיקה</span>
                             <span class="material-symbols-outlined stg-chevron">chevron_left</span>
@@ -436,7 +437,7 @@
                                 <div class="stg-row-title">חיבור Firebase</div>
                                 <div id="firebase-status" style="font-size:0.7rem;margin:4px 0 0;"></div>
                             </div>
-                            <span class="material-symbols-outlined" style="color:var(--text-dim);font-size:2rem;font-variation-settings:'FILL' 0,'wght' 300">cloud_done</span>
+                            <span class="material-symbols-outlined" style="color:#0A84FF;font-size:2rem;font-variation-settings:'FILL' 0,'wght' 300">cloud_done</span>
                         </button>
                         <div class="stg-cloud-upload">
                             <button class="cloud-btn upload full-w" style="border-radius:12px;" onclick="FirebaseManager.uploadAllToCloud()">⬆ העלה הכל לענן (ראשוני)</button>
@@ -445,11 +446,11 @@
                             <span class="stg-cloud-label">היסטוריה</span>
                             <div class="stg-cloud-btns">
                                 <button class="stg-cloud-btn" onclick="manualBackupArchive()">
-                                    <span class="material-symbols-outlined" style="color:var(--text-dim);font-size:0.95rem;">backup</span>
+                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
                                     <span>גבה</span>
                                 </button>
                                 <button class="stg-cloud-btn" onclick="FirebaseManager.loadArchiveFromCloud()">
-                                    <span class="material-symbols-outlined" style="color:var(--accent);font-size:0.95rem;">restore</span>
+                                    <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
                                     <span>שחזר</span>
                                 </button>
                             </div>
@@ -458,11 +459,11 @@
                             <span class="stg-cloud-label">קונפיגורציה</span>
                             <div class="stg-cloud-btns">
                                 <button class="stg-cloud-btn" onclick="manualBackupConfig()">
-                                    <span class="material-symbols-outlined" style="color:var(--text-dim);font-size:0.95rem;">backup</span>
+                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
                                     <span>גבה</span>
                                 </button>
                                 <button class="stg-cloud-btn" onclick="FirebaseManager.loadConfigFromCloud()">
-                                    <span class="material-symbols-outlined" style="color:var(--accent);font-size:0.95rem;">restore</span>
+                                    <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
                                     <span>שחזר</span>
                                 </button>
                             </div>
@@ -471,11 +472,11 @@
                             <span class="stg-cloud-label">שיחות AI</span>
                             <div class="stg-cloud-btns">
                                 <button class="stg-cloud-btn" onclick="FirebaseManager.saveAIHistoryToCloud().then(ok=>showAlert(ok?'היסטוריה גובתה לענן!':'שגיאה בגיבוי.'))">
-                                    <span class="material-symbols-outlined" style="color:var(--text-dim);font-size:0.95rem;">backup</span>
+                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
                                     <span>גבה</span>
                                 </button>
                                 <button class="stg-cloud-btn" onclick="FirebaseManager.loadAIHistoryFromCloud()">
-                                    <span class="material-symbols-outlined" style="color:var(--accent);font-size:0.95rem;">restore</span>
+                                    <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
                                     <span>שחזר</span>
                                 </button>
                             </div>
@@ -512,7 +513,7 @@
                         </div>
                         <button class="stg-ai-save" onclick="saveAISettings()">שמור הגדרות AI</button>
                         <button class="cloud-btn full-w" style="margin-top:4px;border-radius:12px;" onclick="openCoachPromptsSheet()">ערוך פרומפטים של סיכום</button>
-                        <button class="cloud-btn full-w" style="margin-top:4px;color:var(--danger);border-color:rgba(194,91,84,0.3);background:rgba(194,91,84,0.06);border-radius:12px;" onclick="clearAIHistory()">מחק היסטוריית שיחות</button>
+                        <button class="cloud-btn full-w" style="margin-top:4px;color:var(--danger);border-color:rgba(255,69,58,0.3);background:rgba(255,69,58,0.06);border-radius:12px;" onclick="clearAIHistory()">מחק היסטוריית שיחות</button>
                     </div>
                     <div class="ai-security-note" style="margin-top:6px;">המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן. מומלץ להגביל אותו ל-GitHub Pages שלך ב-Google Cloud Console.</div>
                 </div>
@@ -577,7 +578,7 @@
                         <div class="stg-sys-bar">
                             <div class="stg-sys-btns">
                                 <button id="btn-reload" class="stg-sys-btn" onclick="window.location.reload()">
-                                    <span class="material-symbols-outlined" style="color:var(--text-dim);font-size:1.1rem;">refresh</span>
+                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:1.1rem;">refresh</span>
                                     <span>רענן</span>
                                 </button>
                                 <div class="stg-sys-sep"></div>
@@ -818,7 +819,7 @@
                     </div>
                     <!-- Delta מהבלוק הקודם -->
                     <div id="rm-delta-row" class="rm-delta-pill" style="display:none;">
-                        <span class="material-symbols-outlined" style="font-size:0.9rem;color:var(--accent);line-height:1;">trending_up</span>
+                        <span class="material-symbols-outlined" style="font-size:0.9rem;color:#64fd7d;line-height:1;">trending_up</span>
                         <span id="rm-delta-text"></span>
                     </div>
                 </div>

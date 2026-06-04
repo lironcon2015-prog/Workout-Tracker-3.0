@@ -111,15 +111,24 @@ const _ACTIVITY_MULT = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.7
 const _TDEE_WINDOW = 28;          // ימים אחרונים לחישוב המדידה (יציבות מול רעש מים)
 const _KCAL_PER_KG = 7700;
 
-// רגרסיה לינארית — מחזיר שיפוע (יחידת v ליחידת t). points: [{t, v}]
-function _linRegSlope(points) {
+function _addDays(dateStr, n) {
+    const d = new Date(_blDTs(dateStr) + n * 86400000);
+    const p = x => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// רגרסיה לינארית — מחזיר {slope, rmse} (slope ביחידת v ליחידת t). points: [{t, v}]
+function _linReg(points) {
     const n = points.length;
     if (n < 2) return null;
     let sx = 0, sy = 0, sxx = 0, sxy = 0;
     points.forEach(p => { sx += p.t; sy += p.v; sxx += p.t * p.t; sxy += p.t * p.v; });
     const den = n * sxx - sx * sx;
     if (den === 0) return null;
-    return (n * sxy - sx * sy) / den;
+    const slope = (n * sxy - sx * sy) / den;
+    const intercept = (sy - slope * sx) / n;
+    const rmse = Math.sqrt(points.reduce((s, p) => { const e = p.v - (intercept + slope * p.t); return s + e * e; }, 0) / n);
+    return { slope, rmse };
 }
 
 /**
@@ -127,9 +136,6 @@ function _linRegSlope(points) {
  * עם reconciliation וטווח ביטחון. מחזיר null אם אין מספיק נתונים אפילו לתחזית.
  */
 function computeTDEE() {
-    const cutoff = _blCutoff(_TDEE_WINDOW);
-    const nutri = (StorageManager.getNutritionDaily() || []).filter(d => d.date >= cutoff);
-    const body  = (StorageManager.getBodyLog() || []).filter(e => e.date >= cutoff).sort((a, b) => a.date < b.date ? -1 : 1);
     const prof  = StorageManager.getBodyProfile();
     const mult  = _ACTIVITY_MULT[prof.activity] || 1.55;
 
@@ -151,35 +157,49 @@ function computeTDEE() {
         res.methods.push({ name: 'Mifflin-St Jeor', bmr: Math.round(mif), tdee: Math.round(mif * mult) });
     }
 
-    // --- מדידה (back-calc) — ה-gold standard ---
-    let measured = null, days = 0;
-    const spanDays = body.length ? (_blDTs(body[body.length - 1].date) - _blDTs(body[0].date)) / 86400000 : 0;
-    if (nutri.length >= 14 && body.length >= 6 && spanDays >= 14) {
-        const cleaned = _cleanNutriOutliers(nutri.map(d => ({ date: d.date, val: d.calories })));
+    // --- מדידה (back-calc) — מפולח לשלב התזונתי הנוכחי, מדלג על שבוע ראשון (מים) ---
+    let measured = null, days = 0, rmse = 0, noisy = false;
+    // תחילת חלון: 28 הימים האחרונים, אך לא לפני (תחילת השלב הנוכחי + 7 ימים)
+    let startDate = _blCutoff(_TDEE_WINDOW);
+    try {
+        const nlog = (typeof StorageManager.getNutritionLog === 'function') ? StorageManager.getNutritionLog() : null;
+        const phaseStart = (nlog && nlog.length) ? nlog[nlog.length - 1].startDate : null;
+        if (phaseStart) { const skip = _addDays(phaseStart, 7); if (skip > startDate) startDate = skip; }
+    } catch (e) { /* אין לוג מעברים — נשארים עם חלון 28 הימים */ }
+
+    const nutW = (StorageManager.getNutritionDaily() || []).filter(d => d.date >= startDate);
+    const bodW = (StorageManager.getBodyLog() || []).filter(e => e.date >= startDate).sort((a, b) => a.date < b.date ? -1 : 1);
+    const spanDays = bodW.length ? (_blDTs(bodW[bodW.length - 1].date) - _blDTs(bodW[0].date)) / 86400000 : 0;
+    if (nutW.length >= 10 && bodW.length >= 4 && spanDays >= 10) {
+        const cleaned = _cleanNutriOutliers(nutW.map(d => ({ date: d.date, val: d.calories })));
         const avgIntake = Math.round(cleaned.reduce((s, p) => s + p.val, 0) / cleaned.length);
-        const t0 = _blDTs(body[0].date);
-        const slope = _linRegSlope(body.map(e => ({ t: (_blDTs(e.date) - t0) / 86400000, v: e.weight }))); // ק"ג/יום
-        if (slope != null) {
-            measured = Math.round(avgIntake - slope * _KCAL_PER_KG);
+        const t0 = _blDTs(bodW[0].date);
+        const reg = _linReg(bodW.map(e => ({ t: (_blDTs(e.date) - t0) / 86400000, v: e.weight })));
+        if (reg) {
+            measured = Math.round(avgIntake - reg.slope * _KCAL_PER_KG);
+            rmse = reg.rmse;
             res.avgIntake = avgIntake;
-            res.weeklyKg = +(slope * 7).toFixed(2);
-            days = nutri.length;
-            res.methods.push({ name: 'מדידה (back-calc)', bmr: null, tdee: measured, note: `${days} ימים` });
+            res.weeklyKg = +(reg.slope * 7).toFixed(2);
+            days = nutW.length;
+            noisy = (rmse > 0.7) || (days < 14);           // מגמה רועשת / חלון קצר
+            // חסם שפיות — קצב בלתי-אפשרי = נתונים פגומים, אל תעגן עליו
+            if (Math.abs(res.weeklyKg) > 1.6) measured = null;
+            else res.methods.push({ name: 'מדידה (back-calc)', bmr: null, tdee: measured, note: `${days} ימים` });
         }
     }
 
     // --- reconciliation ---
     if (measured != null) {
-        const ci = 0.07;
+        const ci = noisy ? 0.12 : 0.07;
         res.best = measured;
         res.low = Math.round(measured * (1 - ci));
         res.high = Math.round(measured * (1 + ci));
-        res.confidence = 'גבוה';
+        res.confidence = noisy ? 'בינוני' : 'גבוה';
         res.source = 'מדידה';
-        res.uncertainty = 'דיוק הדיווח ב-MFP';
-        res.note = `מבוסס על ${days} ימי תזונה + מגמת משקל (${_TDEE_WINDOW} ימים אחרונים)`;
+        res.uncertainty = noisy ? 'מגמת משקל רועשת (מעבר שלב/כיול)' : 'דיוק הדיווח ב-MFP';
+        res.note = `מבוסס על ${days} ימי תזונה + מגמת משקל בשלב הנוכחי`;
         const preds = res.methods.filter(m => m.bmr != null).map(m => m.tdee);
-        if (preds.length && Math.max(...preds.map(p => Math.abs(p - measured) / measured)) > 0.15) res.diverge = true;
+        if (preds.length && Math.max(...preds.map(p => Math.abs(p - measured) / measured)) > 0.18) res.diverge = true;
     } else {
         const preds = res.methods.map(m => m.tdee).sort((a, b) => a - b);
         if (!preds.length) return null;

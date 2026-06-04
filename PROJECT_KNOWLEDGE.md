@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.79
+## גרסה נוכחית: 15.81
 
 ---
 
@@ -46,13 +46,31 @@
 
 ---
 
-## שפה עיצובית — Liquid Obsidian
+## שפה עיצובית — Liquid Obsidian → Deep Obsidian (v15.81)
+
+**v15.81 — מערכת surface אחידה.** לפני: 4+ רקעי כרטיסיות מתחרים (`rgba(31,31,31,0.55)` glass / `#1b1b1b` solid / `rgba(31,31,31,0.45)` obsidian / gradient), 3 ערכי radius, צללים מומצאים מקומית, glassmorphism כבד לא-עקבי. אחרי: מערכת טוקנים אחת ב-`:root`.
+
+| טוקן | ערך | שימוש |
+|------|-----|--------|
+| `--bg` | `#070708` | shell (היה `#0a0a0a`) |
+| `--surface-1..4` | `#101013 / #161619 / #1e1e22 / #26262c` | היררכיית עומק — ככל שגבוה יותר, בהיר יותר |
+| `--hairline` / `--hairline-hi` | `rgba(255,255,255,.06)` / `.10` | border + border-top ("אור מלמעלה") |
+| `--top-glint` | `inset 0 1px 0 rgba(255,255,255,.05)` | תפיסת אור עליונה |
+| `--elev-1..3` | צל ambient+key מדורג | elevation אחיד |
+| `--r-sm/md/lg/pill` | `14 / 20 / 28px / 9999px` | סולם radius אחיד |
+
+**עקרונות:**
+- עומק נבנה מ-**surface hierarchy + hairline + צל**, לא מ-blur. כרטיסיות תוכן הן **solid** (אין `backdrop-filter`).
+- glassmorphism נשמר **רק** ב-bottom sheets / modals (מרחפים מעל המסך) — `blur(20px)` עדין.
+- כפתורי CTA ראשיים (`.action-card`, `.freestyle-finish-btn`) שומרים צל **צבעוני** מכוון; כל שאר הצללים ניטרליים.
+- `body::before` — vignette רדיאלי קבוע (מקור אור עדין בראש המסך → שחור מוחלט בתחתית), עומק ברמת המסך.
+- טוקנים ישנים (`--card-bg`, `--ios-radius`, `--border`, `--border-hi`) **מופו מחדש** לטוקנים החדשים — שימושים קיימים לא נשברו.
 
 | מה | ערך |
 |----|-----|
-| כרטיסיות | `#1b1b1b solid`, `border-radius: 2rem` |
+| כרטיסיות | `var(--surface-2)` solid, `var(--r-lg)` (28px), `--elev-2/3` |
 | פונט ראשי | Heebo 900 לכותרות, `rem` units |
-| Pill buttons | `#353535`, `border-radius: 9999px`, `align-self: flex-start` |
+| Pill buttons | `#353535` / `--surface-4`, `border-radius: 9999px`, `align-self: flex-start` |
 | Freestyle card | `border: 2px dashed rgba(255,255,255,0.2)` |
 | Session strip | `height: 50px`, fixed bottom, `z-index: 199`, מוסתר מחוץ ל-workout flow |
 

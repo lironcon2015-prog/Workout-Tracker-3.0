@@ -5215,6 +5215,21 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-nutri-reset:active { opacity: 0.6; }
 /* גיבוי/ייצוא בתחתית מסך הארכיון */
 .archive-backup-bottom { margin-top: 28px; }
+
+/* ── כרטיס TDEE / מאזן אנרגיה ── */
+.bl-tdee-hero { font-size: 2.1rem; font-weight: 900; color: var(--text); line-height: 1.05; margin-top: 4px; }
+.bl-tdee-unit { font-size: 0.7rem; font-weight: 600; color: var(--text-dim); margin-right: 4px; }
+.bl-tdee-range { font-size: 0.72rem; color: var(--text-dim); margin-top: 3px; }
+.bl-tdee-balance { font-size: 0.74rem; color: var(--type-b); font-weight: 700; margin-top: 8px; }
+.bl-tdee-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.72rem; }
+.bl-tdee-table th { color: var(--text-dim); font-weight: 700; text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.bl-tdee-table td { color: var(--text); padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.bl-tdee-table td:nth-child(2), .bl-tdee-table td:nth-child(3) { font-weight: 800; font-variant-numeric: tabular-nums; }
+.bl-tdee-warn { margin-top: 8px; font-size: 0.7rem; font-weight: 700; color: var(--danger, #ff453a); }
+.bl-tdee-targets { display: flex; gap: 8px; margin-top: 12px; }
+.bl-tdee-targets > div { flex: 1; background: #111; border-radius: 12px; padding: 9px 4px; text-align: center; }
+.bl-tdee-targets span { display: block; font-size: 0.62rem; color: var(--text-dim); }
+.bl-tdee-targets b { font-size: 0.95rem; font-weight: 900; color: var(--text); }
 .bl-plot { position: relative; height: 170px; padding-right: 32px; }
 .bl-svg { width: 100%; height: 100%; display: block; }
 .bl-yaxis { position: absolute; top: 0; bottom: 0; right: 0; width: 32px; pointer-events: none; }

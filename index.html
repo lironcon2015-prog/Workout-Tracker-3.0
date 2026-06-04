@@ -536,6 +536,41 @@
                     <div class="ai-security-note" style="margin-top:6px;">הגשר רץ בחשבון ה-Gmail שלך (Google Apps Script) ומושך את ייצוא ה-MyFitnessPal האחרון. ה-token נשמר מקומית בלבד. הכפתור לייבוא נמצא במסך Composition.</div>
                 </div>
 
+                <!-- IV-c. פרופיל גוף (TDEE) -->
+                <div class="settings-group">
+                    <div class="settings-group-label">פרופיל גוף (חישוב TDEE)</div>
+                    <div class="stg-bento stg-ai-bento">
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">מין</label>
+                            <select id="bp-sex-input" class="stg-ai-input">
+                                <option value="">לא צוין</option>
+                                <option value="male">זכר</option>
+                                <option value="female">נקבה</option>
+                            </select>
+                        </div>
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">גיל</label>
+                            <input type="number" id="bp-age-input" class="stg-ai-input" inputmode="numeric" placeholder="שנים">
+                        </div>
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">גובה (ס"מ)</label>
+                            <input type="number" id="bp-height-input" class="stg-ai-input" inputmode="numeric" placeholder="ס&quot;מ">
+                        </div>
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">רמת פעילות</label>
+                            <select id="bp-activity-input" class="stg-ai-input">
+                                <option value="sedentary">יושבני (1.2)</option>
+                                <option value="light">קל (1.375)</option>
+                                <option value="moderate" selected>מתון (1.55)</option>
+                                <option value="very">גבוה (1.725)</option>
+                                <option value="extra">קיצוני (1.9)</option>
+                            </select>
+                        </div>
+                        <button class="stg-ai-save" onclick="saveBodyProfileSettings()">שמור פרופיל גוף</button>
+                    </div>
+                    <div class="ai-security-note" style="margin-top:6px;">משמש לחישוב TDEE (נוסחת Mifflin ומכפיל פעילות). Katch-McArdle והמדידה בפועל עובדים גם בלי זה — לפי משקל, אחוז שומן ותזונה.</div>
+                </div>
+
                 <!-- V. מערכת -->
                 <div class="settings-group">
                     <div class="settings-group-label">מערכת</div>
@@ -1337,6 +1372,9 @@
                 <!-- ========== תצוגת תזונה (MyFitnessPal) ========== -->
                 <div id="bl-view-nutrition" style="display:none;">
                     <div class="bl-chart-card" id="bl-nutrition-card"></div>
+
+                    <!-- מאזן אנרגיה / TDEE — מנוע רב-שיטתי -->
+                    <div class="bl-chart-card" id="bl-tdee-card"></div>
 
                     <div class="bl-chart-card" id="bl-cal-card">
                         <div class="bl-chart-title">קלוריות (kcal) <small>— קו מקווקו = ממוצע נע</small></div>

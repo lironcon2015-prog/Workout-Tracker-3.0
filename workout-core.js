@@ -853,6 +853,7 @@ function openSettings() {
     if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
     if (typeof updateAIStatus === 'function') updateAIStatus();
     if (typeof updateMfpBridgeStatus === 'function') updateMfpBridgeStatus();
+    if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
 }
@@ -3632,6 +3633,19 @@ function _buildBodylogAIContext(slim) {
     return s;
 }
 
+// _buildTdeeAIContext — מאזן אנרגיה מחושב (TDEE + טווח + קצב) לעיגון המלצות ה-AI.
+function _buildTdeeAIContext() {
+    if (typeof computeTDEE !== 'function') return '';
+    let t;
+    try { t = computeTDEE(); } catch (e) { return ''; }
+    if (!t || t.best == null) return '';
+    let s = `\n=== מאזן אנרגיה / TDEE (מחושב מהנתונים) ===\n`;
+    s += `TDEE מוערך: ${t.best} קק"ל/יום (טווח ${t.low}–${t.high}, ביטחון ${t.confidence}, מקור: ${t.source})\n`;
+    if (t.weeklyKg != null) s += `קצב משקל נוכחי: ${t.weeklyKg >= 0 ? '+' : ''}${t.weeklyKg} ק"ג/שבוע · צריכה ממוצעת ${t.avgIntake} קק"ל\n`;
+    s += `אי-ודאות עיקרית: ${t.uncertainty}. התייחס לזה כעוגן והצג כהערכה (לא כמספר מוחלט).\n`;
+    return s;
+}
+
 /**
  * buildSystemPrompt — מרכיב את ה-System Instruction המלא לכל קריאת API.
  */
@@ -3669,6 +3683,7 @@ function buildSystemPrompt(opts = {}) {
     // נתוני תזונה בפועל (MyFitnessPal) + שקילות — לניתוח קלורי/מאקרו ומגמת משקל
     prompt += _buildNutritionAIContext(slim);
     prompt += _buildBodylogAIContext(slim);
+    prompt += _buildTdeeAIContext();
 
     // מצב נוכחי
     prompt += `\n=== מצב נוכחי ===\n`;
@@ -4298,6 +4313,32 @@ function updateMfpBridgeStatus() {
     } else {
         el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
     }
+}
+
+// ─── פרופיל גוף (TDEE) ───────────────────────────────────────────────────────
+function saveBodyProfileSettings() {
+    const sex = (document.getElementById('bp-sex-input') || {}).value || '';
+    const ageRaw = (document.getElementById('bp-age-input') || {}).value || '';
+    const hRaw = (document.getElementById('bp-height-input') || {}).value || '';
+    const activity = (document.getElementById('bp-activity-input') || {}).value || 'moderate';
+    const age = ageRaw === '' ? null : parseInt(ageRaw, 10);
+    const height = hRaw === '' ? null : parseFloat(hRaw);
+    if (age != null && (!(age > 0) || age > 120)) { showAlert('גיל לא תקין.'); return; }
+    if (height != null && (!(height > 80) || height > 250)) { showAlert('גובה לא תקין (ס"מ).'); return; }
+    StorageManager.saveBodyProfile({ sex, age, height, activity });
+    if (typeof FirebaseManager !== 'undefined') FirebaseManager.saveConfigToCloud().catch(() => {});
+    if (typeof _renderTdeeCard === 'function') _renderTdeeCard();
+    showAlert('פרופיל הגוף נשמר!');
+}
+
+function updateBodyProfileStatus() {
+    const p = StorageManager.getBodyProfile();
+    const set = (id, v) => { const el = document.getElementById(id); if (el && (el.value === '' || el.value == null)) el.value = v; };
+    if (p.sex) set('bp-sex-input', p.sex);
+    if (p.age != null) set('bp-age-input', p.age);
+    if (p.height != null) set('bp-height-input', p.height);
+    const act = document.getElementById('bp-activity-input');
+    if (act && p.activity) act.value = p.activity;
 }
 
 /**

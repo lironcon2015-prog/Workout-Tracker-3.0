@@ -22,6 +22,7 @@ const StorageManager = {
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
     KEY_NUTRITION_DAILY: 'gympro_nutrition_daily',   // ייבוא MFP — קלוריות/מאקרו לפי יום
     KEY_NUTRITION_RAW:   'gympro_nutrition_raw',      // הקובץ הגולמי המקורי (שורה לכל ארוחה)
+    KEY_BODY_PROFILE:    'gympro_body_profile',        // מין/גיל/גובה/רמת פעילות — לחישוב TDEE
     KEY_MFP_BRIDGE_URL:   'gympro_mfp_bridge_url',    // Apps Script Web App URL
     KEY_MFP_BRIDGE_TOKEN: 'gympro_mfp_bridge_token',  // token סודי לגשר
     KEY_BODYLOG:      'gympro_bodylog',
@@ -350,6 +351,7 @@ const StorageManager = {
             nutritionLog: this.getNutritionLog(),
             nutritionDaily: this.getNutritionDaily(),
             nutritionRaw: this.getNutritionRaw(),
+            bodyProfile: this.getBodyProfile(),
             bodylog: this.getBodyLog(),
             analyticsPrefs: {
                 heroMetrics:        prefs.heroMetrics,
@@ -397,6 +399,7 @@ const StorageManager = {
             if (data.nutritionLog)   this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) this.saveData(this.KEY_NUTRITION_DAILY, data.nutritionDaily);
             if (data.nutritionRaw)   this.saveData(this.KEY_NUTRITION_RAW, data.nutritionRaw);
+            if (data.bodyProfile)    this.saveData(this.KEY_BODY_PROFILE, data.bodyProfile);
             if (data.bodylog)        this.saveData(this.KEY_BODYLOG, data.bodylog);
             showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
         });
@@ -468,6 +471,16 @@ const StorageManager = {
         const merged = kept.concat(incoming.rows)
             .sort((a, b) => (String(a[di] || '') < String(b[di] || '') ? -1 : 1));
         this.saveData(this.KEY_NUTRITION_RAW, { header: incoming.header, rows: merged, dateIdx: di });
+    },
+
+    // ── פרופיל גוף (TDEE) ────────────────────────────────────────────────
+    getBodyProfile() {
+        return this.getData(this.KEY_BODY_PROFILE) || { sex: '', age: null, height: null, activity: 'moderate' };
+    },
+
+    saveBodyProfile(p) {
+        const cur = this.getBodyProfile();
+        this.saveData(this.KEY_BODY_PROFILE, Object.assign({}, cur, p));
     },
 
     getMfpBridge() {
@@ -882,6 +895,7 @@ const FirebaseManager = {
                 nutrition:      StorageManager.getNutritionalState(),
                 nutritionLog:   StorageManager.getNutritionLog(),
                 nutritionDaily: StorageManager.getNutritionDaily(),
+                bodyProfile:    StorageManager.getBodyProfile(),
                 bodylog:        StorageManager.getBodyLog(),
                 coachPrompts:   StorageManager.getData(StorageManager.KEY_COACH_PROMPTS) || {},
                 updatedAt:      Date.now()
@@ -913,6 +927,7 @@ const FirebaseManager = {
             if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
             if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
+            if (data.bodyProfile)    StorageManager.saveData(StorageManager.KEY_BODY_PROFILE, data.bodyProfile);
             if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
             if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
             await this._loadNutritionRawSilent();   // הקובץ הגולמי מסונכרן ב-chunks נפרדים

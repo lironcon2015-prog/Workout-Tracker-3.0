@@ -233,7 +233,7 @@ function _renderTdeeCard() {
     const balance = (t.weeklyKg != null)
         ? `<div class="bl-tdee-balance">קצב נוכחי: ${t.weeklyKg >= 0 ? '+' : ''}${t.weeklyKg} ק"ג/שבוע · צריכה ממוצעת ${fmt(t.avgIntake)} קק"ל</div>` : '';
     card.innerHTML = `
-        <div class="bl-chart-title">מאזן אנרגיה · TDEE <small>— ${t.confidence} ביטחון · ${t.source}</small></div>
+        <div class="bl-chart-title">מאזן אנרגיה · TDEE <small>— ביטחון ${t.confidence} · ${t.source}</small></div>
         <div class="bl-tdee-hero">${fmt(t.best)}<span class="bl-tdee-unit">קק"ל/יום</span></div>
         <div class="bl-tdee-range">טווח ${fmt(t.low)}–${fmt(t.high)} · אי-ודאות: ${t.uncertainty}</div>
         ${balance}

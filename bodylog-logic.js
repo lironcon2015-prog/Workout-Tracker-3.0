@@ -555,6 +555,7 @@ function _drawBlChart(svgId, datesId, yaxisId, points, withMA, unit) {
 
 // _blAttachTap — רושם מאזין לחיצה/מגע פעם אחת לכל svg; ממפה X→index קרוב ומרענן.
 function _blAttachTap(svg, svgId) {
+    _blInitOutsideClear();
     if (svg.dataset.tapBound) return;
     svg.dataset.tapBound = '1';
     const onTap = (ev) => {
@@ -572,6 +573,24 @@ function _blAttachTap(svg, svgId) {
     };
     svg.addEventListener('click', onTap);
     svg.addEventListener('touchstart', onTap, { passive: true });
+}
+
+// _blInitOutsideClear — לחיצה מחוץ לגרף מנקה את הנקודה הנבחרת בכל הגרפים (חזרה לגרף נקי).
+let _blOutsideBound = false;
+function _blInitOutsideClear() {
+    if (_blOutsideBound) return;
+    _blOutsideBound = true;
+    const clear = (ev) => {
+        if (ev.target && ev.target.closest && ev.target.closest('.bl-plot')) return; // נגיעה בתוך גרף — לא לנקות
+        Object.keys(_blSel).forEach(svgId => {
+            if (_blSel[svgId] != null && _blSel[svgId] >= 0) {
+                delete _blSel[svgId];
+                if (_blRedraw[svgId]) _blRedraw[svgId]();
+            }
+        });
+    };
+    document.addEventListener('click', clear);
+    document.addEventListener('touchstart', clear, { passive: true });
 }
 
 // _blRenderTip — תווית HTML צפה מעל הנקודה הנבחרת (חדה, לא מעוותת ע"י מתיחת ה-SVG).

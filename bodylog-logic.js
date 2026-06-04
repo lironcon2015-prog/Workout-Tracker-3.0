@@ -101,8 +101,130 @@ function _blFilter(log) {
 function _renderNutritionView() {
     const all = StorageManager.getNutritionDaily();
     _renderNutritionCard(all);
+    _renderTdeeCard();
     _renderNutritionCharts(all);
     _renderNutritionList(all);
+}
+
+// ─── מנוע TDEE / מאזן אנרגיה ─────────────────────────────────────────────────
+const _ACTIVITY_MULT = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.725, extra: 1.9 };
+const _TDEE_WINDOW = 28;          // ימים אחרונים לחישוב המדידה (יציבות מול רעש מים)
+const _KCAL_PER_KG = 7700;
+
+// רגרסיה לינארית — מחזיר שיפוע (יחידת v ליחידת t). points: [{t, v}]
+function _linRegSlope(points) {
+    const n = points.length;
+    if (n < 2) return null;
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    points.forEach(p => { sx += p.t; sy += p.v; sxx += p.t * p.t; sxy += p.t * p.v; });
+    const den = n * sxx - sx * sx;
+    if (den === 0) return null;
+    return (n * sxy - sx * sy) / den;
+}
+
+/**
+ * computeTDEE — מנוע רב-שיטתי: מדידה (back-calc) + Katch-McArdle + Cunningham + Mifflin,
+ * עם reconciliation וטווח ביטחון. מחזיר null אם אין מספיק נתונים אפילו לתחזית.
+ */
+function computeTDEE() {
+    const cutoff = _blCutoff(_TDEE_WINDOW);
+    const nutri = (StorageManager.getNutritionDaily() || []).filter(d => d.date >= cutoff);
+    const body  = (StorageManager.getBodyLog() || []).filter(e => e.date >= cutoff).sort((a, b) => a.date < b.date ? -1 : 1);
+    const prof  = StorageManager.getBodyProfile();
+    const mult  = _ACTIVITY_MULT[prof.activity] || 1.55;
+
+    const res = { methods: [], best: null, low: null, high: null, confidence: '', source: '', uncertainty: '', weeklyKg: null, avgIntake: null, note: '', diverge: false };
+
+    // --- שיטות תחזית (מבוססות מסת גוף רזה / נוסחה) ---
+    const allBody = (StorageManager.getBodyLog() || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    const latest = allBody[allBody.length - 1];
+    let lbm = null;
+    if (latest && latest.weight && latest.bodyFat != null) {
+        lbm = latest.weight * (1 - latest.bodyFat / 100);
+        const katch = 370 + 21.6 * lbm;
+        const cunn  = 500 + 22 * lbm;
+        res.methods.push({ name: 'Katch-McArdle', bmr: Math.round(katch), tdee: Math.round(katch * mult) });
+        res.methods.push({ name: 'Cunningham',    bmr: Math.round(cunn),  tdee: Math.round(cunn * mult) });
+    }
+    if (latest && latest.weight && prof.sex && prof.age && prof.height) {
+        const mif = 10 * latest.weight + 6.25 * prof.height - 5 * prof.age + (prof.sex === 'male' ? 5 : -161);
+        res.methods.push({ name: 'Mifflin-St Jeor', bmr: Math.round(mif), tdee: Math.round(mif * mult) });
+    }
+
+    // --- מדידה (back-calc) — ה-gold standard ---
+    let measured = null, days = 0;
+    const spanDays = body.length ? (_blDTs(body[body.length - 1].date) - _blDTs(body[0].date)) / 86400000 : 0;
+    if (nutri.length >= 14 && body.length >= 6 && spanDays >= 14) {
+        const cleaned = _cleanNutriOutliers(nutri.map(d => ({ date: d.date, val: d.calories })));
+        const avgIntake = Math.round(cleaned.reduce((s, p) => s + p.val, 0) / cleaned.length);
+        const t0 = _blDTs(body[0].date);
+        const slope = _linRegSlope(body.map(e => ({ t: (_blDTs(e.date) - t0) / 86400000, v: e.weight }))); // ק"ג/יום
+        if (slope != null) {
+            measured = Math.round(avgIntake - slope * _KCAL_PER_KG);
+            res.avgIntake = avgIntake;
+            res.weeklyKg = +(slope * 7).toFixed(2);
+            days = nutri.length;
+            res.methods.push({ name: 'מדידה (back-calc)', bmr: null, tdee: measured, note: `${days} ימים` });
+        }
+    }
+
+    // --- reconciliation ---
+    if (measured != null) {
+        const ci = 0.07;
+        res.best = measured;
+        res.low = Math.round(measured * (1 - ci));
+        res.high = Math.round(measured * (1 + ci));
+        res.confidence = 'גבוה';
+        res.source = 'מדידה';
+        res.uncertainty = 'דיוק הדיווח ב-MFP';
+        res.note = `מבוסס על ${days} ימי תזונה + מגמת משקל (${_TDEE_WINDOW} ימים אחרונים)`;
+        const preds = res.methods.filter(m => m.bmr != null).map(m => m.tdee);
+        if (preds.length && Math.max(...preds.map(p => Math.abs(p - measured) / measured)) > 0.15) res.diverge = true;
+    } else {
+        const preds = res.methods.map(m => m.tdee).sort((a, b) => a - b);
+        if (!preds.length) return null;
+        const mid = preds.length % 2 ? preds[(preds.length - 1) / 2] : Math.round((preds[preds.length / 2 - 1] + preds[preds.length / 2]) / 2);
+        const ci = (lbm != null) ? 0.10 : 0.15;
+        res.best = mid;
+        res.low = Math.round(mid * (1 - ci));
+        res.high = Math.round(mid * (1 + ci));
+        res.confidence = (lbm != null) ? 'בינוני' : 'נמוך';
+        res.source = 'תחזית';
+        res.uncertainty = 'מכפיל הפעילות';
+        res.note = 'תחזית מנוסחאות — ל-≥14 ימי תזונה+שקילות תתקבל מדידה מדויקת';
+    }
+    return res;
+}
+
+function _renderTdeeCard() {
+    const card = document.getElementById('bl-tdee-card');
+    if (!card) return;
+    const t = computeTDEE();
+    if (!t) {
+        card.innerHTML = `<div class="bl-chart-title">מאזן אנרגיה · TDEE</div>
+            <p class="bl-nutri-hint">צריך עוד נתונים: שקילה עם אחוז שומן (לתחזית מיידית) או ≥14 ימי תזונה+שקילות (למדידה מדויקת). אפשר גם להוסיף מין/גיל/גובה בהגדרות.</p>`;
+        return;
+    }
+    const fmt = n => Math.round(n).toLocaleString('he-IL');
+    const rows = t.methods.map(m =>
+        `<tr><td>${m.name}</td><td>${m.bmr != null ? fmt(m.bmr) : '—'}</td><td>${fmt(m.tdee)}</td><td>${m.note || ''}</td></tr>`).join('');
+    const cut = t.best - 550;        // גירעון ל-~0.5 ק"ג/שבוע
+    const bulk = t.best + 275;       // עודף ל-~0.25 ק"ג/שבוע
+    const balance = (t.weeklyKg != null)
+        ? `<div class="bl-tdee-balance">קצב נוכחי: ${t.weeklyKg >= 0 ? '+' : ''}${t.weeklyKg} ק"ג/שבוע · צריכה ממוצעת ${fmt(t.avgIntake)} קק"ל</div>` : '';
+    card.innerHTML = `
+        <div class="bl-chart-title">מאזן אנרגיה · TDEE <small>— ${t.confidence} ביטחון · ${t.source}</small></div>
+        <div class="bl-tdee-hero">${fmt(t.best)}<span class="bl-tdee-unit">קק"ל/יום</span></div>
+        <div class="bl-tdee-range">טווח ${fmt(t.low)}–${fmt(t.high)} · אי-ודאות: ${t.uncertainty}</div>
+        ${balance}
+        <table class="bl-tdee-table"><thead><tr><th>שיטה</th><th>BMR</th><th>TDEE</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+        ${t.diverge ? `<div class="bl-tdee-warn">⚠ השיטות סוטות &gt;15% זו מזו — ייתכן דיווח לא עקבי</div>` : ''}
+        <div class="bl-tdee-targets">
+            <div><span>תחזוקה</span><b>${fmt(t.best)}</b></div>
+            <div><span>ירידה ~0.5/שב'</span><b>${fmt(cut)}</b></div>
+            <div><span>עלייה ~0.25/שב'</span><b>${fmt(bulk)}</b></div>
+        </div>
+        <div class="bl-nutri-foot">${t.note}</div>`;
 }
 
 function _renderNutritionCard(allDays) {

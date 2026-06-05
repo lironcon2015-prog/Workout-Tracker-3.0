@@ -3099,26 +3099,34 @@ function _rangeLabelText() {
     return 'טווח נבחר';
 }
 
-// _downloadClaudeFile — בונה קובץ markdown ומוריד אותו.
+// _downloadClaudeFile — בונה קובץ JSON של לוג האימונים ומוריד אותו.
+// מכבד את מתג "כלול סיכומי מאמן": כשהוא כבוי — שדה aiSummary מוסר מכל רשומה.
 function _downloadClaudeFile(items, scopeLabel, scopeSlug) {
     if (!items.length) { showAlert('אין אימונים לייצוא'); return; }
     var withCoach = StorageManager.getArchiveCopyCoach();
-    var body = items.map(function(item) { return _archiveCopyText(item); })
-                    .join("\n\n========================================\n\n");
-    var header = 'GYMPRO ELITE — לוג אימונים לקלוד\n' +
-                 'טווח: ' + scopeLabel + '\n' +
-                 'אימונים: ' + items.length + '\n' +
-                 'סיכומי מאמן: ' + (withCoach ? 'כלולים' : 'לא כלולים') + '\n' +
-                 'הופק: ' + new Date().toLocaleDateString('he-IL') + '\n\n' +
-                 '========================================\n\n';
-    var blob = new Blob(['﻿' + header + body], { type: 'text/markdown;charset=utf-8;' });
+    var workouts = items.slice()
+        .sort(function(a, b) { return a.timestamp - b.timestamp; }) // כרונולוגי — עולה
+        .map(function(item) {
+            var clone = JSON.parse(JSON.stringify(item));
+            if (!withCoach) delete clone.aiSummary;
+            return clone;
+        });
+    var payload = {
+        app: 'GYMPRO ELITE',
+        scope: scopeLabel,
+        workouts_count: workouts.length,
+        includes_coach_summary: withCoach,
+        generated: new Date().toISOString(),
+        workouts: workouts
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'gympro_claude_' + scopeSlug + '_' + new Date().toISOString().slice(0, 10) + '.md';
+    a.download = 'gympro_claude_' + scopeSlug + '_' + new Date().toISOString().slice(0, 10) + '.json';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
     haptic('success');
-    showAlert('נוצר קובץ לקלוד · ' + items.length + ' אימונים' + (withCoach ? ' (כולל סיכומי מאמן)' : ' (ללא סיכומי מאמן)'));
+    showAlert('נוצר קובץ JSON לקלוד · ' + workouts.length + ' אימונים' + (withCoach ? ' (כולל סיכומי מאמן)' : ' (ללא סיכומי מאמן)'));
 }
 
 // exportClaudeFile — ברירת המחדל: כל הלוג.

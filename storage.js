@@ -978,6 +978,7 @@ const FirebaseManager = {
             const history = StorageManager.getAIHistory();
             await this._db.collection('gympro_data').doc('ai_history').set({
                 messages: history,
+                coachMemory: StorageManager.getCoachMemory(),
                 updatedAt: Date.now()
             });
             return true;
@@ -999,6 +1000,7 @@ const FirebaseManager = {
                 return;
             }
             StorageManager.saveAIHistory(doc.data().messages);
+            if (doc.data().coachMemory) StorageManager.setCoachMemory(doc.data().coachMemory);
             showAlert('היסטוריית שיחות שוחזרה!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);

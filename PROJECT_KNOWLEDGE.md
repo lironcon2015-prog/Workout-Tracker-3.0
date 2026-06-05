@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.85
+## גרסה נוכחית: 15.87
 
 ---
 
@@ -101,7 +101,8 @@
 ### זיכרון מאמן — קונטקסט ארוך-טווח (v15.86)
 המאמן זוכר תובנות מעבר לחלון ה-10 הודעות, **בלי לפגוע במהירות התגובה** (כל התוספת היא צד-קלט / רקע).
 - **#1 ניתוחים קודמים:** `_buildCondensedCoachSummaries(2, 800)` מזריק ל-`buildSystemPrompt` את 2 סיכומי המאמן האחרונים (`aiSummary`), מקוצרים ל-~800 תווים. צד-קלט בלבד → השפעה זניחה על latency.
-- **#2 זיכרון מתגלגל:** `KEY_COACH_MEMORY` (`{text, coveredLen, updatedAt}`, מקומי בלבד — cache מתחדש). `_coachMemorySection()` מזריק אותו ל-`buildSystemPrompt`. הרענון (`_updateCoachMemory`) רץ **ברקע, off-critical-path** — מופעל ע"י `_maybeUpdateCoachMemory()` אחרי הצגת התשובה, רק כשנצברו ≥`COACH_MEMORY_THRESHOLD` (20) הודעות חדשות. משתמש ב-`_callGeminiOneShot(freeText, maxTokens:700)`. **לעולם לא לתמצת סינכרונית לפני תשובה** — זו קריאת API נוספת שתכפיל latency.
+- **#2 זיכרון מתגלגל:** `KEY_COACH_MEMORY` (`{text, coveredLen, updatedAt}`). `_coachMemorySection()` מזריק אותו ל-`buildSystemPrompt`. הרענון (`_updateCoachMemory`) רץ **ברקע, off-critical-path** — מופעל ע"י `_maybeUpdateCoachMemory()` אחרי הצגת התשובה, רק כשנצברו ≥`COACH_MEMORY_THRESHOLD` (20) הודעות חדשות. משתמש ב-`_callGeminiOneShot(freeText, maxTokens:700)`. **לעולם לא לתמצת סינכרונית לפני תשובה** — זו קריאת API נוספת שתכפיל latency.
+- **סנכרון ענן (v15.87):** הזיכרון נשמר ב-doc `ai_history` בפיירבייס יחד עם הצ'אט (`coachMemory` field) — גיבוי אוטומטי ב-`closeAICoach`, שחזור דרך כפתור "שחזר היסטוריה". מסונכרן בין מכשירים בדיוק כמו השיחות.
 - חלון הצ'אט החי נשאר 10 הודעות (`callGeminiAPI`). `clearAIHistory` מאפס גם את הזיכרון. `coveredLen` מקבל clamp ב-`openAICoach` (היסטוריה מוגבלת ל-300).
 
 ---

@@ -3676,6 +3676,10 @@ function buildSystemPrompt(opts = {}) {
     const persona = StorageManager.getAIPersona();
     if (persona) prompt += `\n=== פרופיל המתאמן ===\n${persona}\n`;
 
+    // זיכרון מצטבר משיחות קודמות + ניתוחים קודמים של המאמן (קונטקסט ארוך-טווח, צד-קלט בלבד)
+    prompt += _coachMemorySection();
+    prompt += _buildCondensedCoachSummaries(2, 800);
+
     // מצב תזונתי — משפיע ישירות על ההמלצות (Cut/Maintenance/Surplus)
     const nutriCtx = getNutritionalContext();
     if (nutriCtx) prompt += `\n=== מצב תזונתי ===\n${nutriCtx}\n`;
@@ -3748,6 +3752,84 @@ function buildSystemPrompt(opts = {}) {
     }
 
     return prompt;
+}
+
+// ─── זיכרון מאמן: קונטקסט מצטבר (צד-קלט, זול במהירות) ────────────────────────
+
+// _coachMemorySection — מזריק את תקציר הזיכרון המתגלגל לתוך ה-system prompt.
+function _coachMemorySection() {
+    const m = StorageManager.getCoachMemory();
+    if (m && m.text && m.text.trim()) {
+        return `\n=== זיכרון מצטבר משיחות קודמות ===\n${m.text.trim()}\n`;
+    }
+    return '';
+}
+
+// _buildCondensedCoachSummaries — N סיכומי המאמן האחרונים, מקוצרים (כותרות-מסקנה).
+function _buildCondensedCoachSummaries(maxN, maxChars) {
+    const archive = StorageManager.getArchive(); // חדש→ישן
+    const withAi = archive.filter(a => a && a.aiSummary && String(a.aiSummary).trim()).slice(0, maxN);
+    if (!withAi.length) return '';
+    let s = '\n=== ניתוחים קודמים של המאמן (מתומצת) ===\n';
+    withAi.forEach(a => {
+        let t = String(a.aiSummary).trim();
+        if (t.length > maxChars) {
+            t = t.slice(0, maxChars);
+            const cut = Math.max(t.lastIndexOf('.'), t.lastIndexOf('\n'));
+            if (cut > maxChars * 0.6) t = t.slice(0, cut + 1);
+            t += ' […]';
+        }
+        s += `• ${a.date || ''} ${a.type || ''}:\n${t}\n\n`;
+    });
+    return s;
+}
+
+// _maybeUpdateCoachMemory — מפעיל רענון זיכרון ברקע כשנצברו ≥20 הודעות חדשות.
+// לא חוסם את התשובה למשתמש — נקרא ללא await אחרי שהתשובה כבר הוצגה.
+let _coachMemoryUpdating = false;
+const COACH_MEMORY_THRESHOLD = 20;
+function _maybeUpdateCoachMemory() {
+    if (_coachMemoryUpdating) return;
+    const mem = StorageManager.getCoachMemory();
+    const covered = Math.min(mem.coveredLen || 0, aiChatHistory.length);
+    if (aiChatHistory.length - covered < COACH_MEMORY_THRESHOLD) return;
+    _updateCoachMemory(); // fire-and-forget
+}
+
+async function _updateCoachMemory() {
+    if (_coachMemoryUpdating) return;
+    _coachMemoryUpdating = true;
+    try {
+        const mem = StorageManager.getCoachMemory();
+        const covered = Math.min(mem.coveredLen || 0, aiChatHistory.length);
+        let newMsgs = aiChatHistory.slice(covered);
+        if (newMsgs.length > 40) newMsgs = newMsgs.slice(-40); // חסם גודל קלט
+        if (!newMsgs.length) { _coachMemoryUpdating = false; return; }
+
+        const convo = newMsgs.map(m =>
+            (m.role === 'user' ? 'מתאמן' : 'מאמן') + ': ' + (m.text || '')).join('\n');
+
+        const prompt =
+`אתה מתחזק "זיכרון מאמן" — תקציר תמציתי של תובנות עמידות מהשיחות עם המתאמן, שישמש כהקשר בעתיד.
+עדכן את הזיכרון הקיים לאור קטע השיחה החדש. שמור רק מידע בעל ערך מתמשך: העדפות, מגבלות/פציעות, יעדים, קיבעונים שזוהו, החלטות אימון ומה שעבד/לא עבד. אל תכלול פטפוט חולף.
+החזר טקסט עברי רציף בלבד (ללא הקדמה), עד ~900 תווים.
+
+=== זיכרון קיים ===
+${mem.text && mem.text.trim() ? mem.text.trim() : 'אין עדיין.'}
+
+=== קטע שיחה חדש ===
+${convo}`;
+
+        const out = await _callGeminiOneShot(prompt, { freeText: true, maxTokens: 700 });
+        const clean = (out || '').replace(/```[\s\S]*?```/g, '').trim();
+        if (clean) {
+            StorageManager.setCoachMemory({ text: clean.slice(0, 1400), coveredLen: aiChatHistory.length, updatedAt: Date.now() });
+        }
+    } catch (e) {
+        console.warn('GymPro: coach memory update skipped', e && e.message);
+    } finally {
+        _coachMemoryUpdating = false;
+    }
 }
 
 /**
@@ -3827,6 +3909,13 @@ function openAICoach() {
     // טעינת היסטוריה מ-LocalStorage לזיכרון session
     const saved = StorageManager.getAIHistory();
     aiChatHistory = saved.map(m => ({ role: m.role, text: m.text }));
+
+    // clamp ל-coveredLen — ההיסטוריה מוגבלת ל-300 ועלולה להתקצר בין סשנים
+    const _mem = StorageManager.getCoachMemory();
+    if (_mem && (_mem.coveredLen || 0) > aiChatHistory.length) {
+        _mem.coveredLen = aiChatHistory.length;
+        StorageManager.setCoachMemory(_mem);
+    }
 
     // סינון לפי cutoff — הודעות מלפני "ניקוי מסך" לא יוצגו (שורד reload)
     const cutoff = StorageManager.getAIDisplayCutoff();
@@ -4100,6 +4189,9 @@ async function sendAIMessage() {
         // הצגת תשובה
         typing.remove();
         container.appendChild(_createBubble('model', responseText));
+
+        // רענון זיכרון המאמן ברקע — לא חוסם, רץ רק כשנצבר מספיק
+        _maybeUpdateCoachMemory();
 
     } catch(e) {
         typing.remove();

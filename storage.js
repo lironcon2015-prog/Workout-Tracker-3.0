@@ -17,6 +17,7 @@ const StorageManager = {
     KEY_AI_MODELS:    'gympro_ai_models',
     KEY_AI_PERSONA:   'gympro_ai_persona',
     KEY_AI_HISTORY:   'gympro_ai_history',
+    KEY_COACH_MEMORY: 'gympro_coach_memory',
     KEY_AI_DISPLAY_CUTOFF: 'gympro_ai_display_cutoff',
     KEY_NUTRITION:    'gympro_nutrition',
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
@@ -631,6 +632,17 @@ const StorageManager = {
     clearAIHistory() {
         localStorage.removeItem(this.KEY_AI_HISTORY);
         localStorage.removeItem(this.KEY_AI_DISPLAY_CUTOFF);
+        localStorage.removeItem(this.KEY_COACH_MEMORY);
+    },
+
+    // ── Coach Memory — תקציר מתגלגל של תובנות מהשיחה (זיכרון ארוך-טווח למאמן) ──
+    getCoachMemory() {
+        try { return JSON.parse(localStorage.getItem(this.KEY_COACH_MEMORY)) || { text: '', coveredLen: 0, updatedAt: 0 }; }
+        catch(e) { return { text: '', coveredLen: 0, updatedAt: 0 }; }
+    },
+    setCoachMemory(mem) {
+        try { localStorage.setItem(this.KEY_COACH_MEMORY, JSON.stringify(mem)); }
+        catch(e) { console.error('GymPro: coach memory write error', e); }
     },
 
     // נקודת חיתוך לתצוגת AI Coach — הודעות עם timestamp לפני הערך הזה לא יוצגו

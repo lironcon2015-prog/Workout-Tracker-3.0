@@ -98,6 +98,12 @@
 - שני מתגי העתקה: מסך סיכום (`KEY_COPY_INCLUDE_COACH`) וארכיון (`KEY_ARCHIVE_COPY_COACH`, ברירת מחדל כבוי). **שניהם נפרדים** — מקור אמת כפול (חוב ידוע; משתמש עלול לכבות באחד ולקבל coach מהשני).
 - **קובץ לקלוד (v15.84+):** `exportClaudeFile()` (כל הלוג) ו-`executeDownloadByRange()` (טווח, מתוך `range-copy-sheet`) מורידים **JSON** של לוג האימונים (`{app,scope,workouts_count,includes_coach_summary,generated,workouts[]}`, כרונולוגי עולה). מכבד את מתג סיכום המאמן של הארכיון (`KEY_ARCHIVE_COPY_COACH`) — כשכבוי, `aiSummary` מוסר מכל רשומה. נפרד מ-`exportData()` שהוא גיבוי JSON מלא (כל ה-localStorage, לשחזור).
 
+### זיכרון מאמן — קונטקסט ארוך-טווח (v15.86)
+המאמן זוכר תובנות מעבר לחלון ה-10 הודעות, **בלי לפגוע במהירות התגובה** (כל התוספת היא צד-קלט / רקע).
+- **#1 ניתוחים קודמים:** `_buildCondensedCoachSummaries(2, 800)` מזריק ל-`buildSystemPrompt` את 2 סיכומי המאמן האחרונים (`aiSummary`), מקוצרים ל-~800 תווים. צד-קלט בלבד → השפעה זניחה על latency.
+- **#2 זיכרון מתגלגל:** `KEY_COACH_MEMORY` (`{text, coveredLen, updatedAt}`, מקומי בלבד — cache מתחדש). `_coachMemorySection()` מזריק אותו ל-`buildSystemPrompt`. הרענון (`_updateCoachMemory`) רץ **ברקע, off-critical-path** — מופעל ע"י `_maybeUpdateCoachMemory()` אחרי הצגת התשובה, רק כשנצברו ≥`COACH_MEMORY_THRESHOLD` (20) הודעות חדשות. משתמש ב-`_callGeminiOneShot(freeText, maxTokens:700)`. **לעולם לא לתמצת סינכרונית לפני תשובה** — זו קריאת API נוספת שתכפיל latency.
+- חלון הצ'אט החי נשאר 10 הודעות (`callGeminiAPI`). `clearAIHistory` מאפס גם את הזיכרון. `coveredLen` מקבל clamp ב-`openAICoach` (היסטוריה מוגבלת ל-300).
+
 ---
 
 ## מסך Composition + אינטגרציית MyFitnessPal (v15.59–15.76)

@@ -276,7 +276,8 @@ function _renderNutritionCard(allDays) {
             <button class="bl-export-btn" onclick="exportNutritionCsv('range')"><span class="material-symbols-outlined">date_range</span>ייצא תקופה</button>
         </div>
         <div class="bl-nutri-exports">
-            <button class="bl-export-btn" onclick="exportNutritionRawCsv()"><span class="material-symbols-outlined">description</span>ייצא קובץ MFP מלא</button>
+            <button class="bl-export-btn" onclick="exportNutritionRawCsv('all')"><span class="material-symbols-outlined">description</span>MFP גולמי · הכל</button>
+            <button class="bl-export-btn" onclick="exportNutritionRawCsv('range')"><span class="material-symbols-outlined">date_range</span>MFP גולמי · תקופה</button>
         </div>
         <button class="bl-nutri-reset" onclick="resetNutritionData()"><span class="material-symbols-outlined">delete</span>מחק נתוני תזונה</button>`;
 }
@@ -384,18 +385,32 @@ function _parseRawNutrition(text) {
 
 // exportNutritionRawCsv — מייצא את הקובץ הגולמי המקורי של MFP (per-meal),
 // אגרגציה נאמנה של כל הקבצים שהועלו, ללא פאראפרזה של המערכת.
-function exportNutritionRawCsv() {
+// scope==='range' → מסנן לפי בורר הטווח הקיים בראש המסך (7/30/90/מותאם),
+// דרך תאריך עמודת ה-Date הגולמית; אחרת → הקובץ המלא.
+function exportNutritionRawCsv(scope) {
     const raw = StorageManager.getNutritionRaw();
     if (!raw || !Array.isArray(raw.rows) || !raw.rows.length) {
         showAlert('אין קובץ MFP גולמי שמור. ייבא מ-Gmail (בגרסה החדשה של הגשר) כדי לשמור אותו.');
         return;
     }
+    let rows = raw.rows;
+    let suffix = 'full';
+    if (scope === 'range') {
+        const di = raw.dateIdx != null ? raw.dateIdx : 0;
+        // תיוג כל שורה בתאריך ISO מנורמל, ואז סינון דרך אותו _blFilter של שאר המסך
+        const tagged = raw.rows
+            .map(r => ({ date: _parseFlexDate(r[di]), _row: r }))
+            .filter(o => o.date);
+        rows = _blFilter(tagged).map(o => o._row);
+        if (!rows.length) { showAlert('אין שורות גולמיות בטווח שנבחר.'); return; }
+        suffix = 'range';
+    }
     const esc = c => { const s = String(c == null ? '' : c); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-    const csv = [raw.header, ...raw.rows].map(r => r.map(esc).join(',')).join('\r\n');
+    const csv = [raw.header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `MyFitnessPal_full_${_blTodayStr()}.csv`;
+    a.download = `MyFitnessPal_${suffix}_${_blTodayStr()}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
     haptic('success');

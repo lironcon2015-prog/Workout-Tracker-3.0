@@ -1021,6 +1021,7 @@
                 <div class="input-grid mb-lg archive-backup-bottom">
                     <button class="glass-card compact w-100 border-accent color-accent" onclick="exportData()"><label class="color-white text-sm mb-xs font-semi">ייצוא</label></button>
                     <button class="glass-card compact w-100 border-success color-success" onclick="triggerImport()"><label class="color-white text-sm mb-xs font-semi">ייבוא</label></button>
+                    <button class="glass-card compact w-100" onclick="exportClaudeFile()"><label class="color-white text-sm mb-xs font-semi">קובץ לקלוד</label></button>
                 </div>
                 <input type="file" id="import-file" class="d-none" onchange="importData(this)">
             </div>
@@ -1675,6 +1676,10 @@
         <button class="range-copy-btn" id="btn-range-copy" onclick="executeCopyByRange()" disabled style="opacity:0.45;">
             <span>בחר טווח</span>
             <span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span>
+        </button>
+        <button class="range-copy-btn" id="btn-range-download" onclick="executeDownloadByRange()" disabled style="opacity:0.45;margin-top:8px;">
+            <span>הורד קובץ לקלוד</span>
+            <span class="material-symbols-outlined" style="font-size:1.1rem;">download</span>
         </button>
     </div>
 

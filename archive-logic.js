@@ -3043,6 +3043,7 @@ function _getRangeItems() {
 
 function _updateRangeCopyBtn() {
     var btn = document.getElementById('btn-range-copy');
+    var dlBtn = document.getElementById('btn-range-download');
     var preview = document.getElementById('range-stats-preview');
     var previewText = document.getElementById('range-stats-text');
     if (!btn) return;
@@ -3052,6 +3053,7 @@ function _updateRangeCopyBtn() {
         btn.disabled = true;
         btn.style.opacity = '0.45';
         btn.innerHTML = '<span>בחר טווח</span><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span>';
+        if (dlBtn) { dlBtn.disabled = true; dlBtn.style.opacity = '0.45'; }
         if (preview) preview.style.display = 'none';
         return;
     }
@@ -3061,6 +3063,7 @@ function _updateRangeCopyBtn() {
     btn.innerHTML = count > 0
         ? '<span>העתק ' + count + ' אימונים</span><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span>'
         : '<span>אין אימונים בטווח זה</span><span class="material-symbols-outlined" style="font-size:1.1rem;">content_copy</span>';
+    if (dlBtn) { dlBtn.disabled = count === 0; dlBtn.style.opacity = count > 0 ? '1' : '0.45'; }
     if (preview) preview.style.display = count > 0 ? 'flex' : 'none';
     if (previewText) previewText.textContent = count + ' אימונים נמצאו בטווח הנבחר';
 }
@@ -3079,4 +3082,56 @@ function executeCopyByRange() {
         document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
         closeRangeSheet(); showAlert('הועתקו ' + items.length + ' אימונים בהצלחה!');
     }
+}
+
+// ─── קובץ לקלוד ─────────────────────────────────────────────────────────────
+// לוג אימונים קריא להעלאה לזיכרון פרויקט ב-Claude. מכבד את מתג "כלול סיכומי מאמן"
+// (אותו checkbox של ההעתקה) דרך _archiveCopyText. ברירת מחדל: כל הלוג.
+
+// _rangeLabelText — תיאור קריא של הטווח שנבחר במסך הטווח (לכותרת הקובץ).
+function _rangeLabelText() {
+    if (_rangeTab === 'month' && _rangeSelectedMonth) {
+        return MONTH_NAMES_HE[_rangeSelectedMonth.month] + ' ' + _rangeSelectedMonth.year;
+    }
+    if (_rangeTab === 'weeks' && _rangeSelectedWeeks) {
+        return _rangeSelectedWeeks + ' שבועות אחרונים';
+    }
+    return 'טווח נבחר';
+}
+
+// _downloadClaudeFile — בונה קובץ markdown ומוריד אותו.
+function _downloadClaudeFile(items, scopeLabel, scopeSlug) {
+    if (!items.length) { showAlert('אין אימונים לייצוא'); return; }
+    var withCoach = StorageManager.getArchiveCopyCoach();
+    var body = items.map(function(item) { return _archiveCopyText(item); })
+                    .join("\n\n========================================\n\n");
+    var header = 'GYMPRO ELITE — לוג אימונים לקלוד\n' +
+                 'טווח: ' + scopeLabel + '\n' +
+                 'אימונים: ' + items.length + '\n' +
+                 'סיכומי מאמן: ' + (withCoach ? 'כלולים' : 'לא כלולים') + '\n' +
+                 'הופק: ' + new Date().toLocaleDateString('he-IL') + '\n\n' +
+                 '========================================\n\n';
+    var blob = new Blob(['﻿' + header + body], { type: 'text/markdown;charset=utf-8;' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'gympro_claude_' + scopeSlug + '_' + new Date().toISOString().slice(0, 10) + '.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    haptic('success');
+    showAlert('נוצר קובץ לקלוד · ' + items.length + ' אימונים' + (withCoach ? ' (כולל סיכומי מאמן)' : ' (ללא סיכומי מאמן)'));
+}
+
+// exportClaudeFile — ברירת המחדל: כל הלוג.
+function exportClaudeFile() {
+    var history = StorageManager.getArchive();
+    if (!history.length) { showAlert('אין אימונים בארכיון'); return; }
+    _downloadClaudeFile(history, 'כל הלוג', 'all');
+}
+
+// executeDownloadByRange — קובץ לקלוד לפי הטווח שנבחר במסך הטווח.
+function executeDownloadByRange() {
+    var items = _getRangeItems();
+    if (!items.length) { showAlert('אין אימונים בטווח שנבחר'); return; }
+    _downloadClaudeFile(items, _rangeLabelText(), 'range');
+    closeRangeSheet();
 }

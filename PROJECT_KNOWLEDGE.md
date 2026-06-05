@@ -95,7 +95,8 @@
 - **`_callGeminiOneShot(prompt, {freeText:true})`** — מצב טקסט חופשי (2048 טוקנים) בנוסף למצב JSON המקורי.
 - **פרומפטים ניתנים לעריכה:** `StorageManager.COACH_PROMPT_DEFAULTS` + override ב-`KEY_COACH_PROMPTS`, נערכים ב-`coach-prompts-sheet`. מסונכרנים ב-`saveConfigToCloud` (`coachPrompts`).
 - **`aiSummary` מסונכרן אוטומטית** דרך `saveArchiveToCloud` (שולח כל הארכיון as-is, ללא whitelist).
-- שני מתגי העתקה: מסך סיכום (`KEY_COPY_INCLUDE_COACH`) וארכיון (`KEY_ARCHIVE_COPY_COACH`, ברירת מחדל כבוי).
+- שני מתגי העתקה: מסך סיכום (`KEY_COPY_INCLUDE_COACH`) וארכיון (`KEY_ARCHIVE_COPY_COACH`, ברירת מחדל כבוי). **שניהם נפרדים** — מקור אמת כפול (חוב ידוע; משתמש עלול לכבות באחד ולקבל coach מהשני).
+- **קובץ לקלוד (v15.84):** `exportClaudeFile()` (כל הלוג) ו-`executeDownloadByRange()` (טווח, מתוך `range-copy-sheet`) מורידים `.md` קריא של לוג האימונים דרך `_archiveCopyText` — ולכן **מכבדים את מתג סיכום המאמן של הארכיון** (`KEY_ARCHIVE_COPY_COACH`). נפרד מ-`exportData()` שהוא גיבוי JSON מלא (תמיד הכול, לשחזור).
 
 ---
 

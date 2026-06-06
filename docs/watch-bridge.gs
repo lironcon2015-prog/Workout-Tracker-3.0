@@ -37,10 +37,14 @@ function doPost(e) {
   }
 }
 function doGet(e) {
-  // נוחות: getState דרך GET (?token=...&action=getState)
+  // נוחות/בדיקות: כל הפעולות דרך GET (?token=...&action=...&w=...&r=...)
   var p = (e && e.parameter) || {};
   if (p.token !== _prop('SECRET_TOKEN')) return _json({ ok: false, error: 'BAD_TOKEN' });
-  return _json(_handle({ action: p.action || 'getState' }));
+  try {
+    return _json(_handle(p));
+  } catch (err) {
+    return _json({ ok: false, error: String(err) });
+  }
 }
 
 /* ─── Action router ────────────────────────────────────────────── */

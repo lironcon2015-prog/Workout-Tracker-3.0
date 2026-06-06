@@ -384,6 +384,23 @@ const WatchBridge = {
             if (e && !e.setId) e.setId = 'p_' + (state.liveSessionId || 0) + '_' + i + '_' + Date.now().toString(36);
         });
     },
+    // מפת משקל מוצע מהמערכת (לא AI): המשקל האחרון שנרשם לכל תרגיל בתוכנית,
+    // ולתרגיל הנוכחי — המשקל המדויק של הסט הנוכחי (כולל חישוב % לתרגילי calc).
+    _buildSuggest(plan) {
+        const out = {};
+        try {
+            (Array.isArray(plan) ? plan : []).forEach(p => {
+                if (!p || !p.name) return;
+                const w = StorageManager.getLastWeight(p.name);
+                if (w != null && !isNaN(w)) out[p.name] = w;
+            });
+            if (state.currentExName && state.currentEx && Array.isArray(state.currentEx.sets)) {
+                const cur = state.currentEx.sets[state.setIdx || 0];
+                if (cur && cur.w != null && !isNaN(cur.w)) out[state.currentExName] = cur.w;
+            }
+        } catch (e) { /* הגנתי */ }
+        return out;
+    },
     _buildPayload() {
         this._ensureSetIds();
         const plan = (state.workouts && state.type && state.workouts[state.type]) || [];
@@ -394,6 +411,7 @@ const WatchBridge = {
             type: state.type || '', week: state.week, isFreestyle: !!state.isFreestyle,
             plan: (Array.isArray(plan) ? plan : []).map(p => ({ name: p.name, sets: p.sets, restTime: p.restTime, isCalc: !!p.isCalc })),
             currentExName: state.currentExName || '', setIdx: state.setIdx || 0,
+            suggest: this._buildSuggest(plan),
             log: (state.log || []).map(e => ({
                 setId: e.setId, exName: e.exName,
                 w: e.w, r: e.r, rir: e.rir != null ? String(e.rir) : '',

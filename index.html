@@ -536,6 +536,27 @@
                     <div class="ai-security-note" style="margin-top:6px;">הגשר רץ בחשבון ה-Gmail שלך (Google Apps Script) ומושך את ייצוא ה-MyFitnessPal האחרון. ה-token נשמר מקומית בלבד. הכפתור לייבוא נמצא במסך Composition.</div>
                 </div>
 
+                <!-- IV-b2. גשר אפל-ווטש (אימון חי) -->
+                <div class="settings-group">
+                    <div class="settings-group-label">גשר אפל-ווטש (אימון חי)</div>
+                    <div class="stg-bento stg-ai-bento">
+                        <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
+                            <span>הפעל גשר שעון</span>
+                            <span class="stg-switch"><input type="checkbox" id="watch-bridge-toggle" onchange="saveWatchBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                        </label>
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
+                            <input type="text" id="watch-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+                        </div>
+                        <div class="stg-ai-field">
+                            <label class="stg-ai-label">SECRET TOKEN</label>
+                            <input type="password" id="watch-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
+                        </div>
+                        <button class="stg-ai-save" onclick="saveWatchBridgeSettings()">שמור הגדרות גשר</button>
+                    </div>
+                    <div class="ai-security-note" style="margin-top:6px;">מתעד אימון מ-Apple Watch (דרך Shortcuts) ל-Firestore, והטלפון מסכם בסוף. דורש Firebase מחובר. ה-token נשמר מקומית. ראה docs/watch-shortcut-recipe.md.</div>
+                </div>
+
                 <!-- IV-c. פרופיל גוף (TDEE) -->
                 <div class="settings-group">
                     <div class="settings-group-label">פרופיל גוף (חישוב TDEE)</div>

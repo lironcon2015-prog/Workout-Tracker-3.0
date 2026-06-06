@@ -231,6 +231,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (_soundBtn) _soundBtn.classList.toggle('sound-active', soundEnabled);
     if (typeof renderWorkoutMenu === 'function') renderWorkoutMenu();
     checkRecovery();
+    // גשר השעון — adopt-on-open + האזנה, ו-adopt חוזר על חזרה-לפוקוס (R6/R7).
+    try {
+        if (WatchBridge.enabled()) {
+            WatchBridge.adoptIfAny();
+            WatchBridge.startListening();
+            document.addEventListener('visibilitychange', () => { if (!document.hidden) WatchBridge.adoptIfAny(); });
+            window.addEventListener('focus', () => WatchBridge.adoptIfAny());
+        }
+    } catch (e) {}
     if (typeof renderHeroCard === 'function') renderHeroCard();
     if (typeof renderHomePRCard === 'function') renderHomePRCard();
     maybeShowCloudSyncBanner();
@@ -351,7 +360,122 @@ function restoreSession() {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// WatchBridge — גשר אימון חי שעון⇄טלפון דרך Firestore (doc live_session).
+// כבוי כברירת מחדל; כשכבוי = no-op מוחלט (אפס רגרסיה). ה-doc נושא נתוני אימון
+// בלבד — טיימרים/ניווט/UI מקומיים. הטלפון peer מלא (קורא+כותב), הוא הבעלים של
+// מכונת-המצבים והוא היחיד שמסכם לארכיון.
+// ═══════════════════════════════════════════════════════════════════════════
+const WatchBridge = {
+    _unsub: null, _lastRev: 0, _suppress: false, _publishTimer: null, _lastHash: '',
+
+    enabled() {
+        try {
+            return StorageManager.isWatchBridgeOn() &&
+                   typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured();
+        } catch (e) { return false; }
+    },
+    _activeWorkout() { return !!(state && state.workoutStartTime); },
+
+    // setId יציב לכל entry (R3 dedupe) — מזהה לפי setId, לא אינדקס
+    _ensureSetIds() {
+        if (!state.log) return;
+        state.log.forEach((e, i) => {
+            if (e && !e.setId) e.setId = 'p_' + (state.liveSessionId || 0) + '_' + i + '_' + Date.now().toString(36);
+        });
+    },
+    _buildPayload() {
+        this._ensureSetIds();
+        const plan = (state.workouts && state.type && state.workouts[state.type]) || [];
+        return {
+            active: true, sessionId: state.liveSessionId,
+            startedAt: state.workoutStartTime || state.liveSessionId,
+            rev: (this._lastRev || 0) + 1, source: 'phone',
+            type: state.type || '', week: state.week, isFreestyle: !!state.isFreestyle,
+            plan: (Array.isArray(plan) ? plan : []).map(p => ({ name: p.name, sets: p.sets, restTime: p.restTime, isCalc: !!p.isCalc })),
+            currentExName: state.currentExName || '', setIdx: state.setIdx || 0,
+            log: (state.log || []).map(e => ({
+                setId: e.setId, exName: e.exName,
+                w: e.w, r: e.r, rir: e.rir != null ? String(e.rir) : '',
+                note: e.note || '', isCluster: !!e.isCluster, round: e.round || null, skip: !!e.skip
+            }))
+        };
+    },
+    _hash(p) {
+        return (p.log ? p.log.length : 0) + '|' + (p.log && p.log.length ? p.log[p.log.length - 1].setId : '') +
+               '|' + p.currentExName + '|' + p.setIdx + '|' + (p.active ? 1 : 0);
+    },
+
+    // נקרא מ-StorageManager.saveSessionState (נקודת חנק יחידה) — מתחיל סשן ומפרסם (debounced)
+    onStateSaved() {
+        if (this._suppress || !this.enabled() || !this._activeWorkout()) return;
+        if (!state.liveSessionId) state.liveSessionId = Date.now();   // start
+        const payload = this._buildPayload();
+        const h = this._hash(payload);
+        if (h === this._lastHash) return;     // אין שינוי תוכן — מונע ping-pong של rev
+        this._lastHash = h;
+        clearTimeout(this._publishTimer);
+        this._publishTimer = setTimeout(() => {
+            payload.rev = (this._lastRev || 0) + 1;
+            this._lastRev = payload.rev;
+            FirebaseManager.publishLiveSession(payload).catch(() => {});
+        }, 400);
+        if (!this._unsub) this.startListening();
+    },
+
+    startListening() {
+        if (!this.enabled() || this._unsub) return;
+        this._unsub = FirebaseManager.listenLiveSession(data => this._adopt(data));
+    },
+    stopListening() { if (this._unsub) { try { this._unsub(); } catch (e) {} this._unsub = null; } },
+
+    // קליטת עדכון מהשעון (source!=='phone', rev חדש). ממזג log לפי setId; קנוני=ענן.
+    _adopt(data) {
+        if (!data || !data.active) return;
+        if (data.source === 'phone') { if (data.rev) this._lastRev = Math.max(this._lastRev, data.rev); return; }
+        if (!data.rev || data.rev <= this._lastRev) return;
+        this._suppress = true;
+        try {
+            if (!this._activeWorkout()) {   // adopt-on-open: בנה state בסיסי מהענן
+                state.liveSessionId = data.sessionId;
+                state.workoutStartTime = data.startedAt || data.sessionId;
+                state.type = data.type || state.type; state.week = data.week;
+                state.isFreestyle = !!data.isFreestyle;
+                if (typeof startSessionTimer === 'function') { try { startSessionTimer(0); } catch (e) {} }
+            }
+            state.log = this._mergeLog(state.log || [], data.log || []);
+            if (data.currentExName) state.currentExName = data.currentExName;
+            if (data.setIdx != null) state.setIdx = data.setIdx;
+            this._lastRev = data.rev;
+            StorageManager.saveSessionState();   // _suppress פעיל → לא יפרסם בחזרה
+            const onMain = state.historyStack && state.historyStack[state.historyStack.length - 1] === 'ui-main';
+            if (onMain && state.currentEx && typeof initPickers === 'function') { try { initPickers(); } catch (e) {} }
+            if (typeof showCloudToast === 'function') showCloudToast('⌚ עודכן מהשעון', true);
+        } finally { this._suppress = false; }
+    },
+    _mergeLog(localLog, remoteLog) {
+        const seen = new Set(); const out = [];
+        (remoteLog || []).forEach(e => { if (e && e.setId && !seen.has(e.setId)) { seen.add(e.setId); out.push(e); } });
+        (localLog || []).forEach(e => { if (e && e.setId && !seen.has(e.setId)) { seen.add(e.setId); out.push(e); } });
+        return out;
+    },
+
+    async adoptIfAny() {   // adopt-on-open/focus
+        if (!this.enabled()) return;
+        try { const data = await FirebaseManager.getLiveSession(); if (data) this._adopt(data); } catch (e) {}
+    },
+    async finishSession() {   // ניקוי ה-doc (anti-zombie R4)
+        this._lastHash = ''; clearTimeout(this._publishTimer); this.stopListening();
+        // נקה ב-Firestore רק אם הגשר היה בשימוש בריצה זו (לא לכתוב למשתמשים שהגשר כבוי אצלם)
+        if (this.enabled() || (state && state.liveSessionId)) {
+            try { await FirebaseManager.clearLiveSession(); } catch (e) {}
+        }
+        this._lastRev = 0;
+    }
+};
+
 function discardSession() {
+    try { WatchBridge.finishSession(); } catch (e) {}
     StorageManager.clearSessionState();
     stopSessionTimer();
     document.getElementById('recovery-modal').style.display = 'none';
@@ -853,6 +977,7 @@ function openSettings() {
     if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
     if (typeof updateAIStatus === 'function') updateAIStatus();
     if (typeof updateMfpBridgeStatus === 'function') updateMfpBridgeStatus();
+    if (typeof updateWatchBridgeStatus === 'function') updateWatchBridgeStatus();
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
@@ -2704,7 +2829,8 @@ function finish() {
     // upsert לפי state.archivedTimestamp; כאן מתחיל אימון חדש אז מאפסים.
     _coachSummaryText = null;
     _coachSummaryPromise = null;
-    state.archivedTimestamp = null;
+    // R5: timestamp הארכיון = sessionId של הגשר (upsert יחיד, אנטי-collision) אם קיים
+    state.archivedTimestamp = state.liveSessionId || null;
     _saveToArchive('');
     if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
         FirebaseManager.saveArchiveToCloud().catch(() => {});
@@ -2921,6 +3047,9 @@ async function copyResult() {
         }
     }
 
+    // R4: נקה את live_session לפני הניקוי/reload — מונע סשן-רפאים שהשעון יחיה
+    try { await WatchBridge.finishSession(); } catch (e) {}
+    state.liveSessionId = null;
     StorageManager.clearSessionState();
     state.workoutStartTime = null; // מניעת שחזור רפאים בעת ריענון העמוד
     stopSessionTimer();
@@ -4405,6 +4534,30 @@ function updateMfpBridgeStatus() {
     } else {
         el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
     }
+}
+
+// ─── גשר אפל-ווטש ────────────────────────────────────────────────────────────
+function saveWatchBridgeSettings() {
+    const on    = !!(document.getElementById('watch-bridge-toggle') || {}).checked;
+    const url   = ((document.getElementById('watch-bridge-url-input')   || {}).value || '').trim();
+    const token = ((document.getElementById('watch-bridge-token-input') || {}).value || '').trim();
+    StorageManager.saveWatchBridge(on, url, token);
+    // הפעלה/כיבוי מיידי של ההאזנה
+    try {
+        if (on && WatchBridge.enabled()) { WatchBridge.startListening(); WatchBridge.adoptIfAny(); }
+        else WatchBridge.stopListening();
+    } catch (e) {}
+    showAlert('הגדרות גשר השעון נשמרו!');
+}
+
+function updateWatchBridgeStatus() {
+    const cfg = StorageManager.getWatchBridge();
+    const t = document.getElementById('watch-bridge-toggle');
+    const ui = document.getElementById('watch-bridge-url-input');
+    const ti = document.getElementById('watch-bridge-token-input');
+    if (t)  t.checked = cfg.on;
+    if (ui && !ui.value) ui.value = cfg.url;
+    if (ti && !ti.value) ti.value = cfg.token;
 }
 
 // ─── פרופיל גוף (TDEE) ───────────────────────────────────────────────────────

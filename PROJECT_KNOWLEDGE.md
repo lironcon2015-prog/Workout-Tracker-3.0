@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.87
+## גרסה נוכחית: 15.88
 
 ---
 
@@ -104,6 +104,16 @@
 - **#2 זיכרון מתגלגל:** `KEY_COACH_MEMORY` (`{text, coveredLen, updatedAt}`). `_coachMemorySection()` מזריק אותו ל-`buildSystemPrompt`. הרענון (`_updateCoachMemory`) רץ **ברקע, off-critical-path** — מופעל ע"י `_maybeUpdateCoachMemory()` אחרי הצגת התשובה, רק כשנצברו ≥`COACH_MEMORY_THRESHOLD` (20) הודעות חדשות. משתמש ב-`_callGeminiOneShot(freeText, maxTokens:700)`. **לעולם לא לתמצת סינכרונית לפני תשובה** — זו קריאת API נוספת שתכפיל latency.
 - **סנכרון ענן (v15.87):** הזיכרון נשמר ב-doc `ai_history` בפיירבייס יחד עם הצ'אט (`coachMemory` field) — גיבוי אוטומטי ב-`closeAICoach`, שחזור דרך כפתור "שחזר היסטוריה". מסונכרן בין מכשירים בדיוק כמו השיחות.
 - חלון הצ'אט החי נשאר 10 הודעות (`callGeminiAPI`). `clearAIHistory` מאפס גם את הזיכרון. `coveredLen` מקבל clamp ב-`openAICoach` (היסטוריה מוגבלת ל-300).
+
+---
+
+## גשר אפל-ווטש — אימון חי שעון⇄טלפון (v15.88)
+מטרה: לתעד אימון מ-Apple Watch בלי native/App Store/$99. שעון = **Apple Shortcuts** → Apps Script proxy (`docs/watch-bridge.gs`) → Firestore `gympro_data/live_session` → ה-PWA קורא ב-`onSnapshot` ומסכם.
+- **ייצוג ה-doc:** `{ active:bool, data:"<json>" }` — שדה JSON-string יחיד (מונע מיפוי-טיפוסים ב-Apps Script). `FirebaseManager._unwrapLive` עוטף/פותח; `publishLiveSession/getLiveSession/listenLiveSession/clearLiveSession` ב-storage.js.
+- **`WatchBridge`** (workout-core.js) — **כבוי כברירת מחדל** (`KEY_WATCH_BRIDGE_ON`), no-op מוחלט כשכבוי (אפס רגרסיה). הטלפון peer מלא: `onStateSaved()` (hook יחיד ב-`saveSessionState`, debounce 400ms, hash anti-ping-pong) מפרסם; `_adopt()` קולט עדכוני שעון לפי `rev`+`setId`; `adoptIfAny()` על load/visibilitychange/focus.
+- **מיטיגציות סיכון (מהחקירה):** `setId` לכל סט (dedupe R3) · timestamp ארכיון = `liveSessionId` (R5, `finish`) · `clearLiveSession` ב-`copyResult`/`discardSession` (anti-zombie R4) · ה-proxy מוודא `active`+`sessionId`, מנרמל RIR למחרוזת (R1), מוודא w/r (R2) · טיימרים **לא** מסונכרנים דרך ה-doc (R8) · `enablePersistence` (R12) · timeouts לכל קריאה (R13).
+- **scope:** השעון append-only (`logSet/nextExercise/getState`); clusters/1RM/swap-order/interruption מנוהלים בטלפון.
+- **⚠️ חוב/בדיקה:** הלוגיקה של ה-live-sync (merge/adopt/ping-pong) **לא נבדקה על מכשירים אמיתיים** — דורשת אימות end-to-end עם Firebase+שעון. ה-proxy וה-Shortcut מותקנים בידי המשתמש (service-account + deploy + הרכבת הקיצורים). מגבלה: השעון צריך רשת בחדר הכושר.
 
 ---
 

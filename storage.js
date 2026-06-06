@@ -26,6 +26,9 @@ const StorageManager = {
     KEY_BODY_PROFILE:    'gympro_body_profile',        // מין/גיל/גובה/רמת פעילות — לחישוב TDEE
     KEY_MFP_BRIDGE_URL:   'gympro_mfp_bridge_url',    // Apps Script Web App URL
     KEY_MFP_BRIDGE_TOKEN: 'gympro_mfp_bridge_token',  // token סודי לגשר
+    KEY_WATCH_BRIDGE_URL:   'gympro_watch_bridge_url',    // Apps Script proxy לגשר השעון
+    KEY_WATCH_BRIDGE_TOKEN: 'gympro_watch_bridge_token',  // SECRET_TOKEN לגשר השעון
+    KEY_WATCH_BRIDGE_ON:    'gympro_watch_bridge_on',     // האם גשר השעון פעיל (ברירת מחדל: כבוי)
     KEY_BODYLOG:      'gympro_bodylog',
     KEY_SOUND:        'gympro_sound_enabled',
     KEY_COPY_INCLUDE_COACH: 'gympro_copy_include_coach',
@@ -88,6 +91,8 @@ const StorageManager = {
         };
         sessionData.state.timerInterval = null;
         this.saveData(this.KEY_SESSION, sessionData);
+        // נקודת-חנק יחידה לפרסום אל גשר השעון (no-op כשהגשר כבוי / לא נטען)
+        try { if (typeof WatchBridge !== 'undefined') WatchBridge.onStateSaved(); } catch (e) { /* הגנתי */ }
     },
 
     clearSessionState() {
@@ -496,6 +501,23 @@ const StorageManager = {
         localStorage.setItem(this.KEY_MFP_BRIDGE_TOKEN, (token || '').trim());
     },
 
+    // ── Watch Bridge (גשר אפל-ווטש) — כבוי כברירת מחדל ──
+    getWatchBridge() {
+        return {
+            on:    localStorage.getItem(this.KEY_WATCH_BRIDGE_ON) === '1',
+            url:   localStorage.getItem(this.KEY_WATCH_BRIDGE_URL) || '',
+            token: localStorage.getItem(this.KEY_WATCH_BRIDGE_TOKEN) || ''
+        };
+    },
+    saveWatchBridge(on, url, token) {
+        localStorage.setItem(this.KEY_WATCH_BRIDGE_ON, on ? '1' : '0');
+        if (url !== undefined)   localStorage.setItem(this.KEY_WATCH_BRIDGE_URL, (url || '').trim());
+        if (token !== undefined) localStorage.setItem(this.KEY_WATCH_BRIDGE_TOKEN, (token || '').trim());
+    },
+    isWatchBridgeOn() {
+        return localStorage.getItem(this.KEY_WATCH_BRIDGE_ON) === '1';
+    },
+
     getAIPersona() {
         return localStorage.getItem(this.KEY_AI_PERSONA) || '';
     },
@@ -705,6 +727,8 @@ const FirebaseManager = {
                 firebase.initializeApp(cfg);
             }
             this._db = firebase.firestore();
+            // persistence — מאפשר ל-onSnapshot/קריאות לעבוד גם offline ולסגור פערי-סנכרון (R12)
+            try { this._db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch (e) { /* כבר מאותחל / לא נתמך */ }
             this._initialized = true;
             // כניסה אנונימית — נדרשת לכללי Firestore (request.auth != null)
             this._authReady = firebase.auth().signInAnonymously()
@@ -721,6 +745,71 @@ const FirebaseManager = {
         if (!this.init()) return false;
         await this._authReady;
         return true;
+    },
+
+    // ── Live Session (גשר שעון⇄טלפון) ──────────────────────────────────────────
+    // doc יחיד gympro_data/live_session — מקור-אמת חי של האימון הנוכחי.
+    // נושא נתוני אימון בלבד (לא UI/טיימר/ניווט). כל הפעולות עטופות ב-timeout (R13)
+    // כדי שלא יחסמו את ה-UI (offline-first).
+
+    _withTimeout(promise, ms) {
+        return Promise.race([
+            promise,
+            new Promise((_, rej) => setTimeout(() => rej(new Error('LIVE_TIMEOUT')), ms || 6000))
+        ]);
+    },
+
+    // הייצוג ב-Firestore: { active: bool, data: "<json>" } — שדה JSON-string יחיד.
+    // כך ה-Apps Script proxy (Firestore REST) מטפל רק ב-string+bool, בלי מיפוי-טיפוסים.
+    _unwrapLive(d) {
+        if (!d) return null;
+        let obj = {};
+        try { obj = d.data ? JSON.parse(d.data) : {}; } catch (e) { obj = {}; }
+        if (typeof d.active === 'boolean') obj.active = d.active;   // active ברמה-עליונה קובע
+        return obj;
+    },
+
+    async publishLiveSession(obj) {
+        try {
+            if (!await this._withTimeout(this._ensureReady(), 6000)) return false;
+            obj.lastUpdated = Date.now();
+            await this._withTimeout(
+                this._db.collection('gympro_data').doc('live_session')
+                    .set({ active: !!obj.active, data: JSON.stringify(obj), lastUpdated: obj.lastUpdated }, { merge: true }), 6000);
+            return true;
+        } catch (e) { console.warn('GymPro live publish skipped:', e && e.message); return false; }
+    },
+
+    async getLiveSession() {
+        try {
+            if (!await this._withTimeout(this._ensureReady(), 6000)) return null;
+            const doc = await this._withTimeout(
+                this._db.collection('gympro_data').doc('live_session').get(), 6000);
+            return doc.exists ? this._unwrapLive(doc.data()) : null;
+        } catch (e) { console.warn('GymPro live get skipped:', e && e.message); return null; }
+    },
+
+    // listenLiveSession — onSnapshot; מחזיר פונקציית unsubscribe (או no-op בכשל).
+    listenLiveSession(cb) {
+        try {
+            if (!this.init()) return () => {};
+            const self = this;
+            return this._db.collection('gympro_data').doc('live_session')
+                .onSnapshot(
+                    doc => { try { cb(doc.exists ? self._unwrapLive(doc.data()) : null); } catch (e) { /* cb הגנתי */ } },
+                    err => console.warn('GymPro live listen error:', err && err.message)
+                );
+        } catch (e) { console.warn('GymPro live listen skipped:', e && e.message); return () => {}; }
+    },
+
+    async clearLiveSession() {
+        try {
+            if (!await this._withTimeout(this._ensureReady(), 6000)) return false;
+            await this._withTimeout(
+                this._db.collection('gympro_data').doc('live_session')
+                    .set({ active: false, lastUpdated: Date.now() }, { merge: true }), 6000);
+            return true;
+        } catch (e) { console.warn('GymPro live clear skipped:', e && e.message); return false; }
     },
 
     // ── Sync Status (#3) ───────────────────────────────────────────────────────

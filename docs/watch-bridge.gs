@@ -108,7 +108,7 @@ function _state(live) {
     setIdx: s.setIdx || 0,
     totalSets: cur ? (cur.sets || null) : null,
     restTime: s.restTime || (cur && cur.restTime) || 90,
-    suggestWeight: (s.suggest && s.suggest[s.currentExName]) || null,
+    suggestWeight: (s.suggest && s.suggest[s.currentExName]) || 0,
     isCalc: cur ? !!cur.isCalc : false
   };
 }

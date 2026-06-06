@@ -186,8 +186,10 @@ function _normRir(v) {
   var n = parseFloat(s);
   return isNaN(n) ? '' : String(n);
 }
+function _norm(n) { return String(n || '').replace(/\s*\(Main\)\s*$/i, '').trim(); }
 function _planIndex(plan, name) {
-  for (var i = 0; i < plan.length; i++) if (plan[i].name === name) return i;
+  var t = _norm(name);
+  for (var i = 0; i < plan.length; i++) if (_norm(plan[i].name) === t) return i;
   return -1;
 }
 function _planItem(plan, name) { var i = _planIndex(plan, name); return i >= 0 ? plan[i] : null; }

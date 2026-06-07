@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.89
+## גרסה נוכחית: 15.92
 
 ---
 
@@ -107,10 +107,11 @@
 
 ---
 
-## גשר אפל-ווטש — אימון חי שעון⇄טלפון (v15.88)
-מטרה: לתעד אימון מ-Apple Watch בלי native/App Store/$99. שעון = **Apple Shortcuts** → Apps Script proxy (`docs/watch-bridge.gs`) → Firestore `gympro_data/live_session` → ה-PWA קורא ב-`onSnapshot` ומסכם.
-- **ייצוג ה-doc:** `{ active:bool, data:"<json>" }` — שדה JSON-string יחיד (מונע מיפוי-טיפוסים ב-Apps Script). `FirebaseManager._unwrapLive` עוטף/פותח; `publishLiveSession/getLiveSession/listenLiveSession/clearLiveSession` ב-storage.js.
-- **`WatchBridge`** (workout-core.js) — **כבוי כברירת מחדל** (`KEY_WATCH_BRIDGE_ON`), no-op מוחלט כשכבוי (אפס רגרסיה). הטלפון peer מלא: `onStateSaved()` (hook יחיד ב-`saveSessionState`, debounce 400ms, hash anti-ping-pong) מפרסם; `_adopt()` קולט עדכוני שעון לפי `rev`+`setId`; `adoptIfAny()` על load/visibilitychange/focus.
+## גשר אפל-ווטש — אימון חי שעון⇄טלפון (v15.92, Two-lane union)
+מטרה: לתעד אימון מ-Apple Watch בלי native/App Store/$99, עם **טרנזיטיביות מלאה דו-כיוונית**. שעון = **Apple Shortcuts** → Apps Script proxy (`docs/watch-bridge.gs`) → Firestore `gympro_data/live_session` → ה-PWA קורא ב-`onSnapshot` ומסכם.
+- **ייצוג ה-doc (v15.92):** `{ active:bool, data:"<json>", wlog:"<json>" }` — **שני מסלולים נפרדים**: `data`=מסלול הטלפון (metadata + סטי-`'p_'`, נכתב רק ע"י ה-PWA), `wlog`=מסלול השעון (סטי-`'w_'` + מצביע-תרגיל, נכתב רק ע"י ה-proxy, append-only). `_unwrapLive` ממזג את שניהם בקריאה (union לפי setId; `currentExName` מהמסלול עם `currentTs` חדש; `setIdx` **נגזר** מהאיחוד).
+- **clobber נפתר מבנית (v15.92):** אף צד לא כותב לשדה של השני (`set(merge)`/`updateMask` = מיזוג ברמת-שדה) → אין lost-update, ללא transactions. קודם (v15.90 forceAdopt, v15.91 read-merge-write) נגעו בסימפטום והשאירו חלון מרוץ.
+- **`WatchBridge`** (workout-core.js) — **כבוי כברירת מחדל** (`KEY_WATCH_BRIDGE_ON`), no-op מוחלט כשכבוי. `onStateSaved()` (hook יחיד ב-`saveSessionState`, debounce 400ms, hash) → `_doPublish()` כותב מסלול-טלפון בלבד; בתחילת סשן `resetWlog=true` מנקה מסלול-שעון מסשן קודם. `_adopt()` עם gating על `_wlogRev` (מתעלם מ-echo עצמי); `forceAdopt()` על load/restore/visibilitychange/focus.
 - **מיטיגציות סיכון (מהחקירה):** `setId` לכל סט (dedupe R3) · timestamp ארכיון = `liveSessionId` (R5, `finish`) · `clearLiveSession` ב-`copyResult`/`discardSession` (anti-zombie R4) · ה-proxy מוודא `active`+`sessionId`, מנרמל RIR למחרוזת (R1), מוודא w/r (R2) · טיימרים **לא** מסונכרנים דרך ה-doc (R8) · `enablePersistence` (R12) · timeouts לכל קריאה (R13).
 - **scope:** השעון append-only (`logSet/nextExercise/getState`); clusters/1RM/swap-order/interruption מנוהלים בטלפון.
 - **⚠️ חוב/בדיקה:** הלוגיקה של ה-live-sync (merge/adopt/ping-pong) **לא נבדקה על מכשירים אמיתיים** — דורשת אימות end-to-end עם Firebase+שעון. ה-proxy וה-Shortcut מותקנים בידי המשתמש (service-account + deploy + הרכבת הקיצורים). מגבלה: השעון צריך רשת בחדר הכושר.

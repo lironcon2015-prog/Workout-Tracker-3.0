@@ -364,8 +364,16 @@ function restoreSession() {
 // בלבד — טיימרים/ניווט/UI מקומיים. הטלפון peer מלא (קורא+כותב), הוא הבעלים של
 // מכונת-המצבים והוא היחיד שמסכם לארכיון.
 // ═══════════════════════════════════════════════════════════════════════════
+// ──────────────────────────────────────────────────────────────────────────
+// ארכיטקטורת Two-lane union (v15.92) — מבטלת clobber מבנית, ללא transactions:
+//   doc.data  = מסלול הטלפון  — הטלפון כותב רק אותו (metadata + הסטים שלו 'p_').
+//   doc.wlog  = מסלול השעון   — ה-proxy כותב רק אותו (הסטים מהשעון 'w_').
+// כל צד קורא את שני המסלולים וממזג לפי setId (_unwrapLive). כיוון שאף צד לא כותב
+// לשדה של השני (Firestore updateMask = מיזוג ברמת-שדה) — אי אפשר לדרוס. כך מושגת
+// טרנזיטיביות מלאה: סטים מהשעון ומהטלפון, בכל סדר, מתמזגים אצל שני הצדדים.
+// ה-setIdx נגזר תמיד מהלוג המאוחד (לא counter שנדרס).
 const WatchBridge = {
-    _unsub: null, _lastRev: 0, _suppress: false, _publishTimer: null, _lastHash: '',
+    _unsub: null, _lastDataRev: 0, _lastWlogRev: 0, _suppress: false, _publishTimer: null, _lastHash: '', _pendingWlogReset: false,
 
     enabled() {
         try {
@@ -374,13 +382,20 @@ const WatchBridge = {
         } catch (e) { return false; }
     },
     _activeWorkout() { return !!(state && state.workoutStartTime); },
+    _normName(n) { return String(n || '').replace(/\s*\(Main\)\s*$/i, '').trim(); },
 
-    // setId יציב לכל entry (R3 dedupe) — מזהה לפי setId, לא אינדקס
+    // setId יציב לכל entry (R3 dedupe) — סטי-טלפון מתחילים ב-'p_', סטי-שעון ב-'w_'
     _ensureSetIds() {
         if (!state.log) return;
         state.log.forEach((e, i) => {
             if (e && !e.setId) e.setId = 'p_' + (state.liveSessionId || 0) + '_' + i + '_' + Date.now().toString(36);
         });
+    },
+    // setIdx נגזר מהלוג המאוחד: כמות הסטים שנרשמו לתרגיל הנוכחי (לא counter שנדרס)
+    _deriveSetIdx(exName) {
+        if (!exName) return state.setIdx || 0;
+        const t = this._normName(exName);
+        return (state.log || []).filter(e => e && !e.skip && this._normName(e.exName) === t).length;
     },
     // מפת משקל מוצע מהמערכת (לא AI): המשקל האחרון שנרשם לכל תרגיל בתוכנית,
     // ולתרגיל הנוכחי — המשקל המדויק של הסט הנוכחי (כולל חישוב % לתרגילי calc).
@@ -399,33 +414,37 @@ const WatchBridge = {
         } catch (e) { /* הגנתי */ }
         return out;
     },
+    // מסלול הטלפון בלבד: הסטים שמקורם בטלפון ('p_'). סטי-השעון ('w_') חיים ב-wlog
+    // (ה-proxy בעליו) — לכן מסוננים כאן כדי שהטלפון לא ידרוס/ישכפל אותם.
     _buildPayload() {
         this._ensureSetIds();
         const plan = (state.workouts && state.type && state.workouts[state.type]) || [];
         return {
             active: true, sessionId: state.liveSessionId,
             startedAt: state.workoutStartTime || state.liveSessionId,
-            rev: (this._lastRev || 0) + 1, source: 'phone',
+            rev: (this._lastDataRev || 0) + 1, source: 'phone',
             type: state.type || '', week: state.week, isFreestyle: !!state.isFreestyle,
             plan: (Array.isArray(plan) ? plan : []).map(p => ({ name: p.name, sets: p.sets, restTime: p.restTime, isCalc: !!p.isCalc })),
-            currentExName: state.currentExName || '', setIdx: state.setIdx || 0,
+            currentExName: state.currentExName || '', currentTs: Date.now(),
             suggest: this._buildSuggest(plan),
-            log: (state.log || []).map(e => ({
-                setId: e.setId, exName: e.exName,
-                w: e.w, r: e.r, rir: e.rir != null ? String(e.rir) : '',
-                note: e.note || '', isCluster: !!e.isCluster, round: e.round || null, skip: !!e.skip
-            }))
+            log: (state.log || [])
+                .filter(e => e && e.setId && String(e.setId).indexOf('w_') !== 0)
+                .map(e => ({
+                    setId: e.setId, exName: e.exName,
+                    w: e.w, r: e.r, rir: e.rir != null ? String(e.rir) : '',
+                    note: e.note || '', isCluster: !!e.isCluster, round: e.round || null, skip: !!e.skip
+                }))
         };
     },
     _hash(p) {
         return (p.log ? p.log.length : 0) + '|' + (p.log && p.log.length ? p.log[p.log.length - 1].setId : '') +
-               '|' + p.currentExName + '|' + p.setIdx + '|' + (p.active ? 1 : 0);
+               '|' + p.currentExName + '|' + (p.active ? 1 : 0);
     },
 
     // נקרא מ-StorageManager.saveSessionState (נקודת חנק יחידה) — מתחיל סשן ומפרסם (debounced)
     onStateSaved() {
         if (this._suppress || !this.enabled() || !this._activeWorkout()) return;
-        if (!state.liveSessionId) state.liveSessionId = Date.now();   // start
+        if (!state.liveSessionId) { state.liveSessionId = Date.now(); this._pendingWlogReset = true; }   // start
         const payload = this._buildPayload();
         const h = this._hash(payload);
         if (h === this._lastHash) return;     // אין שינוי תוכן — מונע ping-pong של rev
@@ -435,23 +454,15 @@ const WatchBridge = {
         if (!this._unsub) this.startListening();
     },
 
-    // _doPublish — read-merge-write: קורא קודם את הענן וממזג את ה-log לפי setId, כדי
-    // ש**הטלפון לעולם לא ידרוס סטים שנכתבו מהשעון** (clobber-fix).
+    // _doPublish — כותב את מסלול-הטלפון בלבד (doc.data). אין צורך ב-read-merge:
+    // ה-proxy כותב למסלול נפרד (doc.wlog), ו-publishLiveSession משתמש ב-merge ברמת-שדה,
+    // כך שכתיבת הטלפון לעולם לא נוגעת בסטי-השעון.
     async _doPublish() {
-        try {
-            const remote = await FirebaseManager.getLiveSession();
-            if (remote && remote.active && remote.sessionId &&
-                String(remote.sessionId) === String(state.liveSessionId)) {
-                this._suppress = true;
-                try { state.log = this._mergeLog(state.log || [], remote.log || []); } finally { this._suppress = false; }
-                this._lastRev = Math.max(this._lastRev || 0, remote.rev || 0);
-            }
-        } catch (e) { /* offline — נמשיך עם ה-state המקומי */ }
-        const payload = this._buildPayload();   // ה-log עכשיו ממוזג
-        payload.rev = (this._lastRev || 0) + 1;
-        this._lastRev = payload.rev;
+        const payload = this._buildPayload();
+        this._lastDataRev = payload.rev;
         this._lastHash = this._hash(payload);
-        try { await FirebaseManager.publishLiveSession(payload); } catch (e) {}
+        const reset = this._pendingWlogReset; this._pendingWlogReset = false;
+        try { await FirebaseManager.publishLiveSession(payload, reset); } catch (e) {}
     },
 
     startListening() {
@@ -460,11 +471,12 @@ const WatchBridge = {
     },
     stopListening() { if (this._unsub) { try { this._unsub(); } catch (e) {} this._unsub = null; } },
 
-    // קליטת עדכון מהשעון (source!=='phone', rev חדש). ממזג log לפי setId; קנוני=ענן.
+    // קליטת עדכון מהשעון. data מ-_unwrapLive הוא כבר האיחוד (log ממוזג, currentExName
+    // אפקטיבי). מתעלמים מ-echo של הטלפון ע"י gating על rev של מסלול-השעון (_wlogRev).
     _adopt(data) {
         if (!data || !data.active) return;
-        if (data.source === 'phone') { if (data.rev) this._lastRev = Math.max(this._lastRev, data.rev); return; }
-        if (!data.rev || data.rev <= this._lastRev) return;
+        const wRev = data._wlogRev || 0;
+        if (wRev <= this._lastWlogRev) return;   // אין חדש מהשעון (כולל echo של כתיבת-הטלפון)
         this._suppress = true;
         try {
             if (!this._activeWorkout()) {   // adopt-on-open: בנה state בסיסי מהענן
@@ -476,8 +488,8 @@ const WatchBridge = {
             }
             state.log = this._mergeLog(state.log || [], data.log || []);
             if (data.currentExName) state.currentExName = data.currentExName;
-            if (data.setIdx != null) state.setIdx = data.setIdx;
-            this._lastRev = data.rev;
+            state.setIdx = this._deriveSetIdx(state.currentExName);
+            this._lastWlogRev = wRev;
             StorageManager.saveSessionState();   // _suppress פעיל → לא יפרסם בחזרה
             const onMain = state.historyStack && state.historyStack[state.historyStack.length - 1] === 'ui-main';
             if (onMain && state.currentEx && typeof initPickers === 'function') { try { initPickers(); } catch (e) {} }
@@ -509,8 +521,8 @@ const WatchBridge = {
         }
     },
 
-    // forceAdopt — מיזוג בכוח של סטים מהענן (מתעלם מ-rev). נקרא אחרי שחזור אימון
-    // ובחזרה-לפוקוס, כדי שהטלפון יקלוט סטים שנרשמו מהשעון בזמן שהיה בתיק.
+    // forceAdopt — מיזוג בכוח של סטים מהענן (מתעלם מ-gating ה-rev). נקרא אחרי שחזור
+    // אימון ובחזרה-לפוקוס, כדי שהטלפון יקלוט סטים שנרשמו מהשעון בזמן שהיה בתיק.
     async forceAdopt() {
         if (!this.enabled()) return;
         try {
@@ -523,8 +535,8 @@ const WatchBridge = {
                 if (!state.liveSessionId && data.sessionId) state.liveSessionId = data.sessionId;
                 state.log = this._mergeLog(state.log || [], data.log || []);
                 if (data.currentExName) state.currentExName = data.currentExName;
-                if (data.setIdx != null) state.setIdx = data.setIdx;
-                if (data.rev) this._lastRev = data.rev;
+                state.setIdx = this._deriveSetIdx(state.currentExName);
+                this._lastWlogRev = Math.max(this._lastWlogRev, data._wlogRev || 0);
                 StorageManager.saveSessionState();
                 const onMain = state.historyStack && state.historyStack[state.historyStack.length - 1] === 'ui-main';
                 if (onMain && state.currentEx && typeof initPickers === 'function') { try { initPickers(); } catch (e) {} }
@@ -538,7 +550,7 @@ const WatchBridge = {
         if (this.enabled() || (state && state.liveSessionId)) {
             try { await FirebaseManager.clearLiveSession(); } catch (e) {}
         }
-        this._lastRev = 0;
+        this._lastDataRev = 0; this._lastWlogRev = 0;
     }
 };
 

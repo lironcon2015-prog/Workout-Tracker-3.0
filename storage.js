@@ -759,23 +759,46 @@ const FirebaseManager = {
         ]);
     },
 
-    // הייצוג ב-Firestore: { active: bool, data: "<json>" } — שדה JSON-string יחיד.
-    // כך ה-Apps Script proxy (Firestore REST) מטפל רק ב-string+bool, בלי מיפוי-טיפוסים.
+    // הייצוג ב-Firestore (Two-lane union, v15.92): { active: bool, data: "<json>", wlog: "<json>" }.
+    //   data — מסלול הטלפון (metadata + סטי-טלפון 'p_'); נכתב רק ע"י ה-PWA.
+    //   wlog — מסלול השעון (סטי-שעון 'w_' + מצביע-תרגיל); נכתב רק ע"י ה-proxy.
+    // האיחוד נעשה כאן בקריאה: log ממוזג לפי setId, currentExName מהמסלול עם ה-currentTs
+    // החדש יותר, setIdx נגזר מהלוג המאוחד. _wlogRev חושף ל-WatchBridge שינוי במסלול-השעון.
+    _normLiveName(n) { return String(n || '').replace(/\s*\(Main\)\s*$/i, '').trim(); },
+    _mergeLiveLog(a, b) {
+        const seen = new Set(), out = [];
+        [a, b].forEach(arr => (arr || []).forEach(e => {
+            if (e && e.setId && !seen.has(e.setId)) { seen.add(e.setId); out.push(e); }
+        }));
+        return out;
+    },
     _unwrapLive(d) {
         if (!d) return null;
-        let obj = {};
-        try { obj = d.data ? JSON.parse(d.data) : {}; } catch (e) { obj = {}; }
-        if (typeof d.active === 'boolean') obj.active = d.active;   // active ברמה-עליונה קובע
-        return obj;
+        let dataObj = {}, wlogObj = {};
+        try { dataObj = d.data ? JSON.parse(d.data) : {}; } catch (e) { dataObj = {}; }
+        try { wlogObj = d.wlog ? JSON.parse(d.wlog) : {}; } catch (e) { wlogObj = {}; }
+        const out = Object.assign({}, dataObj);
+        out.log = this._mergeLiveLog(dataObj.log, wlogObj.log);
+        const dTs = dataObj.currentTs || 0, wTs = wlogObj.currentTs || 0;
+        if (wTs > dTs && wlogObj.currentExName) out.currentExName = wlogObj.currentExName;
+        const curN = this._normLiveName(out.currentExName);
+        out.setIdx = out.log.filter(e => e && !e.skip && this._normLiveName(e.exName) === curN).length;
+        out.rev = Math.max(dataObj.rev || 0, wlogObj.rev || 0);
+        out._wlogRev = wlogObj.rev || 0;
+        if (typeof d.active === 'boolean') out.active = d.active;   // active ברמה-עליונה קובע
+        return out;
     },
 
-    async publishLiveSession(obj) {
+    // publishLiveSession — כותב את מסלול-הטלפון בלבד (merge ברמת-שדה משאיר את wlog).
+    // resetWlog=true (בתחילת סשן) מאפס את מסלול-השעון כדי שלא יישארו סטים מסשן קודם.
+    async publishLiveSession(obj, resetWlog) {
         try {
             if (!await this._withTimeout(this._ensureReady(), 6000)) return false;
             obj.lastUpdated = Date.now();
+            const payload = { active: !!obj.active, data: JSON.stringify(obj), lastUpdated: obj.lastUpdated };
+            if (resetWlog) payload.wlog = '{}';
             await this._withTimeout(
-                this._db.collection('gympro_data').doc('live_session')
-                    .set({ active: !!obj.active, data: JSON.stringify(obj), lastUpdated: obj.lastUpdated }, { merge: true }), 6000);
+                this._db.collection('gympro_data').doc('live_session').set(payload, { merge: true }), 6000);
             return true;
         } catch (e) { console.warn('GymPro live publish skipped:', e && e.message); return false; }
     },
@@ -802,12 +825,14 @@ const FirebaseManager = {
         } catch (e) { console.warn('GymPro live listen skipped:', e && e.message); return () => {}; }
     },
 
+    // clearLiveSession — מאפס את שני המסלולים (data+wlog) כדי שסטים מסשן קודם לא
+    // ידלפו לסשן הבא דרך האיחוד-בקריאה.
     async clearLiveSession() {
         try {
             if (!await this._withTimeout(this._ensureReady(), 6000)) return false;
             await this._withTimeout(
                 this._db.collection('gympro_data').doc('live_session')
-                    .set({ active: false, lastUpdated: Date.now() }, { merge: true }), 6000);
+                    .set({ active: false, data: '{}', wlog: '{}', lastUpdated: Date.now() }, { merge: true }), 6000);
             return true;
         } catch (e) { console.warn('GymPro live clear skipped:', e && e.message); return false; }
     },

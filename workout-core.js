@@ -431,12 +431,27 @@ const WatchBridge = {
         if (h === this._lastHash) return;     // אין שינוי תוכן — מונע ping-pong של rev
         this._lastHash = h;
         clearTimeout(this._publishTimer);
-        this._publishTimer = setTimeout(() => {
-            payload.rev = (this._lastRev || 0) + 1;
-            this._lastRev = payload.rev;
-            FirebaseManager.publishLiveSession(payload).catch(() => {});
-        }, 400);
+        this._publishTimer = setTimeout(() => this._doPublish(), 400);
         if (!this._unsub) this.startListening();
+    },
+
+    // _doPublish — read-merge-write: קורא קודם את הענן וממזג את ה-log לפי setId, כדי
+    // ש**הטלפון לעולם לא ידרוס סטים שנכתבו מהשעון** (clobber-fix).
+    async _doPublish() {
+        try {
+            const remote = await FirebaseManager.getLiveSession();
+            if (remote && remote.active && remote.sessionId &&
+                String(remote.sessionId) === String(state.liveSessionId)) {
+                this._suppress = true;
+                try { state.log = this._mergeLog(state.log || [], remote.log || []); } finally { this._suppress = false; }
+                this._lastRev = Math.max(this._lastRev || 0, remote.rev || 0);
+            }
+        } catch (e) { /* offline — נמשיך עם ה-state המקומי */ }
+        const payload = this._buildPayload();   // ה-log עכשיו ממוזג
+        payload.rev = (this._lastRev || 0) + 1;
+        this._lastRev = payload.rev;
+        this._lastHash = this._hash(payload);
+        try { await FirebaseManager.publishLiveSession(payload); } catch (e) {}
     },
 
     startListening() {

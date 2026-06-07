@@ -233,12 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     checkRecovery();
     // גשר השעון — adopt-on-open + האזנה, ו-adopt חוזר על חזרה-לפוקוס (R6/R7).
     try {
-        if (WatchBridge.enabled()) {
-            WatchBridge.adoptIfAny();
-            WatchBridge.startListening();
-            document.addEventListener('visibilitychange', () => { if (!document.hidden) WatchBridge.adoptIfAny(); });
-            window.addEventListener('focus', () => WatchBridge.adoptIfAny());
-        }
+        if (WatchBridge.enabled()) WatchBridge.activate();
     } catch (e) {}
     if (typeof renderHeroCard === 'function') renderHeroCard();
     if (typeof renderHomePRCard === 'function') renderHomePRCard();
@@ -353,6 +348,9 @@ function restoreSession() {
         if (lastScreen === 'ui-main' && typeof _syncLiveResumeBtn === 'function') {
             setTimeout(_syncLiveResumeBtn, 80);
         }
+
+        // גשר השעון — אחרי שחזור האימון, מזג בכוח סטים שנרשמו מהשעון (R: clobber-by-restore)
+        try { if (typeof WatchBridge !== 'undefined') WatchBridge.forceAdopt(); } catch (e) {}
 
         haptic('success');
     } else {
@@ -481,6 +479,43 @@ const WatchBridge = {
     async adoptIfAny() {   // adopt-on-open/focus
         if (!this.enabled()) return;
         try { const data = await FirebaseManager.getLiveSession(); if (data) this._adopt(data); } catch (e) {}
+    },
+
+    // activate — מחבר האזנה + handlers של focus/visibility (אידמפוטנטי). נקרא ב-load
+    // וגם כשמפעילים את הגשר מההגדרות (בלי צורך בטעינה מחדש).
+    _wired: false,
+    activate() {
+        if (!this.enabled()) return;
+        this.startListening();
+        if (!this._wired) {
+            this._wired = true;
+            document.addEventListener('visibilitychange', () => { if (!document.hidden) this.forceAdopt(); });
+            window.addEventListener('focus', () => this.forceAdopt());
+        }
+    },
+
+    // forceAdopt — מיזוג בכוח של סטים מהענן (מתעלם מ-rev). נקרא אחרי שחזור אימון
+    // ובחזרה-לפוקוס, כדי שהטלפון יקלוט סטים שנרשמו מהשעון בזמן שהיה בתיק.
+    async forceAdopt() {
+        if (!this.enabled()) return;
+        try {
+            const data = await FirebaseManager.getLiveSession();
+            if (!data || !data.active) return;
+            // הגנה: מזג רק אם זה אותו סשן (sessionId תואם) — לא לערבב אימון ישן
+            if (state.liveSessionId && data.sessionId && String(data.sessionId) !== String(state.liveSessionId)) return;
+            this._suppress = true;
+            try {
+                if (!state.liveSessionId && data.sessionId) state.liveSessionId = data.sessionId;
+                state.log = this._mergeLog(state.log || [], data.log || []);
+                if (data.currentExName) state.currentExName = data.currentExName;
+                if (data.setIdx != null) state.setIdx = data.setIdx;
+                if (data.rev) this._lastRev = data.rev;
+                StorageManager.saveSessionState();
+                const onMain = state.historyStack && state.historyStack[state.historyStack.length - 1] === 'ui-main';
+                if (onMain && state.currentEx && typeof initPickers === 'function') { try { initPickers(); } catch (e) {} }
+                if (typeof showCloudToast === 'function') showCloudToast('⌚ סונכרן מהשעון', true);
+            } finally { this._suppress = false; }
+        } catch (e) {}
     },
     async finishSession() {   // ניקוי ה-doc (anti-zombie R4)
         this._lastHash = ''; clearTimeout(this._publishTimer); this.stopListening();
@@ -4562,7 +4597,7 @@ function saveWatchBridgeSettings() {
     StorageManager.saveWatchBridge(on, url, token);
     // הפעלה/כיבוי מיידי של ההאזנה
     try {
-        if (on && WatchBridge.enabled()) { WatchBridge.startListening(); WatchBridge.adoptIfAny(); }
+        if (on && WatchBridge.enabled()) { WatchBridge.activate(); WatchBridge.forceAdopt(); }
         else WatchBridge.stopListening();
     } catch (e) {}
     showAlert('הגדרות גשר השעון נשמרו!');

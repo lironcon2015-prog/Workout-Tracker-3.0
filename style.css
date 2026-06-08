@@ -212,11 +212,6 @@ body::before {
 .settings-btn svg { stroke: rgba(174,174,178,0.7); transition: stroke 0.2s; }
 .settings-btn:active svg { stroke: var(--accent); }
 
-/* Sound button states */
-.sound-active-waves { display: none; }
-#btn-sound.sound-active .sound-muted-lines { display: none; }
-#btn-sound.sound-active .sound-active-waves { display: block; }
-
 /* CSS Chevrons */
 .chevron-back {
     width: 10px; height: 10px;
@@ -3120,23 +3115,6 @@ body::before {
 }
 .stg-ai-save:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(10,132,255,0.15); }
 
-.stg-sys-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 20px;
-    
-    background: rgba(255,255,255,0.01);
-}
-.stg-sys-btns { display: flex; align-items: center; gap: 8px; }
-.stg-sys-btn {
-    display: flex; align-items: center; gap: 6px;
-    padding: 8px 14px; background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 9999px;
-    font-size: 0.75rem; font-weight: 800; color: #fff;
-    font-family: inherit; cursor: pointer; transition: background 0.15s;
-}
-.stg-sys-btn:active { background: rgba(255,255,255,0.15); }
-.stg-sys-sep { width: 1px; height: 22px; background: rgba(255,255,255,0.08); }
-.stg-sys-tag { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.25); background: rgba(20,20,20,0.8); padding: 4px 10px; border-radius: 99px; }
 .stg-version-badge { font-size: 0.65rem; font-weight: 700; color: rgba(255,255,255,0.4); background: rgba(40,40,40,0.8); padding: 4px 10px; border-radius: 99px; letter-spacing: 0.03em; }
 
 .stg-reset-btn {
@@ -3148,6 +3126,34 @@ body::before {
     transition: background 0.15s, transform 0.1s;
 }
 .stg-reset-btn:active { background: rgba(255,69,58,0.12); transform: scale(0.98); }
+
+/* ── בורר קבוצות-על (segmented control) ── */
+.stg-tabs {
+    display: flex; gap: 6px;
+    background: #141414;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 9999px;
+    padding: 5px;
+    margin-bottom: 1.5rem;
+}
+.stg-tab {
+    flex: 1; padding: 11px 4px;
+    border: none; background: none; border-radius: 9999px;
+    color: rgba(255,255,255,0.5);
+    font-family: inherit; font-weight: 800; font-size: 0.82rem;
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.stg-tab.active {
+    background: #353535; color: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
+.stg-panel { display: none; }
+.stg-panel.active { display: block; animation: stgPanelFade 0.25s ease; }
+@keyframes stgPanelFade {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}
 .ai-security-note {
     display: flex; align-items: flex-start; gap: 7px; background: rgba(255,159,10,0.07);
     border: 1px solid rgba(255,159,10,0.2); border-radius: 10px; padding: 9px 11px;

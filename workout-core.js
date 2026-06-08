@@ -227,8 +227,8 @@ document.addEventListener('DOMContentLoaded', () => {
     StorageManager.initDB();
     // שחזור העדפת הצלילים (ברירת מחדל: כבוי) + סנכרון אייקון הכפתור
     soundEnabled = StorageManager.getData(StorageManager.KEY_SOUND) === true;
-    const _soundBtn = document.getElementById('btn-sound');
-    if (_soundBtn) _soundBtn.classList.toggle('sound-active', soundEnabled);
+    const _soundTgl = document.getElementById('sound-toggle');
+    if (_soundTgl) _soundTgl.checked = soundEnabled;
     if (typeof renderWorkoutMenu === 'function') renderWorkoutMenu();
     checkRecovery();
     // גשר השעון — adopt-on-open + האזנה, ו-adopt חוזר על חזרה-לפוקוס (R6/R7).
@@ -590,12 +590,13 @@ function playBeep(times = 1) {
 }
 
 // toggle אמיתי: מדליק/מכבה צלילים, שומר את הבחירה, ומצפצף אישור רק בהדלקה.
-async function toggleSound() {
-    soundEnabled = !soundEnabled;
+async function toggleSound(force) {
+    // force = מצב ה-checkbox כשמגיע מה-toggle; אחרת flip (תאימות לאחור)
+    soundEnabled = (typeof force === 'boolean') ? force : !soundEnabled;
     StorageManager.saveData(StorageManager.KEY_SOUND, soundEnabled);
     haptic('medium');
-    const btn = document.getElementById('btn-sound');
-    if (btn) btn.classList.toggle('sound-active', soundEnabled);
+    const tgl = document.getElementById('sound-toggle');
+    if (tgl) tgl.checked = soundEnabled;
     if (soundEnabled) {
         playBeep(1);  // צפצוף אישור — וגם פותח את ה-AudioContext על gesture המשתמש
         try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
@@ -625,13 +626,9 @@ function _applyScreenChrome(screenId) {
     const tabBar      = document.querySelector('.tab-bar');
     const strip       = document.getElementById('session-timer-strip');
     const settingsBtn = document.getElementById('btn-settings');
-    const soundBtn    = document.getElementById('btn-sound');
-    const reloadBtn   = document.getElementById('btn-reload');
     if (tabBar)      tabBar.style.display      = inWorkout ? 'none' : 'flex';
     if (strip)       strip.style.display       = inWorkout ? 'flex' : 'none';
     if (settingsBtn) settingsBtn.style.display = inWorkout ? 'none' : 'flex';
-    if (soundBtn)    soundBtn.style.display    = inWorkout ? 'none' : 'flex';
-    if (reloadBtn)   reloadBtn.style.display   = inWorkout ? 'none' : 'flex';
 
     const backBtn = document.getElementById('global-back');
     if (backBtn) backBtn.style.display = !NO_BACK_SCREENS.includes(screenId) ? 'flex' : 'none';
@@ -1061,6 +1058,18 @@ function openSettings() {
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
+    const _st = document.getElementById('sound-toggle');
+    if (_st) _st.checked = soundEnabled;
+    switchSettingsTab('general');   // תמיד נפתח על לשונית "כללי"
+}
+
+// מעבר בין לשוניות ההגדרות (בורר קבוצות-על). btn אופציונלי — אם חסר, מסומן לפי data-attr.
+function switchSettingsTab(name, btn) {
+    document.querySelectorAll('#ui-settings .stg-tab').forEach(b =>
+        b.classList.toggle('active', btn ? b === btn : b.dataset.stgTab === name));
+    document.querySelectorAll('#ui-settings .stg-panel').forEach(p =>
+        p.classList.toggle('active', p.dataset.stgPanel === name));
+    if (typeof haptic === 'function') haptic('light');
 }
 
 // ─── NUTRITIONAL STATE ─────────────────────────────────────────────────────

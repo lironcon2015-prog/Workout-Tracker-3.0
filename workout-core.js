@@ -1991,10 +1991,15 @@ async function _callGeminiOneShot(prompt, opts = {}) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
 
-    // freeText — מצב טקסט חופשי (סיכומי מאמן) ברמת "מעמיק": ללא אילוץ JSON, תקרת טוקנים גבוהה
-    const generationConfig = opts.freeText
-        ? { temperature: 0.7, maxOutputTokens: opts.maxTokens || 4096, thinkingConfig: { thinkingBudget: 0 } }
-        : { temperature: 0.35, maxOutputTokens: 220, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
+    // Gemini 3 אינו תומך ב-thinkingBudget:0 לכיבוי חשיבה — שם הפרמטר הוא thinkingLevel.
+    // בלעדיו המודל "חושב" בברירת מחדל (medium), מבזבז את תקרת הטוקנים על מחשבות
+    // ומחזיר טקסט גלוי ריק (finishReason=MAX_TOKENS) → סיכום ריק/איטי מאוד.
+    const _thinkingConfig = (modelName) => /gemini-3/i.test(modelName)
+        ? { thinkingLevel: 'low' }
+        : { thinkingBudget: 0 };
+    const _genConfigFor = (modelName) => opts.freeText
+        ? { temperature: 0.7, maxOutputTokens: opts.maxTokens || 8192, thinkingConfig: _thinkingConfig(modelName) }
+        : { temperature: 0.35, maxOutputTokens: opts.maxTokens || 512, responseMimeType: 'application/json', thinkingConfig: _thinkingConfig(modelName) };
 
     // freeText — מאפשרים עד 3 סבבי המשך אם התשובה נחתכה (finishReason === 'MAX_TOKENS')
     const MAX_CONT_ROUNDS = opts.freeText ? 3 : 0;
@@ -2006,6 +2011,7 @@ async function _callGeminiOneShot(prompt, opts = {}) {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
             // שיחה רב-תורית — מתחילה מה-prompt, וגדלה עם כל סבב המשך
             const contents = [{ role: 'user', parts: [{ text: prompt }] }];
+            const generationConfig = _genConfigFor(modelName);
             let fullText = '';
 
             for (let round = 0; round <= MAX_CONT_ROUNDS; round++) {
@@ -2034,8 +2040,9 @@ async function _callGeminiOneShot(prompt, opts = {}) {
                 // אם המודל סיים מרצונו (STOP) או שאין עוד מה לחתוך — מחזירים
                 if (candidate?.finishReason !== 'MAX_TOKENS' || !chunk) return fullText.trim();
 
-                // נחתך באמצע — מבקשים המשך מהנקודה שבה עצר, בלי לחזור על מה שנכתב
-                contents.push({ role: 'model', parts: [{ text: chunk }] });
+                // נחתך באמצע — מבקשים המשך מהנקודה שבה עצר, בלי לחזור על מה שנכתב.
+                // דוחפים את ה-parts המקוריים (כולל thoughtSignature) — Gemini 3 דורש זאת ב-multi-turn.
+                contents.push({ role: 'model', parts });
                 contents.push({ role: 'user', parts: [{ text: 'המשך בדיוק מהמקום שבו עצרת, ללא חזרה על מה שכבר נכתב וללא הקדמה.' }] });
             }
             return fullText.trim();

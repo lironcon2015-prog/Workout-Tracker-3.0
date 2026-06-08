@@ -3037,6 +3037,19 @@ function buildSummaryUI() {
                 <span id="coach-scope-badge" class="coach-scope-badge"></span>
             </div>
             <div id="coach-card-body" class="coach-card-body"></div>
+            <div id="coach-refine" class="coach-refine" hidden>
+                <button class="coach-refine-toggle" onclick="toggleCoachRefine()">
+                    <span class="material-symbols-outlined">edit</span> דייק את הסיכום
+                </button>
+                <div id="coach-refine-row" class="coach-refine-row" hidden>
+                    <input type="text" id="coach-refine-input" class="coach-refine-input"
+                        placeholder="מה לתקן? (למשל: פספסת שהעליתי משקל בסקוואט)…"
+                        onkeydown="if(event.key==='Enter')sendCoachRefine()">
+                    <button class="coach-refine-send" onclick="sendCoachRefine()">
+                        <span class="material-symbols-outlined">arrow_upward</span>
+                    </button>
+                </div>
+            </div>
         </div>` : '';
     const copyToggleHtml = hasAIKey ? `
         <label class="coach-copy-toggle">
@@ -3359,6 +3372,7 @@ function generateCoachSummary() {
         _coachSummaryText = existing;
         body.className = 'coach-card-body';
         body.innerHTML = _renderMarkdown(existing);
+        _revealCoachRefine();
         return;
     }
 
@@ -3373,6 +3387,7 @@ function generateCoachSummary() {
             _coachSummaryText = clean;
             body.className = 'coach-card-body';
             body.innerHTML = _renderMarkdown(clean);
+            _revealCoachRefine();
             if (state.archivedTimestamp) {
                 StorageManager.updateArchiveEntry(state.archivedTimestamp, { aiSummary: clean.slice(0, 6000) });
                 StorageManager.saveSessionState();
@@ -3385,6 +3400,80 @@ function generateCoachSummary() {
             body.innerHTML = `<div class="coach-error">⚠️ לא הצלחתי להפיק סיכום כרגע. <button class="coach-retry-btn" onclick="generateCoachSummary()">נסה שוב</button></div>`;
             // לא זורקים מחדש — ה-Promise נפתר (resolved) כדי ש-copyResult יוכל להמתין לו בבטחה
             return null;
+        });
+}
+
+// ─── COACH SUMMARY REFINE — תיקון מתגלגל ───────────────────────────────────
+// מאפשר למשתמש "לדייק" את סיכום המאמן בלי לצאת ממסך הסיכום. כל הערה מייצרת
+// מחדש את הסיכום על בסיס הגרסה הנוכחית + נתוני האימון בפועל + ההערה.
+
+function _revealCoachRefine() {
+    const refine = document.getElementById('coach-refine');
+    if (refine) refine.hidden = false;
+}
+
+function toggleCoachRefine() {
+    const row = document.getElementById('coach-refine-row');
+    if (!row) return;
+    row.hidden = !row.hidden;
+    if (!row.hidden) {
+        const input = document.getElementById('coach-refine-input');
+        if (input) input.focus();
+    }
+}
+
+function sendCoachRefine() {
+    const input = document.getElementById('coach-refine-input');
+    if (!input) return;
+    const note = input.value.trim();
+    if (!note || !_coachSummaryText) return;
+    input.value = '';
+    const row = document.getElementById('coach-refine-row');
+    if (row) row.hidden = true;
+    refineCoachSummary(note);
+}
+
+function refineCoachSummary(note) {
+    const body = document.getElementById('coach-card-body');
+    if (!body) return;
+
+    const prev = _coachSummaryText;
+    const archive = StorageManager.getArchive();
+    const entry = archive.find(a => a.timestamp === state.archivedTimestamp);
+    const workoutText = (entry && entry.summary) || 'אין נתונים';
+
+    const prompt = `אתה מאמן כוח. כתבת למתאמן את הסיכום הבא:
+---
+${prev}
+---
+נתוני האימון בפועל:
+${workoutText}
+המתאמן מעיר/מתקן: "${note}"
+כתוב מחדש את הסיכום המלא בעברית בפורמט Markdown, באותו מבנה וכותרות, ותקן רק את מה שצריך לאור ההערה. החזר את הסיכום המתוקן בלבד, ללא הקדמות.`;
+
+    body.className = 'coach-card-body loading';
+    body.innerHTML = `<div class="coach-loading"><span class="coach-spinner"></span> המאמן מעדכן את הסיכום…</div>`;
+
+    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true })
+        .then(text => {
+            const clean = (text || '').trim();
+            if (!clean) throw new Error('EMPTY_RESPONSE');
+            _coachSummaryText = clean;
+            body.className = 'coach-card-body';
+            body.innerHTML = _renderMarkdown(clean);
+            if (state.archivedTimestamp) {
+                StorageManager.updateArchiveEntry(state.archivedTimestamp, { aiSummary: clean.slice(0, 6000) });
+                StorageManager.saveSessionState();
+            }
+            return clean;
+        })
+        .catch(err => {
+            console.warn('GymPro: coach refine failed', err);
+            // שחזור הסיכום הקודם — לא מאבדים את מה שכבר היה
+            body.className = 'coach-card-body';
+            body.innerHTML = _renderMarkdown(prev);
+            if (typeof showCloudToast === 'function') showCloudToast('לא הצלחתי לתקן כרגע, נסה שוב', false);
+            return prev;
         });
 }
 

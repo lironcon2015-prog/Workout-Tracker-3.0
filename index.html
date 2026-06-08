@@ -15,10 +15,48 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Heebo:wght@300;400;600;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');</script>
-    <!-- Firebase SDK (Compat) — Firestore + Auth -->
-    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <!-- סקריפטי האפליקציה — defer ב-head: ה-preload scanner מוריד במקביל לניתוח ה-HTML.
+         הסדר נשמר (defer רץ לפי סדר המסמך) ולפני DOMContentLoaded. -->
+    <script defer src="data.js"></script>
+    <script defer src="storage.js"></script>
+    <script defer src="workout-core.js"></script>
+    <script defer src="editor-logic.js"></script>
+    <script defer src="archive-logic.js"></script>
+    <script defer src="bodylog-logic.js"></script>
+
+    <!-- Firebase SDK (Compat) — טעינה lazy/non-blocking. לא חוסם DOMContentLoaded.
+         נטען ברקע רק למשתמשים עם cloud מוגדר, או on-demand דרך FirebaseManager. -->
+    <script>
+    window.loadFirebaseSDK = (function () {
+        let promise = null;
+        const urls = [
+            'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
+            'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',
+            'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js'
+        ];
+        function inject(src) {
+            return new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = src; s.async = false;  // שמירת סדר ההזרקה (app→auth→firestore)
+                s.onload = res; s.onerror = rej;
+                document.head.appendChild(s);
+            });
+        }
+        // טעינה משורשרת — כל SDK ממתין לקודמו (firestore תלוי ב-app)
+        return function () {
+            if (!promise) promise = urls.reduce((chain, u) => chain.then(() => inject(u)), Promise.resolve());
+            return promise;
+        };
+    })();
+    // Prefetch ברקע — רק אם המשתמש הגדיר Firebase, ואחרי שהאפליקציה אינטראקטיבית.
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            try { if (localStorage.getItem('gympro_firebase_config')) window.loadFirebaseSDK(); }
+            catch (e) {}
+        }, 1500);
+    });
+    </script>
 </head>
 <body>
     <div class="glass-overlay"></div>
@@ -1862,12 +1900,7 @@
         <button class="btn-main primary-gradient" onclick="closeThumbManageSheet()" style="margin-top:16px;">סיום</button>
     </div>
 
-    <script src="data.js"></script>
-    <script src="storage.js"></script>
-    <script src="workout-core.js"></script>
-    <script src="editor-logic.js"></script>
-    <script src="archive-logic.js"></script>
-    <script src="bodylog-logic.js"></script>
+    <!-- סקריפטי האפליקציה הועברו ל-<head> עם defer (טעינה מוקדמת ומקבילית). -->
     <div id="cloud-toast" class="cloud-toast"></div>
     <div id="cloud-sync-banner" class="cloud-sync-banner">
         <span class="csb-icon material-symbols-outlined">cloud_off</span>

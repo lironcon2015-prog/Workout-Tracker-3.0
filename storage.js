@@ -742,6 +742,10 @@ const FirebaseManager = {
 
     // ממתין לסיום האתחול ול-Auth לפני פעולות Firestore
     async _ensureReady() {
+        // טעינת ה-SDK on-demand אם עוד לא נטען (lazy load מ-index.html)
+        if (typeof firebase === 'undefined' && typeof window.loadFirebaseSDK === 'function') {
+            try { await window.loadFirebaseSDK(); } catch (e) { return false; }
+        }
         if (!this.init()) return false;
         await this._authReady;
         return true;
@@ -813,16 +817,27 @@ const FirebaseManager = {
     },
 
     // listenLiveSession — onSnapshot; מחזיר פונקציית unsubscribe (או no-op בכשל).
+    // ה-SDK נטען lazily: אם עוד לא נטען, ההאזנה מתחברת לאחר הטעינה ברקע. חוזה ה-unsubscribe
+    // הסינכרוני נשמר — מחזירים wrapper שמבטל גם אם החיבור עוד לא הושלם.
     listenLiveSession(cb) {
-        try {
-            if (!this.init()) return () => {};
-            const self = this;
-            return this._db.collection('gympro_data').doc('live_session')
-                .onSnapshot(
-                    doc => { try { cb(doc.exists ? self._unwrapLive(doc.data()) : null); } catch (e) { /* cb הגנתי */ } },
-                    err => console.warn('GymPro live listen error:', err && err.message)
-                );
-        } catch (e) { console.warn('GymPro live listen skipped:', e && e.message); return () => {}; }
+        const self = this;
+        let realUnsub = null, cancelled = false;
+        const attach = () => {
+            try {
+                if (cancelled || !self.init()) return;
+                realUnsub = self._db.collection('gympro_data').doc('live_session')
+                    .onSnapshot(
+                        doc => { try { cb(doc.exists ? self._unwrapLive(doc.data()) : null); } catch (e) { /* cb הגנתי */ } },
+                        err => console.warn('GymPro live listen error:', err && err.message)
+                    );
+            } catch (e) { console.warn('GymPro live listen skipped:', e && e.message); }
+        };
+        if (typeof firebase === 'undefined' && typeof window.loadFirebaseSDK === 'function') {
+            window.loadFirebaseSDK().then(attach).catch(() => {});
+        } else {
+            attach();
+        }
+        return () => { cancelled = true; if (realUnsub) realUnsub(); };
     },
 
     // clearLiveSession — מאפס את שני המסלולים (data+wlog) כדי שסטים מסשן קודם לא

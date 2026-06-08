@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מוקאפ — מסך הגדרות v15.95 (בורר קבוצות)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+:root{ --accent:#0A84FF; --danger:#FF453A; --border-hi:rgba(255,255,255,0.12); }
+*{ box-sizing:border-box; }
+body{
+  margin:0; background:#000; font-family:'Heebo',sans-serif;
+  display:flex; flex-direction:column; align-items:center; gap:18px;
+  padding:30px 12px 60px; color:#fff; min-height:100vh;
+}
+.material-symbols-outlined{ font-family:'Material Symbols Outlined'; font-weight:normal; font-style:normal; line-height:1; }
+
+/* כותרת המוקאפ */
+.mk-banner{ max-width:430px; text-align:center; }
+.mk-banner h1{ font-size:1.3rem; font-weight:900; margin:0 0 6px; }
+.mk-banner p{ font-size:0.82rem; color:rgba(255,255,255,0.55); margin:0; line-height:1.6; }
+.mk-banner b{ color:#aac7ff; }
+
+/* מסגרת טלפון */
+.phone{
+  width:100%; max-width:430px; background:#0a0a0a;
+  border-radius:34px; border:1px solid rgba(255,255,255,0.08);
+  padding:22px 18px 28px; box-shadow:0 30px 80px rgba(0,0,0,0.6);
+}
+
+/* ── מתוך style.css האמיתי ── */
+.stg-hero{ margin-bottom:1.5rem; }
+.stg-hero-title{ font-size:3rem; font-weight:900; color:#fff; line-height:1.1; letter-spacing:-0.02em; }
+.stg-hero-bar{ height:4px; width:6rem; background:linear-gradient(to left,var(--accent),transparent); border-radius:99px; margin-top:8px; }
+.color-dim{ color:rgba(255,255,255,0.4); } .text-xs{ font-size:0.72rem; } .text-center{ text-align:center; } .mb-md{ margin-bottom:1rem; }
+
+.settings-group{ margin-bottom:1.5rem; }
+.settings-group-label{ font-size:0.72rem; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.4); padding:0 6px 8px; }
+
+.stg-bento{ background:#1a1919; border:1px solid rgba(255,255,255,0.06); border-top-color:rgba(255,255,255,0.10); border-radius:2rem; overflow:hidden; box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.3); }
+.stg-nav-row{ display:flex; align-items:center; gap:14px; padding:16px 20px; border:none; cursor:pointer; background:none; width:100%; font-family:inherit; text-align:right; transition:background 0.15s; border-bottom:1px solid rgba(255,255,255,0.05); }
+.stg-nav-row:active{ background:rgba(255,255,255,0.05); }
+.stg-nav-row--last{ border-bottom:none; }
+.stg-nav-row--plain .stg-row-title{ font-weight:700; }
+.stg-icon{ width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.stg-row-title{ font-size:0.95rem; font-weight:800; color:#fff; flex:1; }
+.stg-chevron{ font-size:1.3rem; color:rgba(255,255,255,0.3); flex-shrink:0; }
+.stg-version-badge{ font-size:0.65rem; font-weight:700; color:rgba(255,255,255,0.4); background:rgba(40,40,40,0.8); padding:4px 10px; border-radius:99px; letter-spacing:0.03em; }
+
+.stg-toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; gap:14px; border-bottom:1px solid rgba(255,255,255,0.05); }
+.stg-toggle-row--last{ border-bottom:none; }
+.stg-toggle-info{ flex:1; min-width:0; }
+.stg-toggle-hint{ font-size:0.7rem; color:rgba(255,255,255,0.5); margin-top:4px; line-height:1.45; font-weight:600; }
+.stg-switch{ position:relative; width:50px; height:30px; flex-shrink:0; display:inline-block; }
+.stg-switch input{ opacity:0; width:0; height:0; position:absolute; }
+.stg-switch-slider{ position:absolute; inset:0; background:rgba(255,255,255,0.18); border-radius:9999px; cursor:pointer; transition:background 0.25s; }
+.stg-switch-slider::before{ content:''; position:absolute; width:26px; height:26px; left:2px; top:2px; background:#fff; border-radius:50%; transition:transform 0.25s cubic-bezier(0.2,0.8,0.2,1); box-shadow:0 2px 4px rgba(0,0,0,0.25); }
+.stg-switch input:checked + .stg-switch-slider{ background:var(--accent); }
+.stg-switch input:checked + .stg-switch-slider::before{ transform:translateX(20px); }
+
+.nutri-toggle{ display:flex; gap:8px; width:100%; }
+.nutri-pill{ flex:1; padding:10px 12px; border:1px solid rgba(255,255,255,0.08); border-radius:9999px; background:#1b1b1b; color:rgba(255,255,255,0.65); font-family:inherit; font-size:0.78rem; font-weight:800; cursor:pointer; transition:.18s; }
+.nutri-pill.active{ background:rgba(10,132,255,0.16); border-color:rgba(10,132,255,0.55); color:#aac7ff; box-shadow:inset 0 0 0 1px rgba(10,132,255,0.25); }
+.stg-nutri-bento{ padding:16px 18px; }
+.stg-nutri-hint{ font-size:0.72rem; color:rgba(255,255,255,0.45); margin-bottom:12px; }
+.stg-nutri-meta{ font-size:0.7rem; color:rgba(255,255,255,0.4); margin-top:10px; text-align:center; text-decoration:underline dotted; text-underline-offset:3px; }
+
+.stg-ai-bento{ padding:20px; display:flex; flex-direction:column; gap:14px; background:linear-gradient(135deg,#1a1919,#1e1e30); border:1px solid rgba(100,100,255,0.1); border-radius:2rem; }
+.stg-ai-field{ display:flex; flex-direction:column; gap:5px; }
+.stg-ai-label{ font-size:0.6rem; font-weight:900; letter-spacing:0.13em; text-transform:uppercase; color:#8888dd; padding:0 2px; }
+.stg-ai-input{ width:100%; height:52px; background:rgba(0,0,0,0.4); border:none; border-radius:16px; padding:0 18px; color:#fff; font-size:0.9rem; font-family:inherit; outline:none; }
+.stg-ai-input::placeholder{ color:#555; }
+.stg-ai-save{ width:100%; height:52px; background:linear-gradient(135deg,#0A84FF,#005db9); border:none; border-radius:9999px; color:#fff; font-weight:900; font-size:1rem; font-family:inherit; cursor:pointer; box-shadow:0 4px 20px rgba(10,132,255,0.25); margin-top:4px; }
+.stg-switch-row{ display:flex; align-items:center; justify-content:space-between; font-weight:700; font-size:0.92rem; }
+
+.cloud-btn{ background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#fff; font-family:inherit; font-weight:800; font-size:0.85rem; padding:12px; border-radius:12px; cursor:pointer; }
+.full-w{ width:100%; }
+
+.stg-firebase-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:18px 20px; border:none; cursor:pointer; background:none; width:100%; font-family:inherit; text-align:right; border-bottom:1px solid rgba(255,255,255,0.05); }
+.stg-cloud-upload{ padding:8px 20px 4px; }
+.stg-cloud-row{ display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-bottom:1px solid rgba(255,255,255,0.05); }
+.stg-cloud-row--last{ border-bottom:none; }
+.stg-cloud-label{ font-size:0.75rem; font-weight:800; color:rgba(255,255,255,0.4); }
+.stg-cloud-btns{ display:flex; gap:8px; }
+.stg-cloud-btn{ display:flex; align-items:center; gap:5px; padding:8px 14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:9999px; font-size:0.75rem; font-weight:800; color:#fff; font-family:inherit; cursor:pointer; }
+
+.stg-reset-btn{ width:100%; margin-top:12px; padding:16px; background:rgba(255,69,58,0.05); border:1px solid rgba(255,69,58,0.3); border-radius:16px; color:var(--danger); font-size:0.9rem; font-weight:900; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+.ai-security-note{ display:flex; align-items:flex-start; gap:7px; background:rgba(255,159,10,0.07); border:1px solid rgba(255,159,10,0.2); border-radius:10px; padding:9px 11px; margin-top:6px; font-size:0.7rem; color:rgba(255,255,255,0.6); line-height:1.5; }
+
+/* ★★★ החדש — בורר קבוצות (segmented control) ★★★ */
+.stg-tabs{
+  display:flex; gap:6px; background:#141414;
+  border:1px solid rgba(255,255,255,0.06); border-radius:9999px;
+  padding:5px; margin-bottom:22px;
+}
+.stg-tab{
+  flex:1; padding:11px 4px; border:none; background:none;
+  border-radius:9999px; color:rgba(255,255,255,0.5);
+  font-family:inherit; font-weight:800; font-size:0.82rem;
+  cursor:pointer; transition:background .2s,color .2s,box-shadow .2s; white-space:nowrap;
+}
+.stg-tab.active{ background:#353535; color:#fff; box-shadow:0 2px 10px rgba(0,0,0,0.35); }
+.stg-panel{ display:none; }
+.stg-panel.active{ display:block; animation:stgFade .25s ease; }
+@keyframes stgFade{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+
+/* תג "חדש" קטן על שורות שזזו */
+.mk-moved{ display:inline-block; font-size:0.55rem; font-weight:900; letter-spacing:0.05em; color:#30D158; background:rgba(48,209,88,0.12); border:1px solid rgba(48,209,88,0.3); padding:2px 7px; border-radius:99px; margin-inline-start:8px; vertical-align:middle; }
+</style>
+</head>
+<body>
+
+<div class="mk-banner">
+  <h1>מסך הגדרות — עיצוב חדש (v15.95)</h1>
+  <p>בורר קבוצות־על בראש המסך. כל לשונית מציגה קבוצה אחת בלבד.<br>
+  לחץ על <b>כללי · אימון · מאמן · חיבורים</b> כדי לעבור.</p>
+</div>
+
+<div class="phone">
+  <div id="ui-settings">
+
+    <!-- Hero -->
+    <div class="stg-hero">
+      <h2 class="stg-hero-title">הגדרות</h2>
+      <div class="stg-hero-bar"></div>
+    </div>
+    <p class="color-dim text-xs text-center mb-md">GymPro Elite · v15.95</p>
+
+    <!-- ★ הבורר ★ -->
+    <div class="stg-tabs" role="tablist">
+      <button class="stg-tab active" data-tab="general"     onclick="mkTab('general',this)">כללי</button>
+      <button class="stg-tab"        data-tab="training"    onclick="mkTab('training',this)">אימון</button>
+      <button class="stg-tab"        data-tab="coach"       onclick="mkTab('coach',this)">מאמן</button>
+      <button class="stg-tab"        data-tab="connections" onclick="mkTab('connections',this)">חיבורים</button>
+    </div>
+
+    <!-- ══════════ פאנל: כללי ══════════ -->
+    <div class="stg-panel active" data-panel="general">
+
+      <div class="settings-group">
+        <div class="settings-group-label">אפליקציה</div>
+        <div class="stg-bento">
+          <button class="stg-nav-row stg-nav-row--plain">
+            <span class="stg-row-title">בדוק עדכון<span class="mk-moved">הועלה למעלה</span></span>
+            <span class="stg-version-badge">15.95</span>
+          </button>
+          <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last">
+            <span class="stg-row-title">רענן אפליקציה</span>
+            <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label">תצוגה וצליל</div>
+        <div class="stg-bento">
+          <div class="stg-toggle-row">
+            <div class="stg-toggle-info">
+              <div class="stg-row-title">מצב Live</div>
+              <div class="stg-toggle-hint">מסך אימון fullscreen — טיימר ענק, החלקה לרישום סט.</div>
+            </div>
+            <label class="stg-switch"><input type="checkbox"><span class="stg-switch-slider"></span></label>
+          </div>
+          <div class="stg-toggle-row stg-toggle-row--last">
+            <div class="stg-toggle-info">
+              <div class="stg-row-title">צלילים<span class="mk-moved">toggle נקי</span></div>
+              <div class="stg-toggle-hint">צפצופי טיימר וסיום סט. הומר מאייקון ל-toggle.</div>
+            </div>
+            <label class="stg-switch"><input type="checkbox" checked><span class="stg-switch-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <button class="stg-reset-btn">
+        <span class="material-symbols-outlined">restart_alt</span>
+        איפוס להגדרות יצרן
+      </button>
+    </div>
+
+    <!-- ══════════ פאנל: אימון ══════════ -->
+    <div class="stg-panel" data-panel="training">
+      <div class="settings-group">
+        <div class="settings-group-label">ניהול תוכנית</div>
+        <div class="stg-bento">
+          <button class="stg-nav-row">
+            <div class="stg-icon" style="background:rgba(10,132,255,0.15);"><span class="material-symbols-outlined" style="color:#0A84FF;font-size:1.4rem;">fitness_center</span></div>
+            <span class="stg-row-title">תוכניות אימון</span>
+            <span class="material-symbols-outlined stg-chevron">chevron_left</span>
+          </button>
+          <button class="stg-nav-row">
+            <div class="stg-icon" style="background:rgba(71,226,102,0.12);"><span class="material-symbols-outlined" style="color:#47e266;font-size:1.4rem;">exercise</span></div>
+            <span class="stg-row-title">מאגר תרגילים</span>
+            <span class="material-symbols-outlined stg-chevron">chevron_left</span>
+          </button>
+          <button class="stg-nav-row stg-nav-row--last">
+            <div class="stg-icon" style="background:rgba(255,159,10,0.12);"><span class="material-symbols-outlined" style="color:#FF9F0A;font-size:1.4rem;">analytics</span></div>
+            <span class="stg-row-title">הגדרות אנליטיקה</span>
+            <span class="material-symbols-outlined stg-chevron">chevron_left</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ פאנל: מאמן ══════════ -->
+    <div class="stg-panel" data-panel="coach">
+      <div class="settings-group">
+        <div class="settings-group-label">Nutritional State</div>
+        <div class="stg-bento stg-nutri-bento">
+          <div class="stg-nutri-hint">משפיע על המלצות ה-AI Coach</div>
+          <div class="nutri-toggle">
+            <button class="nutri-pill">Cut</button>
+            <button class="nutri-pill active">Maintenance</button>
+            <button class="nutri-pill">Surplus</button>
+          </div>
+          <div class="stg-nutri-meta">במצב זה מאז 12 במאי (27 ימים)</div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label">AI Coach</div>
+        <div class="stg-bento stg-ai-bento">
+          <div class="stg-ai-field"><label class="stg-ai-label">Gemini API Key</label><input class="stg-ai-input" type="password" placeholder="הדבק API Key מ-Google AI Studio"></div>
+          <div class="stg-ai-field"><label class="stg-ai-label">Models</label><input class="stg-ai-input" type="text" placeholder="gemini-3-flash-preview, gemini-2.5-flash"></div>
+          <button class="stg-ai-save">שמור הגדרות AI</button>
+          <button class="cloud-btn full-w">ערוך פרומפטים של סיכום</button>
+        </div>
+        <div class="ai-security-note"><span class="material-symbols-outlined" style="color:#FF9F0A;font-size:1rem;">lock</span>המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן.</div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label">פרופיל גוף (חישוב TDEE)</div>
+        <div class="stg-bento stg-ai-bento">
+          <div class="stg-ai-field"><label class="stg-ai-label">מין</label><input class="stg-ai-input" type="text" placeholder="זכר / נקבה"></div>
+          <div class="stg-ai-field"><label class="stg-ai-label">גיל</label><input class="stg-ai-input" type="number" placeholder="שנים"></div>
+          <div class="stg-ai-field"><label class="stg-ai-label">גובה (ס&quot;מ)</label><input class="stg-ai-input" type="number" placeholder="ס&quot;מ"></div>
+          <button class="stg-ai-save">שמור פרופיל גוף</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ פאנל: חיבורים ══════════ -->
+    <div class="stg-panel" data-panel="connections">
+      <div class="settings-group">
+        <div class="settings-group-label">סנכרון ענן</div>
+        <div class="stg-bento">
+          <button class="stg-firebase-row">
+            <div><div class="stg-row-title">חיבור Firebase</div><div style="font-size:0.7rem;margin-top:4px;color:#30D158;">מחובר · sync פעיל</div></div>
+            <span class="material-symbols-outlined" style="color:#0A84FF;font-size:2rem;">cloud_done</span>
+          </button>
+          <div class="stg-cloud-upload"><button class="cloud-btn full-w">⬆ העלה הכל לענן (ראשוני)</button></div>
+          <div class="stg-cloud-row">
+            <span class="stg-cloud-label">היסטוריה</span>
+            <div class="stg-cloud-btns">
+              <button class="stg-cloud-btn"><span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>גבה</button>
+              <button class="stg-cloud-btn"><span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>שחזר</button>
+            </div>
+          </div>
+          <div class="stg-cloud-row">
+            <span class="stg-cloud-label">קונפיגורציה</span>
+            <div class="stg-cloud-btns">
+              <button class="stg-cloud-btn"><span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>גבה</button>
+              <button class="stg-cloud-btn"><span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>שחזר</button>
+            </div>
+          </div>
+          <div class="stg-cloud-row stg-cloud-row--last">
+            <span class="stg-cloud-label">שיחות AI</span>
+            <div class="stg-cloud-btns">
+              <button class="stg-cloud-btn"><span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>גבה</button>
+              <button class="stg-cloud-btn"><span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>שחזר</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- גיבוי מקומי — נשמר, הועבר לכאן -->
+      <div class="settings-group">
+        <div class="settings-group-label">גיבוי מקומי (קובץ)<span class="mk-moved">נשאר · הועבר לכאן</span></div>
+        <div class="stg-bento">
+          <button class="stg-nav-row stg-nav-row--plain">
+            <span class="stg-row-title">ייצוא תבנית</span>
+            <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">file_upload</span>
+          </button>
+          <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last">
+            <span class="stg-row-title">ייבוא תבנית</span>
+            <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">file_download</span>
+          </button>
+        </div>
+        <div class="ai-security-note"><span class="material-symbols-outlined" style="color:#FF9F0A;font-size:1rem;">save</span>גיבוי/שחזור תוכניות והגדרות לקובץ מקומי — ללא תלות בענן.</div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label">ייבוא תזונה (MyFitnessPal)</div>
+        <div class="stg-bento stg-ai-bento">
+          <div class="stg-ai-field"><label class="stg-ai-label">Bridge URL (Apps Script)</label><input class="stg-ai-input" type="text" placeholder="https://script.google.com/macros/s/.../exec"></div>
+          <div class="stg-ai-field"><label class="stg-ai-label">Secret Token</label><input class="stg-ai-input" type="password" placeholder="ה-token שהגדרת בסקריפט"></div>
+          <button class="stg-ai-save">שמור הגדרות גשר</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label">גשר אפל-ווטש (אימון חי)</div>
+        <div class="stg-bento stg-ai-bento">
+          <label class="stg-switch-row"><span>הפעל גשר שעון</span><span class="stg-switch"><input type="checkbox"><span class="stg-switch-slider"></span></span></label>
+          <div class="stg-ai-field"><label class="stg-ai-label">Bridge URL (Apps Script)</label><input class="stg-ai-input" type="text" placeholder="https://script.google.com/macros/s/.../exec"></div>
+          <div class="stg-ai-field"><label class="stg-ai-label">Secret Token</label><input class="stg-ai-input" type="password" placeholder="ה-token שהגדרת בסקריפט"></div>
+          <button class="stg-ai-save">שמור הגדרות גשר</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function mkTab(name, btn){
+  document.querySelectorAll('#ui-settings .stg-tab').forEach(b=>b.classList.toggle('active', b===btn));
+  document.querySelectorAll('#ui-settings .stg-panel').forEach(p=>p.classList.toggle('active', p.dataset.panel===name));
+  document.querySelector('.phone').scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>

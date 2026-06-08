@@ -383,254 +383,281 @@
                 </div>
                 <p class="color-dim text-xs text-center mb-md" id="app-version-label">GymPro Elite</p>
 
-                <!-- I. ניהול תוכנית -->
-                <div class="settings-group">
-                    <div class="settings-group-label">ניהול תוכנית</div>
-                    <div class="stg-bento">
-                        <button class="stg-nav-row" onclick="openWorkoutManager()">
-                            <div class="stg-icon" style="background:rgba(10,132,255,0.15);">
-                                <span class="material-symbols-outlined" style="color:#0A84FF;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">fitness_center</span>
-                            </div>
-                            <span class="stg-row-title">תוכניות אימון</span>
-                            <span class="material-symbols-outlined stg-chevron">chevron_left</span>
-                        </button>
-                        <button class="stg-nav-row" onclick="openExerciseDatabase()">
-                            <div class="stg-icon" style="background:rgba(71,226,102,0.12);">
-                                <span class="material-symbols-outlined" style="color:#47e266;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">exercise</span>
-                            </div>
-                            <span class="stg-row-title">מאגר תרגילים</span>
-                            <span class="material-symbols-outlined stg-chevron">chevron_left</span>
-                        </button>
-                        <button class="stg-nav-row stg-nav-row--last" onclick="openAnalyticsSettings()">
-                            <div class="stg-icon" style="background:rgba(255,159,10,0.12);">
-                                <span class="material-symbols-outlined" style="color:#FF9F0A;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">analytics</span>
-                            </div>
-                            <span class="stg-row-title">הגדרות אנליטיקה</span>
-                            <span class="material-symbols-outlined stg-chevron">chevron_left</span>
-                        </button>
-                    </div>
+                <!-- ★ בורר קבוצות-על ★ -->
+                <div class="stg-tabs" role="tablist">
+                    <button class="stg-tab active" data-stg-tab="general"     onclick="switchSettingsTab('general',this)">כללי</button>
+                    <button class="stg-tab"        data-stg-tab="training"    onclick="switchSettingsTab('training',this)">אימון</button>
+                    <button class="stg-tab"        data-stg-tab="coach"       onclick="switchSettingsTab('coach',this)">מאמן</button>
+                    <button class="stg-tab"        data-stg-tab="connections" onclick="switchSettingsTab('connections',this)">חיבורים</button>
                 </div>
 
-                <!-- I.5 תצוגה -->
-                <div class="settings-group">
-                    <div class="settings-group-label">תצוגה</div>
-                    <div class="stg-bento">
-                        <div class="stg-toggle-row">
-                            <div class="stg-toggle-info">
-                                <div class="stg-row-title">מצב Live</div>
-                                <div class="stg-toggle-hint">מסך אימון fullscreen — טיימר ענק, החלקה לרישום סט. מתאים לאימון אינטנסיבי ללא הסחות דעת.</div>
-                            </div>
-                            <label class="stg-switch">
-                                <input type="checkbox" id="live-mode-toggle" onchange="toggleLiveMode(this.checked)">
-                                <span class="stg-switch-slider"></span>
-                            </label>
+                <!-- ════════ פאנל: כללי ════════ -->
+                <div class="stg-panel active" data-stg-panel="general">
+
+                    <!-- אפליקציה -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">אפליקציה</div>
+                        <div class="stg-bento">
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="checkForUpdate()">
+                                <span class="stg-row-title">בדוק עדכון</span>
+                                <span class="stg-version-badge" id="settings-version-inline">—</span>
+                            </button>
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="window.location.reload()">
+                                <span class="stg-row-title">רענן אפליקציה</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">refresh</span>
+                            </button>
                         </div>
                     </div>
-                </div>
 
-                <!-- II. סנכרון ענן -->
-                <div class="settings-group">
-                    <div class="settings-group-label">סנכרון ענן</div>
-                    <div class="stg-bento">
-                        <button class="stg-firebase-row" onclick="openFirebaseConfigModal()">
-                            <div>
-                                <div class="stg-row-title">חיבור Firebase</div>
-                                <div id="firebase-status" style="font-size:0.7rem;margin:4px 0 0;"></div>
+                    <!-- תצוגה וצליל -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">תצוגה וצליל</div>
+                        <div class="stg-bento">
+                            <div class="stg-toggle-row">
+                                <div class="stg-toggle-info">
+                                    <div class="stg-row-title">מצב Live</div>
+                                    <div class="stg-toggle-hint">מסך אימון fullscreen — טיימר ענק, החלקה לרישום סט. מתאים לאימון אינטנסיבי ללא הסחות דעת.</div>
+                                </div>
+                                <label class="stg-switch">
+                                    <input type="checkbox" id="live-mode-toggle" onchange="toggleLiveMode(this.checked)">
+                                    <span class="stg-switch-slider"></span>
+                                </label>
                             </div>
-                            <span class="material-symbols-outlined" style="color:#0A84FF;font-size:2rem;font-variation-settings:'FILL' 0,'wght' 300">cloud_done</span>
-                        </button>
-                        <div class="stg-cloud-upload">
-                            <button class="cloud-btn upload full-w" style="border-radius:12px;" onclick="FirebaseManager.uploadAllToCloud()">⬆ העלה הכל לענן (ראשוני)</button>
-                        </div>
-                        <div class="stg-cloud-row">
-                            <span class="stg-cloud-label">היסטוריה</span>
-                            <div class="stg-cloud-btns">
-                                <button class="stg-cloud-btn" onclick="manualBackupArchive()">
-                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
-                                    <span>גבה</span>
-                                </button>
-                                <button class="stg-cloud-btn" onclick="FirebaseManager.loadArchiveFromCloud()">
-                                    <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
-                                    <span>שחזר</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="stg-cloud-row">
-                            <span class="stg-cloud-label">קונפיגורציה</span>
-                            <div class="stg-cloud-btns">
-                                <button class="stg-cloud-btn" onclick="manualBackupConfig()">
-                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
-                                    <span>גבה</span>
-                                </button>
-                                <button class="stg-cloud-btn" onclick="FirebaseManager.loadConfigFromCloud()">
-                                    <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
-                                    <span>שחזר</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="stg-cloud-row stg-cloud-row--last">
-                            <span class="stg-cloud-label">שיחות AI</span>
-                            <div class="stg-cloud-btns">
-                                <button class="stg-cloud-btn" onclick="FirebaseManager.saveAIHistoryToCloud().then(ok=>showAlert(ok?'היסטוריה גובתה לענן!':'שגיאה בגיבוי.'))">
-                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
-                                    <span>גבה</span>
-                                </button>
-                                <button class="stg-cloud-btn" onclick="FirebaseManager.loadAIHistoryFromCloud()">
-                                    <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
-                                    <span>שחזר</span>
-                                </button>
+                            <div class="stg-toggle-row stg-toggle-row--last">
+                                <div class="stg-toggle-info">
+                                    <div class="stg-row-title">צלילים</div>
+                                    <div class="stg-toggle-hint">צפצופי טיימר וסיום סט. דורש מגע ראשון כדי להפעיל את ה-AudioContext.</div>
+                                </div>
+                                <label class="stg-switch">
+                                    <input type="checkbox" id="sound-toggle" onchange="toggleSound(this.checked)">
+                                    <span class="stg-switch-slider"></span>
+                                </label>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- III. מצב תזונתי -->
-                <div class="settings-group">
-                    <div class="settings-group-label">Nutritional State</div>
-                    <div class="stg-bento stg-nutri-bento">
-                        <div class="stg-nutri-hint">משפיע על המלצות ה-AI Coach</div>
-                        <div class="nutri-toggle" id="nutri-toggle">
-                            <button class="nutri-pill" data-state="cut" onclick="selectNutritionalState('cut')">Cut</button>
-                            <button class="nutri-pill" data-state="maintenance" onclick="selectNutritionalState('maintenance')">Maintenance</button>
-                            <button class="nutri-pill" data-state="surplus" onclick="selectNutritionalState('surplus')">Surplus</button>
-                        </div>
-                        <div class="stg-nutri-meta stg-nutri-meta--tappable" id="nutri-meta" onclick="openNutriDateModal()" role="button" tabindex="0"></div>
-                    </div>
-                </div>
-
-                <!-- IV. AI Coach -->
-                <div class="settings-group">
-                    <div class="settings-group-label">AI Coach</div>
-                    <div class="stg-bento stg-ai-bento">
-                        <div id="ai-status" style="min-height:18px;font-size:0.82em;"></div>
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">GEMINI API KEY</label>
-                            <input type="password" id="ai-api-key-input" class="stg-ai-input" placeholder="הדבק API Key מ-Google AI Studio" autocomplete="off">
-                        </div>
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">MODELS</label>
-                            <input type="text" id="ai-models-input" class="stg-ai-input" placeholder="gemini-3-flash-preview, gemini-3.1-flash-lite, gemini-2.5-flash, gemini-2.5-flash-lite">
-                        </div>
-                        <button class="stg-ai-save" onclick="saveAISettings()">שמור הגדרות AI</button>
-                        <button class="cloud-btn full-w" style="margin-top:4px;border-radius:12px;" onclick="openCoachPromptsSheet()">ערוך פרומפטים של סיכום</button>
-                        <button class="cloud-btn full-w" style="margin-top:4px;color:var(--danger);border-color:rgba(255,69,58,0.3);background:rgba(255,69,58,0.06);border-radius:12px;" onclick="clearAIHistory()">מחק היסטוריית שיחות</button>
-                    </div>
-                    <div class="ai-security-note" style="margin-top:6px;">המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן. מומלץ להגביל אותו ל-GitHub Pages שלך ב-Google Cloud Console.</div>
-                </div>
-
-                <!-- IV-b. גשר תזונה (MyFitnessPal → Gmail) -->
-                <div class="settings-group">
-                    <div class="settings-group-label">ייבוא תזונה (MyFitnessPal)</div>
-                    <div class="stg-bento stg-ai-bento">
-                        <div id="mfp-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
-                            <input type="text" id="mfp-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
-                        </div>
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">SECRET TOKEN</label>
-                            <input type="password" id="mfp-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
-                        </div>
-                        <button class="stg-ai-save" onclick="saveMfpBridgeSettings()">שמור הגדרות גשר</button>
-                    </div>
-                    <div class="ai-security-note" style="margin-top:6px;">הגשר רץ בחשבון ה-Gmail שלך (Google Apps Script) ומושך את ייצוא ה-MyFitnessPal האחרון. ה-token נשמר מקומית בלבד. הכפתור לייבוא נמצא במסך Composition.</div>
-                </div>
-
-                <!-- IV-b2. גשר אפל-ווטש (אימון חי) -->
-                <div class="settings-group">
-                    <div class="settings-group-label">גשר אפל-ווטש (אימון חי)</div>
-                    <div class="stg-bento stg-ai-bento">
-                        <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
-                            <span>הפעל גשר שעון</span>
-                            <span class="stg-switch"><input type="checkbox" id="watch-bridge-toggle" onchange="saveWatchBridgeSettings()"><span class="stg-switch-slider"></span></span>
-                        </label>
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
-                            <input type="text" id="watch-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
-                        </div>
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">SECRET TOKEN</label>
-                            <input type="password" id="watch-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
-                        </div>
-                        <button class="stg-ai-save" onclick="saveWatchBridgeSettings()">שמור הגדרות גשר</button>
-                    </div>
-                    <div class="ai-security-note" style="margin-top:6px;">מתעד אימון מ-Apple Watch (דרך Shortcuts) ל-Firestore, והטלפון מסכם בסוף. דורש Firebase מחובר. ה-token נשמר מקומית. ראה docs/watch-shortcut-recipe.md.</div>
-                </div>
-
-                <!-- IV-c. פרופיל גוף (TDEE) -->
-                <div class="settings-group">
-                    <div class="settings-group-label">פרופיל גוף (חישוב TDEE)</div>
-                    <div class="stg-bento stg-ai-bento">
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">מין</label>
-                            <select id="bp-sex-input" class="stg-ai-input">
-                                <option value="">לא צוין</option>
-                                <option value="male">זכר</option>
-                                <option value="female">נקבה</option>
-                            </select>
-                        </div>
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">גיל</label>
-                            <input type="number" id="bp-age-input" class="stg-ai-input" inputmode="numeric" placeholder="שנים">
-                        </div>
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">גובה (ס"מ)</label>
-                            <input type="number" id="bp-height-input" class="stg-ai-input" inputmode="numeric" placeholder="ס&quot;מ">
-                        </div>
-                        <div class="stg-ai-field">
-                            <label class="stg-ai-label">רמת פעילות</label>
-                            <select id="bp-activity-input" class="stg-ai-input">
-                                <option value="sedentary">יושבני (1.2)</option>
-                                <option value="light">קל (1.375)</option>
-                                <option value="moderate" selected>מתון (1.55)</option>
-                                <option value="very">גבוה (1.725)</option>
-                                <option value="extra">קיצוני (1.9)</option>
-                            </select>
-                        </div>
-                        <button class="stg-ai-save" onclick="saveBodyProfileSettings()">שמור פרופיל גוף</button>
-                    </div>
-                    <div class="ai-security-note" style="margin-top:6px;">משמש לחישוב TDEE (נוסחת Mifflin ומכפיל פעילות). Katch-McArdle והמדידה בפועל עובדים גם בלי זה — לפי משקל, אחוז שומן ותזונה.</div>
-                </div>
-
-                <!-- V. מערכת -->
-                <div class="settings-group">
-                    <div class="settings-group-label">מערכת</div>
-                    <div class="stg-bento">
-                        <div class="stg-sys-bar">
-                            <div class="stg-sys-btns">
-                                <button id="btn-reload" class="stg-sys-btn" onclick="window.location.reload()">
-                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:1.1rem;">refresh</span>
-                                    <span>רענן</span>
-                                </button>
-                                <div class="stg-sys-sep"></div>
-                                <button id="btn-sound" class="stg-sys-btn settings-btn" onclick="toggleSound()">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
-                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                                        <g class="sound-muted-lines"><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></g>
-                                        <g class="sound-active-waves"><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></g>
-                                    </svg>
-                                    <span>צלילים</span>
-                                </button>
-                            </div>
-                            <span class="stg-sys-tag">SYSTEM CONTROL</span>
-                        </div>
-                        <button class="stg-nav-row stg-nav-row--plain" onclick="checkForUpdate()">
-                            <span class="stg-row-title">בדוק עדכון</span>
-                            <span class="stg-version-badge" id="settings-version-inline">—</span>
-                        </button>
-                        <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportConfiguration()">
-                            <span class="stg-row-title">ייצוא תבנית</span>
-                            <span class="material-symbols-outlined stg-chevron">file_upload</span>
-                        </button>
-                        <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="triggerConfigImport()">
-                            <span class="stg-row-title">ייבוא תבנית</span>
-                            <span class="material-symbols-outlined stg-chevron">file_download</span>
-                        </button>
-                    </div>
                     <button class="stg-reset-btn" onclick="resetToFactorySettings()">
                         <span class="material-symbols-outlined">restart_alt</span>
                         איפוס להגדרות יצרן
                     </button>
+                </div>
+
+                <!-- ════════ פאנל: אימון ════════ -->
+                <div class="stg-panel" data-stg-panel="training">
+                    <div class="settings-group">
+                        <div class="settings-group-label">ניהול תוכנית</div>
+                        <div class="stg-bento">
+                            <button class="stg-nav-row" onclick="openWorkoutManager()">
+                                <div class="stg-icon" style="background:rgba(10,132,255,0.15);">
+                                    <span class="material-symbols-outlined" style="color:#0A84FF;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">fitness_center</span>
+                                </div>
+                                <span class="stg-row-title">תוכניות אימון</span>
+                                <span class="material-symbols-outlined stg-chevron">chevron_left</span>
+                            </button>
+                            <button class="stg-nav-row" onclick="openExerciseDatabase()">
+                                <div class="stg-icon" style="background:rgba(71,226,102,0.12);">
+                                    <span class="material-symbols-outlined" style="color:#47e266;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">exercise</span>
+                                </div>
+                                <span class="stg-row-title">מאגר תרגילים</span>
+                                <span class="material-symbols-outlined stg-chevron">chevron_left</span>
+                            </button>
+                            <button class="stg-nav-row stg-nav-row--last" onclick="openAnalyticsSettings()">
+                                <div class="stg-icon" style="background:rgba(255,159,10,0.12);">
+                                    <span class="material-symbols-outlined" style="color:#FF9F0A;font-size:1.4rem;font-variation-settings:'FILL' 0,'wght' 400">analytics</span>
+                                </div>
+                                <span class="stg-row-title">הגדרות אנליטיקה</span>
+                                <span class="material-symbols-outlined stg-chevron">chevron_left</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════ פאנל: מאמן ════════ -->
+                <div class="stg-panel" data-stg-panel="coach">
+
+                    <!-- מצב תזונתי -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">Nutritional State</div>
+                        <div class="stg-bento stg-nutri-bento">
+                            <div class="stg-nutri-hint">משפיע על המלצות ה-AI Coach</div>
+                            <div class="nutri-toggle" id="nutri-toggle">
+                                <button class="nutri-pill" data-state="cut" onclick="selectNutritionalState('cut')">Cut</button>
+                                <button class="nutri-pill" data-state="maintenance" onclick="selectNutritionalState('maintenance')">Maintenance</button>
+                                <button class="nutri-pill" data-state="surplus" onclick="selectNutritionalState('surplus')">Surplus</button>
+                            </div>
+                            <div class="stg-nutri-meta stg-nutri-meta--tappable" id="nutri-meta" onclick="openNutriDateModal()" role="button" tabindex="0"></div>
+                        </div>
+                    </div>
+
+                    <!-- AI Coach -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">AI Coach</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <div id="ai-status" style="min-height:18px;font-size:0.82em;"></div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">GEMINI API KEY</label>
+                                <input type="password" id="ai-api-key-input" class="stg-ai-input" placeholder="הדבק API Key מ-Google AI Studio" autocomplete="off">
+                            </div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">MODELS</label>
+                                <input type="text" id="ai-models-input" class="stg-ai-input" placeholder="gemini-3-flash-preview, gemini-3.1-flash-lite, gemini-2.5-flash, gemini-2.5-flash-lite">
+                            </div>
+                            <button class="stg-ai-save" onclick="saveAISettings()">שמור הגדרות AI</button>
+                            <button class="cloud-btn full-w" style="margin-top:4px;border-radius:12px;" onclick="openCoachPromptsSheet()">ערוך פרומפטים של סיכום</button>
+                            <button class="cloud-btn full-w" style="margin-top:4px;color:var(--danger);border-color:rgba(255,69,58,0.3);background:rgba(255,69,58,0.06);border-radius:12px;" onclick="clearAIHistory()">מחק היסטוריית שיחות</button>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן. מומלץ להגביל אותו ל-GitHub Pages שלך ב-Google Cloud Console.</div>
+                    </div>
+
+                    <!-- פרופיל גוף (TDEE) -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">פרופיל גוף (חישוב TDEE)</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">מין</label>
+                                <select id="bp-sex-input" class="stg-ai-input">
+                                    <option value="">לא צוין</option>
+                                    <option value="male">זכר</option>
+                                    <option value="female">נקבה</option>
+                                </select>
+                            </div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">גיל</label>
+                                <input type="number" id="bp-age-input" class="stg-ai-input" inputmode="numeric" placeholder="שנים">
+                            </div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">גובה (ס"מ)</label>
+                                <input type="number" id="bp-height-input" class="stg-ai-input" inputmode="numeric" placeholder="ס&quot;מ">
+                            </div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">רמת פעילות</label>
+                                <select id="bp-activity-input" class="stg-ai-input">
+                                    <option value="sedentary">יושבני (1.2)</option>
+                                    <option value="light">קל (1.375)</option>
+                                    <option value="moderate" selected>מתון (1.55)</option>
+                                    <option value="very">גבוה (1.725)</option>
+                                    <option value="extra">קיצוני (1.9)</option>
+                                </select>
+                            </div>
+                            <button class="stg-ai-save" onclick="saveBodyProfileSettings()">שמור פרופיל גוף</button>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">משמש לחישוב TDEE (נוסחת Mifflin ומכפיל פעילות). Katch-McArdle והמדידה בפועל עובדים גם בלי זה — לפי משקל, אחוז שומן ותזונה.</div>
+                    </div>
+                </div>
+
+                <!-- ════════ פאנל: חיבורים ════════ -->
+                <div class="stg-panel" data-stg-panel="connections">
+
+                    <!-- סנכרון ענן -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">סנכרון ענן</div>
+                        <div class="stg-bento">
+                            <button class="stg-firebase-row" onclick="openFirebaseConfigModal()">
+                                <div>
+                                    <div class="stg-row-title">חיבור Firebase</div>
+                                    <div id="firebase-status" style="font-size:0.7rem;margin:4px 0 0;"></div>
+                                </div>
+                                <span class="material-symbols-outlined" style="color:#0A84FF;font-size:2rem;font-variation-settings:'FILL' 0,'wght' 300">cloud_done</span>
+                            </button>
+                            <div class="stg-cloud-upload">
+                                <button class="cloud-btn upload full-w" style="border-radius:12px;" onclick="FirebaseManager.uploadAllToCloud()">⬆ העלה הכל לענן (ראשוני)</button>
+                            </div>
+                            <div class="stg-cloud-row">
+                                <span class="stg-cloud-label">היסטוריה</span>
+                                <div class="stg-cloud-btns">
+                                    <button class="stg-cloud-btn" onclick="manualBackupArchive()">
+                                        <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
+                                        <span>גבה</span>
+                                    </button>
+                                    <button class="stg-cloud-btn" onclick="FirebaseManager.loadArchiveFromCloud()">
+                                        <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
+                                        <span>שחזר</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="stg-cloud-row">
+                                <span class="stg-cloud-label">קונפיגורציה</span>
+                                <div class="stg-cloud-btns">
+                                    <button class="stg-cloud-btn" onclick="manualBackupConfig()">
+                                        <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
+                                        <span>גבה</span>
+                                    </button>
+                                    <button class="stg-cloud-btn" onclick="FirebaseManager.loadConfigFromCloud()">
+                                        <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
+                                        <span>שחזר</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="stg-cloud-row stg-cloud-row--last">
+                                <span class="stg-cloud-label">שיחות AI</span>
+                                <div class="stg-cloud-btns">
+                                    <button class="stg-cloud-btn" onclick="FirebaseManager.saveAIHistoryToCloud().then(ok=>showAlert(ok?'היסטוריה גובתה לענן!':'שגיאה בגיבוי.'))">
+                                        <span class="material-symbols-outlined" style="color:#0A84FF;font-size:0.95rem;">backup</span>
+                                        <span>גבה</span>
+                                    </button>
+                                    <button class="stg-cloud-btn" onclick="FirebaseManager.loadAIHistoryFromCloud()">
+                                        <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
+                                        <span>שחזר</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- גיבוי מקומי (קובץ) -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">גיבוי מקומי (קובץ)</div>
+                        <div class="stg-bento">
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportConfiguration()">
+                                <span class="stg-row-title">ייצוא תבנית</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">file_upload</span>
+                            </button>
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="triggerConfigImport()">
+                                <span class="stg-row-title">ייבוא תבנית</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">file_download</span>
+                            </button>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">גיבוי/שחזור תוכניות והגדרות לקובץ מקומי — ללא תלות בענן.</div>
+                    </div>
+
+                    <!-- ייבוא תזונה (MyFitnessPal) -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">ייבוא תזונה (MyFitnessPal)</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <div id="mfp-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
+                                <input type="text" id="mfp-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+                            </div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">SECRET TOKEN</label>
+                                <input type="password" id="mfp-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
+                            </div>
+                            <button class="stg-ai-save" onclick="saveMfpBridgeSettings()">שמור הגדרות גשר</button>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">הגשר רץ בחשבון ה-Gmail שלך (Google Apps Script) ומושך את ייצוא ה-MyFitnessPal האחרון. ה-token נשמר מקומית בלבד. הכפתור לייבוא נמצא במסך Composition.</div>
+                    </div>
+
+                    <!-- גשר אפל-ווטש (אימון חי) -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">גשר אפל-ווטש (אימון חי)</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>הפעל גשר שעון</span>
+                                <span class="stg-switch"><input type="checkbox" id="watch-bridge-toggle" onchange="saveWatchBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                            </label>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
+                                <input type="text" id="watch-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+                            </div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">SECRET TOKEN</label>
+                                <input type="password" id="watch-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
+                            </div>
+                            <button class="stg-ai-save" onclick="saveWatchBridgeSettings()">שמור הגדרות גשר</button>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">מתעד אימון מ-Apple Watch (דרך Shortcuts) ל-Firestore, והטלפון מסכם בסוף. דורש Firebase מחובר. ה-token נשמר מקומית. ראה docs/watch-shortcut-recipe.md.</div>
+                    </div>
                 </div>
 
                 <input type="file" id="import-config-file" class="d-none" onchange="processConfigImport(this)">

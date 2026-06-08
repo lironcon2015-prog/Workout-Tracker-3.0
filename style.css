@@ -5122,6 +5122,42 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     margin-right: 6px; cursor: pointer; font-family: inherit; font-size: 0.85rem;
 }
 
+/* תיקון מתגלגל לסיכום המאמן */
+.coach-refine {
+    display: flex; flex-direction: column;
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+.coach-refine-toggle {
+    align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #353535; border: none; color: var(--text);
+    font-family: inherit; font-weight: 800; font-size: 0.82rem;
+    border-radius: 9999px; padding: 7px 14px; cursor: pointer;
+    transition: transform 0.1s, background 0.15s;
+}
+.coach-refine-toggle:active { transform: scale(0.97); }
+.coach-refine-toggle .material-symbols-outlined { font-size: 1rem; }
+.coach-refine-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 10px;
+}
+.coach-refine-input {
+    flex: 1; background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 9999px;
+    padding: 10px 14px; color: var(--text);
+    font-family: inherit; font-size: 0.9rem;
+}
+.coach-refine-input:focus { outline: none; border-color: var(--accent); }
+.coach-refine-input::placeholder { color: var(--text-dim); }
+.coach-refine-send {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent); color: #fff; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.1s, opacity 0.15s;
+}
+.coach-refine-send:active { transform: scale(0.95); opacity: 0.9; }
+.coach-refine-send .material-symbols-outlined { font-size: 1.25rem; }
+
 /* מתג "כלול סיכום מאמן" במסך הסיכום */
 .coach-copy-toggle {
     display: flex; align-items: center; gap: 9px;

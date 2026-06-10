@@ -950,7 +950,7 @@ function importData(input) {
         try {
             const data = JSON.parse(e.target.result);
             StorageManager.restoreData(data);
-            showAlert("הנתונים יובאו בהצלחה!", () => { window.location.reload(); });
+            showAlert("הנתונים יובאו בהצלחה!", () => { reloadApp(); });
         } catch (err) {
             showAlert("שגיאה בקריאת הקובץ");
         }
@@ -1222,7 +1222,7 @@ async function checkForUpdate() {
                         const keys = await caches.keys();
                         await Promise.all(keys.map(k => caches.delete(k)));
                     }
-                    window.location.reload(true);
+                    reloadApp();
                 }
             );
         } else {

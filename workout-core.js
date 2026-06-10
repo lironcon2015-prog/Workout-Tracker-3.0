@@ -497,11 +497,13 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// ─── נעילת viewport — באג ה-fixed המרחף של iOS ─────────────────────────────
-// כשמקלדת נפתחת iOS גולל את ה-window (לא את content-area), ואחרי הסגירה
-// הוא לא תמיד מחזיר את הגלילה ל-0. התוצאה: כל אלמנט fixed bottom:0
-// (tab-bar / session strip) נשאר "מרחף" מעל תחתית המסך, ו-fixed top נעלם.
-// הפתרון: החזרת window scroll ל-0 בכל סגירת מקלדת / שינוי visual viewport.
+// ─── נעילת viewport — באגי ה-fixed המרחף של iOS ────────────────────────────
+// שני מנגנונים שבירים ב-iOS standalone PWA:
+// 1. מקלדת: פתיחה גוללת את ה-window (לא את content-area), ואחרי סגירה
+//    הגלילה לא תמיד חוזרת ל-0 → fixed bottom:0 "מרחף".
+// 2. reload: אחרי window.location.reload() ה-layout viewport מחושב בלי
+//    אזור ה-status bar (קצר ב~60pt) → tab-bar/strip מרחפים מעל התחתית.
+//    לכן כל רענון באפליקציה חייב לעבור דרך reloadApp() (ניווט, לא reload).
 function _repinViewport() {
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return;
@@ -509,9 +511,39 @@ function _repinViewport() {
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
 }
+
+// זיהוי viewport "מעוך" אחרי reload + נדנוד שמכריח את WebKit לחשב מחדש.
+// ב-standalone עם viewport-fit=cover גובה ה-window אמור להשתוות לגובה המסך.
+function _kickViewport(attempt = 0) {
+    _repinViewport();
+    const standalone = navigator.standalone === true
+        || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if (!standalone || attempt >= 8) return;
+    const squashed = screen && screen.height && (window.innerHeight + 4 < screen.height);
+    if (!squashed) return;
+    // נדנוד: גלילה זעירה + reflow כפוי על ה-root
+    window.scrollTo(0, 1);
+    window.scrollTo(0, 0);
+    const de = document.documentElement;
+    de.style.height = '100.1%';
+    void de.offsetHeight;
+    de.style.height = '';
+    setTimeout(() => _kickViewport(attempt + 1), 250 * (attempt + 1));
+}
+
+try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) { /* לא קריטי */ }
 document.addEventListener('focusout', () => setTimeout(_repinViewport, 80));
 if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => setTimeout(_repinViewport, 80));
+    window.visualViewport.addEventListener('scroll', () => setTimeout(_repinViewport, 80));
+}
+window.addEventListener('pageshow', () => { _kickViewport(); setTimeout(_kickViewport, 600); });
+window.addEventListener('load', () => setTimeout(_kickViewport, 120));
+
+// רענון בטוח ל-PWA — מחליף כל window.location.reload() באפליקציה.
+// reload() ב-iOS standalone מפעיל את באג ה-viewport המעוך; ניווט מלא לא.
+function reloadApp() {
+    window.location.replace(window.location.pathname + window.location.search);
 }
 
 // ─── INITIALIZATION ────────────────────────────────────────────────────────
@@ -1104,7 +1136,7 @@ function handleBackClick() {
             showConfirm("האם לצאת מהאימון? הנתונים לא יישמרו.", () => {
                 StorageManager.clearSessionState();
                 stopSessionTimer();
-                window.location.reload();
+                reloadApp();
             });
         } else {
             _setNavDirection('back');
@@ -3514,7 +3546,7 @@ async function copyResult() {
     state.workoutStartTime = null; // מניעת שחזור רפאים בעת ריענון העמוד
     stopSessionTimer();
     haptic('success');
-    showAlert("האימון נשמר! הסיכום הועתק ללוח.", () => { window.location.reload(); });
+    showAlert("האימון נשמר! הסיכום הועתק ללוח.", () => { reloadApp(); });
 }
 
 function _saveToArchive(note) {
@@ -4155,7 +4187,7 @@ function resetToFactorySettings() {
     showConfirm("האם לאפס את כל הנתונים? פעולה זו בלתי הפיכה.", () => {
         StorageManager.resetToFactory();
         showAlert("האפליקציה אופסה. טוען מחדש...", () => {
-            window.location.reload();
+            reloadApp();
         });
     });
 }

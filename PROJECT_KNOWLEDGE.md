@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.2
+## גרסה נוכחית: 16.3
 
 ---
 
@@ -76,7 +76,10 @@
 | רישום סט (v16.2) | לחיצה על **שורת הסט הנוכחי בטבלה** (`renderSetSessionTable` → `.set-table-row.current` עם onclick=nextStep). אין כפתור LOG SET נפרד. הטבלה מוצגת תמיד בזמן הקלטה (גם לתרגיל של סט אחד); `total` כולל done+1 כשמקליטים (מכסה addExtraSet) |
 | טיימר מנוחה | ספרתי, במרכז ה-session strip (`#strip-rest-time`, משוקף מ-`resetAndStartTimer.updateUI`). עיגול הטיימר ב-ui-main הוסתר (`display:none`). **לקח קריטי:** `position:fixed` בתוך `.content-area` (scroller) לא אמין ב-iOS — אלמנטים צפים חדשים לשים ישירות תחת body או בתוך ה-strip |
 
-**באג ה-fixed המרחף (iOS, v16.2):** פתיחת מקלדת גוללת את ה-window עצמו (לא את content-area), ואחרי סגירה iOS לא תמיד מחזיר scroll ל-0 → כל ה-fixed bottom:0 (tab-bar/strip) "מרחפים" מעל התחתית ו-fixed top נעלמים. תוקן ב-`_repinViewport()` — `window.scrollTo(0,0)` על focusout + visualViewport resize. אם הבאג חוזר — לבדוק ש-listeners אלה עדיין חיים.
+**באג ה-fixed המרחף (iOS) — אבחון סופי (v16.3):** שני מנגנונים נפרדים:
+1. **מקלדת (v16.2):** פתיחה גוללת את ה-window עצמו (לא את content-area), ואחרי סגירה iOS לא תמיד מחזיר scroll ל-0. תוקן ב-`_repinViewport()` על focusout + visualViewport resize/scroll.
+2. **reload (v16.3, השורש האמיתי):** אחרי `window.location.reload()` ב-standalone PWA עם `black-translucent`, iOS מחשב את ה-layout viewport **בלי אזור ה-status bar** (קצר ב~60pt) → כל fixed bottom:0 מרחף ~60pt מעל התחתית, ומתחתיו נחשף רקע ה-body. אומת בניתוח פיקסלים: הרמה = בדיוק גובה ה-status bar. זה הסביר את "הבאג חוזר אחרי רענון" — וגם את הופעתו אחרי סיום אימון (`finish()` מרענן).
+   **התיקון:** ➊ **אסור `window.location.reload()` בשום מקום** — תמיד `reloadApp()` (משתמש ב-`location.replace()` = ניווט מלא שלא עובר במסלול הפגום; ה-SW מגיש מ-cache באותה מהירות). ➋ `_kickViewport()` רץ על pageshow/load — מזהה viewport מעוך (`innerHeight + 4 < screen.height` ב-standalone) ומנדנד (scroll nudge + reflow כפוי) עד שהגובה מתיישר.
 
 ---
 

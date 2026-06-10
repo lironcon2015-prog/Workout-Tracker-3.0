@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.97
+## גרסה נוכחית: 15.99
 
 ---
 
@@ -161,6 +161,7 @@
 
 ## לקחים מצטברים
 
+- **שדרוג UI/UX מול מתחרים (v15.98–15.99):** Wave 1 — קונטרסט AA (`--text-dim`→`#A6A6AD`), יעדי מגע ≥44px (::after hit-area), `100dvh`, `emptyStateHtml()` גלובלי, חגיגת PR (`_getHistoricalMaxE1RM`+`_celebratePR` ב-nextStep, סימון `isPR` בלוג). Wave 2 — `renderSetSessionTable()` (טבלה חיה + ghost מ-`getLastPerformances`+`parseSetsFromStrings`, מתרענן מ-initPickers/nextStep/saveSetEdit), מחשבון פלטות (`_calcPlates`, פרף `KEY_BAR_WEIGHT`), פירמידת חימום (`WARMUP_SCHEME`, pill בסט 1 כש-w≥40), toggle `KEY_SKIP_CONFIRM` שמדלג על ui-confirm דרך `confirmExercise(true)` (לא במצב סבב). Wave 3 (מוטיבציה) ו-Wave 4 ממתינים — ראה ROADMAP "כיוונים פתוחים".
 - **Audit באגים עמוק (v15.97):** נמצאו ותוקנו — `saveData` לא דיווח כשל quota (עכשיו מחזיר bool, `_saveToArchive` מתריע); "שחזר מהענן" דרס ארכיון מקומי בלי אישור (נוסף `showConfirm`); `initPickers` קרס על `setIdx` מעבר לגבול בחזרה לתרגיל שהושלם (נוסף clamp); שמות עם גרשיים/`<` שברו `onclick` inline ו-innerHTML (נוספו `escapeHtml`/`escapeJsAttr` גלובליים ב-workout-core.js — להשתמש בהם בכל הזרקת שם!); `_parseFlexDate` ייבא תאריכים לא-קלנדריים ("12/13"); ל-SW fetch לא היה catch לכשל רשת.
 - `git merge --theirs` יכול לכסות commits מ-main. תמיד לפתור conflicts ידנית.
 - `localStorage.setItem` ללא try-catch = אובדן נתונים שקט ב-QuotaExceeded. כל שמירה = עטופה.

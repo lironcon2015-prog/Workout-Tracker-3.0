@@ -93,6 +93,189 @@ function _celebratePR() {
     setTimeout(() => badge.classList.remove('show'), 2400);
 }
 
+// ─── SET SESSION TABLE (Wave 2) ────────────────────────────────────────────
+// טבלת סטים חיה במסך האימון: סטים שבוצעו + ghost values מהאימון הקודם (Hevy-style)
+function renderSetSessionTable() {
+    const cont = document.getElementById('set-session-table');
+    if (!cont) return;
+    if (state.clusterMode || !state.currentExName) {
+        cont.style.display = 'none'; cont.innerHTML = ''; return;
+    }
+    const done = state.log.filter(l => !l.skip && l.exName === state.currentExName);
+    let ghost = [];
+    if (typeof getLastPerformances === 'function' && typeof parseSetsFromStrings === 'function') {
+        const perf = getLastPerformances(state.currentExName, 1);
+        if (perf.length) ghost = parseSetsFromStrings(perf[0].sets);
+    }
+    const planned = (state.currentEx && Array.isArray(state.currentEx.sets)) ? state.currentEx.sets.length : 0;
+    const total = Math.max(planned, done.length);
+    if (total <= 1 && !ghost.length) {
+        cont.style.display = 'none'; cont.innerHTML = ''; return;
+    }
+    const realSets = state.log.filter(l => !l.skip);
+    let rows = '';
+    for (let i = 0; i < total; i++) {
+        const g = ghost[i] ? `${ghost[i].w}×${ghost[i].r}` : '—';
+        if (i < done.length) {
+            const e = done[i];
+            const realIdx = realSets.indexOf(e);
+            const rirStr = (e.rir !== undefined && e.rir !== '') ? ` · RIR ${e.rir}` : '';
+            const pr = e.isPR ? ' <span class="set-table-pr">🏆</span>' : '';
+            rows += `<div class="set-table-row done" onclick="openSetTableEdit(${realIdx})">
+                <span class="set-table-num">${i + 1}</span>
+                <span class="set-table-val"><span class="set-table-check">✓</span> ${e.w}kg × ${e.r}${rirStr}${pr}</span>
+                <span class="set-table-ghost">${g}</span>
+            </div>`;
+        } else {
+            const isCur = i === done.length;
+            rows += `<div class="set-table-row${isCur ? ' current' : ''}">
+                <span class="set-table-num">${i + 1}</span>
+                <span class="set-table-val">${isCur ? '<span class="set-table-now">◂ עכשיו</span>' : ''}</span>
+                <span class="set-table-ghost">${g}</span>
+            </div>`;
+        }
+    }
+    cont.innerHTML = `<div class="set-table-head">
+        <span class="set-table-num">סט</span>
+        <span class="set-table-val">האימון הזה</span>
+        <span class="set-table-ghost">קודם</span>
+    </div>${rows}`;
+    cont.style.display = 'block';
+}
+
+// עריכת סט מתוך הטבלה — בלי לפתוח את ה-session log אחרי השמירה
+function openSetTableEdit(realIdx) {
+    haptic('light');
+    openEditSetModal(realIdx);
+    _editFromLog = false;
+}
+
+// ─── PLATE CALCULATOR (Wave 2) ─────────────────────────────────────────────
+const PLATE_SIZES   = [25, 20, 15, 10, 5, 2.5, 1.25];
+const PLATE_COLORS  = { 25: '#ff453a', 20: '#0A84FF', 15: '#FFD60A', 10: '#32D74B', 5: '#e2e2e2', 2.5: '#26262c', 1.25: '#8E8E93' };
+const PLATE_HEIGHTS = { 25: 84, 20: 76, 15: 66, 10: 56, 5: 44, 2.5: 36, 1.25: 30 };
+
+function _calcPlates(total, bar) {
+    let perSide = (total - bar) / 2;
+    if (perSide < -1e-9) return null;
+    const plates = [];
+    let rem = perSide;
+    PLATE_SIZES.forEach(p => { while (rem >= p - 1e-9) { plates.push(p); rem -= p; } });
+    return { plates, leftover: Math.round(rem * 1000) / 1000 };
+}
+
+function _renderPlateCalc() {
+    const body = document.getElementById('plate-calc-body');
+    if (!body) return;
+    const wEl = document.getElementById('weight-picker');
+    const w = wEl ? parseFloat(wEl.value) || 0 : 0;
+    const bar = StorageManager.getBarWeight();
+    [20, 15, 10, 0].forEach(b => {
+        const btn = document.getElementById('plate-bar-' + b);
+        if (btn) btn.classList.toggle('active', bar === b);
+    });
+    const res = w > 0 ? _calcPlates(w, bar) : null;
+    if (!res) {
+        body.innerHTML = `<p class="sub-text text-center">המשקל (${w}kg) קטן ממשקל המוט (${bar}kg)</p>`;
+        return;
+    }
+    const platesHtml = res.plates.map(p => {
+        const dark = (p === 5 || p === 15);
+        return `<div class="plate" style="background:${PLATE_COLORS[p]};height:${PLATE_HEIGHTS[p]}px;color:${dark ? '#000' : '#fff'}">${p}</div>`;
+    }).join('');
+    const perSideStr = res.plates.length ? res.plates.join(' · ') : 'בלי פלטות';
+    body.innerHTML = `
+        <div class="plate-calc-total">${w}<span> kg</span></div>
+        <div class="plate-viz">
+            <div class="plate-bar-end"></div>
+            ${platesHtml || '<span class="sub-text">מוט בלבד</span>'}
+        </div>
+        <div class="plate-per-side">לכל צד: <b>${perSideStr}</b>${bar > 0 ? ` (מוט ${bar})` : ''}</div>
+        ${res.leftover > 0 ? `<div class="plate-leftover">נותרו ${res.leftover}kg לכל צד שלא נסגרים בפלטות סטנדרט</div>` : ''}`;
+}
+
+function openPlateCalc() {
+    haptic('light');
+    _renderPlateCalc();
+    const overlay = document.getElementById('plate-calc-overlay');
+    const sheet = document.getElementById('plate-calc-sheet');
+    if (!overlay || !sheet) return;
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function closePlateCalc() {
+    const overlay = document.getElementById('plate-calc-overlay');
+    const sheet = document.getElementById('plate-calc-sheet');
+    if (!overlay || !sheet) return;
+    sheet.classList.remove('open');
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
+}
+
+function setPlateBar(w) {
+    haptic('light');
+    StorageManager.setBarWeight(w);
+    _renderPlateCalc();
+}
+
+// ─── WARM-UP CALCULATOR (Wave 2) ───────────────────────────────────────────
+// פירמידת חימום לסט העבודה הראשון — תצוגת עזר בלבד, לא נרשמת בלוג
+const WARMUP_SCHEME = [
+    { pct: 0,    reps: 10 },   // מוט ריק
+    { pct: 0.5,  reps: 6 },
+    { pct: 0.7,  reps: 4 },
+    { pct: 0.88, reps: 1 }
+];
+
+function _syncWarmupPill() {
+    const el = document.getElementById('warmup-pill');
+    if (!el) return;
+    const wEl = document.getElementById('weight-picker');
+    const w = wEl ? parseFloat(wEl.value) || 0 : 0;
+    const hasLogged = state.log.some(l => !l.skip && l.exName === state.currentExName);
+    el.style.display = (!state.clusterMode && state.setIdx === 0 && !hasLogged && w >= 40) ? 'inline-flex' : 'none';
+}
+
+function openWarmupSheet() {
+    haptic('light');
+    const body = document.getElementById('warmup-body');
+    const wEl = document.getElementById('weight-picker');
+    const w = wEl ? parseFloat(wEl.value) || 0 : 0;
+    if (!body || !w) return;
+    const bar = StorageManager.getBarWeight();
+    let rows = '';
+    WARMUP_SCHEME.forEach(s => {
+        if (s.pct === 0) {
+            if (bar <= 0) return;   // אין מוט — אין שלב "מוט ריק"
+            rows += `<div class="warmup-row"><span class="warmup-pct">מוט ריק</span><span class="warmup-w">${bar}kg</span><span class="warmup-reps">× ${s.reps}</span></div>`;
+            return;
+        }
+        const target = Math.round((w * s.pct) / 2.5) * 2.5;
+        if (target <= bar || target >= w) return;   // מדרגה שלא מוסיפה ערך
+        rows += `<div class="warmup-row"><span class="warmup-pct">${Math.round(s.pct * 100)}%</span><span class="warmup-w">${target}kg</span><span class="warmup-reps">× ${s.reps}</span></div>`;
+    });
+    body.innerHTML = `<div class="warmup-target">סט עבודה: <b>${w}kg</b></div>${rows || '<p class="sub-text text-center">המשקל קל מדי לפירמידת חימום</p>'}`;
+    const overlay = document.getElementById('warmup-overlay');
+    const sheet = document.getElementById('warmup-sheet');
+    if (!overlay || !sheet) return;
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function closeWarmupSheet() {
+    const overlay = document.getElementById('warmup-overlay');
+    const sheet = document.getElementById('warmup-sheet');
+    if (!overlay || !sheet) return;
+    sheet.classList.remove('open');
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
+}
+
+// ─── SKIP CONFIRM TOGGLE (Wave 2) ──────────────────────────────────────────
+function toggleSkipConfirm(checked) {
+    haptic('light');
+    StorageManager.setSkipConfirm(checked);
+}
+
 // ─── CUSTOM MODAL SYSTEM ───────────────────────────────────────────────────
 
 function showAlert(msg, onOk) {
@@ -1099,6 +1282,8 @@ function _initAllSheetsDrag() {
         { id: 'workout-plan-sheet',         closer: () => closePlanSheet() },
         { id: 'range-copy-sheet',           closer: () => (typeof closeRangeSheet === 'function') && closeRangeSheet() },
         { id: 'set-rec-sheet',              closer: () => dismissAIRecommendation() },
+        { id: 'plate-calc-sheet',           closer: () => closePlateCalc() },
+        { id: 'warmup-sheet',               closer: () => closeWarmupSheet() },
     ];
     sheets.forEach(s => {
         const el = document.getElementById(s.id);
@@ -1117,6 +1302,8 @@ function openSettings() {
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
     const _st = document.getElementById('sound-toggle');
     if (_st) _st.checked = soundEnabled;
+    const _sc = document.getElementById('skip-confirm-toggle');
+    if (_sc) _sc.checked = StorageManager.getSkipConfirm();
     switchSettingsTab('general');   // תמיד נפתח על לשונית "כללי"
 }
 
@@ -1565,6 +1752,13 @@ function showConfirmScreen(forceExName = null) {
         addBtn.style.visibility = 'hidden';
     }
 
+    // Wave 2 — "מעבר ישיר לתרגיל": מדלג על מסך האישור מחוץ למצב סבב.
+    // הביצוע הקודם זמין ממילא בטבלת הסטים (ghost values) במסך האימון.
+    if (!state.clusterMode && StorageManager.getSkipConfirm()) {
+        confirmExercise(true);
+        return;
+    }
+
     const historyContainer = document.getElementById('history-container');
     historyContainer.innerHTML = "";
 
@@ -1953,6 +2147,10 @@ function initPickers() {
     syncStepperDisplay('rir');
 
     _resetSetRecState();
+
+    // Wave 2 — טבלת הסטים החיה + pill החימום מתעדכנים בכל מעבר סט
+    renderSetSessionTable();
+    _syncWarmupPill();
 
     // סנכרון Live View — חשוב: ה-pickers הם source-of-truth ל-updateLiveViewContent,
     // אז אחרי שמילאנו אותם בערכים החדשים, צריך לרענן את מסך ה-Live כדי שלא יציג ערכים של תרגיל קודם
@@ -2440,6 +2638,7 @@ function nextStep() {
     } else {
         document.getElementById('btn-submit-set').style.display = 'none';
         document.getElementById('btn-skip-exercise').style.display = 'none';
+        renderSetSessionTable();   // הסט האחרון נכנס לטבלה גם בלי מעבר ל-initPickers
 
         const actionPanel = document.getElementById('action-panel');
         actionPanel.style.display = 'block';
@@ -3811,6 +4010,7 @@ function saveSetEdit() {
         _saveToArchive(noteEl ? noteEl.value.trim() : ''); // upsert — שומר את העריכה ברשומה
         buildSummaryUI();
     }
+    renderSetSessionTable();   // Wave 2 — רענון הטבלה החיה אחרי עריכה
 }
 
 function deleteSetFromLog() {
@@ -3833,6 +4033,7 @@ function deleteSetFromLog() {
         _saveToArchive(noteEl ? noteEl.value.trim() : ''); // upsert — שומר את העריכה ברשומה
         buildSummaryUI();
     }
+    renderSetSessionTable();   // Wave 2 — רענון הטבלה החיה אחרי מחיקה
 }
 
 function closeEditModal() {

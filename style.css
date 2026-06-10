@@ -866,7 +866,7 @@ body::before {
 /* ── Freestyle Finish Float ── */
 .freestyle-finish-float {
     position: fixed;
-    bottom: calc(66px + env(safe-area-inset-bottom, 0px) + env(safe-area-inset-bottom, 0px));
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
     left: 20px;
     right: 20px;
     z-index: 201;
@@ -5454,11 +5454,27 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .set-table-pr { font-size: 0.85rem; }
 .set-table-row.done { cursor: pointer; }
 .set-table-row.done:active { background: rgba(255,255,255,0.04); }
+/* שורת הסט הנוכחי = כפתור הרישום (v16.2) — לחיצה רושמת את הסט */
 .set-table-row.current {
-    background: rgba(10, 132, 255, 0.08); border-radius: 10px;
-    border-bottom-color: transparent;
+    background: var(--accent-gradient);
+    border-radius: 12px; border-bottom-color: transparent;
+    min-height: 54px; margin: 5px -7px; padding: 8px 11px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(10, 132, 255, 0.3);
+    transition: transform 0.1s;
+    animation: ctaPulse 2.4s ease-in-out infinite;
 }
-.set-table-row.current .set-table-num { color: var(--accent); }
+.set-table-row.current:active { transform: scale(0.97); }
+.set-table-row.current .set-table-num { color: rgba(0, 0, 0, 0.55); }
+.set-table-row.current .set-table-ghost { color: rgba(0, 0, 0, 0.6); opacity: 1; }
+.set-table-logcta {
+    direction: rtl; display: inline-block;
+    font-size: 1.05rem; font-weight: 900; color: #000;
+}
+@keyframes ctaPulse {
+    0%, 100% { box-shadow: 0 4px 14px rgba(10, 132, 255, 0.3); }
+    50%      { box-shadow: 0 4px 22px rgba(10, 132, 255, 0.55); }
+}
 
 /* כפתור מחשבון פלטות — פינת כרטיס המשקל */
 .stepper-card { position: relative; }
@@ -5515,9 +5531,9 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .warmup-reps { font-size: 0.9rem; color: var(--text-dim); width: 44px; text-align: left; direction: ltr; }
 .warmup-note { text-align: center; margin-top: 4px; }
 
-/* ═══════════ כפתורי פעולה בפאנל התחתון + טיימר צף (v16.0–16.1) ═══════════ */
+/* ═══════════ פאנל תחתון: המשך-לתרגיל + טיימר מנוחה (v16.0–16.2) ═══════════ */
 
-/* כפתורי פעולה בתוך ה-session strip — ממורכזים אבסולוטית, תופסים את מקום "זמן אימון".
+/* כפתור פעולה בתוך ה-session strip — ממורכז אבסולוטית, תופס את מקום "זמן אימון".
    44px גובה — יעד מגע מלא בתוך פס ה-50px. */
 .strip-action-btn {
     position: absolute; left: 50%; top: 50%;
@@ -5531,40 +5547,38 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     transition: transform 0.1s;
 }
 .strip-action-btn:active { transform: translate(-50%, calc(-50% - env(safe-area-inset-bottom, 0px) / 2)) scale(0.95); }
-.strip-log-btn      { background: var(--accent-gradient);  color: #000; box-shadow: 0 4px 16px rgba(10, 132, 255, 0.35); }
 .strip-continue-btn { background: var(--success-gradient); color: #000; box-shadow: 0 4px 16px rgba(50, 215, 75, 0.3); }
 
-/* הכפתורים המקוריים במסך נשארים בDOM כ-state markers בלבד (inline display = מצב),
-   אבל מוסרים מה-flow — הפעולות החיות עברו ל-session strip */
+/* טיימר מנוחה במרכז ה-strip — תמיד בשדה הראייה, בלי תלות ב-position:fixed
+   בתוך ה-scroller (שנשבר ב-iOS) */
+.strip-rest-timer {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, calc(-50% - env(safe-area-inset-bottom, 0px) / 2));
+    display: inline-flex; align-items: center; gap: 9px;
+    pointer-events: none; white-space: nowrap;
+}
+.strip-rest-lbl {
+    font-size: 0.6rem; font-weight: 900; color: var(--text-dim);
+    letter-spacing: 0.22em; text-transform: uppercase;
+}
+.strip-rest-time {
+    font-size: 1.45rem; font-weight: 900; color: var(--accent);
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+    font-family: 'Heebo', 'Inter', sans-serif; direction: ltr; line-height: 1;
+}
+
+/* הכפתורים המקוריים במסך נשארים בDOM כ-state markers בלבד (inline display = מצב):
+   רישום סט = לחיצה על שורת הסט הנוכחי בטבלה; המשך = כפתור ה-strip */
 #btn-submit-set { position: absolute; visibility: hidden; pointer-events: none; animation: none; }
 #btn-continue-exercise { display: none; }
 
-/* טיימר מנוחה — פיל דיגיטלי צף למעלה במרכז, רק במסך האימון הרגיל.
-   ה-HTML לא משתנה: ה-SVG מוסתר, ה-inner הופך לשורה. המסכים הגדולים
-   (ui-cluster-rest / Live) משתמשים ב-live-timer-* נפרדים ולא מושפעים. */
-#ui-main .timer-section {
-    position: fixed;
-    top: calc(env(safe-area-inset-top, 0px) + 10px);
-    left: 50%; transform: translateX(-50%);
-    flex-direction: row; align-items: center; gap: 10px;
-    margin: 0 !important; padding: 9px 22px;
-    background: rgba(10, 10, 12, 0.92);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border: 1px solid var(--hairline-hi);
-    border-radius: 9999px;
-    z-index: 210; pointer-events: none;
-    box-shadow: var(--elev-2);
+/* במצב Cluster אין טבלת סטים — כפתור ה-LOG SET המקורי חוזר למסך */
+#ui-main.cluster #btn-submit-set {
+    position: static; visibility: visible; pointer-events: auto;
 }
-#ui-main .timer-svg { display: none; }
-#ui-main .timer-wrap { position: static; width: auto; height: auto; margin: 0; }
-#ui-main .timer-inner { position: static; flex-direction: row; align-items: center; gap: 8px; }
-#ui-main .timer-resting-lbl { display: none; }
-#ui-main .timer-inner .timer-text { font-size: 1.5rem; letter-spacing: -0.5px; line-height: 1; }
-.timer-side-lbl {
-    font-size: 0.62rem; font-weight: 900; color: var(--text-dim);
-    letter-spacing: 0.25em; text-transform: uppercase;
-}
+
+/* עיגול הטיימר הישן ירד מהמסך — הספירה חיה ב-session strip */
+#ui-main .timer-section { display: none !important; }
 
 /* ═══════════ Live Mode: PR + מחשבון פלטות (v16.1) ═══════════ */
 

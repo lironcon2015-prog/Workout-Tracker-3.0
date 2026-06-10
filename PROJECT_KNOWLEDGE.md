@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.1
+## גרסה נוכחית: 16.2
 
 ---
 
@@ -72,8 +72,11 @@
 | פונט ראשי | Heebo 900 לכותרות, `rem` units |
 | Pill buttons | `#353535` / `--surface-4`, `border-radius: 9999px`, `align-self: flex-start` |
 | Freestyle card | `border: 2px dashed rgba(255,255,255,0.2)` |
-| Session strip | `height: 50px+safe-area` עם `box-sizing:border-box` (בלעדיו ה-safe-area נספר פעמיים והפאנל קופץ בגובה), fixed bottom, `z-index: 199`, מוסתר מחוץ ל-workout flow. מכיל `#strip-log-btn` (LOG SET) + `#strip-continue-btn` (המשך לתרגיל) — 3 מצבים נשלטים ע"י `_syncStripLogBtn()`; `#btn-submit-set` ו-`#btn-continue-exercise` במסך הם state-markers בלבד (מוסתרים ב-CSS) |
-| טיימר מנוחה ב-ui-main | פיל דיגיטלי **צף** למעלה במרכז (`#ui-main .timer-section` fixed, `pointer-events:none`) — restyle ב-CSS בלבד, ה-HTML/JS של `timer-area`/`rest-timer` לא השתנו. המסכים הגדולים (cluster rest / Live) על `live-timer-*` נפרדים |
+| Session strip | `height: 50px+safe-area` עם `box-sizing:border-box` (בלעדיו ה-safe-area נספר פעמיים והפאנל קופץ בגובה), fixed bottom, `z-index: 199`, מוסתר מחוץ ל-workout flow. מרכז ה-strip = 3 מצבים ב-`_syncStripLogBtn()`: `#strip-rest-timer` (מנוחה רצה), `#strip-continue-btn` (בין תרגילים), המלל "זמן אימון". `#btn-submit-set` ו-`#btn-continue-exercise` במסך הם state-markers בלבד (מוסתרים ב-CSS), **חוץ ממצב Cluster** שבו `#ui-main.cluster #btn-submit-set` חוזר למסך (אין שם טבלת סטים) |
+| רישום סט (v16.2) | לחיצה על **שורת הסט הנוכחי בטבלה** (`renderSetSessionTable` → `.set-table-row.current` עם onclick=nextStep). אין כפתור LOG SET נפרד. הטבלה מוצגת תמיד בזמן הקלטה (גם לתרגיל של סט אחד); `total` כולל done+1 כשמקליטים (מכסה addExtraSet) |
+| טיימר מנוחה | ספרתי, במרכז ה-session strip (`#strip-rest-time`, משוקף מ-`resetAndStartTimer.updateUI`). עיגול הטיימר ב-ui-main הוסתר (`display:none`). **לקח קריטי:** `position:fixed` בתוך `.content-area` (scroller) לא אמין ב-iOS — אלמנטים צפים חדשים לשים ישירות תחת body או בתוך ה-strip |
+
+**באג ה-fixed המרחף (iOS, v16.2):** פתיחת מקלדת גוללת את ה-window עצמו (לא את content-area), ואחרי סגירה iOS לא תמיד מחזיר scroll ל-0 → כל ה-fixed bottom:0 (tab-bar/strip) "מרחפים" מעל התחתית ו-fixed top נעלמים. תוקן ב-`_repinViewport()` — `window.scrollTo(0,0)` על focusout + visualViewport resize. אם הבאג חוזר — לבדוק ש-listeners אלה עדיין חיים.
 
 ---
 

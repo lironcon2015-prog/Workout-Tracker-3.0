@@ -1651,9 +1651,9 @@
         </div>
         <!-- "זמן אימון" — ממורכז אבסולוטית (מוצג כשאין תרגיל פעיל) -->
         <span id="strip-label" style="position:absolute;left:0;right:0;text-align:center;font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.45);pointer-events:none;letter-spacing:0.03em;">זמן אימון</span>
-        <!-- LOG SET — ממורכז, מוצג רק כשתרגיל פעיל בהקלטה (לא בין תרגילים) -->
-        <button id="strip-log-btn" class="strip-action-btn strip-log-btn" onclick="nextStep()" style="display:none;">LOG SET&nbsp;→</button>
-        <!-- המשך לתרגיל הבא — מחליף את LOG SET כשהסט האחרון נרשם (action panel) -->
+        <!-- טיימר מנוחה — ממורכז, מוצג בזמן מנוחה (מחליף את "זמן אימון") -->
+        <span id="strip-rest-timer" class="strip-rest-timer" style="display:none;"><span class="strip-rest-lbl">מנוחה</span><span id="strip-rest-time" class="strip-rest-time">00:00</span></span>
+        <!-- המשך לתרגיל הבא — מוצג כשהסט האחרון נרשם (action panel) -->
         <button id="strip-continue-btn" class="strip-action-btn strip-continue-btn" onclick="finishCurrentExercise()" style="display:none;">המשך לתרגיל&nbsp;←</button>
         <!-- כפתור תפריט — שמאל (RTL flex-end) -->
         <button id="btn-workout-menu" class="workout-menu-btn" data-workout-menu-trigger onclick="toggleWorkoutQuickMenu()" aria-label="תפריט אימון">

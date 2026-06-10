@@ -107,9 +107,13 @@ function renderSetSessionTable() {
         const perf = getLastPerformances(state.currentExName, 1);
         if (perf.length) ghost = parseSetsFromStrings(perf[0].sets);
     }
+    // btn-submit-set הוא ה-state marker: display!='none' = מקליטים סט עכשיו.
+    // בזמן הקלטה הטבלה מוצגת תמיד — שורת הסט הנוכחי היא כפתור הרישום (אין כפתור אחר).
+    const submitMarker = document.getElementById('btn-submit-set');
+    const logging = !!(submitMarker && submitMarker.style.display !== 'none');
     const planned = (state.currentEx && Array.isArray(state.currentEx.sets)) ? state.currentEx.sets.length : 0;
-    const total = Math.max(planned, done.length);
-    if (total <= 1 && !ghost.length) {
+    const total = Math.max(planned, done.length + (logging ? 1 : 0));
+    if (!total && !ghost.length) {
         cont.style.display = 'none'; cont.innerHTML = ''; return;
     }
     const realSets = state.log.filter(l => !l.skip);
@@ -126,11 +130,17 @@ function renderSetSessionTable() {
                 <span class="set-table-val"><span class="set-table-check">✓</span> ${e.w}kg × ${e.r}${rirStr}${pr}</span>
                 <span class="set-table-ghost">${g}</span>
             </div>`;
-        } else {
-            const isCur = i === done.length;
-            rows += `<div class="set-table-row${isCur ? ' current' : ''}">
+        } else if (logging && i === done.length) {
+            // שורת הסט הנוכחי = כפתור הרישום — לחיצה רושמת את ערכי הבוררים שלמטה
+            rows += `<div class="set-table-row current" onclick="nextStep()" role="button">
                 <span class="set-table-num">${i + 1}</span>
-                <span class="set-table-val">${isCur ? '<span class="set-table-now">◂ עכשיו</span>' : ''}</span>
+                <span class="set-table-val"><span class="set-table-logcta">רשום סט ✓</span></span>
+                <span class="set-table-ghost">${g}</span>
+            </div>`;
+        } else {
+            rows += `<div class="set-table-row">
+                <span class="set-table-num">${i + 1}</span>
+                <span class="set-table-val"></span>
                 <span class="set-table-ghost">${g}</span>
             </div>`;
         }
@@ -486,6 +496,23 @@ document.addEventListener('visibilitychange', () => {
         StorageManager.saveSessionState();
     }
 });
+
+// ─── נעילת viewport — באג ה-fixed המרחף של iOS ─────────────────────────────
+// כשמקלדת נפתחת iOS גולל את ה-window (לא את content-area), ואחרי הסגירה
+// הוא לא תמיד מחזיר את הגלילה ל-0. התוצאה: כל אלמנט fixed bottom:0
+// (tab-bar / session strip) נשאר "מרחף" מעל תחתית המסך, ו-fixed top נעלם.
+// הפתרון: החזרת window scroll ל-0 בכל סגירת מקלדת / שינוי visual viewport.
+function _repinViewport() {
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return;
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+}
+document.addEventListener('focusout', () => setTimeout(_repinViewport, 80));
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => setTimeout(_repinViewport, 80));
+}
 
 // ─── INITIALIZATION ────────────────────────────────────────────────────────
 
@@ -902,24 +929,26 @@ function _applyScreenChrome(screenId) {
     _syncStripLogBtn(screenId);
 }
 
-// _syncStripLogBtn — כפתורי הפעולה בפאנל התחתון (session strip). שלושה מצבים:
-// 1. מקליטים סט ב-ui-main  → LOG SET   (btn-submit-set משמש כ-state marker: display='block')
-// 2. הסט האחרון נרשם       → "המשך לתרגיל" (action panel display='block')
-// 3. כל מצב אחר / Live Mode → המלל "זמן אימון"
+// _syncStripLogBtn — מרכז ה-session strip. שלושה מצבים (לפי עדיפות):
+// 1. הסט האחרון נרשם (action panel display='block') → כפתור "המשך לתרגיל"
+// 2. טיימר מנוחה רץ ב-ui-main                        → ספירת מנוחה דיגיטלית
+// 3. כל מצב אחר / Live Mode                           → המלל "זמן אימון"
+// רישום הסט עצמו נעשה בלחיצה על שורת הסט הנוכחי בטבלה (renderSetSessionTable).
 function _syncStripLogBtn(screenId) {
-    const logBtn  = document.getElementById('strip-log-btn');
+    const restEl  = document.getElementById('strip-rest-timer');
     const contBtn = document.getElementById('strip-continue-btn');
     const lbl     = document.getElementById('strip-label');
-    if (!logBtn || !lbl) return;
+    if (!lbl) return;
     const id = screenId || (state.historyStack && state.historyStack[state.historyStack.length - 1]);
     const onMain = id === 'ui-main' && !document.body.classList.contains('live-mode-active');
-    const submit = document.getElementById('btn-submit-set');
-    const ap     = document.getElementById('action-panel');
-    const logging = onMain && submit && submit.style.display !== 'none';
-    const between = onMain && !logging && !!(ap && ap.style.display === 'block');
-    logBtn.style.display = logging ? 'inline-flex' : 'none';
+    const ap = document.getElementById('action-panel');
+    const ta = document.getElementById('timer-area');
+    const between = onMain && !!(ap && ap.style.display === 'block');
+    const resting = onMain && !between && !!state.timerInterval
+        && !!(ta && ta.style.visibility === 'visible');
+    if (restEl)  restEl.style.display  = resting ? 'inline-flex' : 'none';
     if (contBtn) contBtn.style.display = between ? 'inline-flex' : 'none';
-    lbl.style.display = (logging || between) ? 'none' : '';
+    lbl.style.display = (resting || between) ? 'none' : '';
 }
 
 function navigate(id, clearStack = false) {
@@ -2579,6 +2608,7 @@ function resetAndStartTimer(customTime = null) {
     const text = document.getElementById('rest-timer');
     const clusterBar = document.getElementById('cluster-timer-bar');
     const clusterText = document.getElementById('cluster-timer-text');
+    const stripText = document.getElementById('strip-rest-time');
 
     const updateUI = (mins, secs, progress) => {
         if (text) text.innerText = `${mins}:${secs}`;
@@ -2586,6 +2616,8 @@ function resetAndStartTimer(customTime = null) {
         if (clusterText) clusterText.innerText = `${mins}:${secs}`;
         // r=46 → circumference 289 (זהה לטיימר ה-Live)
         if (clusterBar) clusterBar.style.strokeDashoffset = 289 - (progress * 289);
+        // שיקוף לטיימר המנוחה ב-session strip
+        if (stripText) stripText.innerText = `${mins}:${secs}`;
         // Sprint 4: עדכון Live View אם פעיל
         if (typeof updateLiveTimer === 'function') updateLiveTimer(mins, secs, progress);
     };
@@ -2603,6 +2635,9 @@ function resetAndStartTimer(customTime = null) {
         updateUI(mins, secs, progress);
         if (state.seconds === target && soundEnabled) playBeep(2);
     }, 100);
+
+    // ה-interval רץ → ה-strip עובר למצב "מנוחה" (מכסה את כל נקודות ההתנעה)
+    _syncStripLogBtn();
 
     StorageManager.saveSessionState();
 }

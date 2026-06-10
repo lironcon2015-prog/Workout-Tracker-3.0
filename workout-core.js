@@ -48,270 +48,6 @@ function escapeJsAttr(s) {
     return escapeHtml(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 }
 
-// ─── EMPTY STATE (Wave 1) ──────────────────────────────────────────────────
-// תבנית אחידה למסכים ריקים — אייקון Material + כותרת + טקסט משנה
-function emptyStateHtml(icon, title, sub = '') {
-    return `<div class="empty-state">
-        <span class="material-symbols-outlined">${icon}</span>
-        <div class="empty-state-title">${escapeHtml(title)}</div>
-        ${sub ? `<div class="empty-state-sub">${escapeHtml(sub)}</div>` : ''}
-    </div>`;
-}
-
-// ─── PR DETECTION (Wave 1) ─────────────────────────────────────────────────
-// e1RM (Epley) מול המקסימום ההיסטורי של התרגיל בארכיון — חגיגה כששוברים שיא
-let _prMaxCache = {};
-function _getHistoricalMaxE1RM(exName) {
-    if (_prMaxCache[exName] !== undefined) return _prMaxCache[exName];
-    let max = 0;
-    try {
-        StorageManager.getArchive().forEach(entry => {
-            if (!entry || entry.timestamp === state.archivedTimestamp) return;  // לא הרשומה של האימון הנוכחי
-            const ex = entry.details && entry.details[exName];
-            if (!ex || !Array.isArray(ex.sets)) return;
-            ex.sets.forEach(s => {
-                const wM = String(s).match(/([\d.]+)\s*kg/);
-                const rM = String(s).match(/x\s*(\d+)/);
-                if (!wM || !rM) return;
-                const e1 = parseFloat(wM[1]) * (1 + parseInt(rM[1]) / 30);
-                if (e1 > max) max = e1;
-            });
-        });
-    } catch (e) { console.warn('GymPro: PR scan failed', e); }
-    _prMaxCache[exName] = max;
-    return max;
-}
-
-function _celebratePR() {
-    haptic('success');
-    setTimeout(() => haptic('success'), 280);
-    const badge = document.getElementById('pr-burst');
-    if (!badge) return;
-    badge.classList.remove('show');
-    void badge.offsetWidth;
-    badge.classList.add('show');
-    setTimeout(() => badge.classList.remove('show'), 2400);
-}
-
-// ─── SET SESSION TABLE (Wave 2) ────────────────────────────────────────────
-// טבלת סטים חיה במסך האימון: סטים שבוצעו + ghost values מהאימון הקודם (Hevy-style)
-function renderSetSessionTable() {
-    const cont = document.getElementById('set-session-table');
-    if (!cont) return;
-    if (state.clusterMode || !state.currentExName) {
-        cont.style.display = 'none'; cont.innerHTML = ''; return;
-    }
-    const done = state.log.filter(l => !l.skip && l.exName === state.currentExName);
-    let ghost = [];
-    if (typeof getLastPerformances === 'function' && typeof parseSetsFromStrings === 'function') {
-        const perf = getLastPerformances(state.currentExName, 1);
-        if (perf.length) ghost = parseSetsFromStrings(perf[0].sets);
-    }
-    // btn-submit-set הוא ה-state marker: display!='none' = מקליטים סט עכשיו.
-    // בזמן הקלטה הטבלה מוצגת תמיד — שורת הסט הנוכחי היא כפתור הרישום (אין כפתור אחר).
-    const submitMarker = document.getElementById('btn-submit-set');
-    const logging = !!(submitMarker && submitMarker.style.display !== 'none');
-    const planned = (state.currentEx && Array.isArray(state.currentEx.sets)) ? state.currentEx.sets.length : 0;
-    const total = Math.max(planned, done.length + (logging ? 1 : 0));
-    if (!total && !ghost.length) {
-        cont.style.display = 'none'; cont.innerHTML = ''; return;
-    }
-    const realSets = state.log.filter(l => !l.skip);
-    let rows = '';
-    for (let i = 0; i < total; i++) {
-        const g = ghost[i] ? `${ghost[i].w}×${ghost[i].r}` : '—';
-        if (i < done.length) {
-            const e = done[i];
-            const realIdx = realSets.indexOf(e);
-            const rirStr = (e.rir !== undefined && e.rir !== '') ? ` · RIR ${e.rir}` : '';
-            const pr = e.isPR ? ' <span class="set-table-pr">🏆</span>' : '';
-            rows += `<div class="set-table-row done" onclick="openSetTableEdit(${realIdx})">
-                <span class="set-table-num">${i + 1}</span>
-                <span class="set-table-val"><span class="set-table-check">✓</span> ${e.w}kg × ${e.r}${rirStr}${pr}</span>
-                <span class="set-table-ghost">${g}</span>
-            </div>`;
-        } else if (logging && i === done.length) {
-            // שורת הסט הנוכחי = כפתור הרישום — לחיצה רושמת את ערכי הבוררים שלמטה
-            rows += `<div class="set-table-row current" onclick="nextStep()" role="button">
-                <span class="set-table-num">${i + 1}</span>
-                <span class="set-table-val"><span class="set-table-logcta">רשום סט ✓</span></span>
-                <span class="set-table-ghost">${g}</span>
-            </div>`;
-        } else {
-            rows += `<div class="set-table-row">
-                <span class="set-table-num">${i + 1}</span>
-                <span class="set-table-val"></span>
-                <span class="set-table-ghost">${g}</span>
-            </div>`;
-        }
-    }
-    cont.innerHTML = `<div class="set-table-head">
-        <span class="set-table-num">סט</span>
-        <span class="set-table-val">האימון הזה</span>
-        <span class="set-table-ghost">קודם</span>
-    </div>${rows}`;
-    cont.style.display = 'block';
-}
-
-// עריכת סט מתוך הטבלה — בלי לפתוח את ה-session log אחרי השמירה
-function openSetTableEdit(realIdx) {
-    haptic('light');
-    openEditSetModal(realIdx);
-    _editFromLog = false;
-}
-
-// ─── PLATE CALCULATOR (Wave 2) ─────────────────────────────────────────────
-// הפלטות הזמינות נשמרות ב-prefs (StorageManager.getPlates) — ניתנות לעריכה ב-sheet.
-const PLATE_ALL     = [25, 20, 15, 10, 5, 2.5, 1.25];   // כל הגדלים הסטנדרטיים לבחירה
-const PLATE_COLORS  = { 25: '#ff453a', 20: '#0A84FF', 15: '#FFD60A', 10: '#32D74B', 5: '#e2e2e2', 2.5: '#26262c', 1.25: '#8E8E93' };
-const PLATE_HEIGHTS = { 25: 84, 20: 76, 15: 66, 10: 56, 5: 44, 2.5: 36, 1.25: 30 };
-
-function _calcPlates(total, bar) {
-    let perSide = (total - bar) / 2;
-    if (perSide < -1e-9) return null;
-    const plates = [];
-    let rem = perSide;
-    StorageManager.getPlates().forEach(p => { while (rem >= p - 1e-9) { plates.push(p); rem -= p; } });
-    return { plates, leftover: Math.round(rem * 1000) / 1000 };
-}
-
-function _renderPlateCalc() {
-    const body = document.getElementById('plate-calc-body');
-    if (!body) return;
-    const wEl = document.getElementById('weight-picker');
-    const w = wEl ? parseFloat(wEl.value) || 0 : 0;
-    const bar = StorageManager.getBarWeight();
-    [20, 15, 10, 0].forEach(b => {
-        const btn = document.getElementById('plate-bar-' + b);
-        if (btn) btn.classList.toggle('active', bar === b);
-    });
-    _renderPlateInventory();
-    const res = w > 0 ? _calcPlates(w, bar) : null;
-    if (!res) {
-        body.innerHTML = `<p class="sub-text text-center">המשקל (${w}kg) קטן ממשקל המוט (${bar}kg)</p>`;
-        return;
-    }
-    const platesHtml = res.plates.map(p => {
-        const dark = (p === 5 || p === 15);
-        return `<div class="plate" style="background:${PLATE_COLORS[p]};height:${PLATE_HEIGHTS[p]}px;color:${dark ? '#000' : '#fff'}">${p}</div>`;
-    }).join('');
-    const perSideStr = res.plates.length ? res.plates.join(' · ') : 'בלי פלטות';
-    body.innerHTML = `
-        <div class="plate-calc-total">${w}<span> kg</span></div>
-        <div class="plate-viz">
-            <div class="plate-bar-end"></div>
-            ${platesHtml || '<span class="sub-text">מוט בלבד</span>'}
-        </div>
-        <div class="plate-per-side">לכל צד: <b>${perSideStr}</b>${bar > 0 ? ` (מוט ${bar})` : ''}</div>
-        ${res.leftover > 0 ? `<div class="plate-leftover">נותרו ${res.leftover}kg לכל צד שלא נסגרים בפלטות הזמינות</div>` : ''}`;
-}
-
-// שורת הפלטות הזמינות — chips לחיצים שמדליקים/מכבים כל גודל פלטה
-function _renderPlateInventory() {
-    const cont = document.getElementById('plate-inventory');
-    if (!cont) return;
-    const available = StorageManager.getPlates();
-    cont.innerHTML = PLATE_ALL.map(p => {
-        const on = available.includes(p);
-        return `<button class="plate-inv-chip${on ? ' on' : ''}" onclick="togglePlateSize(${p})">${p}</button>`;
-    }).join('');
-}
-
-function togglePlateSize(p) {
-    haptic('light');
-    let plates = StorageManager.getPlates();
-    if (plates.includes(p)) {
-        plates = plates.filter(x => x !== p);
-        if (!plates.length) { showAlert('חייבת להישאר לפחות פלטה אחת זמינה.'); return; }
-    } else {
-        plates.push(p);
-    }
-    StorageManager.setPlates(plates);
-    _renderPlateCalc();
-}
-
-function openPlateCalc() {
-    haptic('light');
-    _renderPlateCalc();
-    const overlay = document.getElementById('plate-calc-overlay');
-    const sheet = document.getElementById('plate-calc-sheet');
-    if (!overlay || !sheet) return;
-    overlay.style.display = 'block';
-    requestAnimationFrame(() => sheet.classList.add('open'));
-}
-
-function closePlateCalc() {
-    const overlay = document.getElementById('plate-calc-overlay');
-    const sheet = document.getElementById('plate-calc-sheet');
-    if (!overlay || !sheet) return;
-    sheet.classList.remove('open');
-    setTimeout(() => { overlay.style.display = 'none'; }, 300);
-}
-
-function setPlateBar(w) {
-    haptic('light');
-    StorageManager.setBarWeight(w);
-    _renderPlateCalc();
-}
-
-// ─── WARM-UP CALCULATOR (Wave 2) ───────────────────────────────────────────
-// פירמידת חימום לסט העבודה הראשון — תצוגת עזר בלבד, לא נרשמת בלוג
-const WARMUP_SCHEME = [
-    { pct: 0,    reps: 10 },   // מוט ריק
-    { pct: 0.5,  reps: 6 },
-    { pct: 0.7,  reps: 4 },
-    { pct: 0.88, reps: 1 }
-];
-
-function _syncWarmupPill() {
-    const el = document.getElementById('warmup-pill');
-    if (!el) return;
-    const wEl = document.getElementById('weight-picker');
-    const w = wEl ? parseFloat(wEl.value) || 0 : 0;
-    const hasLogged = state.log.some(l => !l.skip && l.exName === state.currentExName);
-    el.style.display = (!state.clusterMode && state.setIdx === 0 && !hasLogged && w >= 40) ? 'inline-flex' : 'none';
-}
-
-function openWarmupSheet() {
-    haptic('light');
-    const body = document.getElementById('warmup-body');
-    const wEl = document.getElementById('weight-picker');
-    const w = wEl ? parseFloat(wEl.value) || 0 : 0;
-    if (!body || !w) return;
-    const bar = StorageManager.getBarWeight();
-    let rows = '';
-    WARMUP_SCHEME.forEach(s => {
-        if (s.pct === 0) {
-            if (bar <= 0) return;   // אין מוט — אין שלב "מוט ריק"
-            rows += `<div class="warmup-row"><span class="warmup-pct">מוט ריק</span><span class="warmup-w">${bar}kg</span><span class="warmup-reps">× ${s.reps}</span></div>`;
-            return;
-        }
-        const target = Math.round((w * s.pct) / 2.5) * 2.5;
-        if (target <= bar || target >= w) return;   // מדרגה שלא מוסיפה ערך
-        rows += `<div class="warmup-row"><span class="warmup-pct">${Math.round(s.pct * 100)}%</span><span class="warmup-w">${target}kg</span><span class="warmup-reps">× ${s.reps}</span></div>`;
-    });
-    body.innerHTML = `<div class="warmup-target">סט עבודה: <b>${w}kg</b></div>${rows || '<p class="sub-text text-center">המשקל קל מדי לפירמידת חימום</p>'}`;
-    const overlay = document.getElementById('warmup-overlay');
-    const sheet = document.getElementById('warmup-sheet');
-    if (!overlay || !sheet) return;
-    overlay.style.display = 'block';
-    requestAnimationFrame(() => sheet.classList.add('open'));
-}
-
-function closeWarmupSheet() {
-    const overlay = document.getElementById('warmup-overlay');
-    const sheet = document.getElementById('warmup-sheet');
-    if (!overlay || !sheet) return;
-    sheet.classList.remove('open');
-    setTimeout(() => { overlay.style.display = 'none'; }, 300);
-}
-
-// ─── SKIP CONFIRM TOGGLE (Wave 2) ──────────────────────────────────────────
-function toggleSkipConfirm(checked) {
-    haptic('light');
-    StorageManager.setSkipConfirm(checked);
-}
-
 // ─── CUSTOM MODAL SYSTEM ───────────────────────────────────────────────────
 
 function showAlert(msg, onOk) {
@@ -496,55 +232,6 @@ document.addEventListener('visibilitychange', () => {
         StorageManager.saveSessionState();
     }
 });
-
-// ─── נעילת viewport — באגי ה-fixed המרחף של iOS ────────────────────────────
-// שני מנגנונים שבירים ב-iOS standalone PWA:
-// 1. מקלדת: פתיחה גוללת את ה-window (לא את content-area), ואחרי סגירה
-//    הגלילה לא תמיד חוזרת ל-0 → fixed bottom:0 "מרחף".
-// 2. reload: אחרי window.location.reload() ה-layout viewport מחושב בלי
-//    אזור ה-status bar (קצר ב~60pt) → tab-bar/strip מרחפים מעל התחתית.
-//    לכן כל רענון באפליקציה חייב לעבור דרך reloadApp() (ניווט, לא reload).
-function _repinViewport() {
-    const ae = document.activeElement;
-    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return;
-    window.scrollTo(0, 0);
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-}
-
-// זיהוי viewport "מעוך" אחרי reload + נדנוד שמכריח את WebKit לחשב מחדש.
-// ב-standalone עם viewport-fit=cover גובה ה-window אמור להשתוות לגובה המסך.
-function _kickViewport(attempt = 0) {
-    _repinViewport();
-    const standalone = navigator.standalone === true
-        || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-    if (!standalone || attempt >= 8) return;
-    const squashed = screen && screen.height && (window.innerHeight + 4 < screen.height);
-    if (!squashed) return;
-    // נדנוד: גלילה זעירה + reflow כפוי על ה-root
-    window.scrollTo(0, 1);
-    window.scrollTo(0, 0);
-    const de = document.documentElement;
-    de.style.height = '100.1%';
-    void de.offsetHeight;
-    de.style.height = '';
-    setTimeout(() => _kickViewport(attempt + 1), 250 * (attempt + 1));
-}
-
-try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) { /* לא קריטי */ }
-document.addEventListener('focusout', () => setTimeout(_repinViewport, 80));
-if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', () => setTimeout(_repinViewport, 80));
-    window.visualViewport.addEventListener('scroll', () => setTimeout(_repinViewport, 80));
-}
-window.addEventListener('pageshow', () => { _kickViewport(); setTimeout(_kickViewport, 600); });
-window.addEventListener('load', () => setTimeout(_kickViewport, 120));
-
-// רענון בטוח ל-PWA — מחליף כל window.location.reload() באפליקציה.
-// reload() ב-iOS standalone מפעיל את באג ה-viewport המעוך; ניווט מלא לא.
-function reloadApp() {
-    window.location.replace(window.location.pathname + window.location.search);
-}
 
 // ─── INITIALIZATION ────────────────────────────────────────────────────────
 
@@ -957,30 +644,6 @@ function _applyScreenChrome(screenId) {
 
     const backBtn = document.getElementById('global-back');
     if (backBtn) backBtn.style.display = !NO_BACK_SCREENS.includes(screenId) ? 'flex' : 'none';
-
-    _syncStripLogBtn(screenId);
-}
-
-// _syncStripLogBtn — מרכז ה-session strip. שלושה מצבים (לפי עדיפות):
-// 1. הסט האחרון נרשם (action panel display='block') → כפתור "המשך לתרגיל"
-// 2. טיימר מנוחה רץ ב-ui-main                        → ספירת מנוחה דיגיטלית
-// 3. כל מצב אחר / Live Mode                           → המלל "זמן אימון"
-// רישום הסט עצמו נעשה בלחיצה על שורת הסט הנוכחי בטבלה (renderSetSessionTable).
-function _syncStripLogBtn(screenId) {
-    const restEl  = document.getElementById('strip-rest-timer');
-    const contBtn = document.getElementById('strip-continue-btn');
-    const lbl     = document.getElementById('strip-label');
-    if (!lbl) return;
-    const id = screenId || (state.historyStack && state.historyStack[state.historyStack.length - 1]);
-    const onMain = id === 'ui-main' && !document.body.classList.contains('live-mode-active');
-    const ap = document.getElementById('action-panel');
-    const ta = document.getElementById('timer-area');
-    const between = onMain && !!(ap && ap.style.display === 'block');
-    const resting = onMain && !between && !!state.timerInterval
-        && !!(ta && ta.style.visibility === 'visible');
-    if (restEl)  restEl.style.display  = resting ? 'inline-flex' : 'none';
-    if (contBtn) contBtn.style.display = between ? 'inline-flex' : 'none';
-    lbl.style.display = (resting || between) ? 'none' : '';
 }
 
 function navigate(id, clearStack = false) {
@@ -1136,7 +799,7 @@ function handleBackClick() {
             showConfirm("האם לצאת מהאימון? הנתונים לא יישמרו.", () => {
                 StorageManager.clearSessionState();
                 stopSessionTimer();
-                reloadApp();
+                window.location.reload();
             });
         } else {
             _setNavDirection('back');
@@ -1391,8 +1054,6 @@ function _initAllSheetsDrag() {
         { id: 'workout-plan-sheet',         closer: () => closePlanSheet() },
         { id: 'range-copy-sheet',           closer: () => (typeof closeRangeSheet === 'function') && closeRangeSheet() },
         { id: 'set-rec-sheet',              closer: () => dismissAIRecommendation() },
-        { id: 'plate-calc-sheet',           closer: () => closePlateCalc() },
-        { id: 'warmup-sheet',               closer: () => closeWarmupSheet() },
     ];
     sheets.forEach(s => {
         const el = document.getElementById(s.id);
@@ -1411,8 +1072,6 @@ function openSettings() {
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
     const _st = document.getElementById('sound-toggle');
     if (_st) _st.checked = soundEnabled;
-    const _sc = document.getElementById('skip-confirm-toggle');
-    if (_sc) _sc.checked = StorageManager.getSkipConfirm();
     switchSettingsTab('general');   // תמיד נפתח על לשונית "כללי"
 }
 
@@ -1861,13 +1520,6 @@ function showConfirmScreen(forceExName = null) {
         addBtn.style.visibility = 'hidden';
     }
 
-    // Wave 2 — "מעבר ישיר לתרגיל": מדלג על מסך האישור מחוץ למצב סבב.
-    // הביצוע הקודם זמין ממילא בטבלת הסטים (ghost values) במסך האימון.
-    if (!state.clusterMode && StorageManager.getSkipConfirm()) {
-        confirmExercise(true);
-        return;
-    }
-
     const historyContainer = document.getElementById('history-container');
     historyContainer.innerHTML = "";
 
@@ -2257,11 +1909,6 @@ function initPickers() {
 
     _resetSetRecState();
 
-    // Wave 2 — טבלת הסטים החיה + pill החימום מתעדכנים בכל מעבר סט
-    renderSetSessionTable();
-    _syncWarmupPill();
-    _syncStripLogBtn();
-
     // סנכרון Live View — חשוב: ה-pickers הם source-of-truth ל-updateLiveViewContent,
     // אז אחרי שמילאנו אותם בערכים החדשים, צריך לרענן את מסך ה-Live כדי שלא יציג ערכים של תרגיל קודם
     if (typeof updateLiveViewContent === 'function' && document.body.classList.contains('live-mode-active')) {
@@ -2640,7 +2287,6 @@ function resetAndStartTimer(customTime = null) {
     const text = document.getElementById('rest-timer');
     const clusterBar = document.getElementById('cluster-timer-bar');
     const clusterText = document.getElementById('cluster-timer-text');
-    const stripText = document.getElementById('strip-rest-time');
 
     const updateUI = (mins, secs, progress) => {
         if (text) text.innerText = `${mins}:${secs}`;
@@ -2648,8 +2294,6 @@ function resetAndStartTimer(customTime = null) {
         if (clusterText) clusterText.innerText = `${mins}:${secs}`;
         // r=46 → circumference 289 (זהה לטיימר ה-Live)
         if (clusterBar) clusterBar.style.strokeDashoffset = 289 - (progress * 289);
-        // שיקוף לטיימר המנוחה ב-session strip
-        if (stripText) stripText.innerText = `${mins}:${secs}`;
         // Sprint 4: עדכון Live View אם פעיל
         if (typeof updateLiveTimer === 'function') updateLiveTimer(mins, secs, progress);
     };
@@ -2667,9 +2311,6 @@ function resetAndStartTimer(customTime = null) {
         updateUI(mins, secs, progress);
         if (state.seconds === target && soundEnabled) playBeep(2);
     }, 100);
-
-    // ה-interval רץ → ה-strip עובר למצב "מנוחה" (מכסה את כל נקודות ההתנעה)
-    _syncStripLogBtn();
 
     StorageManager.saveSessionState();
 }
@@ -2703,16 +2344,6 @@ function nextStep() {
     };
 
     StorageManager.saveWeight(state.currentExName, wVal);
-
-    // זיהוי שיא אישי — e1RM של הסט מול המקסימום ההיסטורי בארכיון
-    const histMax = _getHistoricalMaxE1RM(entry.exName);
-    const setE1RM = entry.w * (1 + entry.r / 30);
-    if (histMax > 0 && setE1RM > histMax + 0.01) {
-        entry.isPR = true;
-        _prMaxCache[entry.exName] = setE1RM;   // שיא הסשן הופך לרף החדש
-        _celebratePR();
-    }
-
     state.log.push(entry); state.lastLoggedSet = entry;
     StorageManager.saveSessionState();
 
@@ -2754,14 +2385,12 @@ function nextStep() {
     } else {
         document.getElementById('btn-submit-set').style.display = 'none';
         document.getElementById('btn-skip-exercise').style.display = 'none';
-        renderSetSessionTable();   // הסט האחרון נכנס לטבלה גם בלי מעבר ל-initPickers
 
         const actionPanel = document.getElementById('action-panel');
         actionPanel.style.display = 'block';
         actionPanel.classList.remove('is-visible');
         void actionPanel.offsetWidth;
         actionPanel.classList.add('is-visible');
-        _syncStripLogBtn();        // ה-strip עובר ממצב LOG SET ל"המשך לתרגיל"
 
         let nextName = getNextExerciseName();
         document.getElementById('next-ex-preview').innerText = `הבא בתור: ${nextName}`;
@@ -3153,8 +2782,8 @@ function renderFreestyleList() {
 
     if (filtered.length === 0) {
         options.innerHTML = state.freestyleFilter === 'בוצעו'
-            ? emptyStateHtml('history', 'טרם בוצעו תרגילים', 'תרגילים שתבצע באימון יופיעו כאן')
-            : emptyStateHtml('search_off', 'לא נמצאו תרגילים', 'נסה חיפוש אחר או שנה את הפילטר');
+            ? `<p class="text-center color-dim mt-md">טרם בוצעו תרגילים</p>`
+            : `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
         return;
     }
 
@@ -3263,9 +2892,10 @@ function _renderSwapMenu(searchVal) {
     });
 
     if (allFiltered.length === 0 && sv) {
-        const wrap = document.createElement('div');
-        wrap.innerHTML = emptyStateHtml('search_off', 'לא נמצאו תרגילים', 'נסה מילת חיפוש אחרת');
-        container.appendChild(wrap);
+        const p = document.createElement('p');
+        p.className = "text-center color-dim";
+        p.innerText = "לא נמצאו תרגילים";
+        container.appendChild(p);
     }
 }
 
@@ -3546,7 +3176,7 @@ async function copyResult() {
     state.workoutStartTime = null; // מניעת שחזור רפאים בעת ריענון העמוד
     stopSessionTimer();
     haptic('success');
-    showAlert("האימון נשמר! הסיכום הועתק ללוח.", () => { reloadApp(); });
+    showAlert("האימון נשמר! הסיכום הועתק ללוח.", () => { window.location.reload(); });
 }
 
 function _saveToArchive(note) {
@@ -3994,7 +3624,7 @@ function _parseHistorySetStr(setStr) {
 // pager לתצוגת היסטוריית תרגיל — דפדוף בין עד 5 ביצועים אחרונים
 function _renderHistoryPager(containerEl, performances, opts = {}) {
     if (!performances || !performances.length) {
-        containerEl.innerHTML = emptyStateHtml('fitness_center', 'אין ביצוע קודם', 'האימון הראשון עם התרגיל ייתן בסיס להשוואה');
+        containerEl.innerHTML = `<p class="color-dim text-sm text-center">אין ביצוע קודם בארכיון</p>`;
         return;
     }
 
@@ -4127,7 +3757,6 @@ function saveSetEdit() {
         _saveToArchive(noteEl ? noteEl.value.trim() : ''); // upsert — שומר את העריכה ברשומה
         buildSummaryUI();
     }
-    renderSetSessionTable();   // Wave 2 — רענון הטבלה החיה אחרי עריכה
 }
 
 function deleteSetFromLog() {
@@ -4150,7 +3779,6 @@ function deleteSetFromLog() {
         _saveToArchive(noteEl ? noteEl.value.trim() : ''); // upsert — שומר את העריכה ברשומה
         buildSummaryUI();
     }
-    renderSetSessionTable();   // Wave 2 — רענון הטבלה החיה אחרי מחיקה
 }
 
 function closeEditModal() {
@@ -4187,7 +3815,7 @@ function resetToFactorySettings() {
     showConfirm("האם לאפס את כל הנתונים? פעולה זו בלתי הפיכה.", () => {
         StorageManager.resetToFactory();
         showAlert("האפליקציה אופסה. טוען מחדש...", () => {
-            reloadApp();
+            window.location.reload();
         });
     });
 }
@@ -5321,7 +4949,6 @@ async function enterWorkoutLiveMode() {
     updateLiveViewContent();
     _attachLiveSwipe();
     _syncLiveResumeBtn();
-    _syncStripLogBtn();   // ב-Live Mode הרישום בהחלקה — הכפתור יורד מה-strip
     haptic('light');
 }
 
@@ -5339,7 +4966,6 @@ async function exitWorkoutLiveMode(silent = false) {
         haptic('light');
     }
     _syncLiveResumeBtn();
-    _syncStripLogBtn();   // חזרה למסך הקלאסי — הכפתור חוזר ל-strip אם תרגיל פעיל
 }
 
 // Helper שמופעל מהכפתור "המשך לתרגיל הבא" בתוך ה-Live View

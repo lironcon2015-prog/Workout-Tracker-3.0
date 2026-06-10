@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.3
+## גרסה נוכחית: 15.97 (revert)
 
 ---
 
@@ -72,14 +72,16 @@
 | פונט ראשי | Heebo 900 לכותרות, `rem` units |
 | Pill buttons | `#353535` / `--surface-4`, `border-radius: 9999px`, `align-self: flex-start` |
 | Freestyle card | `border: 2px dashed rgba(255,255,255,0.2)` |
-| Session strip | `height: 50px+safe-area` עם `box-sizing:border-box` (בלעדיו ה-safe-area נספר פעמיים והפאנל קופץ בגובה), fixed bottom, `z-index: 199`, מוסתר מחוץ ל-workout flow. מרכז ה-strip = 3 מצבים ב-`_syncStripLogBtn()`: `#strip-rest-timer` (מנוחה רצה), `#strip-continue-btn` (בין תרגילים), המלל "זמן אימון". `#btn-submit-set` ו-`#btn-continue-exercise` במסך הם state-markers בלבד (מוסתרים ב-CSS), **חוץ ממצב Cluster** שבו `#ui-main.cluster #btn-submit-set` חוזר למסך (אין שם טבלת סטים) |
-| רישום סט (v16.2) | לחיצה על **שורת הסט הנוכחי בטבלה** (`renderSetSessionTable` → `.set-table-row.current` עם onclick=nextStep). אין כפתור LOG SET נפרד. הטבלה מוצגת תמיד בזמן הקלטה (גם לתרגיל של סט אחד); `total` כולל done+1 כשמקליטים (מכסה addExtraSet) |
-| טיימר מנוחה | ספרתי, במרכז ה-session strip (`#strip-rest-time`, משוקף מ-`resetAndStartTimer.updateUI`). עיגול הטיימר ב-ui-main הוסתר (`display:none`). **לקח קריטי:** `position:fixed` בתוך `.content-area` (scroller) לא אמין ב-iOS — אלמנטים צפים חדשים לשים ישירות תחת body או בתוך ה-strip |
+| Session strip | `height: 50px+safe-area` עם `box-sizing:border-box` (בלעדיו ה-safe-area נספר פעמיים והפאנל קופץ בגובה — התיקון היחיד ששרד את ה-revert), fixed bottom, `z-index: 199`, מוסתר מחוץ ל-workout flow |
 
-**באג ה-fixed המרחף (iOS) — אבחון סופי (v16.3):** שני מנגנונים נפרדים:
-1. **מקלדת (v16.2):** פתיחה גוללת את ה-window עצמו (לא את content-area), ואחרי סגירה iOS לא תמיד מחזיר scroll ל-0. תוקן ב-`_repinViewport()` על focusout + visualViewport resize/scroll.
-2. **reload (v16.3, השורש האמיתי):** אחרי `window.location.reload()` ב-standalone PWA עם `black-translucent`, iOS מחשב את ה-layout viewport **בלי אזור ה-status bar** (קצר ב~60pt) → כל fixed bottom:0 מרחף ~60pt מעל התחתית, ומתחתיו נחשף רקע ה-body. אומת בניתוח פיקסלים: הרמה = בדיוק גובה ה-status bar. זה הסביר את "הבאג חוזר אחרי רענון" — וגם את הופעתו אחרי סיום אימון (`finish()` מרענן).
-   **התיקון:** ➊ **אסור `window.location.reload()` בשום מקום** — תמיד `reloadApp()` (משתמש ב-`location.replace()` = ניווט מלא שלא עובר במסלול הפגום; ה-SW מגיש מ-cache באותה מהירות). ➋ `_kickViewport()` רץ על pageshow/load — מזהה viewport מעוך (`innerHeight + 4 < screen.height` ב-standalone) ומנדנד (scroll nudge + reflow כפוי) עד שהגובה מתיישר.
+**⏪ REVERT (החלטת משתמש): v15.98–v16.3 בוטלו — האפליקציה הוחזרה ל-v15.97.**
+הגרסאות שבוטלו כללו: Wave 1+2 (ליטוש UI, חגיגת PR, טבלת סטים חיה, מחשבון פלטות/חימום), LOG SET ב-strip → רישום מהטבלה, טיימר מנוחה ב-strip, PR/פלטות ב-Live, מלאי פלטות מותאם, וניסיונות תיקון "באג התחתית המורמת". הבאג שרד את כל הניסיונות והמשתמש ביקש לעצור. הקוד שמור בהיסטוריה (`853ed82`…`fa7d0a1`) — אפשר לשחזר פיצ'רים נקודתית בעתיד.
+
+**לקחים מהחקירה (לשימור — הבאג עדיין לא פתור):**
+- אומת בניתוח פיקסלים: הבר התחתון מרחף בדיוק ~גובה ה-status bar (~60pt) מעל התחתית אחרי רענון, ומתחתיו נחשף רקע ה-body.
+- מנגנונים שנבדקו ולא פתרו לבד: ➊ מקלדת iOS גוללת את ה-window בלי להחזיר ל-0 (scrollTo(0,0) על focusout); ➋ `window.location.reload()` ב-standalone+black-translucent מייצר layout viewport קצר (הוחלף ב-`location.replace()` + נדנוד `_kickViewport`).
+- `position:fixed` בתוך `.content-area` (scroller) לא אמין ב-iOS לאלמנטים צפים.
+- כיוון חקירה עתידי: מדידה חיה ב-Safari remote inspector (`innerHeight` / `visualViewport.height+offsetTop`) ברגע שהבאג פעיל; או מעבר ל-layout שלא מסתמך על fixed — app-container כ-grid עם שורת bars אמיתית ב-flow.
 
 ---
 

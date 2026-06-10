@@ -440,7 +440,7 @@
                                 <span class="stg-row-title">בדוק עדכון</span>
                                 <span class="stg-version-badge" id="settings-version-inline">—</span>
                             </button>
-                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="reloadApp()">
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="window.location.reload()">
                                 <span class="stg-row-title">רענן אפליקציה</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">refresh</span>
                             </button>
@@ -458,16 +458,6 @@
                                 </div>
                                 <label class="stg-switch">
                                     <input type="checkbox" id="live-mode-toggle" onchange="toggleLiveMode(this.checked)">
-                                    <span class="stg-switch-slider"></span>
-                                </label>
-                            </div>
-                            <div class="stg-toggle-row">
-                                <div class="stg-toggle-info">
-                                    <div class="stg-row-title">מעבר ישיר לתרגיל</div>
-                                    <div class="stg-toggle-hint">מדלג על מסך "התרגיל הבא" ומתחיל את ההקלטה מיד. דילוג על תרגיל זמין מתוך מסך האימון.</div>
-                                </div>
-                                <label class="stg-switch">
-                                    <input type="checkbox" id="skip-confirm-toggle" onchange="toggleSkipConfirm(this.checked)">
                                     <span class="stg-switch-slider"></span>
                                 </label>
                             </div>
@@ -963,7 +953,6 @@
             </div>
 
             <div id="ui-main" class="screen">
-                <div id="pr-burst" class="pr-burst">🏆 שיא אישי חדש!</div>
                 <div class="exercise-header">
                     <div class="badge-row mt-xs">
                         <button id="set-rec-trigger" class="set-rec-trigger-mini" onclick="requestAIRecommendation()" aria-label="בקש המלצה מהמאמן" style="display:none;">
@@ -974,18 +963,13 @@
                         </button>
                         <span id="set-counter" class="ios-badge">SET 1/3</span>
                         <div id="unilateral-note" class="uni-badge">UNILATERAL</div>
-                        <button id="warmup-pill" class="warmup-pill" onclick="openWarmupSheet()" style="display:none;">🔥 חימום</button>
                     </div>
                     <h2 id="ex-display-name" class="mt-md"></h2>
                     <div id="last-set-info" class="history-pill"></div>
                 </div>
-                <div id="set-session-table" class="set-table" style="display:none;"></div>
                 <div class="input-grid">
                     <div class="glass-card compact stepper-card">
                         <label>Weight (kg)</label>
-                        <button id="plate-calc-btn" class="plate-calc-btn" onclick="openPlateCalc()" aria-label="מחשבון פלטות">
-                            <span class="material-symbols-outlined" style="font-size:1rem;">fitness_center</span>
-                        </button>
                         <select id="weight-picker" class="ios-picker" style="display:none;"></select>
                         <div id="weight-display" class="stepper-num-display" onclick="editPickerValue('weight')">—</div>
                         <div class="stepper-row">
@@ -1017,7 +1001,7 @@
                 <div id="action-panel" class="action-panel">
                     <p id="next-ex-preview" class="passive-preview"></p>
                     <div class="vertical-stack">
-                        <button id="btn-continue-exercise" class="btn-main primary-gradient" onclick="finishCurrentExercise()">המשך לתרגיל הבא</button>
+                        <button class="btn-main primary-gradient" onclick="finishCurrentExercise()">המשך לתרגיל הבא</button>
                         <button class="btn-text secondary-action" onclick="addExtraSet()">+ סט נוסף</button>
                     </div>
                 </div>
@@ -1032,7 +1016,6 @@
                             <div id="rest-timer" class="timer-text">00:00</div>
                         </div>
                     </div>
-                    <div class="timer-side-lbl">מנוחה</div>
                 </div>
                 <div class="d-flex gap-sm mt-lg">
                     <button id="btn-skip-exercise" class="btn-text passive-skip w-100 m-0" onclick="skipCurrentExercise()">דלג על התרגיל</button>
@@ -1649,12 +1632,8 @@
             <div class="session-timer-dot"></div>
             <span id="session-timer-text" style="font-size:1.45rem;font-weight:900;color:#ffffff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;font-family:'Heebo','Inter',sans-serif;">00:00</span>
         </div>
-        <!-- "זמן אימון" — ממורכז אבסולוטית (מוצג כשאין תרגיל פעיל) -->
-        <span id="strip-label" style="position:absolute;left:0;right:0;text-align:center;font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.45);pointer-events:none;letter-spacing:0.03em;">זמן אימון</span>
-        <!-- טיימר מנוחה — ממורכז, מוצג בזמן מנוחה (מחליף את "זמן אימון") -->
-        <span id="strip-rest-timer" class="strip-rest-timer" style="display:none;"><span class="strip-rest-lbl">מנוחה</span><span id="strip-rest-time" class="strip-rest-time">00:00</span></span>
-        <!-- המשך לתרגיל הבא — מוצג כשהסט האחרון נרשם (action panel) -->
-        <button id="strip-continue-btn" class="strip-action-btn strip-continue-btn" onclick="finishCurrentExercise()" style="display:none;">המשך לתרגיל&nbsp;←</button>
+        <!-- "זמן אימון" — ממורכז אבסולוטית -->
+        <span style="position:absolute;left:0;right:0;text-align:center;font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.45);pointer-events:none;letter-spacing:0.03em;">זמן אימון</span>
         <!-- כפתור תפריט — שמאל (RTL flex-end) -->
         <button id="btn-workout-menu" class="workout-menu-btn" data-workout-menu-trigger onclick="toggleWorkoutQuickMenu()" aria-label="תפריט אימון">
             <span class="material-symbols-outlined">more_horiz</span>
@@ -1674,9 +1653,6 @@
         <div class="live-edit-grid">
             <div class="live-edit-card">
                 <div class="live-edit-card-lbl">משקל</div>
-                <button class="plate-calc-btn live-plate-btn" onclick="openPlateCalc()" aria-label="מחשבון פלטות">
-                    <span class="material-symbols-outlined" style="font-size:1rem;">fitness_center</span>
-                </button>
                 <div id="live-edit-weight-disp" class="live-edit-card-val" onclick="editLivePickerValue('weight')">—</div>
                 <div class="live-edit-card-unit">ק"ג</div>
                 <div class="live-edit-pm-row">
@@ -1799,39 +1775,6 @@
     <div id="set-rec-sheet" class="bottom-sheet set-rec-sheet">
         <div class="sheet-handle"></div>
         <div id="set-rec-result" class="set-rec-result"></div>
-    </div>
-
-    <!-- PLATE CALCULATOR (Wave 2) -->
-    <div id="plate-calc-overlay" class="bottom-sheet-overlay" onclick="closePlateCalc()"></div>
-    <div id="plate-calc-sheet" class="bottom-sheet">
-        <div class="sheet-handle"></div>
-        <h3>מחשבון פלטות</h3>
-        <div id="plate-calc-body"></div>
-        <div class="plate-bar-row">
-            <span class="plate-bar-lbl">משקל מוט:</span>
-            <div class="segment-wrapper plate-bar-seg">
-                <button id="plate-bar-20" class="seg-btn" onclick="setPlateBar(20)">20</button>
-                <button id="plate-bar-15" class="seg-btn" onclick="setPlateBar(15)">15</button>
-                <button id="plate-bar-10" class="seg-btn" onclick="setPlateBar(10)">10</button>
-                <button id="plate-bar-0" class="seg-btn" onclick="setPlateBar(0)">בלי מוט</button>
-            </div>
-        </div>
-        <!-- פלטות זמינות בחדר הכושר — נשמר ב-prefs, משפיע על החישוב -->
-        <div class="plate-inv-wrap">
-            <span class="plate-bar-lbl">פלטות זמינות:</span>
-            <div id="plate-inventory" class="plate-inv-row"></div>
-        </div>
-        <button class="btn-text" onclick="closePlateCalc()">סגור</button>
-    </div>
-
-    <!-- WARM-UP CALCULATOR (Wave 2) -->
-    <div id="warmup-overlay" class="bottom-sheet-overlay" onclick="closeWarmupSheet()"></div>
-    <div id="warmup-sheet" class="bottom-sheet">
-        <div class="sheet-handle"></div>
-        <h3>פירמידת חימום</h3>
-        <div id="warmup-body"></div>
-        <p class="sub-text warmup-note">תצוגת עזר בלבד — סטי החימום לא נרשמים בלוג</p>
-        <button class="btn-text" onclick="closeWarmupSheet()">סגור</button>
     </div>
 
     <div id="ai-coach-modal" class="modal-overlay ai-coach-overlay" style="display:none;" onclick="handleAIOverlayClick(event)">

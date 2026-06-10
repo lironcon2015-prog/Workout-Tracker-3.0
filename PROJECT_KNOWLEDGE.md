@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.99
+## גרסה נוכחית: 16.0
 
 ---
 
@@ -72,7 +72,7 @@
 | פונט ראשי | Heebo 900 לכותרות, `rem` units |
 | Pill buttons | `#353535` / `--surface-4`, `border-radius: 9999px`, `align-self: flex-start` |
 | Freestyle card | `border: 2px dashed rgba(255,255,255,0.2)` |
-| Session strip | `height: 50px`, fixed bottom, `z-index: 199`, מוסתר מחוץ ל-workout flow |
+| Session strip | `height: 50px+safe-area` עם `box-sizing:border-box` (בלעדיו ה-safe-area נספר פעמיים והפאנל קופץ בגובה), fixed bottom, `z-index: 199`, מוסתר מחוץ ל-workout flow. מכיל את `#strip-log-btn` (LOG SET) — נשלט ע"י `_syncStripLogBtn()`; `#btn-submit-set` במסך הוא state-marker בלבד (מוסתר ב-CSS) |
 
 ---
 

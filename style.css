@@ -5514,3 +5514,40 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .warmup-w { font-size: 1.05rem; font-weight: 900; direction: ltr; }
 .warmup-reps { font-size: 0.9rem; color: var(--text-dim); width: 44px; text-align: left; direction: ltr; }
 .warmup-note { text-align: center; margin-top: 4px; }
+
+/* ═══════════ LOG SET בפאנל התחתון + טיימר קומפקטי (v16.0) ═══════════ */
+
+/* כפתור LOG SET בתוך ה-session strip — ממורכז אבסולוטית, תופס את מקום "זמן אימון" */
+.strip-log-btn {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, calc(-50% - env(safe-area-inset-bottom, 0px) / 2));
+    height: 38px; padding: 0 26px;
+    background: var(--accent-gradient); color: #000;
+    border: none; border-radius: 9999px;
+    font-weight: 900; font-size: 0.95rem; letter-spacing: 0.02em;
+    font-family: 'Heebo', 'Inter', sans-serif;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(10, 132, 255, 0.35);
+    transition: transform 0.1s;
+}
+.strip-log-btn:active { transform: translate(-50%, calc(-50% - env(safe-area-inset-bottom, 0px) / 2)) scale(0.95); }
+
+/* הכפתור המקורי במסך נשאר בDOM כ-state marker בלבד (inline display = מצב ההקלטה),
+   אבל מוסר מה-flow כדי לא לתפוס גובה — ה-LOG SET החי עבר ל-session strip */
+#btn-submit-set { position: absolute; visibility: hidden; pointer-events: none; animation: none; }
+
+/* טיימר מנוחה קומפקטי ב-ui-main — שורה אופקית במקום עיגול 185px.
+   חל רק על מסך האימון; המסכים הגדולים (ui-cluster-rest / Live) משתמשים
+   ב-live-timer-* נפרדים ולא מושפעים. */
+#ui-main .timer-section {
+    flex-direction: row; justify-content: center; align-items: center;
+    gap: 12px; margin-top: 14px;
+}
+#ui-main .timer-wrap { width: 74px; height: 74px; margin-bottom: 0; flex-shrink: 0; }
+#ui-main .timer-resting-lbl { display: none; }
+#ui-main .timer-inner .timer-text { font-size: 1.3em; letter-spacing: -0.5px; }
+.timer-side-lbl {
+    font-size: 0.62rem; font-weight: 900; color: var(--text-dim);
+    letter-spacing: 0.25em; text-transform: uppercase;
+}

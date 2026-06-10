@@ -1032,6 +1032,7 @@
                             <div id="rest-timer" class="timer-text">00:00</div>
                         </div>
                     </div>
+                    <div class="timer-side-lbl">מנוחה</div>
                 </div>
                 <div class="d-flex gap-sm mt-lg">
                     <button id="btn-skip-exercise" class="btn-text passive-skip w-100 m-0" onclick="skipCurrentExercise()">דלג על התרגיל</button>
@@ -1642,14 +1643,16 @@
 
 
     <!-- Session Timer Strip -->
-    <div id="session-timer-strip" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:199;height:calc(50px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:rgba(10,10,12,0.92);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border-top:1px solid rgba(255,255,255,0.10);align-items:center;padding-right:22px;padding-left:22px;justify-content:space-between;">
+    <div id="session-timer-strip" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:199;box-sizing:border-box;height:calc(50px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:rgba(10,10,12,0.92);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border-top:1px solid rgba(255,255,255,0.10);align-items:center;padding-right:22px;padding-left:22px;justify-content:space-between;">
         <!-- טיימר — ימין (RTL flex-start) -->
         <div style="display:flex;align-items:center;gap:9px;">
             <div class="session-timer-dot"></div>
             <span id="session-timer-text" style="font-size:1.45rem;font-weight:900;color:#ffffff;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;font-family:'Heebo','Inter',sans-serif;">00:00</span>
         </div>
-        <!-- "זמן אימון" — ממורכז אבסולוטית -->
-        <span style="position:absolute;left:0;right:0;text-align:center;font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.45);pointer-events:none;letter-spacing:0.03em;">זמן אימון</span>
+        <!-- "זמן אימון" — ממורכז אבסולוטית (מוצג כשאין תרגיל פעיל) -->
+        <span id="strip-label" style="position:absolute;left:0;right:0;text-align:center;font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.45);pointer-events:none;letter-spacing:0.03em;">זמן אימון</span>
+        <!-- LOG SET — ממורכז, מוצג רק כשתרגיל פעיל בהקלטה (לא בין תרגילים) -->
+        <button id="strip-log-btn" class="strip-log-btn" onclick="nextStep()" style="display:none;">LOG SET&nbsp;→</button>
         <!-- כפתור תפריט — שמאל (RTL flex-end) -->
         <button id="btn-workout-menu" class="workout-menu-btn" data-workout-menu-trigger onclick="toggleWorkoutQuickMenu()" aria-label="תפריט אימון">
             <span class="material-symbols-outlined">more_horiz</span>

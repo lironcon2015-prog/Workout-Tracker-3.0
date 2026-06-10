@@ -1218,6 +1218,22 @@ async function checkForUpdate() {
                         const keys = await caches.keys();
                         await Promise.all(keys.map(k => caches.delete(k)));
                     }
+                    // הורדת sw.js טרי והמתנה שה-SW החדש ישתלט לפני הרענון —
+                    // אחרת הרענון מוגש ע"י ה-SW הישן והעדכון נראה "תקוע"
+                    try {
+                        if ('serviceWorker' in navigator) {
+                            const reg = await navigator.serviceWorker.getRegistration();
+                            if (reg) {
+                                await reg.update();
+                                await new Promise(resolve => {
+                                    let done = false;
+                                    const finish = () => { if (!done) { done = true; resolve(); } };
+                                    setTimeout(finish, 4000);
+                                    navigator.serviceWorker.addEventListener('controllerchange', finish, { once: true });
+                                });
+                            }
+                        }
+                    } catch (e) { /* ממשיכים לרענון גם בכשל */ }
                     window.location.reload(true);
                 }
             );

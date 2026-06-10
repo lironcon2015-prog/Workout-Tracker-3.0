@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 15.97
+ * Version: 15.97.1
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v15.97';
+const CACHE_VERSION = 'gympro-v15.97.1';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -23,10 +23,18 @@ const FILES_TO_CACHE = [
 ];
 
 self.addEventListener('install', event => {
+    // קריטי: fetch עם no-store — עוקף את ה-HTTP cache של iOS.
+    // addAll רגיל מקבל עותקים ישנים מה-HTTP cache, וה-cache החדש
+    // נולד "מורעל" בקבצי הגרסה הקודמת (הגרסה לא מתעדכנת לעולם).
     event.waitUntil(
-        caches.open(CACHE_VERSION).then(cache => {
-            return cache.addAll(FILES_TO_CACHE);
-        })
+        caches.open(CACHE_VERSION).then(cache =>
+            Promise.all(FILES_TO_CACHE.map(url =>
+                fetch(url, { cache: 'no-store' }).then(resp => {
+                    if (!resp.ok) throw new Error('SW install fetch failed: ' + url);
+                    return cache.put(url, resp);
+                })
+            ))
+        )
     );
     self.skipWaiting();
 });

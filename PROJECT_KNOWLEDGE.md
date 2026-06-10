@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.97 (revert)
+## גרסה נוכחית: 15.97.1 (revert + תיקון מנגנון עדכון)
 
 ---
 
@@ -40,6 +40,8 @@
 - `deepClone(undefined)` = SyntaxError שקט. תמיד null-guard לפני `deepClone`.
 
 ### PWA / Deploy
+- **התקנת SW חייבת `fetch(url, {cache:'no-store'})` + `cache.put`** (תוקן ב-15.97.1) — `cache.addAll` רגיל עובר דרך ה-HTTP cache של iOS ומקבל קבצים ישנים: נוצר cache עם שם גרסה חדש אבל תוכן ישן, כולל `version.json` ישן → "עדכון זמין" קופץ לנצח והגרסה לא מתעדכנת. ייתכן שזה גם גרם בעבר לתיקונים "שלא עבדו" — הם לא הגיעו למכשיר.
+- `checkForUpdate` ממתין ל-`reg.update()` + `controllerchange` (עד 4 שניות) לפני הרענון — אחרת ה-SW הישן מגיש את הרענון והעדכון נראה "תקוע".
 - push לbranch `claude/**` בלבד לא מספיק — האפליקציה מוגשת מ-`main`.
 - GitHub Actions auto-merge **קורס על push שני+** לאותו branch (branch כבר קיים). **חובה: merge ידני** לאחר כל push.
 - `sw.js` + `version.json` חייבים להשתנות באותו commit עם שאר הקבצים. bump גרסה ב-commit נפרד = cache ישן לטעות.

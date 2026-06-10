@@ -972,6 +972,25 @@ function processConfigImport(input) {
     input.value = "";
 }
 
+// ─── ייצוא/ייבוא חיבורים (Firebase, API, גשרים) ────────────────────────────
+
+function triggerConnectionsImport() { document.getElementById('import-connections-file').click(); }
+
+function processConnectionsImport(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            StorageManager.importConnections(data);
+        } catch (err) {
+            showAlert("שגיאה בקריאת קובץ החיבורים");
+        }
+    };
+    reader.readAsText(file);
+    input.value = "";
+}
+
 // ─── ARCHIVE HELPERS ───────────────────────────────────────────────────────
 
 function openArchiveFromDrawer(timestamp) {

@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 15.96
+ * Version: 15.97
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v15.96';
+const CACHE_VERSION = 'gympro-v15.97';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -58,15 +58,19 @@ self.addEventListener('fetch', event => {
                         return response;
                     });
                 })
-            )
+            ).catch(() => new Response('', { status: 503, statusText: 'Offline' }))
         );
         return;
     }
 
-    // קבצים מקומיים — cache-first
+    // קבצים מקומיים — cache-first; בכשל רשת (offline + לא ב-cache) — fallback
+    // ל-index.html עבור ניווט, ותגובת 503 שקטה לכל השאר במקום שגיאת רשת לא מטופלת
     event.respondWith(
         caches.match(event.request).then(cached => {
             return cached || fetch(event.request);
+        }).catch(() => {
+            if (event.request.mode === 'navigate') return caches.match('./index.html');
+            return new Response('', { status: 503, statusText: 'Offline' });
         })
     );
 });

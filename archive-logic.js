@@ -691,15 +691,15 @@ function _buildArchiveEditHTML_detailsOnly(item) {
         const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
         let setRows = '';
         sets.forEach((setStr, i) => {
-            setRows += `<div class="summary-set-row archive-edit-set" onclick="openArchiveDetailSetEditor('${exName.replace(/'/g, "\\'")}', ${i})">
+            setRows += `<div class="summary-set-row archive-edit-set" onclick="openArchiveDetailSetEditor('${escapeJsAttr(exName)}', ${i})">
                 <div class="summary-set-num">${i + 1}</div>
-                <div class="summary-set-details">${setStr}</div>
+                <div class="summary-set-details">${escapeHtml(setStr)}</div>
                 <span class="material-symbols-outlined archive-edit-icon">edit</span>
             </div>`;
         });
         html += `<div class="summary-ex-card">
             <div class="summary-ex-header">
-                <div class="summary-ex-title">${exName}</div>
+                <div class="summary-ex-title">${escapeHtml(exName)}</div>
                 <div class="summary-ex-vol">${volStr}</div>
             </div>
             ${setRows}
@@ -791,6 +791,10 @@ function saveArchiveSetEdit() {
     const r = parseInt(document.getElementById('edit-reps').value);
     const rir = document.getElementById('edit-rir').value;
     const note = document.getElementById('edit-note').value.trim();
+    if (isNaN(w) || w < 0 || isNaN(r) || r < 1) {
+        showAlert('ערכים לא תקינים — משקל חייב להיות 0 ומעלה וחזרות לפחות 1.');
+        return;
+    }
 
     if (_archiveEditSetLogIdx >= 0 && _archiveEditItem.log) {
         // עדכון log entry
@@ -1010,6 +1014,9 @@ function saveArchiveEdit() {
             if (typeof showCloudToast === 'function') {
                 showCloudToast(ok ? '☁️ ארכיון עודכן בענן' : '⚠️ שגיאה בעדכון ארכיון בענן', ok);
             }
+        }).catch(e => {
+            console.error('GymPro: archive cloud sync failed', e);
+            if (typeof showCloudToast === 'function') showCloudToast('⚠️ שגיאה בעדכון ארכיון בענן', false);
         });
     }
 
@@ -1373,9 +1380,9 @@ function renderWorkoutTypeChart(archive) {
         const color = (e.aliased && aliasColors[e.display]) ? aliasColors[e.display] : COLORS[i % COLORS.length];
         const val = e.avg >= 1000 ? (e.avg / 1000).toFixed(1) : e.avg;
         const unit = e.avg >= 1000 ? 't' : 'kg';
-        return `<div class="hbar-row" onclick="showWTToast('${e.display.replace(/'/g, "\\'")}','${e.rawNames.join(", ").replace(/'/g, "\\'")}',${e.count})">
+        return `<div class="hbar-row" onclick="showWTToast('${escapeJsAttr(e.display)}','${escapeJsAttr(e.rawNames.join(", "))}',${e.count})">
             <div class="hbar-name-row">
-                <span class="hbar-label">${e.display}</span>
+                <span class="hbar-label">${escapeHtml(e.display)}</span>
                 <span class="hbar-count">${e.count} אימונים</span>
             </div>
             <div class="hbar-track">
@@ -1448,13 +1455,13 @@ function _renderAliasStep1() {
     if (Object.keys(aliases).length > 0) {
         html += `<div style="font-size:0.62em;color:var(--text-dim);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">קבוצות קיימות</div>`;
         Object.entries(aliases).forEach(([g, ms]) => {
-            html += `<div class="alias-existing-row" onclick="_editAliasGroup('${g.replace(/'/g, "\\'")}')">
+            html += `<div class="alias-existing-row" onclick="_editAliasGroup('${escapeJsAttr(g)}')">
                 <div class="alias-eg-dot"></div>
                 <div style="flex:1;">
-                    <div class="alias-eg-name">${g}</div>
-                    <div class="alias-eg-members">${ms.join(' · ')}</div>
+                    <div class="alias-eg-name">${escapeHtml(g)}</div>
+                    <div class="alias-eg-members">${escapeHtml(ms.join(' · '))}</div>
                 </div>
-                <button class="alias-del-btn" onclick="event.stopPropagation();_deleteAliasGroup('${g.replace(/'/g, "\\'")}')">מחק</button>
+                <button class="alias-del-btn" onclick="event.stopPropagation();_deleteAliasGroup('${escapeJsAttr(g)}')">מחק</button>
             </div>`;
         });
         html += `<div style="height:1px;background:rgba(255,255,255,0.07);margin:14px 0;"></div>`;
@@ -1469,13 +1476,13 @@ function _renderAliasStep1() {
         const isSel = _aliasSelected.has(t);
         const avgVol = d.count > 0 ? Math.round(d.totalVol / d.count) : 0;
         const avgStr = avgVol >= 1000 ? (avgVol / 1000).toFixed(1) + 't' : avgVol + 'kg';
-        html += `<div class="alias-raw-row" onclick="_toggleAliasSelect('${t.replace(/'/g, "\\'")}')">
+        html += `<div class="alias-raw-row" onclick="_toggleAliasSelect('${escapeJsAttr(t)}')">
             <div class="alias-check${isSel ? ' on' : ''}"></div>
             <div style="flex:1;">
-                <div class="alias-type-name">${t}</div>
+                <div class="alias-type-name">${escapeHtml(t)}</div>
                 <div class="alias-meta">${d.count} אימונים · ממוצע ${avgStr}</div>
             </div>
-            ${inGroup ? `<span class="alias-group-badge">${inGroup}</span>` : ''}
+            ${inGroup ? `<span class="alias-group-badge">${escapeHtml(inGroup)}</span>` : ''}
         </div>`;
     });
 
@@ -2320,7 +2327,7 @@ function _onHeatmapCellClick(el) {
             const items = Object.entries(bk).sort((a, b) => b[1] - a[1]).slice(0, 3);
             if (items.length) {
                 const tot = Object.values(bk).reduce((s, v) => s + v, 0);
-                breakdownStr = `<span class="hm-tip-breakdown">${items.map(([m, v]) => `${m} ${Math.round(v / tot * 100)}%`).join(' · ')}</span>`;
+                breakdownStr = `<span class="hm-tip-breakdown">${items.map(([m, v]) => `${escapeHtml(m)} ${Math.round(v / tot * 100)}%`).join(' · ')}</span>`;
             }
         } catch (e) { /* ignore */ }
         tooltipEl.innerHTML = `

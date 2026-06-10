@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.92
+## גרסה נוכחית: 15.97
 
 ---
 
@@ -161,6 +161,7 @@
 
 ## לקחים מצטברים
 
+- **Audit באגים עמוק (v15.97):** נמצאו ותוקנו — `saveData` לא דיווח כשל quota (עכשיו מחזיר bool, `_saveToArchive` מתריע); "שחזר מהענן" דרס ארכיון מקומי בלי אישור (נוסף `showConfirm`); `initPickers` קרס על `setIdx` מעבר לגבול בחזרה לתרגיל שהושלם (נוסף clamp); שמות עם גרשיים/`<` שברו `onclick` inline ו-innerHTML (נוספו `escapeHtml`/`escapeJsAttr` גלובליים ב-workout-core.js — להשתמש בהם בכל הזרקת שם!); `_parseFlexDate` ייבא תאריכים לא-קלנדריים ("12/13"); ל-SW fetch לא היה catch לכשל רשת.
 - `git merge --theirs` יכול לכסות commits מ-main. תמיד לפתור conflicts ידנית.
 - `localStorage.setItem` ללא try-catch = אובדן נתונים שקט ב-QuotaExceeded. כל שמירה = עטופה.
 - לעולם לא `JSON.stringify(userObj)` בתוך `onclick=""` — HTML injection. העבר רק מזהה (timestamp).

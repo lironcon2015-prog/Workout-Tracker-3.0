@@ -142,12 +142,12 @@ function renderWorkoutMenu() {
         const thumbIndex = state.workoutMeta[key]._thumbIdx;
         const imgUrl = thumbImages[thumbIndex % thumbImages.length];
         const badgeHtml = badge || '';
-        const safeKey = key.replace(/'/g, "\\'");
+        const safeKey = escapeJsAttr(key);
 
         btn.innerHTML = `
             <div class="km-manager-card-img" style="background-image:url('${imgUrl}')"></div>
             <div class="km-manager-card-body">
-                <h3 class="km-manager-card-title">${key}</h3>
+                <h3 class="km-manager-card-title">${escapeHtml(key)}</h3>
                 ${badgeHtml}
                 <p class="km-manager-card-count">${count} תרגילים</p>
                 <div class="km-manager-card-actions">
@@ -253,14 +253,14 @@ function renderManagerList() {
             }
             const thumbIdx = (typeof meta._thumbIdx === 'number') ? meta._thumbIdx : (cardIdx % WORKOUT_THUMB_IMAGES.length);
             const imgUrl = WORKOUT_THUMB_IMAGES[thumbIdx % WORKOUT_THUMB_IMAGES.length];
-            const safeKey = key.replace(/'/g, "\\'");
+            const safeKey = escapeJsAttr(key);
 
             const card = document.createElement('div');
             card.className = 'km-manager-card' + (_managerTab === 'hidden' ? ' km-manager-card--hidden' : '');
             card.innerHTML = `
                 <div class="km-manager-card-img" style="background-image:url('${imgUrl}')"></div>
                 <div class="km-manager-card-body">
-                    <h2 class="km-manager-card-title">${key}</h2>
+                    <h2 class="km-manager-card-title">${escapeHtml(key)}</h2>
                     <p class="km-manager-card-count">${count} תרגילים</p>
                     <div class="km-manager-card-actions">
                         <button class="km-pill-btn km-pill-btn--danger" onclick="event.stopPropagation(); deleteWorkout('${safeKey}')">
@@ -889,13 +889,13 @@ function renderSelectorList() {
     filtered.forEach(ex => {
         const row = document.createElement('div');
         row.className = "ex-card";
-        const safeName = ex.name.replace(/'/g, "\\'");
+        const safeName = escapeJsAttr(ex.name);
         row.onclick = () => selectExerciseFromList(ex.name);
         row.innerHTML = `
             <div class="ex-card-body">
                 <div class="ex-card-icon"><span class="ex-card-initials">${getExInitials(ex.name)}</span></div>
                 <div class="ex-card-info">
-                    <div class="ex-card-name">${ex.name}</div>
+                    <div class="ex-card-name">${escapeHtml(ex.name)}</div>
                     ${ex.muscles ? `<span class="ex-card-tag">${getMuscleBadge(ex.muscles)}</span>` : ''}
                 </div>
             </div>

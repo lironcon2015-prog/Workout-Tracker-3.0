@@ -897,15 +897,22 @@ function _parseFlexDate(raw) {
     if (!raw) return null;
     raw = raw.trim();
     const pad = n => String(n).padStart(2, '0');
+    // ולידציה שהתוצאה תאריך קלנדרי אמיתי — אחרת "12/13" היה מיובא כחודש 13 ושובר מיון/גרפים
+    const valid = (y, mo, d) => {
+        y = +y; mo = +mo; d = +d;
+        const dt = new Date(y, mo - 1, d);
+        if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+        return `${y}-${pad(mo)}-${pad(d)}`;
+    };
     let m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+    if (m) return valid(m[1], m[2], m[3]);
     m = raw.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
-    if (m) { let y = m[3]; if (y.length === 2) y = '20' + y; return `${y}-${pad(m[2])}-${pad(m[1])}`; }
+    if (m) { let y = m[3]; if (y.length === 2) y = '20' + y; return valid(y, m[2], m[1]); }
     m = raw.match(/^(\d{1,2})[.\/-](\d{1,2})$/);
     if (m) {
         // ללא שנה בקובץ — משלימים בשנה הנוכחית
         const y = new Date().getFullYear();
-        return `${y}-${pad(m[2])}-${pad(m[1])}`;
+        return valid(y, m[2], m[1]);
     }
     return null;
 }

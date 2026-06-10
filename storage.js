@@ -43,9 +43,11 @@ const StorageManager = {
     saveData(key, data) {
         try {
             localStorage.setItem(key, JSON.stringify(data));
+            return true;
         } catch(e) {
             console.error('GymPro: storage write error', key, e);
             if (e.name === 'QuotaExceededError') showAlert('האחסון המקומי מלא. מחק היסטוריית שיחות AI או ייצא גיבוי כדי לפנות מקום.');
+            return false;
         }
     },
 
@@ -137,7 +139,7 @@ const StorageManager = {
     saveToArchive(workoutObj) {
         let history = this.getData(this.KEY_ARCHIVE) || [];
         history.unshift(workoutObj);
-        this.saveData(this.KEY_ARCHIVE, history);
+        return this.saveData(this.KEY_ARCHIVE, history);
     },
 
     getArchive() {
@@ -156,8 +158,7 @@ const StorageManager = {
         if (idx === -1) return false;
         // מיזוג — תומך גם בהחלפה מלאה (אובייקט שלם) וגם ב-patch חלקי (למשל {aiSummary})
         history[idx] = Object.assign({}, history[idx], patch);
-        this.saveData(this.KEY_ARCHIVE, history);
-        return true;
+        return this.saveData(this.KEY_ARCHIVE, history);
     },
 
     // ── Analytics Prefs ─────────────────────────────────────────────────
@@ -771,7 +772,7 @@ const FirebaseManager = {
     _normLiveName(n) { return String(n || '').replace(/\s*\(Main\)\s*$/i, '').trim(); },
     _mergeLiveLog(a, b) {
         const seen = new Set(), out = [];
-        [a, b].forEach(arr => (arr || []).forEach(e => {
+        [a, b].forEach(arr => (Array.isArray(arr) ? arr : []).forEach(e => {
             if (e && e.setId && !seen.has(e.setId)) { seen.add(e.setId); out.push(e); }
         }));
         return out;
@@ -938,8 +939,16 @@ const FirebaseManager = {
                 showAlert('לא נמצאו נתוני ארכיון בענן.');
                 return;
             }
-            StorageManager.saveData(StorageManager.KEY_ARCHIVE, items);
-            showAlert('הארכיון שוחזר מהענן!', () => { window.location.reload(); });
+            // אישור לפני דריסת הארכיון המקומי — שחזור מהענן מוחק עריכות מקומיות שלא גובו
+            const localCount = (StorageManager.getArchive() || []).length;
+            showConfirm(
+                `לשחזר ${items.length} אימונים מהענן? הפעולה תדרוס את הארכיון המקומי (${localCount} אימונים).`,
+                () => {
+                    const ok = StorageManager.saveData(StorageManager.KEY_ARCHIVE, items);
+                    if (!ok) { showAlert('שגיאה: הארכיון לא נשמר מקומית (אחסון מלא?). הנתונים המקומיים לא נדרסו.'); return; }
+                    showAlert('הארכיון שוחזר מהענן!', () => { window.location.reload(); });
+                }
+            );
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }

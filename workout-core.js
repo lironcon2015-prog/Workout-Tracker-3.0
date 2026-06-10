@@ -151,7 +151,8 @@ function openSetTableEdit(realIdx) {
 }
 
 // ─── PLATE CALCULATOR (Wave 2) ─────────────────────────────────────────────
-const PLATE_SIZES   = [25, 20, 15, 10, 5, 2.5, 1.25];
+// הפלטות הזמינות נשמרות ב-prefs (StorageManager.getPlates) — ניתנות לעריכה ב-sheet.
+const PLATE_ALL     = [25, 20, 15, 10, 5, 2.5, 1.25];   // כל הגדלים הסטנדרטיים לבחירה
 const PLATE_COLORS  = { 25: '#ff453a', 20: '#0A84FF', 15: '#FFD60A', 10: '#32D74B', 5: '#e2e2e2', 2.5: '#26262c', 1.25: '#8E8E93' };
 const PLATE_HEIGHTS = { 25: 84, 20: 76, 15: 66, 10: 56, 5: 44, 2.5: 36, 1.25: 30 };
 
@@ -160,7 +161,7 @@ function _calcPlates(total, bar) {
     if (perSide < -1e-9) return null;
     const plates = [];
     let rem = perSide;
-    PLATE_SIZES.forEach(p => { while (rem >= p - 1e-9) { plates.push(p); rem -= p; } });
+    StorageManager.getPlates().forEach(p => { while (rem >= p - 1e-9) { plates.push(p); rem -= p; } });
     return { plates, leftover: Math.round(rem * 1000) / 1000 };
 }
 
@@ -174,6 +175,7 @@ function _renderPlateCalc() {
         const btn = document.getElementById('plate-bar-' + b);
         if (btn) btn.classList.toggle('active', bar === b);
     });
+    _renderPlateInventory();
     const res = w > 0 ? _calcPlates(w, bar) : null;
     if (!res) {
         body.innerHTML = `<p class="sub-text text-center">המשקל (${w}kg) קטן ממשקל המוט (${bar}kg)</p>`;
@@ -191,7 +193,31 @@ function _renderPlateCalc() {
             ${platesHtml || '<span class="sub-text">מוט בלבד</span>'}
         </div>
         <div class="plate-per-side">לכל צד: <b>${perSideStr}</b>${bar > 0 ? ` (מוט ${bar})` : ''}</div>
-        ${res.leftover > 0 ? `<div class="plate-leftover">נותרו ${res.leftover}kg לכל צד שלא נסגרים בפלטות סטנדרט</div>` : ''}`;
+        ${res.leftover > 0 ? `<div class="plate-leftover">נותרו ${res.leftover}kg לכל צד שלא נסגרים בפלטות הזמינות</div>` : ''}`;
+}
+
+// שורת הפלטות הזמינות — chips לחיצים שמדליקים/מכבים כל גודל פלטה
+function _renderPlateInventory() {
+    const cont = document.getElementById('plate-inventory');
+    if (!cont) return;
+    const available = StorageManager.getPlates();
+    cont.innerHTML = PLATE_ALL.map(p => {
+        const on = available.includes(p);
+        return `<button class="plate-inv-chip${on ? ' on' : ''}" onclick="togglePlateSize(${p})">${p}</button>`;
+    }).join('');
+}
+
+function togglePlateSize(p) {
+    haptic('light');
+    let plates = StorageManager.getPlates();
+    if (plates.includes(p)) {
+        plates = plates.filter(x => x !== p);
+        if (!plates.length) { showAlert('חייבת להישאר לפחות פלטה אחת זמינה.'); return; }
+    } else {
+        plates.push(p);
+    }
+    StorageManager.setPlates(plates);
+    _renderPlateCalc();
 }
 
 function openPlateCalc() {
@@ -876,20 +902,24 @@ function _applyScreenChrome(screenId) {
     _syncStripLogBtn(screenId);
 }
 
-// _syncStripLogBtn — כפתור LOG SET בפאנל התחתון (session strip).
-// מוצג רק כשתרגיל פעיל בהקלטה ב-ui-main (btn-submit-set משמש כ-state marker:
-// display:'block' = מקליטים סט, 'none' = action panel בין תרגילים). לא מוצג ב-Live Mode.
+// _syncStripLogBtn — כפתורי הפעולה בפאנל התחתון (session strip). שלושה מצבים:
+// 1. מקליטים סט ב-ui-main  → LOG SET   (btn-submit-set משמש כ-state marker: display='block')
+// 2. הסט האחרון נרשם       → "המשך לתרגיל" (action panel display='block')
+// 3. כל מצב אחר / Live Mode → המלל "זמן אימון"
 function _syncStripLogBtn(screenId) {
-    const btn = document.getElementById('strip-log-btn');
-    const lbl = document.getElementById('strip-label');
-    if (!btn || !lbl) return;
+    const logBtn  = document.getElementById('strip-log-btn');
+    const contBtn = document.getElementById('strip-continue-btn');
+    const lbl     = document.getElementById('strip-label');
+    if (!logBtn || !lbl) return;
     const id = screenId || (state.historyStack && state.historyStack[state.historyStack.length - 1]);
+    const onMain = id === 'ui-main' && !document.body.classList.contains('live-mode-active');
     const submit = document.getElementById('btn-submit-set');
-    const logging = id === 'ui-main'
-        && submit && submit.style.display !== 'none'
-        && !document.body.classList.contains('live-mode-active');
-    btn.style.display = logging ? 'inline-flex' : 'none';
-    lbl.style.display = logging ? 'none' : '';
+    const ap     = document.getElementById('action-panel');
+    const logging = onMain && submit && submit.style.display !== 'none';
+    const between = onMain && !logging && !!(ap && ap.style.display === 'block');
+    logBtn.style.display = logging ? 'inline-flex' : 'none';
+    if (contBtn) contBtn.style.display = between ? 'inline-flex' : 'none';
+    lbl.style.display = (logging || between) ? 'none' : '';
 }
 
 function navigate(id, clearStack = false) {
@@ -2658,13 +2688,13 @@ function nextStep() {
         document.getElementById('btn-submit-set').style.display = 'none';
         document.getElementById('btn-skip-exercise').style.display = 'none';
         renderSetSessionTable();   // הסט האחרון נכנס לטבלה גם בלי מעבר ל-initPickers
-        _syncStripLogBtn();        // בין תרגילים — הכפתור יורד מה-strip וחוזר "זמן אימון"
 
         const actionPanel = document.getElementById('action-panel');
         actionPanel.style.display = 'block';
         actionPanel.classList.remove('is-visible');
         void actionPanel.offsetWidth;
         actionPanel.classList.add('is-visible');
+        _syncStripLogBtn();        // ה-strip עובר ממצב LOG SET ל"המשך לתרגיל"
 
         let nextName = getNextExerciseName();
         document.getElementById('next-ex-preview').innerText = `הבא בתור: ${nextName}`;

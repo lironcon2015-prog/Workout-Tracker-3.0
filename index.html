@@ -1017,7 +1017,7 @@
                 <div id="action-panel" class="action-panel">
                     <p id="next-ex-preview" class="passive-preview"></p>
                     <div class="vertical-stack">
-                        <button class="btn-main primary-gradient" onclick="finishCurrentExercise()">המשך לתרגיל הבא</button>
+                        <button id="btn-continue-exercise" class="btn-main primary-gradient" onclick="finishCurrentExercise()">המשך לתרגיל הבא</button>
                         <button class="btn-text secondary-action" onclick="addExtraSet()">+ סט נוסף</button>
                     </div>
                 </div>
@@ -1652,7 +1652,9 @@
         <!-- "זמן אימון" — ממורכז אבסולוטית (מוצג כשאין תרגיל פעיל) -->
         <span id="strip-label" style="position:absolute;left:0;right:0;text-align:center;font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.45);pointer-events:none;letter-spacing:0.03em;">זמן אימון</span>
         <!-- LOG SET — ממורכז, מוצג רק כשתרגיל פעיל בהקלטה (לא בין תרגילים) -->
-        <button id="strip-log-btn" class="strip-log-btn" onclick="nextStep()" style="display:none;">LOG SET&nbsp;→</button>
+        <button id="strip-log-btn" class="strip-action-btn strip-log-btn" onclick="nextStep()" style="display:none;">LOG SET&nbsp;→</button>
+        <!-- המשך לתרגיל הבא — מחליף את LOG SET כשהסט האחרון נרשם (action panel) -->
+        <button id="strip-continue-btn" class="strip-action-btn strip-continue-btn" onclick="finishCurrentExercise()" style="display:none;">המשך לתרגיל&nbsp;←</button>
         <!-- כפתור תפריט — שמאל (RTL flex-end) -->
         <button id="btn-workout-menu" class="workout-menu-btn" data-workout-menu-trigger onclick="toggleWorkoutQuickMenu()" aria-label="תפריט אימון">
             <span class="material-symbols-outlined">more_horiz</span>
@@ -1672,6 +1674,9 @@
         <div class="live-edit-grid">
             <div class="live-edit-card">
                 <div class="live-edit-card-lbl">משקל</div>
+                <button class="plate-calc-btn live-plate-btn" onclick="openPlateCalc()" aria-label="מחשבון פלטות">
+                    <span class="material-symbols-outlined" style="font-size:1rem;">fitness_center</span>
+                </button>
                 <div id="live-edit-weight-disp" class="live-edit-card-val" onclick="editLivePickerValue('weight')">—</div>
                 <div class="live-edit-card-unit">ק"ג</div>
                 <div class="live-edit-pm-row">
@@ -1810,6 +1815,11 @@
                 <button id="plate-bar-10" class="seg-btn" onclick="setPlateBar(10)">10</button>
                 <button id="plate-bar-0" class="seg-btn" onclick="setPlateBar(0)">בלי מוט</button>
             </div>
+        </div>
+        <!-- פלטות זמינות בחדר הכושר — נשמר ב-prefs, משפיע על החישוב -->
+        <div class="plate-inv-wrap">
+            <span class="plate-bar-lbl">פלטות זמינות:</span>
+            <div id="plate-inventory" class="plate-inv-row"></div>
         </div>
         <button class="btn-text" onclick="closePlateCalc()">סגור</button>
     </div>

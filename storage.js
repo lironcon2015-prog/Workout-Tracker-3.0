@@ -32,6 +32,7 @@ const StorageManager = {
     KEY_BODYLOG:      'gympro_bodylog',
     KEY_SOUND:        'gympro_sound_enabled',
     KEY_BAR_WEIGHT:   'gympro_bar_weight',      // משקל מוט למחשבון פלטות (ברירת מחדל: 20)
+    KEY_PLATES:       'gympro_plates',          // הפלטות הזמינות בחדר הכושר (מערך משקלים)
     KEY_SKIP_CONFIRM: 'gympro_skip_confirm',    // מעבר ישיר לתרגיל בלי מסך אישור
     KEY_COPY_INCLUDE_COACH: 'gympro_copy_include_coach',
     KEY_ARCHIVE_COPY_COACH: 'gympro_archive_copy_coach',
@@ -93,6 +94,15 @@ const StorageManager = {
     },
     setBarWeight(w) {
         try { localStorage.setItem(this.KEY_BAR_WEIGHT, String(w)); } catch (e) { /* הגנתי */ }
+    },
+    // הפלטות הזמינות — ברירת מחדל בלי 25 (לרוב חדרי הכושר אין). ניתן לשינוי במחשבון.
+    getPlates() {
+        const v = this.getData(this.KEY_PLATES);
+        if (Array.isArray(v) && v.length) return v.filter(p => typeof p === 'number' && p > 0).sort((a, b) => b - a);
+        return [20, 15, 10, 5, 2.5, 1.25];
+    },
+    setPlates(arr) {
+        this.saveData(this.KEY_PLATES, Array.isArray(arr) ? arr : []);
     },
     getSkipConfirm() {
         return localStorage.getItem(this.KEY_SKIP_CONFIRM) === '1';

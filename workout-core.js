@@ -36,6 +36,18 @@ function dismissCloudSyncBanner() {
     if (banner) banner.classList.remove('show');
 }
 
+// ─── HTML ESCAPING ─────────────────────────────────────────────────────────
+// escapeHtml — לכל הזרקת טקסט-משתמש (שמות אימון/תרגיל, הערות) ל-innerHTML.
+// escapeJsAttr — לשם שמוטמע כ-string literal בתוך onclick inline (גרשיים ולוכסנים).
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function escapeJsAttr(s) {
+    return escapeHtml(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+}
+
 // ─── CUSTOM MODAL SYSTEM ───────────────────────────────────────────────────
 
 function showAlert(msg, onOk) {
@@ -1184,7 +1196,7 @@ function openWorkoutPlanSheet(workoutName) {
     let html = `
         <div class="plan-sheet-header">
             <div class="plan-sheet-title">תרגילים מתוכננים</div>
-            <div class="plan-sheet-subtitle">${workoutName}</div>
+            <div class="plan-sheet-subtitle">${escapeHtml(workoutName)}</div>
         </div>`;
 
     let num = 0;
@@ -1194,14 +1206,14 @@ function openWorkoutPlanSheet(workoutName) {
             item.exercises.forEach(ex => {
                 num++;
                 const exData = state.exercises.find(e => e.name === ex.name);
-                const setsStr = exData && exData.sets ? `${exData.sets.length}×${exData.sets[0].r}` : '';
+                const setsStr = exData && exData.sets && exData.sets[0] ? `${exData.sets.length}×${exData.sets[0].r}` : '';
                 const muscles = exData ? (exData.muscles || []).join(', ') : '';
                 html += `
                     <div class="plan-ex-item">
                         <div class="plan-ex-num">${num}</div>
                         <div class="plan-ex-dot dot-upcoming"></div>
                         <div class="plan-ex-info">
-                            <div class="plan-ex-name">${ex.name} <span class="plan-ex-sets-str">${setsStr}</span></div>
+                            <div class="plan-ex-name">${escapeHtml(ex.name)} <span class="plan-ex-sets-str">${setsStr}</span></div>
                             ${muscles ? `<div class="plan-ex-meta">${muscles}</div>` : ''}
                         </div>
                     </div>`;
@@ -1217,7 +1229,7 @@ function openWorkoutPlanSheet(workoutName) {
                     <div class="plan-ex-num">${num}</div>
                     <div class="plan-ex-dot ${isMain ? 'dot-main' : 'dot-upcoming'}"></div>
                     <div class="plan-ex-info">
-                        <div class="plan-ex-name">${item.name} <span class="plan-ex-sets-str">${setsStr}</span></div>
+                        <div class="plan-ex-name">${escapeHtml(item.name)} <span class="plan-ex-sets-str">${setsStr}</span></div>
                         ${muscles ? `<div class="plan-ex-meta">${muscles}</div>` : ''}
                     </div>
                     <div class="plan-ex-right">
@@ -1322,7 +1334,7 @@ function openCurrentPlanSheet() {
                     <div class="plan-ex-num">${num}</div>
                     <div class="plan-ex-dot ${dotClass}"></div>
                     <div class="plan-ex-info">
-                        <div class="plan-ex-name ${isDone ? 'name-done' : ''}">${exName}</div>
+                        <div class="plan-ex-name ${isDone ? 'name-done' : ''}">${escapeHtml(exName)}</div>
                         ${muscles ? `<div class="plan-ex-meta">${muscles}</div>` : ''}
                     </div>
                     <div class="plan-ex-right">
@@ -1445,7 +1457,7 @@ function showConfirmScreen(forceExName = null) {
         let listHtml = `<div class="cluster-intro-list${scrollClass}">`;
         state.activeCluster.exercises.forEach((ex, i) => {
             const tag = String.fromCharCode(65 + i); // A, B, C...
-            listHtml += `<div class="cluster-intro-row"><span class="cluster-intro-tag">${tag}</span><span class="cluster-intro-name">${ex.name}</span></div>`;
+            listHtml += `<div class="cluster-intro-row"><span class="cluster-intro-tag">${tag}</span><span class="cluster-intro-name">${escapeHtml(ex.name)}</span></div>`;
         });
         listHtml += `</div>`;
         historyContainer.innerHTML = listHtml;
@@ -1624,13 +1636,13 @@ function setupCalculatedEx() {
                     // rmValues נשמר באנטרי חדשים
                     if (match.rmValues && match.rmValues[state.currentExName]) {
                         prevRM = match.rmValues[state.currentExName];
-                    } else if (match.log) {
+                    } else if (Array.isArray(match.log)) {
                         // fallback: חישוב הפוך מהמשקל הכבד ביותר
-                        const exLogs = match.log.filter(l => l.exName === state.currentExName && !l.skip);
+                        const exLogs = match.log.filter(l => l && l.exName === state.currentExName && !l.skip);
                         if (exLogs.length) {
-                            const maxW = Math.max(...exLogs.map(l => l.w));
+                            const maxW = Math.max(...exLogs.map(l => l.w || 0));
                             const maxPct = wk === 1 ? 0.85 : wk === 2 ? 0.90 : 0.95;
-                            prevRM = Math.round(maxW / maxPct / 2.5) * 2.5;
+                            if (maxW > 0) prevRM = Math.round(maxW / maxPct / 2.5) * 2.5;
                         }
                     }
                 }
@@ -1754,7 +1766,7 @@ function initPickers() {
         for (let i = state.clusterIdx + 1; i < state.activeCluster.exercises.length; i++) {
             const exName = state.activeCluster.exercises[i].name;
             const isNext = !foundNext;
-            pillsHtml += `<div class="queue-pill ${isNext ? 'next' : ''}"><span class="queue-pill-label">${isNext ? 'הבא: NEXT' : 'LATER'}</span><span class="queue-pill-name">${exName}</span></div>`;
+            pillsHtml += `<div class="queue-pill ${isNext ? 'next' : ''}"><span class="queue-pill-label">${isNext ? 'הבא: NEXT' : 'LATER'}</span><span class="queue-pill-name">${escapeHtml(exName)}</span></div>`;
             foundNext = true;
         }
         if (!foundNext) pillsHtml += `<div class="queue-pill"><span class="queue-pill-name">סוף סבב</span></div>`;
@@ -1778,13 +1790,14 @@ function initPickers() {
         label.textContent = 'כעת מתאמנים';
         badgeRow.appendChild(label);
     } else {
-        badge.innerText = `SET ${state.setIdx + 1}/${state.currentEx.sets.length}`;
+        badge.innerText = `SET ${Math.min(state.setIdx, state.currentEx.sets.length - 1) + 1}/${state.currentEx.sets.length}`;
         badge.style.background = "var(--accent)";
         badge.style.color = "";
         badge.style.borderColor = "";
     }
 
-    const target = state.currentEx.sets[state.setIdx];
+    // clamp — חזרה לתרגיל שכל הסטים שלו נרשמו עלולה להציב setIdx מעבר לגבול המערך
+    const target = state.currentEx.sets[Math.min(state.setIdx, state.currentEx.sets.length - 1)] || {};
     document.getElementById('set-notes').value = '';
 
     let defaultW = 0;
@@ -1792,8 +1805,8 @@ function initPickers() {
     let defaultRIR = 2;
 
     if (state.currentEx.isCalc) {
-        defaultW = target.w;
-        defaultR = target.r;
+        defaultW = target.w || 0;
+        defaultR = target.r || 8;
         defaultRIR = 2;
     } else if (state.setIdx > 0 && state.lastLoggedSet) {
         defaultW = state.lastLoggedSet.w;
@@ -2464,7 +2477,7 @@ function renderClusterRestUI() {
         const cls = 'cluster-intro-row' + (isStart ? ' cluster-intro-row--start' : '');
         const attrs = isStart ? ' onclick="startNextRound()" role="button" tabindex="0"' : '';
         const go = isStart ? '<span class="material-symbols-outlined cluster-intro-go">play_arrow</span>' : '';
-        return `<div class="${cls}"${attrs}><span class="cluster-intro-tag">${i + 1}</span><span class="cluster-intro-name">${e.name}</span>${go}</div>`;
+        return `<div class="${cls}"${attrs}><span class="cluster-intro-tag">${i + 1}</span><span class="cluster-intro-name">${escapeHtml(e.name)}</span>${go}</div>`;
     }).join('');
 }
 
@@ -2643,10 +2656,10 @@ function renderExtraClusterList() {
             const exNames = item.exercises.map(e => e.name).join(' · ');
             card.innerHTML = `
                 <div class="flex-between w-100 mb-xs">
-                    <h3 style="color:${color}">${workoutName}</h3>
+                    <h3 style="color:${color}">${escapeHtml(workoutName)}</h3>
                     <span class="text-xs color-dim">${item.rounds} סבבים · ${item.exercises.length} תרגילים</span>
                 </div>
-                <p style="margin:0;font-size:0.82em;color:var(--text-dim);">${exNames}</p>`;
+                <p style="margin:0;font-size:0.82em;color:var(--text-dim);">${escapeHtml(exNames)}</p>`;
             card.onclick = () => selectExtraCluster(workoutName, idx);
             container.appendChild(card);
         });
@@ -3035,7 +3048,7 @@ function buildSummaryUI() {
             cardsHtml += `
             <div class="obsidian-card">
                 <div class="card-header">
-                    <h3 class="card-title">סבב: ${exNames}</h3>
+                    <h3 class="card-title">סבב: ${escapeHtml(exNames)}</h3>
                     <span class="card-vol">${clusterVolStr}</span>
                 </div>
                 ${roundRows}
@@ -3312,8 +3325,13 @@ function _saveToArchive(note) {
         aiSummary
     };
 
-    const updated = StorageManager.updateArchiveEntry(ts, archiveEntry);
-    if (!updated) StorageManager.saveToArchive(archiveEntry);
+    let saved = StorageManager.updateArchiveEntry(ts, archiveEntry);
+    if (!saved) saved = StorageManager.saveToArchive(archiveEntry);
+    if (!saved) {
+        // כשל כתיבה (אחסון מלא) — האימון לא נשמר בארכיון; חובה להתריע ולא להמשיך בשקט
+        showAlert('שגיאה: האימון לא נשמר בארכיון! האחסון המקומי מלא — ייצא גיבוי ופנה מקום, ואז סיים שוב.');
+        return;
+    }
     haptic('success');
 }
 
@@ -3720,8 +3738,14 @@ function saveSetEdit() {
     const realSets = state.log.filter(l => !l.skip);
     const entry = realSets[_editSetRealIdx];
     if (!entry) return;
-    entry.w = parseFloat(document.getElementById('edit-weight').value);
-    entry.r = parseInt(document.getElementById('edit-reps').value);
+    const newW = parseFloat(document.getElementById('edit-weight').value);
+    const newR = parseInt(document.getElementById('edit-reps').value);
+    if (isNaN(newW) || newW < 0 || isNaN(newR) || newR < 1) {
+        showAlert('ערכים לא תקינים — משקל חייב להיות 0 ומעלה וחזרות לפחות 1.');
+        return;
+    }
+    entry.w = newW;
+    entry.r = newR;
     entry.rir = document.getElementById('edit-rir').value;
     entry.note = document.getElementById('edit-note').value.trim();
     const fromLog = _editFromLog, fromSummary = _editFromSummary;

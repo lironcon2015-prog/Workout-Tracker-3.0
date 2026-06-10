@@ -5515,39 +5515,82 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .warmup-reps { font-size: 0.9rem; color: var(--text-dim); width: 44px; text-align: left; direction: ltr; }
 .warmup-note { text-align: center; margin-top: 4px; }
 
-/* ═══════════ LOG SET בפאנל התחתון + טיימר קומפקטי (v16.0) ═══════════ */
+/* ═══════════ כפתורי פעולה בפאנל התחתון + טיימר צף (v16.0–16.1) ═══════════ */
 
-/* כפתור LOG SET בתוך ה-session strip — ממורכז אבסולוטית, תופס את מקום "זמן אימון" */
-.strip-log-btn {
+/* כפתורי פעולה בתוך ה-session strip — ממורכזים אבסולוטית, תופסים את מקום "זמן אימון".
+   44px גובה — יעד מגע מלא בתוך פס ה-50px. */
+.strip-action-btn {
     position: absolute; left: 50%; top: 50%;
     transform: translate(-50%, calc(-50% - env(safe-area-inset-bottom, 0px) / 2));
-    height: 38px; padding: 0 26px;
-    background: var(--accent-gradient); color: #000;
+    height: 44px; padding: 0 30px; min-width: 165px;
     border: none; border-radius: 9999px;
-    font-weight: 900; font-size: 0.95rem; letter-spacing: 0.02em;
+    font-weight: 900; font-size: 1.05rem; letter-spacing: 0.02em;
     font-family: 'Heebo', 'Inter', sans-serif;
     display: inline-flex; align-items: center; justify-content: center;
     cursor: pointer; white-space: nowrap;
-    box-shadow: 0 4px 16px rgba(10, 132, 255, 0.35);
     transition: transform 0.1s;
 }
-.strip-log-btn:active { transform: translate(-50%, calc(-50% - env(safe-area-inset-bottom, 0px) / 2)) scale(0.95); }
+.strip-action-btn:active { transform: translate(-50%, calc(-50% - env(safe-area-inset-bottom, 0px) / 2)) scale(0.95); }
+.strip-log-btn      { background: var(--accent-gradient);  color: #000; box-shadow: 0 4px 16px rgba(10, 132, 255, 0.35); }
+.strip-continue-btn { background: var(--success-gradient); color: #000; box-shadow: 0 4px 16px rgba(50, 215, 75, 0.3); }
 
-/* הכפתור המקורי במסך נשאר בDOM כ-state marker בלבד (inline display = מצב ההקלטה),
-   אבל מוסר מה-flow כדי לא לתפוס גובה — ה-LOG SET החי עבר ל-session strip */
+/* הכפתורים המקוריים במסך נשארים בDOM כ-state markers בלבד (inline display = מצב),
+   אבל מוסרים מה-flow — הפעולות החיות עברו ל-session strip */
 #btn-submit-set { position: absolute; visibility: hidden; pointer-events: none; animation: none; }
+#btn-continue-exercise { display: none; }
 
-/* טיימר מנוחה קומפקטי ב-ui-main — שורה אופקית במקום עיגול 185px.
-   חל רק על מסך האימון; המסכים הגדולים (ui-cluster-rest / Live) משתמשים
-   ב-live-timer-* נפרדים ולא מושפעים. */
+/* טיימר מנוחה — פיל דיגיטלי צף למעלה במרכז, רק במסך האימון הרגיל.
+   ה-HTML לא משתנה: ה-SVG מוסתר, ה-inner הופך לשורה. המסכים הגדולים
+   (ui-cluster-rest / Live) משתמשים ב-live-timer-* נפרדים ולא מושפעים. */
 #ui-main .timer-section {
-    flex-direction: row; justify-content: center; align-items: center;
-    gap: 12px; margin-top: 14px;
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+    left: 50%; transform: translateX(-50%);
+    flex-direction: row; align-items: center; gap: 10px;
+    margin: 0 !important; padding: 9px 22px;
+    background: rgba(10, 10, 12, 0.92);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid var(--hairline-hi);
+    border-radius: 9999px;
+    z-index: 210; pointer-events: none;
+    box-shadow: var(--elev-2);
 }
-#ui-main .timer-wrap { width: 74px; height: 74px; margin-bottom: 0; flex-shrink: 0; }
+#ui-main .timer-svg { display: none; }
+#ui-main .timer-wrap { position: static; width: auto; height: auto; margin: 0; }
+#ui-main .timer-inner { position: static; flex-direction: row; align-items: center; gap: 8px; }
 #ui-main .timer-resting-lbl { display: none; }
-#ui-main .timer-inner .timer-text { font-size: 1.3em; letter-spacing: -0.5px; }
+#ui-main .timer-inner .timer-text { font-size: 1.5rem; letter-spacing: -0.5px; line-height: 1; }
 .timer-side-lbl {
     font-size: 0.62rem; font-weight: 900; color: var(--text-dim);
     letter-spacing: 0.25em; text-transform: uppercase;
+}
+
+/* ═══════════ Live Mode: PR + מחשבון פלטות (v16.1) ═══════════ */
+
+/* חגיגת PR מעל ה-Live overlay (z 9999) — אחרת היא נבלעת מתחתיו */
+body.live-mode-active .pr-burst { z-index: 10010; }
+
+/* מחשבון הפלטות נפתח מעל ה-Live Edit Sheet */
+body.live-mode-active #plate-calc-overlay { z-index: 10007 !important; }
+body.live-mode-active #plate-calc-sheet   { z-index: 10008 !important; }
+
+/* כפתור מחשבון פלטות בכרטיס המשקל של Live Edit Sheet */
+.live-edit-card { position: relative; }
+.live-plate-btn { top: 6px; left: 6px; width: 28px; height: 28px; pointer-events: auto; }
+
+/* בורר הפלטות הזמינות בתוך מחשבון הפלטות */
+.plate-inv-wrap { display: flex; align-items: flex-start; gap: 10px; margin: 10px 0 12px; }
+.plate-inv-wrap .plate-bar-lbl { padding-top: 7px; }
+.plate-inv-row { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.plate-inv-chip {
+    min-width: 42px; height: 34px; padding: 0 10px;
+    border-radius: 9999px; border: 1px solid var(--hairline);
+    background: var(--surface-1); color: var(--text-dim);
+    font-weight: 800; font-size: 0.82rem; cursor: pointer;
+    direction: ltr; opacity: 0.55;
+}
+.plate-inv-chip.on {
+    background: var(--surface-4); color: var(--text);
+    border-color: rgba(10, 132, 255, 0.55); opacity: 1;
 }

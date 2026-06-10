@@ -33,7 +33,7 @@
     --accent-gradient: linear-gradient(135deg, #0A84FF, #0056b3);
     --success-gradient: linear-gradient(135deg, #32D74B, #248A3D);
     --text: #e2e2e2;
-    --text-dim: #8E8E93;
+    --text-dim: #A6A6AD;   /* הובהר מ-#8E8E93 — עמידה ב-WCAG AA על surface-2 */
     --type-a: #0A84FF;
     --type-b: #47e266;
     --type-c: #ffb868;
@@ -188,6 +188,7 @@ body::before {
 
 .app-container {
     height: 100vh; display: flex; flex-direction: column;
+    height: 100dvh;   /* גובה דינמי — לא נחתך עם מקלדת/סרגל URL בנייד; fallback ל-100vh למעלה */
     padding: calc(env(safe-area-inset-top) + 10px) 20px env(safe-area-inset-bottom);
     box-sizing: border-box;
     overflow-x: hidden;
@@ -315,7 +316,7 @@ body::before {
 
 /* Archive Specifics */
 .archive-card-row { display: flex; flex-direction: row; align-items: center; width: 100%; gap: 15px; }
-.archive-checkbox { width: 24px; height: 24px; accent-color: var(--accent); cursor: pointer; margin: 0; }
+.archive-checkbox { width: 28px; height: 28px; accent-color: var(--accent); cursor: pointer; margin: 0; }
 .archive-info { flex-grow: 1; display: flex; flex-direction: column; gap: 4px; }
 
 /* Segmented Control */
@@ -391,7 +392,7 @@ body::before {
 .cal-day-placeholder { aspect-ratio: 1/1; box-sizing: border-box; min-height: 0; }
 
 .cal-day-num { font-size: 0.72rem; font-weight: 700; color: #cbd5e1; line-height: 1; }
-.cal-day-num-dim { color: #475569 !important; }
+.cal-day-num-dim { color: #7c8696 !important; }
 
 .cal-dots-row { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; width: 90%; }
 .cal-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
@@ -721,7 +722,7 @@ body::before {
     font-size: 0.9em;
 }
 #set-notes:focus { outline: none; border-color: rgba(170,199,255,0.45); }
-#set-notes::placeholder { color: #52525b; }
+#set-notes::placeholder { color: #74747c; }
 
 .btn-main {
     padding: 18px; border-radius: 50px; border: none;
@@ -5391,3 +5392,37 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-prev-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bl-prev-head { font-weight: 800; color: var(--text-dim); font-size: 0.68rem; }
 .bl-prev-more { font-size: 0.72rem; color: var(--text-dim); text-align: center; padding: 6px 0; }
+
+/* ═══════════ WAVE 1 — ליטוש, נגישות, חגיגת PR (v15.98) ═══════════ */
+
+/* הרחבת אזור-מגע ל-≥44px בלי שינוי ויזואלי — כפתורים קטנים */
+.micro-sort-btn, .history-nav-btn, .set-btn { position: relative; }
+.micro-sort-btn::after, .history-nav-btn::after { content: ''; position: absolute; inset: -4px; }
+.set-btn::after { content: ''; position: absolute; inset: -8px; }
+
+/* Empty State אחיד — אייקון + כותרת + הסבר (בסגנון Apple Fitness) */
+.empty-state {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 44px 24px; text-align: center;
+}
+.empty-state .material-symbols-outlined {
+    font-size: 2.8rem; color: var(--text-dim); opacity: 0.65;
+    background: var(--surface-1); border: 1px solid var(--hairline);
+    border-radius: 50%; width: 76px; height: 76px;
+    display: flex; align-items: center; justify-content: center;
+}
+.empty-state-title { font-weight: 900; font-size: 1.05rem; color: var(--text); }
+.empty-state-sub { font-size: 0.85rem; color: var(--text-dim); max-width: 250px; line-height: 1.45; }
+
+/* חגיגת PR — badge זהב קופץ כששוברים שיא e1RM */
+.pr-burst {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 74px); left: 50%;
+    transform: translateX(-50%) scale(0.6);
+    background: #1b1b1b; color: #FFD60A;
+    border: 1px solid rgba(255, 214, 10, 0.45); border-radius: 9999px;
+    padding: 11px 24px; font-weight: 900; font-size: 1rem; white-space: nowrap;
+    opacity: 0; pointer-events: none; z-index: 1200;
+    box-shadow: 0 8px 30px rgba(255, 214, 10, 0.18), var(--elev-3);
+    transition: opacity 0.25s, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pr-burst.show { opacity: 1; transform: translateX(-50%) scale(1); }

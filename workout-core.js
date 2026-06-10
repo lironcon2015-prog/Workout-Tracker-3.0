@@ -48,6 +48,51 @@ function escapeJsAttr(s) {
     return escapeHtml(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 }
 
+// ─── EMPTY STATE (Wave 1) ──────────────────────────────────────────────────
+// תבנית אחידה למסכים ריקים — אייקון Material + כותרת + טקסט משנה
+function emptyStateHtml(icon, title, sub = '') {
+    return `<div class="empty-state">
+        <span class="material-symbols-outlined">${icon}</span>
+        <div class="empty-state-title">${escapeHtml(title)}</div>
+        ${sub ? `<div class="empty-state-sub">${escapeHtml(sub)}</div>` : ''}
+    </div>`;
+}
+
+// ─── PR DETECTION (Wave 1) ─────────────────────────────────────────────────
+// e1RM (Epley) מול המקסימום ההיסטורי של התרגיל בארכיון — חגיגה כששוברים שיא
+let _prMaxCache = {};
+function _getHistoricalMaxE1RM(exName) {
+    if (_prMaxCache[exName] !== undefined) return _prMaxCache[exName];
+    let max = 0;
+    try {
+        StorageManager.getArchive().forEach(entry => {
+            if (!entry || entry.timestamp === state.archivedTimestamp) return;  // לא הרשומה של האימון הנוכחי
+            const ex = entry.details && entry.details[exName];
+            if (!ex || !Array.isArray(ex.sets)) return;
+            ex.sets.forEach(s => {
+                const wM = String(s).match(/([\d.]+)\s*kg/);
+                const rM = String(s).match(/x\s*(\d+)/);
+                if (!wM || !rM) return;
+                const e1 = parseFloat(wM[1]) * (1 + parseInt(rM[1]) / 30);
+                if (e1 > max) max = e1;
+            });
+        });
+    } catch (e) { console.warn('GymPro: PR scan failed', e); }
+    _prMaxCache[exName] = max;
+    return max;
+}
+
+function _celebratePR() {
+    haptic('success');
+    setTimeout(() => haptic('success'), 280);
+    const badge = document.getElementById('pr-burst');
+    if (!badge) return;
+    badge.classList.remove('show');
+    void badge.offsetWidth;
+    badge.classList.add('show');
+    setTimeout(() => badge.classList.remove('show'), 2400);
+}
+
 // ─── CUSTOM MODAL SYSTEM ───────────────────────────────────────────────────
 
 function showAlert(msg, onOk) {
@@ -2344,6 +2389,16 @@ function nextStep() {
     };
 
     StorageManager.saveWeight(state.currentExName, wVal);
+
+    // זיהוי שיא אישי — e1RM של הסט מול המקסימום ההיסטורי בארכיון
+    const histMax = _getHistoricalMaxE1RM(entry.exName);
+    const setE1RM = entry.w * (1 + entry.r / 30);
+    if (histMax > 0 && setE1RM > histMax + 0.01) {
+        entry.isPR = true;
+        _prMaxCache[entry.exName] = setE1RM;   // שיא הסשן הופך לרף החדש
+        _celebratePR();
+    }
+
     state.log.push(entry); state.lastLoggedSet = entry;
     StorageManager.saveSessionState();
 
@@ -2782,8 +2837,8 @@ function renderFreestyleList() {
 
     if (filtered.length === 0) {
         options.innerHTML = state.freestyleFilter === 'בוצעו'
-            ? `<p class="text-center color-dim mt-md">טרם בוצעו תרגילים</p>`
-            : `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
+            ? emptyStateHtml('history', 'טרם בוצעו תרגילים', 'תרגילים שתבצע באימון יופיעו כאן')
+            : emptyStateHtml('search_off', 'לא נמצאו תרגילים', 'נסה חיפוש אחר או שנה את הפילטר');
         return;
     }
 
@@ -2892,10 +2947,9 @@ function _renderSwapMenu(searchVal) {
     });
 
     if (allFiltered.length === 0 && sv) {
-        const p = document.createElement('p');
-        p.className = "text-center color-dim";
-        p.innerText = "לא נמצאו תרגילים";
-        container.appendChild(p);
+        const wrap = document.createElement('div');
+        wrap.innerHTML = emptyStateHtml('search_off', 'לא נמצאו תרגילים', 'נסה מילת חיפוש אחרת');
+        container.appendChild(wrap);
     }
 }
 
@@ -3624,7 +3678,7 @@ function _parseHistorySetStr(setStr) {
 // pager לתצוגת היסטוריית תרגיל — דפדוף בין עד 5 ביצועים אחרונים
 function _renderHistoryPager(containerEl, performances, opts = {}) {
     if (!performances || !performances.length) {
-        containerEl.innerHTML = `<p class="color-dim text-sm text-center">אין ביצוע קודם בארכיון</p>`;
+        containerEl.innerHTML = emptyStateHtml('fitness_center', 'אין ביצוע קודם', 'האימון הראשון עם התרגיל ייתן בסיס להשוואה');
         return;
     }
 

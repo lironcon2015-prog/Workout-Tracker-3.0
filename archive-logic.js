@@ -178,7 +178,9 @@ function renderArchiveList() {
     const history = StorageManager.getArchive();
 
     if (!history.length) {
-        list.innerHTML = `<p class="text-center color-dim mt-lg">טרם נשמרו אימונים</p>`;
+        list.innerHTML = (typeof emptyStateHtml === 'function')
+            ? emptyStateHtml('history', 'הארכיון ריק', 'סיים את האימון הראשון שלך והוא יופיע כאן')
+            : `<p class="text-center color-dim mt-lg">טרם נשמרו אימונים</p>`;
         return;
     }
 

@@ -239,9 +239,11 @@ function renderManagerList() {
     const displayKeys = _managerTab === 'active' ? activeKeys : hiddenKeys;
 
     if (displayKeys.length === 0) {
-        const empty = document.createElement('p');
-        empty.className = 'text-center color-dim mt-lg';
-        empty.textContent = _managerTab === 'active' ? 'אין תוכניות פעילות' : 'אין תוכניות מוסתרות';
+        const empty = document.createElement('div');
+        empty.innerHTML = (typeof emptyStateHtml === 'function')
+            ? emptyStateHtml('assignment', _managerTab === 'active' ? 'אין תוכניות פעילות' : 'אין תוכניות מוסתרות',
+                _managerTab === 'active' ? 'צור תוכנית אימון חדשה כדי להתחיל' : '')
+            : `<p class="text-center color-dim mt-lg">אין תוכניות</p>`;
         list.appendChild(empty);
     } else {
         displayKeys.forEach((key, cardIdx) => {
@@ -424,7 +426,9 @@ function renderExerciseDatabase() {
     });
 
     if (filtered.length === 0) {
-        list.innerHTML = `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
+        list.innerHTML = (typeof emptyStateHtml === 'function')
+            ? emptyStateHtml('search_off', 'לא נמצאו תרגילים', 'נסה חיפוש אחר או צור תרגיל חדש')
+            : `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
         return;
     }
 

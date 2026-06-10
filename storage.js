@@ -31,6 +31,8 @@ const StorageManager = {
     KEY_WATCH_BRIDGE_ON:    'gympro_watch_bridge_on',     // האם גשר השעון פעיל (ברירת מחדל: כבוי)
     KEY_BODYLOG:      'gympro_bodylog',
     KEY_SOUND:        'gympro_sound_enabled',
+    KEY_BAR_WEIGHT:   'gympro_bar_weight',      // משקל מוט למחשבון פלטות (ברירת מחדל: 20)
+    KEY_SKIP_CONFIRM: 'gympro_skip_confirm',    // מעבר ישיר לתרגיל בלי מסך אישור
     KEY_COPY_INCLUDE_COACH: 'gympro_copy_include_coach',
     KEY_ARCHIVE_COPY_COACH: 'gympro_archive_copy_coach',
     KEY_COACH_PROMPTS:      'gympro_coach_prompts',
@@ -81,6 +83,22 @@ const StorageManager = {
             state.workoutMeta = {};
             this.saveData(this.KEY_META, state.workoutMeta);
         }
+    },
+
+    // ── Workout UX Prefs (Wave 2) ────────────────────────────────────────
+
+    getBarWeight() {
+        const v = parseFloat(localStorage.getItem(this.KEY_BAR_WEIGHT));
+        return isNaN(v) ? 20 : v;
+    },
+    setBarWeight(w) {
+        try { localStorage.setItem(this.KEY_BAR_WEIGHT, String(w)); } catch (e) { /* הגנתי */ }
+    },
+    getSkipConfirm() {
+        return localStorage.getItem(this.KEY_SKIP_CONFIRM) === '1';
+    },
+    setSkipConfirm(on) {
+        try { localStorage.setItem(this.KEY_SKIP_CONFIRM, on ? '1' : '0'); } catch (e) { /* הגנתי */ }
     },
 
     // ── Session ──────────────────────────────────────────────────────────

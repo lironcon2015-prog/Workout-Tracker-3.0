@@ -33,7 +33,7 @@
     --accent-gradient: linear-gradient(135deg, #0A84FF, #0056b3);
     --success-gradient: linear-gradient(135deg, #32D74B, #248A3D);
     --text: #e2e2e2;
-    --text-dim: #8E8E93;
+    --text-dim: #A6A6AD;   /* הובהר מ-#8E8E93 — עמידה ב-WCAG AA על surface-2 */
     --type-a: #0A84FF;
     --type-b: #47e266;
     --type-c: #ffb868;
@@ -188,6 +188,7 @@ body::before {
 
 .app-container {
     height: 100vh; display: flex; flex-direction: column;
+    height: 100dvh;   /* גובה דינמי — לא נחתך עם מקלדת/סרגל URL בנייד; fallback ל-100vh למעלה */
     padding: calc(env(safe-area-inset-top) + 10px) 20px env(safe-area-inset-bottom);
     box-sizing: border-box;
     overflow-x: hidden;
@@ -315,7 +316,7 @@ body::before {
 
 /* Archive Specifics */
 .archive-card-row { display: flex; flex-direction: row; align-items: center; width: 100%; gap: 15px; }
-.archive-checkbox { width: 24px; height: 24px; accent-color: var(--accent); cursor: pointer; margin: 0; }
+.archive-checkbox { width: 28px; height: 28px; accent-color: var(--accent); cursor: pointer; margin: 0; }
 .archive-info { flex-grow: 1; display: flex; flex-direction: column; gap: 4px; }
 
 /* Segmented Control */
@@ -391,7 +392,7 @@ body::before {
 .cal-day-placeholder { aspect-ratio: 1/1; box-sizing: border-box; min-height: 0; }
 
 .cal-day-num { font-size: 0.72rem; font-weight: 700; color: #cbd5e1; line-height: 1; }
-.cal-day-num-dim { color: #475569 !important; }
+.cal-day-num-dim { color: #7c8696 !important; }
 
 .cal-dots-row { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; width: 90%; }
 .cal-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
@@ -721,7 +722,7 @@ body::before {
     font-size: 0.9em;
 }
 #set-notes:focus { outline: none; border-color: rgba(170,199,255,0.45); }
-#set-notes::placeholder { color: #52525b; }
+#set-notes::placeholder { color: #74747c; }
 
 .btn-main {
     padding: 18px; border-radius: 50px; border: none;
@@ -5391,3 +5392,125 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-prev-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bl-prev-head { font-weight: 800; color: var(--text-dim); font-size: 0.68rem; }
 .bl-prev-more { font-size: 0.72rem; color: var(--text-dim); text-align: center; padding: 6px 0; }
+
+/* ═══════════ WAVE 1 — ליטוש, נגישות, חגיגת PR (v15.98) ═══════════ */
+
+/* הרחבת אזור-מגע ל-≥44px בלי שינוי ויזואלי — כפתורים קטנים */
+.micro-sort-btn, .history-nav-btn, .set-btn { position: relative; }
+.micro-sort-btn::after, .history-nav-btn::after { content: ''; position: absolute; inset: -4px; }
+.set-btn::after { content: ''; position: absolute; inset: -8px; }
+
+/* Empty State אחיד — אייקון + כותרת + הסבר (בסגנון Apple Fitness) */
+.empty-state {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 44px 24px; text-align: center;
+}
+.empty-state .material-symbols-outlined {
+    font-size: 2.8rem; color: var(--text-dim); opacity: 0.65;
+    background: var(--surface-1); border: 1px solid var(--hairline);
+    border-radius: 50%; width: 76px; height: 76px;
+    display: flex; align-items: center; justify-content: center;
+}
+.empty-state-title { font-weight: 900; font-size: 1.05rem; color: var(--text); }
+.empty-state-sub { font-size: 0.85rem; color: var(--text-dim); max-width: 250px; line-height: 1.45; }
+
+/* חגיגת PR — badge זהב קופץ כששוברים שיא e1RM */
+.pr-burst {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 74px); left: 50%;
+    transform: translateX(-50%) scale(0.6);
+    background: #1b1b1b; color: #FFD60A;
+    border: 1px solid rgba(255, 214, 10, 0.45); border-radius: 9999px;
+    padding: 11px 24px; font-weight: 900; font-size: 1rem; white-space: nowrap;
+    opacity: 0; pointer-events: none; z-index: 1200;
+    box-shadow: 0 8px 30px rgba(255, 214, 10, 0.18), var(--elev-3);
+    transition: opacity 0.25s, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pr-burst.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+/* ═══════════ WAVE 2 — חוויית הקלטת סט (v15.99) ═══════════ */
+
+/* טבלת סטים חיה — סטים שבוצעו + ghost values מהאימון הקודם */
+.set-table {
+    background: var(--surface-1); border: 1px solid var(--hairline);
+    border-radius: var(--r-md); padding: 6px 12px; margin: 10px 0 2px;
+}
+.set-table-head {
+    display: flex; align-items: center; gap: 10px; padding: 6px 4px;
+    font-size: 0.62rem; font-weight: 800; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--hairline);
+}
+.set-table-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 4px; min-height: 34px; font-size: 0.88rem;
+    border-bottom: 1px solid var(--hairline);
+}
+.set-table-row:last-child { border-bottom: none; }
+.set-table-num { width: 26px; flex-shrink: 0; font-weight: 900; font-size: 0.72rem; color: var(--text-dim); }
+.set-table-val { flex: 1; direction: ltr; text-align: right; color: var(--text); font-weight: 700; }
+.set-table-ghost { width: 72px; flex-shrink: 0; direction: ltr; text-align: left; color: var(--text-dim); opacity: 0.75; font-size: 0.8rem; }
+.set-table-check { color: var(--type-b); font-size: 0.8rem; }
+.set-table-now { color: var(--accent); font-size: 0.72rem; font-weight: 900; }
+.set-table-pr { font-size: 0.85rem; }
+.set-table-row.done { cursor: pointer; }
+.set-table-row.done:active { background: rgba(255,255,255,0.04); }
+.set-table-row.current {
+    background: rgba(10, 132, 255, 0.08); border-radius: 10px;
+    border-bottom-color: transparent;
+}
+.set-table-row.current .set-table-num { color: var(--accent); }
+
+/* כפתור מחשבון פלטות — פינת כרטיס המשקל */
+.stepper-card { position: relative; }
+.plate-calc-btn {
+    position: absolute; top: 8px; left: 8px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--surface-4); border: 1px solid var(--hairline);
+    color: var(--text-dim); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+}
+.plate-calc-btn::after { content: ''; position: absolute; inset: -7px; }
+.plate-calc-btn:active { background: var(--accent); color: #fff; }
+
+/* גוף מחשבון הפלטות */
+.plate-calc-total { text-align: center; font-size: 2.2rem; font-weight: 900; font-style: italic; margin: 4px 0 10px; direction: ltr; }
+.plate-calc-total span { font-size: 1rem; color: var(--text-dim); font-style: normal; }
+.plate-viz {
+    display: flex; align-items: center; justify-content: center; gap: 3px;
+    direction: ltr; min-height: 96px; padding: 4px 0;
+}
+.plate {
+    width: 17px; border-radius: 4px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.5rem; font-weight: 900;
+    border: 1px solid rgba(255,255,255,0.18);
+}
+.plate-bar-end { width: 34px; height: 9px; background: #6e6e76; border-radius: 2px; flex-shrink: 0; }
+.plate-per-side { text-align: center; font-size: 0.9rem; color: var(--text); margin: 8px 0 2px; }
+.plate-leftover { text-align: center; font-size: 0.74rem; color: var(--type-c); margin-top: 6px; }
+.plate-bar-row { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; }
+.plate-bar-lbl { font-size: 0.8rem; color: var(--text-dim); font-weight: 700; flex-shrink: 0; }
+.plate-bar-seg { flex: 1; }
+
+/* pill חימום — מסך האימון, סט ראשון בלבד */
+.warmup-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(255, 184, 104, 0.12); color: var(--type-c);
+    border: 1px solid rgba(255, 184, 104, 0.35); border-radius: 9999px;
+    padding: 4px 12px; font-size: 0.72rem; font-weight: 800; cursor: pointer;
+    position: relative;
+}
+.warmup-pill::after { content: ''; position: absolute; inset: -8px; }
+
+/* גוף פירמידת החימום */
+.warmup-target { text-align: center; font-size: 0.95rem; color: var(--text); margin: 6px 0 12px; }
+.warmup-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 14px; margin-bottom: 8px;
+    background: var(--surface-1); border: 1px solid var(--hairline); border-radius: var(--r-sm);
+}
+.warmup-pct { font-size: 0.78rem; font-weight: 800; color: var(--text-dim); width: 64px; }
+.warmup-w { font-size: 1.05rem; font-weight: 900; direction: ltr; }
+.warmup-reps { font-size: 0.9rem; color: var(--text-dim); width: 44px; text-align: left; direction: ltr; }
+.warmup-note { text-align: center; margin-top: 4px; }

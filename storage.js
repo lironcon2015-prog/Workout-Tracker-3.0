@@ -342,6 +342,75 @@ const StorageManager = {
         if (dataObj.archive) this.saveData(this.KEY_ARCHIVE, dataObj.archive);
     },
 
+    // ── Connections Export / Import (v15.97.2) ──────────────────────────
+    // קובץ חיבורים: Firebase, Gemini, גשרי MFP/שעון והעדפות — לשחזור מערכת
+    // מלא בלי הזנה ידנית. ⚠️ הקובץ מכיל סודות (API keys, tokens) — לשמור
+    // במקום בטוח ולא לשתף.
+
+    _connectionKeys() {
+        return [
+            'gympro_firebase_config',     // FirebaseManager.KEY_FIREBASE_CONFIG
+            this.KEY_GEMINI_KEY,
+            this.KEY_AI_MODELS,
+            this.KEY_AI_PERSONA,
+            this.KEY_COACH_PROMPTS,
+            this.KEY_MFP_BRIDGE_URL,
+            this.KEY_MFP_BRIDGE_TOKEN,
+            this.KEY_WATCH_BRIDGE_URL,
+            this.KEY_WATCH_BRIDGE_TOKEN,
+            this.KEY_WATCH_BRIDGE_ON,
+            this.KEY_SOUND,
+            this.KEY_COPY_INCLUDE_COACH,
+            this.KEY_ARCHIVE_COPY_COACH
+        ];
+    },
+
+    exportConnections() {
+        const data = {};
+        this._connectionKeys().forEach(k => {
+            // העתקה גולמית של הערך — בלי parse, עמיד לכל פורמט אחסון
+            const raw = localStorage.getItem(k);
+            if (raw !== null) data[k] = raw;
+        });
+        if (!Object.keys(data).length) {
+            showAlert('אין עדיין חיבורים שמורים לייצוא.');
+            return;
+        }
+        const payload = {
+            type: 'gympro_connections',
+            date: new Date().toISOString(),
+            data
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `gympro_connections_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        showAlert('קובץ החיבורים ירד. ⚠️ הוא מכיל מפתחות אישיים — שמור אותו במקום בטוח.');
+    },
+
+    importConnections(payload) {
+        if (!payload || payload.type !== 'gympro_connections' || !payload.data || typeof payload.data !== 'object') {
+            showAlert('שגיאה: זה לא קובץ חיבורים תקין.');
+            return;
+        }
+        // רק מפתחות gympro_ וערכי מחרוזת — הגנה מקובץ זדוני/פגום
+        const entries = Object.entries(payload.data)
+            .filter(([k, v]) => k.indexOf('gympro_') === 0 && typeof v === 'string');
+        if (!entries.length) {
+            showAlert('הקובץ ריק — אין חיבורים לייבוא.');
+            return;
+        }
+        showConfirm(`ייבוא ${entries.length} חיבורים והגדרות ידרוס את הקיימים. להמשיך?`, () => {
+            try {
+                entries.forEach(([k, v]) => localStorage.setItem(k, v));
+                showAlert('החיבורים שוחזרו בהצלחה!', () => { window.location.reload(); });
+            } catch (e) {
+                showAlert('שגיאה בשמירת החיבורים.');
+            }
+        });
+    },
+
     // ── Configuration Export / Import ────────────────────────────────────
 
     exportConfiguration() {

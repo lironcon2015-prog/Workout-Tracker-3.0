@@ -650,12 +650,21 @@
                                 <span class="stg-row-title">ייצוא תבנית</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">file_upload</span>
                             </button>
-                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="triggerConfigImport()">
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="triggerConfigImport()">
                                 <span class="stg-row-title">ייבוא תבנית</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">file_download</span>
                             </button>
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportConnections()">
+                                <span class="stg-row-title">ייצוא חיבורים (Firebase / API / גשרים)</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">key</span>
+                            </button>
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="triggerConnectionsImport()">
+                                <span class="stg-row-title">ייבוא חיבורים</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">key</span>
+                            </button>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">גיבוי/שחזור תוכניות והגדרות לקובץ מקומי — ללא תלות בענן.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">תבנית = תוכניות ותרגילים. חיבורים = Firebase, מפתח Gemini, גשרי MFP/שעון והעדפות — לשחזור מערכת בלי הזנה ידנית. ⚠️ קובץ החיבורים מכיל מפתחות אישיים — לשמור במקום בטוח.</div>
+                        <input type="file" id="import-connections-file" class="d-none" accept=".json,application/json" onchange="processConnectionsImport(this)">
                     </div>
 
                     <!-- ייבוא תזונה (MyFitnessPal) -->

@@ -872,6 +872,24 @@ function _applyScreenChrome(screenId) {
 
     const backBtn = document.getElementById('global-back');
     if (backBtn) backBtn.style.display = !NO_BACK_SCREENS.includes(screenId) ? 'flex' : 'none';
+
+    _syncStripLogBtn(screenId);
+}
+
+// _syncStripLogBtn — כפתור LOG SET בפאנל התחתון (session strip).
+// מוצג רק כשתרגיל פעיל בהקלטה ב-ui-main (btn-submit-set משמש כ-state marker:
+// display:'block' = מקליטים סט, 'none' = action panel בין תרגילים). לא מוצג ב-Live Mode.
+function _syncStripLogBtn(screenId) {
+    const btn = document.getElementById('strip-log-btn');
+    const lbl = document.getElementById('strip-label');
+    if (!btn || !lbl) return;
+    const id = screenId || (state.historyStack && state.historyStack[state.historyStack.length - 1]);
+    const submit = document.getElementById('btn-submit-set');
+    const logging = id === 'ui-main'
+        && submit && submit.style.display !== 'none'
+        && !document.body.classList.contains('live-mode-active');
+    btn.style.display = logging ? 'inline-flex' : 'none';
+    lbl.style.display = logging ? 'none' : '';
 }
 
 function navigate(id, clearStack = false) {
@@ -2151,6 +2169,7 @@ function initPickers() {
     // Wave 2 — טבלת הסטים החיה + pill החימום מתעדכנים בכל מעבר סט
     renderSetSessionTable();
     _syncWarmupPill();
+    _syncStripLogBtn();
 
     // סנכרון Live View — חשוב: ה-pickers הם source-of-truth ל-updateLiveViewContent,
     // אז אחרי שמילאנו אותם בערכים החדשים, צריך לרענן את מסך ה-Live כדי שלא יציג ערכים של תרגיל קודם
@@ -2639,6 +2658,7 @@ function nextStep() {
         document.getElementById('btn-submit-set').style.display = 'none';
         document.getElementById('btn-skip-exercise').style.display = 'none';
         renderSetSessionTable();   // הסט האחרון נכנס לטבלה גם בלי מעבר ל-initPickers
+        _syncStripLogBtn();        // בין תרגילים — הכפתור יורד מה-strip וחוזר "זמן אימון"
 
         const actionPanel = document.getElementById('action-panel');
         actionPanel.style.display = 'block';
@@ -5204,6 +5224,7 @@ async function enterWorkoutLiveMode() {
     updateLiveViewContent();
     _attachLiveSwipe();
     _syncLiveResumeBtn();
+    _syncStripLogBtn();   // ב-Live Mode הרישום בהחלקה — הכפתור יורד מה-strip
     haptic('light');
 }
 
@@ -5221,6 +5242,7 @@ async function exitWorkoutLiveMode(silent = false) {
         haptic('light');
     }
     _syncLiveResumeBtn();
+    _syncStripLogBtn();   // חזרה למסך הקלאסי — הכפתור חוזר ל-strip אם תרגיל פעיל
 }
 
 // Helper שמופעל מהכפתור "המשך לתרגיל הבא" בתוך ה-Live View

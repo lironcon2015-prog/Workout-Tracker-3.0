@@ -31,9 +31,6 @@ const StorageManager = {
     KEY_WATCH_BRIDGE_ON:    'gympro_watch_bridge_on',     // האם גשר השעון פעיל (ברירת מחדל: כבוי)
     KEY_BODYLOG:      'gympro_bodylog',
     KEY_SOUND:        'gympro_sound_enabled',
-    KEY_BAR_WEIGHT:   'gympro_bar_weight',      // משקל מוט למחשבון פלטות (ברירת מחדל: 20)
-    KEY_PLATES:       'gympro_plates',          // הפלטות הזמינות בחדר הכושר (מערך משקלים)
-    KEY_SKIP_CONFIRM: 'gympro_skip_confirm',    // מעבר ישיר לתרגיל בלי מסך אישור
     KEY_COPY_INCLUDE_COACH: 'gympro_copy_include_coach',
     KEY_ARCHIVE_COPY_COACH: 'gympro_archive_copy_coach',
     KEY_COACH_PROMPTS:      'gympro_coach_prompts',
@@ -84,31 +81,6 @@ const StorageManager = {
             state.workoutMeta = {};
             this.saveData(this.KEY_META, state.workoutMeta);
         }
-    },
-
-    // ── Workout UX Prefs (Wave 2) ────────────────────────────────────────
-
-    getBarWeight() {
-        const v = parseFloat(localStorage.getItem(this.KEY_BAR_WEIGHT));
-        return isNaN(v) ? 20 : v;
-    },
-    setBarWeight(w) {
-        try { localStorage.setItem(this.KEY_BAR_WEIGHT, String(w)); } catch (e) { /* הגנתי */ }
-    },
-    // הפלטות הזמינות — ברירת מחדל בלי 25 (לרוב חדרי הכושר אין). ניתן לשינוי במחשבון.
-    getPlates() {
-        const v = this.getData(this.KEY_PLATES);
-        if (Array.isArray(v) && v.length) return v.filter(p => typeof p === 'number' && p > 0).sort((a, b) => b - a);
-        return [20, 15, 10, 5, 2.5, 1.25];
-    },
-    setPlates(arr) {
-        this.saveData(this.KEY_PLATES, Array.isArray(arr) ? arr : []);
-    },
-    getSkipConfirm() {
-        return localStorage.getItem(this.KEY_SKIP_CONFIRM) === '1';
-    },
-    setSkipConfirm(on) {
-        try { localStorage.setItem(this.KEY_SKIP_CONFIRM, on ? '1' : '0'); } catch (e) { /* הגנתי */ }
     },
 
     // ── Session ──────────────────────────────────────────────────────────
@@ -436,7 +408,7 @@ const StorageManager = {
             if (data.nutritionRaw)   this.saveData(this.KEY_NUTRITION_RAW, data.nutritionRaw);
             if (data.bodyProfile)    this.saveData(this.KEY_BODY_PROFILE, data.bodyProfile);
             if (data.bodylog)        this.saveData(this.KEY_BODYLOG, data.bodylog);
-            showAlert("התבניות נטענו בהצלחה!", () => { reloadApp(); });
+            showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
         });
     },
 
@@ -974,7 +946,7 @@ const FirebaseManager = {
                 () => {
                     const ok = StorageManager.saveData(StorageManager.KEY_ARCHIVE, items);
                     if (!ok) { showAlert('שגיאה: הארכיון לא נשמר מקומית (אחסון מלא?). הנתונים המקומיים לא נדרסו.'); return; }
-                    showAlert('הארכיון שוחזר מהענן!', () => { reloadApp(); });
+                    showAlert('הארכיון שוחזר מהענן!', () => { window.location.reload(); });
                 }
             );
         } catch(e) {
@@ -1109,7 +1081,7 @@ const FirebaseManager = {
             if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
             if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
             await this._loadNutritionRawSilent();   // הקובץ הגולמי מסונכרן ב-chunks נפרדים
-            showAlert('הקונפיג שוחזר מהענן!', () => { reloadApp(); });
+            showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }
@@ -1167,7 +1139,7 @@ const FirebaseManager = {
             }
             StorageManager.saveAIHistory(doc.data().messages);
             if (doc.data().coachMemory) StorageManager.setCoachMemory(doc.data().coachMemory);
-            showAlert('היסטוריית שיחות שוחזרה!', () => { reloadApp(); });
+            showAlert('היסטוריית שיחות שוחזרה!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }

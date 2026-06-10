@@ -239,11 +239,9 @@ function renderManagerList() {
     const displayKeys = _managerTab === 'active' ? activeKeys : hiddenKeys;
 
     if (displayKeys.length === 0) {
-        const empty = document.createElement('div');
-        empty.innerHTML = (typeof emptyStateHtml === 'function')
-            ? emptyStateHtml('assignment', _managerTab === 'active' ? 'אין תוכניות פעילות' : 'אין תוכניות מוסתרות',
-                _managerTab === 'active' ? 'צור תוכנית אימון חדשה כדי להתחיל' : '')
-            : `<p class="text-center color-dim mt-lg">אין תוכניות</p>`;
+        const empty = document.createElement('p');
+        empty.className = 'text-center color-dim mt-lg';
+        empty.textContent = _managerTab === 'active' ? 'אין תוכניות פעילות' : 'אין תוכניות מוסתרות';
         list.appendChild(empty);
     } else {
         displayKeys.forEach((key, cardIdx) => {
@@ -426,9 +424,7 @@ function renderExerciseDatabase() {
     });
 
     if (filtered.length === 0) {
-        list.innerHTML = (typeof emptyStateHtml === 'function')
-            ? emptyStateHtml('search_off', 'לא נמצאו תרגילים', 'נסה חיפוש אחר או צור תרגיל חדש')
-            : `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
+        list.innerHTML = `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
         return;
     }
 
@@ -950,7 +946,7 @@ function importData(input) {
         try {
             const data = JSON.parse(e.target.result);
             StorageManager.restoreData(data);
-            showAlert("הנתונים יובאו בהצלחה!", () => { reloadApp(); });
+            showAlert("הנתונים יובאו בהצלחה!", () => { window.location.reload(); });
         } catch (err) {
             showAlert("שגיאה בקריאת הקובץ");
         }
@@ -1222,7 +1218,7 @@ async function checkForUpdate() {
                         const keys = await caches.keys();
                         await Promise.all(keys.map(k => caches.delete(k)));
                     }
-                    reloadApp();
+                    window.location.reload(true);
                 }
             );
         } else {

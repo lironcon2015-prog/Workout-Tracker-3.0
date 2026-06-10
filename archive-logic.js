@@ -496,10 +496,10 @@ function openArchiveDetail(idx) {
                     if (typeof showCloudToast === 'function') {
                         showCloudToast(ok ? '☁️ ארכיון עודכן בענן' : '⚠️ שגיאה בעדכון ארכיון בענן', ok);
                     }
-                    window.location.reload();
+                    reloadApp();
                 });
             } else {
-                window.location.reload();
+                reloadApp();
             }
         });
     };

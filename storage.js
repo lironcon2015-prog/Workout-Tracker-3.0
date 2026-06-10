@@ -436,7 +436,7 @@ const StorageManager = {
             if (data.nutritionRaw)   this.saveData(this.KEY_NUTRITION_RAW, data.nutritionRaw);
             if (data.bodyProfile)    this.saveData(this.KEY_BODY_PROFILE, data.bodyProfile);
             if (data.bodylog)        this.saveData(this.KEY_BODYLOG, data.bodylog);
-            showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
+            showAlert("התבניות נטענו בהצלחה!", () => { reloadApp(); });
         });
     },
 
@@ -974,7 +974,7 @@ const FirebaseManager = {
                 () => {
                     const ok = StorageManager.saveData(StorageManager.KEY_ARCHIVE, items);
                     if (!ok) { showAlert('שגיאה: הארכיון לא נשמר מקומית (אחסון מלא?). הנתונים המקומיים לא נדרסו.'); return; }
-                    showAlert('הארכיון שוחזר מהענן!', () => { window.location.reload(); });
+                    showAlert('הארכיון שוחזר מהענן!', () => { reloadApp(); });
                 }
             );
         } catch(e) {
@@ -1109,7 +1109,7 @@ const FirebaseManager = {
             if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
             if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
             await this._loadNutritionRawSilent();   // הקובץ הגולמי מסונכרן ב-chunks נפרדים
-            showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
+            showAlert('הקונפיג שוחזר מהענן!', () => { reloadApp(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }
@@ -1167,7 +1167,7 @@ const FirebaseManager = {
             }
             StorageManager.saveAIHistory(doc.data().messages);
             if (doc.data().coachMemory) StorageManager.setCoachMemory(doc.data().coachMemory);
-            showAlert('היסטוריית שיחות שוחזרה!', () => { window.location.reload(); });
+            showAlert('היסטוריית שיחות שוחזרה!', () => { reloadApp(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }

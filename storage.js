@@ -381,10 +381,24 @@ const StorageManager = {
             date: new Date().toISOString(),
             data
         };
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const json = JSON.stringify(payload, null, 2);
+        const fileName = `gympro_connections_${new Date().toISOString().slice(0, 10)}.json`;
+
+        // ב-iOS standalone הורדת blob דרך anchor מנווטת את ה-WebView ועלולה
+        // להקפיץ/לאתחל את האפליקציה. לכן קודם Web Share API (שיתוף ← "שמור
+        // בקבצים") — בלי שום ניווט; anchor נשאר fallback לדפדפן שולחני.
+        try {
+            const file = new File([json], fileName, { type: 'application/json' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({ files: [file] }).catch(() => { /* ביטול שיתוף אינו שגיאה */ });
+                return;
+            }
+        } catch (e) { /* אין תמיכה — ממשיכים ל-fallback */ }
+
+        const blob = new Blob([json], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `gympro_connections_${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = fileName;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         showAlert('קובץ החיבורים ירד. ⚠️ הוא מכיל מפתחות אישיים — שמור אותו במקום בטוח.');
     },

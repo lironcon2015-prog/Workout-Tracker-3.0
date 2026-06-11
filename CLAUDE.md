@@ -157,6 +157,10 @@ version.json: { "version": "15.X" }
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
 
+### כלל אחידות פיקרים (תיעוד סטים)
+
+לפיקרים של תיעוד סטים יש **שתי חזיתות UI**: המסך המפורט (`ui-main` — weight/reps/rir pickers + steppers) ומסך ה-**Live** (`live-edit-sheet` — proxy לאותם pickers). **כל שינוי או פיצ'ר בפיקרים חייב לחול על שתיהן** (כולל `_syncLiveEditSheetDisplays`, `_syncLiveWeightModeUI`, `editLivePickerValue`, `_liveStepPicker`). חריג: שינוי שנועד בכוונה לחזית אחת בלבד — ואז **חובה לשאול את המשתמש** האם להחיל בשתיהן לפני הביצוע.
+
 ### קשרים קריטיים בין קבצים
 
 - `navigate(id)` ב-`workout-core.js` — **מקור האמת** לניווט. מעדכן tab-bar, session-strip, settings-btn, back-btn.
@@ -167,7 +171,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-16.00
+16.01
 
 ---
 

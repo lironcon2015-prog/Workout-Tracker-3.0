@@ -653,7 +653,13 @@ body::before {
     font-size: 0.6rem; font-weight: 800; color: rgba(255,255,255,0.4);
     text-transform: uppercase; letter-spacing: 0.18em; margin-bottom: 4px;
 }
-/* תווית שיטת המשקל — לחיצה מחליפה ק"ג ⇄ פלטות ⇄ משקל גוף */
+/* תווית שיטת המשקל — לחיצה מחליפה ק"ג ⇄ פלטות ⇄ משקל גוף (מסך מפורט + Live) */
+.live-edit-card-lbl.wmode-toggle {
+    cursor: pointer;
+    border-bottom: 1px dotted rgba(255,255,255,0.25);
+    padding-bottom: 2px;
+    -webkit-user-select: none; user-select: none;
+}
 .stepper-card label.wmode-toggle {
     cursor: pointer;
     border-bottom: 1px dotted rgba(255,255,255,0.25);

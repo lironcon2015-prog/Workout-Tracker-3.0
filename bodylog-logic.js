@@ -100,6 +100,7 @@ function _blFilter(log) {
 // ─── תצוגת תזונה (MyFitnessPal) ──────────────────────────────────────────────
 function _renderNutritionView() {
     const all = StorageManager.getNutritionDaily();
+    _renderNutritionDaily(all);
     _renderNutritionCard(all);
     _renderTdeeCard();
     _renderNutritionCharts(all);
@@ -167,7 +168,9 @@ function computeTDEE() {
         if (phaseStart) { const skip = _addDays(phaseStart, 7); if (skip > startDate) startDate = skip; }
     } catch (e) { /* אין לוג מעברים — נשארים עם חלון 28 הימים */ }
 
-    const nutW = (StorageManager.getNutritionDaily() || []).filter(d => d.date >= startDate);
+    // היום הנוכחי מוחרג — תיעוד חלקי (Health תוך-יומי) מטה את הצריכה הממוצעת כלפי מטה
+    const _tdToday = _blTodayStr();
+    const nutW = (StorageManager.getNutritionDaily() || []).filter(d => d.date >= startDate && d.date !== _tdToday);
     const bodW = (StorageManager.getBodyLog() || []).filter(e => e.date >= startDate).sort((a, b) => a.date < b.date ? -1 : 1);
     const spanDays = bodW.length ? (_blDTs(bodW[bodW.length - 1].date) - _blDTs(bodW[0].date)) / 86400000 : 0;
     if (nutW.length >= 10 && bodW.length >= 4 && spanDays >= 10) {
@@ -216,6 +219,10 @@ function computeTDEE() {
     return res;
 }
 
+// מצב הרחבת כרטיס המאזן — ברירת מחדל מקופל (hero + קצב נוכחי בלבד)
+let _blTdeeExpanded = false;
+function toggleTdeeExpand() { _blTdeeExpanded = !_blTdeeExpanded; _renderTdeeCard(); haptic('light'); }
+
 function _renderTdeeCard() {
     const card = document.getElementById('bl-tdee-card');
     if (!card) return;
@@ -232,11 +239,8 @@ function _renderTdeeCard() {
     const bulk = t.best + 275;       // עודף ל-~0.25 ק"ג/שבוע
     const balance = (t.weeklyKg != null)
         ? `<div class="bl-tdee-balance">קצב נוכחי: ${t.weeklyKg >= 0 ? '+' : ''}${t.weeklyKg} ק"ג/שבוע · צריכה ממוצעת ${fmt(t.avgIntake)} קק"ל</div>` : '';
-    card.innerHTML = `
-        <div class="bl-chart-title">מאזן אנרגיה · TDEE <small>— ביטחון ${t.confidence} · ${t.source}</small></div>
-        <div class="bl-tdee-hero">${fmt(t.best)}<span class="bl-tdee-unit">קק"ל/יום</span></div>
-        <div class="bl-tdee-range">טווח ${fmt(t.low)}–${fmt(t.high)} · אי-ודאות: ${t.uncertainty}</div>
-        ${balance}
+    // הפירוט (טבלת שיטות, יעדים, הערות) מוסתר כברירת מחדל — נפתח בלחיצה
+    const details = !_blTdeeExpanded ? '' : `
         <table class="bl-tdee-table"><thead><tr><th>שיטה</th><th>BMR</th><th>TDEE</th><th></th></tr></thead><tbody>${rows}</tbody></table>
         ${t.diverge ? `<div class="bl-tdee-warn">⚠ השיטות סוטות &gt;15% זו מזו — ייתכן דיווח לא עקבי</div>` : ''}
         <div class="bl-tdee-targets">
@@ -245,45 +249,92 @@ function _renderTdeeCard() {
             <div><span>עלייה ~0.25/שב'</span><b>${fmt(bulk)}</b></div>
         </div>
         <div class="bl-nutri-foot">${t.note}</div>`;
+    card.innerHTML = `
+        <div class="bl-chart-title">מאזן אנרגיה · TDEE <small>— ביטחון ${t.confidence} · ${t.source}</small></div>
+        <div class="bl-tdee-hero">${fmt(t.best)}<span class="bl-tdee-unit">קק"ל/יום</span></div>
+        <div class="bl-tdee-range">טווח ${fmt(t.low)}–${fmt(t.high)} · אי-ודאות: ${t.uncertainty}</div>
+        ${balance}
+        ${details}
+        <button class="bl-tdee-toggle" onclick="toggleTdeeExpand()">
+            <span>${_blTdeeExpanded ? 'הסתר פירוט' : 'הצג פירוט'}</span>
+            <span class="material-symbols-outlined">${_blTdeeExpanded ? 'expand_less' : 'expand_more'}</span>
+        </button>`;
+}
+
+// _renderNutritionDaily — כרטיס "תזונה היום": נתוני היום (מתעדכנים תוך-יומית מ-Health)
+// + חותמת המשיכה האחרונה מהגשר. כפתור "ייבוא · ייצוא" יחיד פותח את ה-sheet המרכזי.
+function _renderNutritionDaily(allDays) {
+    const card = document.getElementById('bl-daily-card');
+    if (!card) return;
+    const all = allDays || StorageManager.getNutritionDaily();
+    const ioBtn = `<button class="bl-nutri-import" onclick="openNutriIOSheet()"><span class="material-symbols-outlined">swap_vert</span><span>ייבוא · ייצוא</span></button>`;
+
+    if (!all.length) {
+        card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">תזונה היום</div>${ioBtn}</div>
+            <p class="bl-nutri-hint">אין עדיין נתוני תזונה — חבר את גשר ה-Health (הגדרות) או ייבא ייצוא MFP דרך "ייבוא · ייצוא".</p>`;
+        return;
+    }
+    const today = _blTodayStr();
+    const latest = all[all.length - 1];               // ממוין מהישן לחדש
+    const isToday = latest.date === today;
+    const title = isToday ? 'תזונה היום' : `יום אחרון <small>— ${_blListDate(latest.date)}</small>`;
+    const foot = [`מקור: ${latest.src === 'health' ? 'Apple Health' : 'MyFitnessPal'}`];
+    const lastSync = StorageManager.getHealthLastSync();
+    if (lastSync) {
+        const d = new Date(lastSync);
+        const p = x => String(x).padStart(2, '0');
+        foot.push(`עדכון Health אחרון: ${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`);
+    }
+    card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">${title}</div>${ioBtn}</div>
+        <div class="bl-nutri-grid">
+            ${_nutriKpi('קלוריות', latest.calories || 0, 'kcal')}
+            ${_nutriKpi('חלבון', latest.protein || 0, 'g')}
+            ${_nutriKpi('פחמימה', latest.carbs || 0, 'g')}
+            ${_nutriKpi('שומן', latest.fat || 0, 'g')}
+        </div>
+        <div class="bl-nutri-foot">${foot.join(' · ')}</div>`;
 }
 
 function _renderNutritionCard(allDays) {
     const card = document.getElementById('bl-nutrition-card');
     if (!card) return;
     const all = allDays || StorageManager.getNutritionDaily();
-    // כפתור Health מוצג רק כשהגשר מוגדר — משיכה ידנית (manual=true עוקף throttle)
-    const healthBtn = StorageManager.getHealthBridge().url
-        ? `<button class="bl-nutri-import" onclick="syncHealthNutrition(true)"><span class="material-symbols-outlined">ecg_heart</span><span>Health</span></button>`
-        : '';
-    const importBtn = `<div style="display:inline-flex;gap:6px;flex-shrink:0;">${healthBtn}<button id="bl-nutri-import-btn" class="bl-nutri-import" onclick="importNutritionFromGmail()"><span class="material-symbols-outlined">cloud_download</span><span>ייבא מ-Gmail</span></button></div>`;
+    if (!all.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
 
-    if (!all.length) {
-        card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">תזונה · MyFitnessPal</div>${importBtn}</div>
-            <p class="bl-nutri-hint">אין עדיין נתוני תזונה. בקש ייצוא ב-MyFitnessPal ולחץ "ייבא מ-Gmail" כדי למשוך את הייצוא האחרון.</p>`;
-        return;
-    }
-    const inRange = _blFilter(all).sort((a, b) => a.date < b.date ? -1 : 1);
-    const base = inRange.length ? inRange : all;
+    // הממוצע מחושב ללא היום הנוכחי — היום עוד לא הסתיים והנתון החלקי מטה אותו
+    const today = _blTodayStr();
+    const inRange = _blFilter(all).filter(d => d.date !== today).sort((a, b) => a.date < b.date ? -1 : 1);
+    const noToday = all.filter(d => d.date !== today);
+    const base = inRange.length ? inRange : (noToday.length ? noToday : all);
     const avg = k => Math.round(base.reduce((s, d) => s + (d[k] || 0), 0) / base.length);
-    const latest = all[all.length - 1];
     card.innerHTML = `<div class="bl-nutri-head">
-            <div class="bl-chart-title">ממוצע תזונה <small>— ${_rangeLabel()}</small></div>${importBtn}</div>
+            <div class="bl-chart-title">ממוצע תזונה <small>— ${_rangeLabel()} · ללא היום</small></div></div>
         <div class="bl-nutri-grid">
             ${_nutriKpi('קלוריות', avg('calories'), 'kcal')}
             ${_nutriKpi('חלבון', avg('protein'), 'g')}
             ${_nutriKpi('פחמימה', avg('carbs'), 'g')}
             ${_nutriKpi('שומן', avg('fat'), 'g')}
         </div>
-        <div class="bl-nutri-foot">${base.length} ימים בטווח · עודכן לאחרונה ${_blListDate(latest.date)} · ${all.length} ימים בסך הכל</div>
-        <div class="bl-nutri-exports">
-            <button class="bl-export-btn" onclick="exportNutritionCsv('all')"><span class="material-symbols-outlined">table_view</span>ייצא יומי</button>
-            <button class="bl-export-btn" onclick="exportNutritionCsv('range')"><span class="material-symbols-outlined">date_range</span>ייצא תקופה</button>
-        </div>
-        <div class="bl-nutri-exports">
-            <button class="bl-export-btn" onclick="exportNutritionRawCsv('all')"><span class="material-symbols-outlined">description</span>MFP גולמי · הכל</button>
-            <button class="bl-export-btn" onclick="exportNutritionRawCsv('range')"><span class="material-symbols-outlined">date_range</span>MFP גולמי · תקופה</button>
-        </div>
-        <button class="bl-nutri-reset" onclick="resetNutritionData()"><span class="material-symbols-outlined">delete</span>מחק נתוני תזונה</button>`;
+        <div class="bl-nutri-foot">${base.length} ימים בטווח · ${all.length} ימים בסך הכל</div>`;
+}
+
+// ─── Bottom sheet ייבוא/ייצוא תזונה — מרכז את כל הפעולות במקום אחד ─────────
+function openNutriIOSheet() {
+    document.getElementById('nutri-io-overlay').style.display = 'block';
+    document.getElementById('nutri-io-sheet').classList.add('open');
+    haptic('light');
+}
+
+function closeNutriIOSheet() {
+    document.getElementById('nutri-io-overlay').style.display = 'none';
+    document.getElementById('nutri-io-sheet').classList.remove('open');
+}
+
+// _nutriIOAction — סוגר את ה-sheet ומריץ את הפעולה שנבחרה
+function _nutriIOAction(fn) {
+    closeNutriIOSheet();
+    setTimeout(fn, 150); // נותן ל-sheet להיסגר חלק לפני דיאלוגים/הורדות
 }
 
 function _nutriKpi(label, val, unit) {

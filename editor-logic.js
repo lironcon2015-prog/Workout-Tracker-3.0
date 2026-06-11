@@ -53,6 +53,10 @@ const WORKOUT_THUMB_IMAGES = [
     'https://lh3.googleusercontent.com/aida-public/AB6AXuCOI-xJHBRcxLOuOVtVrd05C2ziUleF7r3se3JDtjsOM8IIalAQtIRw9w2KLEOv7fB3zr2bxUbW-urEdaO4enryruujATKVSSXT1RerLy2ZmNDMaIQm2NibKnDL0LwrGBjAvgCfXGy-oJZios3IL_2PkYZOH5yav5VqNwQkiXyCbHrZHcjyk3qlJ2L8yzC2TLxN8ReMXDsDk6w_xfnWh7UxjS5qVYcJVobrXNidjhtN8pghO5tPDTuBmiQzaGH9CWUsJkwkt2QYvOg=w400',
     // תמונות מקומיות (img/) — להוסיף תמיד בסוף! ההסתרות וה-_thumbIdx נשמרים לפי אינדקס
     'img/thumb-arms-1.jpg',
+    'img/thumb-chest-1.jpg',
+    'img/thumb-shoulders-1.jpg',
+    'img/thumb-back-1.jpg',
+    'img/thumb-legs-1.jpg',
 ];
 
 // ─── HIDDEN THUMBS MANAGEMENT ──────────────────────────────────────────────

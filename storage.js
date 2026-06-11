@@ -202,7 +202,11 @@ const StorageManager = {
     // חלון חסד: החלפת מצב בתוך הזמן הזה נחשבת "משחק בכפתורים" ולא מעבר אמיתי
     NUTRITION_GRACE_MS: 10 * 60 * 1000,
 
-    _todayStr() { return new Date().toISOString().slice(0, 10); },
+    // תאריך מקומי — לא UTC (toISOString מחזיר את אתמול בין חצות ל-03:00 שעון ישראל)
+    _todayStr() {
+        const d = new Date(), p = x => String(x).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    },
 
     // המרת "YYYY-MM-DD" לחצות מקומית (ms) — עקבי עם _daysInState
     _dateStrToTs(dateStr) {

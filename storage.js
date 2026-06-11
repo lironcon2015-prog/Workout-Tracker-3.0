@@ -26,6 +26,8 @@ const StorageManager = {
     KEY_BODY_PROFILE:    'gympro_body_profile',        // מין/גיל/גובה/רמת פעילות — לחישוב TDEE
     KEY_MFP_BRIDGE_URL:   'gympro_mfp_bridge_url',    // Apps Script Web App URL
     KEY_MFP_BRIDGE_TOKEN: 'gympro_mfp_bridge_token',  // token סודי לגשר
+    KEY_HEALTH_BRIDGE_URL:   'gympro_health_bridge_url',    // גשר תזונה Apple Health
+    KEY_HEALTH_BRIDGE_TOKEN: 'gympro_health_bridge_token',  // token סודי לגשר ה-Health
     KEY_WATCH_BRIDGE_URL:   'gympro_watch_bridge_url',    // Apps Script proxy לגשר השעון
     KEY_WATCH_BRIDGE_TOKEN: 'gympro_watch_bridge_token',  // SECRET_TOKEN לגשר השעון
     KEY_WATCH_BRIDGE_ON:    'gympro_watch_bridge_on',     // האם גשר השעון פעיל (ברירת מחדל: כבוי)
@@ -356,6 +358,8 @@ const StorageManager = {
             this.KEY_COACH_PROMPTS,
             this.KEY_MFP_BRIDGE_URL,
             this.KEY_MFP_BRIDGE_TOKEN,
+            this.KEY_HEALTH_BRIDGE_URL,
+            this.KEY_HEALTH_BRIDGE_TOKEN,
             this.KEY_WATCH_BRIDGE_URL,
             this.KEY_WATCH_BRIDGE_TOKEN,
             this.KEY_WATCH_BRIDGE_ON,
@@ -534,6 +538,7 @@ const StorageManager = {
     },
 
     // saveNutritionDaily — upsert לפי תאריך (ייבוא חדש דורס יום קיים), ממוין מהישן לחדש.
+    // נתיב הייבוא של MFP — דורס הכל, כולל ימים שמקורם ב-Health (MFP = מקור האמת).
     saveNutritionDaily(days) {
         const map = {};
         this.getNutritionDaily().forEach(d => { if (d && d.date) map[d.date] = d; });
@@ -541,6 +546,37 @@ const StorageManager = {
         const merged = Object.values(map).sort((a, b) => a.date < b.date ? -1 : 1);
         this.saveData(this.KEY_NUTRITION_DAILY, merged);
         return merged;
+    },
+
+    // mergeHealthNutritionDays — מיזוג ימי תזונה מגשר ה-Health. כללי עדיפות:
+    // יום Health נכתב רק אם אין רשומה לאותו תאריך, או שהקיימת גם היא מ-Health
+    // (src:'health'). יום MFP לעולם אינו נדרס. מחזיר את מספר הימים שהשתנו בפועל.
+    mergeHealthNutritionDays(days) {
+        const map = {};
+        this.getNutritionDaily().forEach(d => { if (d && d.date) map[d.date] = d; });
+        let changed = 0;
+        (days || []).forEach(d => {
+            if (!d || !d.date) return;
+            const existing = map[d.date];
+            if (existing && existing.src !== 'health') return; // יום MFP — לא נוגעים
+            const next = {
+                date: d.date,
+                calories: Math.round(Number(d.calories) || 0),
+                protein:  Math.round(Number(d.protein)  || 0),
+                carbs:    Math.round(Number(d.carbs)    || 0),
+                fat:      Math.round(Number(d.fat)      || 0),
+                src: 'health'
+            };
+            if (existing &&
+                existing.calories === next.calories && existing.protein === next.protein &&
+                existing.carbs === next.carbs && existing.fat === next.fat) return; // ללא שינוי
+            map[d.date] = next;
+            changed++;
+        });
+        if (!changed) return 0;
+        const merged = Object.values(map).sort((a, b) => a.date < b.date ? -1 : 1);
+        this.saveData(this.KEY_NUTRITION_DAILY, merged);
+        return changed;
     },
 
     // ── הקובץ הגולמי של MFP (per-meal) ───────────────────────────────────
@@ -583,6 +619,19 @@ const StorageManager = {
     saveMfpBridge(url, token) {
         localStorage.setItem(this.KEY_MFP_BRIDGE_URL, (url || '').trim());
         localStorage.setItem(this.KEY_MFP_BRIDGE_TOKEN, (token || '').trim());
+    },
+
+    // ── Health Bridge (סנכרון תזונה מ-Apple Health דרך Shortcuts) ──────────
+    getHealthBridge() {
+        return {
+            url:   localStorage.getItem(this.KEY_HEALTH_BRIDGE_URL) || '',
+            token: localStorage.getItem(this.KEY_HEALTH_BRIDGE_TOKEN) || ''
+        };
+    },
+
+    saveHealthBridge(url, token) {
+        localStorage.setItem(this.KEY_HEALTH_BRIDGE_URL, (url || '').trim());
+        localStorage.setItem(this.KEY_HEALTH_BRIDGE_TOKEN, (token || '').trim());
     },
 
     // ── Watch Bridge (גשר אפל-ווטש) — כבוי כברירת מחדל ──

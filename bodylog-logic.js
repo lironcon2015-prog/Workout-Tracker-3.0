@@ -251,7 +251,11 @@ function _renderNutritionCard(allDays) {
     const card = document.getElementById('bl-nutrition-card');
     if (!card) return;
     const all = allDays || StorageManager.getNutritionDaily();
-    const importBtn = `<button id="bl-nutri-import-btn" class="bl-nutri-import" onclick="importNutritionFromGmail()"><span class="material-symbols-outlined">cloud_download</span><span>ייבא מ-Gmail</span></button>`;
+    // כפתור Health מוצג רק כשהגשר מוגדר — משיכה ידנית (manual=true עוקף throttle)
+    const healthBtn = StorageManager.getHealthBridge().url
+        ? `<button class="bl-nutri-import" onclick="syncHealthNutrition(true)"><span class="material-symbols-outlined">ecg_heart</span><span>Health</span></button>`
+        : '';
+    const importBtn = `<div style="display:inline-flex;gap:6px;flex-shrink:0;">${healthBtn}<button id="bl-nutri-import-btn" class="bl-nutri-import" onclick="importNutritionFromGmail()"><span class="material-symbols-outlined">cloud_download</span><span>ייבא מ-Gmail</span></button></div>`;
 
     if (!all.length) {
         card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">תזונה · MyFitnessPal</div>${importBtn}</div>

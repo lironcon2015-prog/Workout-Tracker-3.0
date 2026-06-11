@@ -1245,6 +1245,8 @@ function switchMainTab(name) {
     else if (name === 'bodylog') {
         navigate('ui-bodylog', true);
         if (typeof renderBodyLog === 'function') renderBodyLog();
+        // משיכת תזונה שקטה מגשר ה-Health (throttle פנימי של 15 דק')
+        if (typeof syncHealthNutrition === 'function') syncHealthNutrition(false);
     }
     haptic('light');
 }

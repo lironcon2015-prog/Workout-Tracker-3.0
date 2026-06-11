@@ -273,6 +273,15 @@ document.addEventListener('DOMContentLoaded', () => {
     try { _initSwipeBackGesture(); } catch (e) {}
     try { _initTabSwipeGesture(); }  catch (e) {}
     try { _initAllSheetsDrag(); }   catch (e) {}
+    // סנכרון תזונה מ-Health: בכניסה לאפליקציה + כל שעה עגולה כשהיא פתוחה.
+    // משיכה שקטה עם throttle פנימי (15 דק') — לא חוסמת את הטעינה.
+    setTimeout(() => syncHealthNutrition(false), 2500);
+    _scheduleHealthHourlySync();
+});
+
+// חזרה לאפליקציה מהרקע (PWA ב-iOS נשאר בזיכרון) = "כניסה" — משיכת Health שקטה
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncHealthNutrition(false);
 });
 
 function checkRecovery() {
@@ -1066,6 +1075,7 @@ function openSettings() {
     if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
     if (typeof updateAIStatus === 'function') updateAIStatus();
     if (typeof updateMfpBridgeStatus === 'function') updateMfpBridgeStatus();
+    if (typeof updateHealthBridgeStatus === 'function') updateHealthBridgeStatus();
     if (typeof updateWatchBridgeStatus === 'function') updateWatchBridgeStatus();
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
@@ -4830,6 +4840,86 @@ function updateMfpBridgeStatus() {
     } else {
         el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
     }
+}
+
+// ─── גשר תזונה Apple Health (Shortcuts → Apps Script) ───────────────────────
+function saveHealthBridgeSettings() {
+    const urlInput   = document.getElementById('health-bridge-url-input');
+    const tokenInput = document.getElementById('health-bridge-token-input');
+    if (!urlInput || !tokenInput) return;
+    StorageManager.saveHealthBridge(urlInput.value.trim(), tokenInput.value.trim());
+    updateHealthBridgeStatus();
+    showAlert('הגדרות גשר ה-Health נשמרו!');
+    syncHealthNutrition(true); // משיכה מיידית — פידבק מהיר שהחיבור עובד
+}
+
+function updateHealthBridgeStatus() {
+    const el = document.getElementById('health-bridge-status');
+    if (!el) return;
+    const { url, token } = StorageManager.getHealthBridge();
+    if (url) {
+        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span>';
+        const ui = document.getElementById('health-bridge-url-input');
+        const ti = document.getElementById('health-bridge-token-input');
+        if (ui && !ui.value) ui.value = url;
+        if (ti && !ti.value) ti.value = token;
+    } else {
+        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
+    }
+}
+
+/**
+ * syncHealthNutrition — מושך ימי תזונה מגשר ה-Health וממזג ל-nutritionDaily.
+ * MFP = מקור האמת: המיזוג (mergeHealthNutritionDays) לעולם לא דורס יום MFP.
+ * manual=false (אוטומטי): שקט לחלוטין + throttle של 15 דקות בין משיכות.
+ */
+let _healthSyncLast = 0;
+const HEALTH_SYNC_THROTTLE_MS = 15 * 60 * 1000;
+
+async function syncHealthNutrition(manual = false) {
+    const { url, token } = StorageManager.getHealthBridge();
+    if (!url) {
+        if (manual) showAlert('יש להגדיר קודם את גשר ה-Health בהגדרות → "גשר תזונה Apple Health".');
+        return;
+    }
+    const now = Date.now();
+    if (!manual && now - _healthSyncLast < HEALTH_SYNC_THROTTLE_MS) return;
+    _healthSyncLast = now;
+
+    if (manual) showCloudToast('⏳ מושך תזונה מ-Health…', true);
+    try {
+        const data = await _jsonpRequest(url, token, 30000);
+        if (!data || data.ok !== true) {
+            throw new Error(data && data.error === 'BAD_TOKEN' ? 'token שגוי — בדוק את ההגדרות.' : ((data && data.error) || 'שגיאה לא ידועה מהגשר.'));
+        }
+        const days = Array.isArray(data.days) ? data.days : [];
+        if (!days.length) {
+            if (manual) showCloudToast('הגשר ריק — ודא שהקיצור רץ לפחות פעם אחת', true);
+            return;
+        }
+        const changed = StorageManager.mergeHealthNutritionDays(days);
+        if (changed > 0) {
+            const blScreen = document.getElementById('ui-bodylog');
+            if (typeof renderBodyLog === 'function' && blScreen && blScreen.classList.contains('active')) renderBodyLog();
+            if (typeof FirebaseManager !== 'undefined') FirebaseManager.saveConfigToCloud().catch(() => {});
+            showCloudToast(`✅ עודכנו ${changed} ימי תזונה מ-Health`, true);
+        } else if (manual) {
+            showCloudToast('הנתונים כבר מעודכנים', true);
+        }
+    } catch (e) {
+        console.warn('GymPro: health nutrition sync failed', e);
+        if (manual) showCloudToast('⚠️ ' + e.message, false);
+    }
+}
+
+// תזמון שעתי — משיכה בכל שעה עגולה כל עוד האפליקציה פתוחה (PWA לא רץ ברקע,
+// אז setTimeout פשוט לא יורה כשהאפליקציה סגורה — אין צורך בניקוי)
+function _scheduleHealthHourlySync() {
+    const msToNextHour = 3600000 - (Date.now() % 3600000) + 5000; // +5ש' מרווח ביטחון
+    setTimeout(() => {
+        syncHealthNutrition(false);
+        _scheduleHealthHourlySync();
+    }, msToNextHour);
 }
 
 // ─── גשר אפל-ווטש ────────────────────────────────────────────────────────────

@@ -51,6 +51,8 @@ const WORKOUT_THUMB_IMAGES = [
     'https://lh3.googleusercontent.com/aida-public/AB6AXuDM747zT5KYoaK7X8hc-K-WYOjQXbbgWXh_0AcMIq4ja35br_K3VLl0dCSx-U68SYUq_k5e04IvERh-vlKv-k2AAANYGRdP6b51aHTDC1tMNLZ5srr2OUfYz5Q-Ntm75y29b67xEwWvocbUijNsm4kvskmBoa3U0umSm3TxpsF145TI6B2S2RwbHj0gPyhcC7ci-6qdVORG9a8JXyomx-FbSaHn3-QEWvshpgb_ah09clrwL88QDQS-eWCeztMEGN9j29hnLX35ddw=w400',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuC2anRJGMnLHZPMMsfqKBf630347PZ3rWsm8rSg-LRhI4oA4Df_ne_03owqU5d_6b8pokyZBFrN6-5KIYUM7_bOFguohUBhm7AWhDg-1bpjZGgqyxhU1p2Z82kPb8ZwKorRZ4g9-EMnpUNi1v51elx50e7TZp74rAnL3yb6jHleAtvBGySoEEFyO9dVDP0JhuQJnoIY9xx2uOhXtz09RwiTkiwXXd-zNSeBkH-L0FeACvCBbl0cCi57Qtkzw8rMECn-Y0gudIjSeJc=w400',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuCOI-xJHBRcxLOuOVtVrd05C2ziUleF7r3se3JDtjsOM8IIalAQtIRw9w2KLEOv7fB3zr2bxUbW-urEdaO4enryruujATKVSSXT1RerLy2ZmNDMaIQm2NibKnDL0LwrGBjAvgCfXGy-oJZios3IL_2PkYZOH5yav5VqNwQkiXyCbHrZHcjyk3qlJ2L8yzC2TLxN8ReMXDsDk6w_xfnWh7UxjS5qVYcJVobrXNidjhtN8pghO5tPDTuBmiQzaGH9CWUsJkwkt2QYvOg=w400',
+    // תמונות מקומיות (img/) — להוסיף תמיד בסוף! ההסתרות וה-_thumbIdx נשמרים לפי אינדקס
+    'img/thumb-arms-1.jpg',
 ];
 
 // ─── HIDDEN THUMBS MANAGEMENT ──────────────────────────────────────────────
@@ -344,6 +346,7 @@ function openExerciseCreator() {
     document.getElementById('conf-ex-min').value = "";
     document.getElementById('conf-ex-max').value = "";
     document.getElementById('conf-ex-uni').checked = false;
+    document.getElementById('conf-ex-wmode').value = "kg";
 
     document.getElementById('btn-delete-ex').classList.add('d-none');
 
@@ -367,6 +370,8 @@ function openExerciseEditor(exName) {
     document.getElementById('conf-ex-muscle').value = muscleVal;
     document.getElementById('conf-ex-step').value = ex.step || "2.5";
     document.getElementById('conf-ex-uni').checked = !!ex.isUnilateral;
+    // שיטת משקל — weightMode מפורש גובר; דגל isBW ישן ממופה למשקל גוף
+    document.getElementById('conf-ex-wmode').value = ex.weightMode || (ex.isBW ? 'bw' : 'kg');
 
     if (ex.manualRange) {
         document.getElementById('conf-ex-base').value = ex.manualRange.base || "";
@@ -446,6 +451,7 @@ function saveExerciseConfig() {
     const min = parseFloat(document.getElementById('conf-ex-min').value);
     const max = parseFloat(document.getElementById('conf-ex-max').value);
     const isUni = document.getElementById('conf-ex-uni').checked;
+    const wMode = document.getElementById('conf-ex-wmode').value;
 
     if (!name) { showAlert("נא להזין שם תרגיל"); return; }
 
@@ -461,6 +467,7 @@ function saveExerciseConfig() {
             muscles: musclesArr,
             step,
             isUnilateral: isUni,
+            weightMode: wMode,
             manualRange: {
                 base: isNaN(base) ? undefined : base,
                 min: isNaN(min) ? undefined : min,
@@ -501,20 +508,22 @@ function saveExerciseConfig() {
                     if (lastW) StorageManager.saveWeight(name, lastW);
 
                     state.exercises[exIndex].name = name;
-                    _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max);
+                    _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max, wMode);
                 }
             );
             return;
         }
 
-        _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max);
+        _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max, wMode);
     }
 }
 
-function _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max) {
+function _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max, wMode) {
     state.exercises[exIndex].muscles = musclesArr;
     state.exercises[exIndex].step = step;
     state.exercises[exIndex].isUnilateral = isUni;
+    // weightMode מפורש תמיד — גובר על דגל isBW ישן בתרגילי ברירת המחדל
+    state.exercises[exIndex].weightMode = wMode || 'kg';
 
     if (!state.exercises[exIndex].manualRange) state.exercises[exIndex].manualRange = {};
     state.exercises[exIndex].manualRange.base = isNaN(base) ? undefined : base;

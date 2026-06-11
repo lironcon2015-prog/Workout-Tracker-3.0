@@ -1746,6 +1746,69 @@ function isUnilateral(exName) {
     return unilateralKeywords.some(keyword => exName.includes(keyword));
 }
 
+// ─── WEIGHT MODES (ק״ג / פלטות / משקל גוף) ─────────────────────────────────
+// כל תרגיל יכול לעבוד באחת משלוש שיטות: kg (ברירת מחדל), plates, bw.
+// ברירת המחדל נקבעת בעורך התרגיל (weightMode); דגל isBW ישן ממופה ל-bw.
+// החלפה תוך כדי אימון נשמרת ב-state.sessionWeightModes — חד-פעמית לאותו אימון.
+
+const PLATE_KG = 4; // משקל פלטה משוער לחישוב ווליום
+
+const WEIGHT_MODE_LABELS = { kg: 'Weight (kg)', plates: 'פלטות', bw: 'משקל גוף' };
+
+// השיטה האפקטיבית לתרגיל — עדיפות: override של האימון הנוכחי → הגדרת התרגיל → kg
+function _effWeightMode(exName) {
+    const name = exName || state.currentExName;
+    if (state.sessionWeightModes && state.sessionWeightModes[name]) return state.sessionWeightModes[name];
+    const ex = state.exercises.find(e => e.name === name) ||
+               (state.currentEx && state.currentExName === name ? state.currentEx : null);
+    if (!ex) return 'kg';
+    return ex.weightMode || (ex.isBW ? 'bw' : 'kg');
+}
+
+// תצוגת משקל של סט לפי שיטה — '80kg' / '5 פלטות' / 'BW'
+function _fmtW(entry) {
+    if (entry.wm === 'bw') return 'BW';
+    if (entry.wm === 'plates') return entry.w + ' פלטות';
+    return entry.w + 'kg';
+}
+
+// ווליום של רשומת לוג — bw לא נספר; פלטות לפי PLATE_KG
+function _setVol(entry) {
+    if (entry.wm === 'bw') return 0;
+    const w = entry.wm === 'plates' ? entry.w * PLATE_KG : entry.w;
+    return w * entry.r;
+}
+
+// ווליום מסטרינג סט בארכיון: "80kg x 5" / "5 פלטות x 10" / "BW x 12"
+function _setStrVol(setStr) {
+    const core = setStr.includes('|') ? setStr.split('|')[0].trim() : setStr;
+    if (core.indexOf('BW') === 0) return 0; // משקל גוף — חזרות בלבד
+    const parts = core.split('x');
+    if (parts.length < 2) return 0;
+    let w = parseFloat(parts[0].replace('kg', '').replace('פלטות', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim());
+    if (isNaN(w)) return 0;
+    if (parts[0].includes('פלטות')) w *= PLATE_KG;
+    const rMatch = parts[1].match(/\d+/);
+    const r = rMatch ? parseInt(rMatch[0]) : 1;
+    return w * r;
+}
+
+// החלפת שיטה תוך כדי אימון (לחיצה על תווית כרטיס המשקל) — kg → פלטות → משקל גוף
+function cycleWeightMode() {
+    if (!state.currentExName) return;
+    const order = ['kg', 'plates', 'bw'];
+    const next = order[(order.indexOf(_effWeightMode()) + 1) % order.length];
+    if (!state.sessionWeightModes) state.sessionWeightModes = {};
+    state.sessionWeightModes[state.currentExName] = next;
+    haptic('light');
+    // initPickers מאפס את שדה ההערה — משמרים אותו סביב הקריאה
+    const noteEl = document.getElementById('set-notes');
+    const keepNote = noteEl ? noteEl.value : '';
+    initPickers();
+    if (noteEl) noteEl.value = keepNote;
+    StorageManager.saveSessionState();
+}
+
 // ─── INIT PICKERS ──────────────────────────────────────────────────────────
 
 function initPickers() {
@@ -1852,7 +1915,7 @@ function initPickers() {
 
     const hist = document.getElementById('last-set-info');
     if (state.lastLoggedSet) {
-        hist.innerText = `סט אחרון: ${state.lastLoggedSet.w}kg x ${state.lastLoggedSet.r} (RIR ${state.lastLoggedSet.rir})`;
+        hist.innerText = `סט אחרון: ${_fmtW(state.lastLoggedSet)} x ${state.lastLoggedSet.r} (RIR ${state.lastLoggedSet.rir})`;
         hist.style.display = 'block';
     } else {
         hist.style.display = 'none';
@@ -1885,12 +1948,32 @@ function initPickers() {
     const manualRange = state.currentEx.manualRange || {};
     const step = state.currentEx.step || 2.5;
 
-    let minW = manualRange.min !== undefined ? manualRange.min : (state.currentEx.minW !== undefined ? state.currentEx.minW : Math.max(0, defaultW - 40));
-    let maxW = manualRange.max !== undefined ? manualRange.max : (state.currentEx.maxW !== undefined ? state.currentEx.maxW : defaultW + 50);
-    if (minW < 0) minW = 0;
+    // שיטת המשקל — קובעת את בורר המשקל, התווית והכפתורים
+    const wMode = _effWeightMode();
+    const wModeLabel = document.getElementById('weight-mode-label');
+    if (wModeLabel) wModeLabel.textContent = WEIGHT_MODE_LABELS[wMode] + ' ⇄';
+    const wStepperRow = document.getElementById('weight-stepper-row');
+    if (wStepperRow) wStepperRow.style.visibility = wMode === 'bw' ? 'hidden' : 'visible';
 
-    for (let i = minW; i <= maxW; i = parseFloat((i + step).toFixed(2))) {
-        let o = new Option(i + " kg", i); if (i === defaultW) o.selected = true; wPick.add(o);
+    if (wMode === 'bw') {
+        // משקל גוף — אין משקל לבחור
+        wPick.add(new Option('BW', 0));
+    } else if (wMode === 'plates') {
+        // פלטות — מונה 1–30 בקפיצות של 1; ערך שמור מקונטקסט ק"ג נחתך לטווח
+        let defaultP = Math.round(defaultW) || 1;
+        if (defaultP < 1) defaultP = 1;
+        if (defaultP > 30) defaultP = 1;
+        for (let i = 1; i <= 30; i++) {
+            let o = new Option(i, i); if (i === defaultP) o.selected = true; wPick.add(o);
+        }
+    } else {
+        let minW = manualRange.min !== undefined ? manualRange.min : (state.currentEx.minW !== undefined ? state.currentEx.minW : Math.max(0, defaultW - 40));
+        let maxW = manualRange.max !== undefined ? manualRange.max : (state.currentEx.maxW !== undefined ? state.currentEx.maxW : defaultW + 50);
+        if (minW < 0) minW = 0;
+
+        for (let i = minW; i <= maxW; i = parseFloat((i + step).toFixed(2))) {
+            let o = new Option(i + " kg", i); if (i === defaultW) o.selected = true; wPick.add(o);
+        }
     }
 
     const rPick = document.getElementById('reps-picker'); rPick.innerHTML = "";
@@ -2227,7 +2310,12 @@ function commitCustomValue(field, raw) {
     if (field === 'weight') {
         if (num < 0) num = 0;
         num = parseFloat(num.toFixed(2));
-        _insertSortedOption(sel, num, num + ' kg');
+        if (_effWeightMode() === 'plates') {
+            num = Math.max(1, Math.round(num));
+            _insertSortedOption(sel, num, String(num));
+        } else {
+            _insertSortedOption(sel, num, num + ' kg');
+        }
     } else if (field === 'reps') {
         num = Math.max(1, Math.round(num));
         _insertSortedOption(sel, num, String(num));
@@ -2241,6 +2329,7 @@ function commitCustomValue(field, raw) {
 }
 
 function editPickerValue(field) {
+    if (field === 'weight' && _effWeightMode() === 'bw') return; // משקל גוף — אין ערך לערוך
     const dispId = { weight: 'weight-display', reps: 'reps-display', rir: 'rir-display' };
     const disp = document.getElementById(dispId[field]);
     if (!disp || disp.querySelector('input')) return;
@@ -2332,6 +2421,7 @@ function nextStep() {
 
     const wVal = parseFloat(document.getElementById('weight-picker').value);
     const noteVal = document.getElementById('set-notes').value.trim();
+    const wMode = _effWeightMode();
 
     const entry = {
         exName: state.currentExName,
@@ -2342,8 +2432,12 @@ function nextStep() {
         isCluster: state.clusterMode,
         round: state.clusterMode ? state.clusterRound : null
     };
+    if (wMode !== 'kg') entry.wm = wMode; // סימון שיטת המשקל — נשמר גם בארכיון
 
-    StorageManager.saveWeight(state.currentExName, wVal);
+    // שמירת "משקל אחרון" רק כשהשיטה תואמת את ברירת המחדל של התרגיל —
+    // override זמני (פלטות/BW על תרגיל ק"ג) לא מזהם את ה-prefill של אימונים הבאים
+    const defaultMode = state.currentEx.weightMode || (state.currentEx.isBW ? 'bw' : 'kg');
+    if (wMode === defaultMode && wMode !== 'bw') StorageManager.saveWeight(state.currentExName, wVal);
     state.log.push(entry); state.lastLoggedSet = entry;
     StorageManager.saveSessionState();
 
@@ -2990,14 +3084,14 @@ function buildSummaryUI() {
         if (seg.type === 'normal') {
             let exVol = 0, setRows = '';
             seg.sets.forEach((s, i) => {
-                exVol += s.w * s.r;
+                exVol += _setVol(s);
                 const realIdx = realSets.indexOf(s);
                 const noteStr = s.note ? ` | ${s.note}` : '';
                 const rirStr = s.rir !== undefined ? s.rir : '—';
                 setRows += `
                 <div class="set-row">
                     <div class="set-num">${(i + 1).toString().padStart(2, '0')}</div>
-                    <div class="set-details">${s.w}kg × ${s.r} <span style="opacity:0.5;font-size:0.85em">(RIR ${rirStr}${noteStr})</span></div>
+                    <div class="set-details">${_fmtW(s)} × ${s.r} <span style="opacity:0.5;font-size:0.85em">(RIR ${rirStr}${noteStr})</span></div>
                     <button class="set-edit-btn" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
                 </div>`;
             });
@@ -3022,7 +3116,7 @@ function buildSummaryUI() {
             let clusterVol = 0, roundRows = '';
             Object.keys(byRound).sort((a, b) => +a - +b).forEach(roundNum => {
                 const roundSets = byRound[roundNum];
-                clusterVol += roundSets.reduce((sum, s) => sum + s.w * s.r, 0);
+                clusterVol += roundSets.reduce((sum, s) => sum + _setVol(s), 0);
                 
                 roundRows += `<div class="summary-cluster-title">סבב ${roundNum}</div>`;
                 
@@ -3035,7 +3129,7 @@ function buildSummaryUI() {
                         <div class="set-num">${(i + 1).toString().padStart(2, '0')}</div>
                         <div class="set-details">
                             <span style="color:var(--text-dim);font-size:0.85em;margin-left:6px;">${s.exName}</span><br>
-                            ${s.w}kg × ${s.r} <span style="opacity:0.5;font-size:0.85em">(RIR ${rirStr}${noteStr})</span>
+                            ${_fmtW(s)} × ${s.r} <span style="opacity:0.5;font-size:0.85em">(RIR ${rirStr}${noteStr})</span>
                         </div>
                         <button class="set-edit-btn" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
                     </div>`;
@@ -3193,7 +3287,7 @@ function _saveToArchive(note) {
         if (!exMap[key]) { exMap[key] = { sets: [], skips: 0, isMain: false }; exOrder.push(key); }
         const rir = entry.rir !== undefined ? entry.rir : '—';
         const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-        exMap[key].sets.push(`${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+        exMap[key].sets.push(`${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
     });
 
     // mark skipped
@@ -3221,14 +3315,7 @@ function _saveToArchive(note) {
         const data = exMap[exName];
         let exVol = 0;
         data.sets.forEach(setStr => {
-            const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
-            const parts = core.split('x');
-            if (parts.length >= 2) {
-                const w = parseFloat(parts[0].replace('kg', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim());
-                const rMatch = parts[1].match(/\d+/);
-                const r = rMatch ? parseInt(rMatch[0]) : 1;
-                if (!isNaN(w)) exVol += w * r * (isUnilateral(exName) ? 2 : 1);
-            }
+            exVol += _setStrVol(setStr) * (isUnilateral(exName) ? 2 : 1);
         });
         totalVol += exVol;
         details[exName] = { sets: data.sets, vol: exVol };
@@ -3265,7 +3352,7 @@ function _saveToArchive(note) {
             seg.sets.forEach(entry => {
                 const rir = entry.rir !== undefined ? entry.rir : '—';
                 const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-                summaryLines.push(`${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+                summaryLines.push(`${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
             });
             if (exMap[exName] && exMap[exName].skips > 0) summaryLines.push('(Skipped)');
             summaryLines.push('');
@@ -3281,7 +3368,7 @@ function _saveToArchive(note) {
                 byRound[rn].forEach(entry => {
                     const rir = entry.rir !== undefined ? entry.rir : '—';
                     const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-                    summaryLines.push(`  ${entry.exName}: ${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+                    summaryLines.push(`  ${entry.exName}: ${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
                 });
                 summaryLines.push('');
             });
@@ -3299,7 +3386,7 @@ function _saveToArchive(note) {
 
     // ── Minimal log stored for display (archive detail view) ──
     const archivedLog = state.log.map(l => ({
-        exName: l.exName, w: l.w, r: l.r, rir: l.rir,
+        exName: l.exName, w: l.w, r: l.r, rir: l.rir, wm: l.wm || undefined,
         note: l.note || '', isCluster: !!l.isCluster, round: l.round || null, skip: !!l.skip
     }));
 
@@ -3536,7 +3623,7 @@ function openSessionLog() {
 
             // חישוב נפח כולל לתרגיל (×2 לצד אחד)
             const uniMult = isUnilateral(exName) ? 2 : 1;
-            const vol = sets.reduce((sum, { entry }) => sum + (entry.w * entry.r * uniMult), 0);
+            const vol = sets.reduce((sum, { entry }) => sum + (_setVol(entry) * uniMult), 0);
             const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : vol + 'kg';
 
             // כרטיס תרגיל
@@ -3566,7 +3653,7 @@ function openSessionLog() {
                 const rirStr = (entry.rir !== '' && entry.rir != null) ? `RIR ${entry.rir}` : '—';
                 row.innerHTML = `
                     <span class="slog-set-num">${setNum + 1}</span>
-                    <span class="slog-set-data">${entry.w}kg <span class="slog-x">×</span> ${entry.r}</span>
+                    <span class="slog-set-data">${_fmtW(entry)} <span class="slog-x">×</span> ${entry.r}</span>
                     <span class="slog-rir-badge">${rirStr}</span>
                     <button class="slog-edit-btn" onclick="openEditSetModal(${realIdx})">ערוך</button>`;
                 setsList.appendChild(row);
@@ -4037,7 +4124,7 @@ function buildSystemPrompt(opts = {}) {
             if (rm) prompt += `1RM: ${rm}kg\n`;
             const currentSets = (state.log || [])
                 .filter(l => !l.skip && l.exName === state.currentExName)
-                .map(l => `${l.w}kg×${l.r} (RIR ${l.rir !== undefined ? l.rir : '—'})`);
+                .map(l => `${_fmtW(l)}×${l.r} (RIR ${l.rir !== undefined ? l.rir : '—'})`);
             if (currentSets.length) prompt += `סטים שבוצעו: ${currentSets.join(', ')}\n`;
         }
 
@@ -5121,7 +5208,11 @@ function updateLiveViewContent() {
 
     const targetEl = document.getElementById('live-target-val');
     if (targetEl) {
-        targetEl.innerHTML = `${targetW}<small>kg</small> × ${targetR}<small>reps</small> · RIR ${targetRir}`;
+        const liveMode = _effWeightMode();
+        const wPart = liveMode === 'bw' ? 'BW' :
+                      liveMode === 'plates' ? `${targetW}<small>פלטות</small>` :
+                      `${targetW}<small>kg</small>`;
+        targetEl.innerHTML = `${wPart} × ${targetR}<small>reps</small> · RIR ${targetRir}`;
     }
 
     // החלפה דו-כיוונית בין מצב swipe למצב action-panel

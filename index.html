@@ -118,6 +118,14 @@
                     <span class="input-label m-0">חד-צדדי (Unilateral)</span>
                     <input type="checkbox" id="conf-ex-uni" class="archive-checkbox">
                 </div>
+                <div>
+                    <label class="input-label m-0 mb-xs">שיטת משקל</label>
+                    <select id="conf-ex-wmode" class="minimal-input m-0 bg-card">
+                        <option value="kg">משקל (ק״ג)</option>
+                        <option value="plates">פלטות</option>
+                        <option value="bw">משקל גוף</option>
+                    </select>
+                </div>
                 <div class="input-grid grid-2-cols">
                     <div>
                         <label class="input-label m-0 mb-xs">משקל בסיס</label>
@@ -978,10 +986,10 @@
                 </div>
                 <div class="input-grid">
                     <div class="glass-card compact stepper-card">
-                        <label>Weight (kg)</label>
+                        <label id="weight-mode-label" class="wmode-toggle" onclick="cycleWeightMode()">Weight (kg) ⇄</label>
                         <select id="weight-picker" class="ios-picker" style="display:none;"></select>
                         <div id="weight-display" class="stepper-num-display" onclick="editPickerValue('weight')">—</div>
-                        <div class="stepper-row">
+                        <div id="weight-stepper-row" class="stepper-row">
                             <button class="stepper-pm-btn" onclick="stepPicker('weight',-1)">−</button>
                             <button class="stepper-pm-btn" onclick="stepPicker('weight',1)">+</button>
                         </div>

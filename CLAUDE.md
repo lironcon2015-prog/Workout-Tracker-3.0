@@ -153,6 +153,7 @@ version.json: { "version": "15.X" }
 | `storage.js` | StorageManager (localStorage) + FirebaseManager (סנכרון ענן) |
 | `data.js` | נתוני ברירת מחדל |
 | `docs/mfp-nutrition-bridge.gs` | Google Apps Script — גשר שמושך ייצוא MyFitnessPal מ-Gmail (JSONP) |
+| `docs/health-nutrition-bridge.gs` | Google Apps Script — גשר תזונה מ-Apple Health (קיצור דרך דוחף, האפליקציה מושכת) |
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
 
@@ -166,7 +167,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-15.98.1
+15.99
 
 ---
 

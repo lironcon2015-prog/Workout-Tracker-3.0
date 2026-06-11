@@ -693,6 +693,24 @@
                         <div class="ai-security-note" style="margin-top:6px;">הגשר רץ בחשבון ה-Gmail שלך (Google Apps Script) ומושך את ייצוא ה-MyFitnessPal האחרון. ה-token נשמר מקומית בלבד. הכפתור לייבוא נמצא במסך Composition.</div>
                     </div>
 
+                    <!-- גשר תזונה Apple Health (Shortcuts) -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">גשר תזונה Apple Health</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <div id="health-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
+                                <input type="text" id="health-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+                            </div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">SECRET TOKEN</label>
+                                <input type="password" id="health-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
+                            </div>
+                            <button class="stg-ai-save" onclick="saveHealthBridgeSettings()">שמור הגדרות גשר</button>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">קיצור דרך דוחף תזונה יומית מ-Apple Health לגשר (3-4 פעמים ביום), והאפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. MFP נשאר מקור האמת — ייבוא MFP דורס ימי Health. ראה docs/health-shortcut-recipe.md.</div>
+                    </div>
+
                     <!-- גשר אפל-ווטש (אימון חי) -->
                     <div class="settings-group">
                         <div class="settings-group-label">גשר אפל-ווטש (אימון חי)</div>

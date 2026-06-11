@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.98
+## גרסה נוכחית: 15.99
 
 ---
 
@@ -138,6 +138,15 @@
 - **מיטיגציות סיכון (מהחקירה):** `setId` לכל סט (dedupe R3) · timestamp ארכיון = `liveSessionId` (R5, `finish`) · `clearLiveSession` ב-`copyResult`/`discardSession` (anti-zombie R4) · ה-proxy מוודא `active`+`sessionId`, מנרמל RIR למחרוזת (R1), מוודא w/r (R2) · טיימרים **לא** מסונכרנים דרך ה-doc (R8) · `enablePersistence` (R12) · timeouts לכל קריאה (R13).
 - **scope:** השעון append-only (`logSet/nextExercise/getState`); clusters/1RM/swap-order/interruption מנוהלים בטלפון.
 - **⚠️ חוב/בדיקה:** הלוגיקה של ה-live-sync (merge/adopt/ping-pong) **לא נבדקה על מכשירים אמיתיים** — דורשת אימות end-to-end עם Firebase+שעון. ה-proxy וה-Shortcut מותקנים בידי המשתמש (service-account + deploy + הרכבת הקיצורים). מגבלה: השעון צריך רשת בחדר הכושר.
+
+---
+
+## גשר תזונה Apple Health (v15.99)
+
+- **זרימה:** MFP → Apple Health → קיצור דרך (אוטומציות 10:00/14:00/18:00/23:45) → `health-nutrition-bridge.gs` (PropertiesService, ~120 ימים, בלי Firestore/SA) → ה-PWA מושך JSONP.
+- **משיכה:** בכל כניסה לאפליקציה (load + visibilitychange) + כל שעה עגולה כשהיא פתוחה + כניסה לטאב Composition. throttle 15 דק' (`syncHealthNutrition`), שקט לחלוטין במצב אוטומטי.
+- **כלל הזהב — MFP מקור האמת:** ימי Health מסומנים `src:'health'` ב-`nutritionDaily`. `mergeHealthNutritionDays` לעולם לא דורס יום MFP; `saveNutritionDaily` (ייבוא MFP) דורס הכל כולל ימי Health. ל-Health אין per-meal — `nutritionRaw` נשאר בלעדי ל-MFP ולא נגעו בו.
+- **לימי Health אין `meals`** — מוצג ריק בייצוא CSV עד שייבוא MFP דורס.
 
 ---
 

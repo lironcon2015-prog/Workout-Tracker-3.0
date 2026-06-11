@@ -267,7 +267,10 @@ function _renderNutritionDaily(allDays) {
     const card = document.getElementById('bl-daily-card');
     if (!card) return;
     const all = allDays || StorageManager.getNutritionDaily();
-    const ioBtn = `<button class="bl-nutri-import" onclick="openNutriIOSheet()"><span class="material-symbols-outlined">swap_vert</span><span>ייבוא · ייצוא</span></button>`;
+    // לחיצה על הכרטיס = רענון ידני מגשר ה-Health; stopPropagation בכפתור מונע כפילות
+    card.onclick = () => { if (typeof syncHealthNutrition === 'function') syncHealthNutrition(true); };
+    card.style.cursor = 'pointer';
+    const ioBtn = `<button class="bl-nutri-import" onclick="event.stopPropagation();openNutriIOSheet()"><span class="material-symbols-outlined">swap_vert</span><span>ייבוא · ייצוא</span></button>`;
 
     if (!all.length) {
         card.classList.remove('bl-daily-live');
@@ -289,6 +292,7 @@ function _renderNutritionDaily(allDays) {
         const p = x => String(x).padStart(2, '0');
         foot.push(`עדכון Health אחרון: ${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`);
     }
+    foot.push('לחיצה מרעננת');
     card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">${title}</div>${ioBtn}</div>
         <div class="bl-nutri-grid">
             ${_nutriKpi('קלוריות', latest.calories || 0, 'kcal')}
@@ -339,6 +343,23 @@ function closeNutriIOSheet() {
 function _nutriIOAction(fn) {
     closeNutriIOSheet();
     setTimeout(fn, 150); // נותן ל-sheet להיסגר חלק לפני דיאלוגים/הורדות
+}
+
+// ─── Bottom sheet ייבוא/ייצוא שקילות — אותה תבנית כמו במסך התזונה ─────────
+function openWeightIOSheet() {
+    document.getElementById('weight-io-overlay').style.display = 'block';
+    document.getElementById('weight-io-sheet').classList.add('open');
+    haptic('light');
+}
+
+function closeWeightIOSheet() {
+    document.getElementById('weight-io-overlay').style.display = 'none';
+    document.getElementById('weight-io-sheet').classList.remove('open');
+}
+
+function _weightIOAction(fn) {
+    closeWeightIOSheet();
+    setTimeout(fn, 150);
 }
 
 function _nutriKpi(label, val, unit) {

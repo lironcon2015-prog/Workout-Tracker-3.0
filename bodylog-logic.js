@@ -17,10 +17,13 @@ const _BL_STATE_LBL = { cut: 'Cut', maintenance: 'Maintenance', surplus: 'Surplu
 
 // ─── עזרי תאריך ─────────────────────────────────────────────────────────────
 function _blDTs(d) { const [y, m, da] = d.split('-').map(Number); return new Date(y, m - 1, da).getTime(); }
-function _blTodayStr() { return new Date().toISOString().slice(0, 10); }
+// תאריך מקומי — לא UTC! toISOString החזיר את "אתמול" בין חצות ל-03:00 שעון ישראל,
+// מה שמנע מהיום שהסתיים להיסגר (להופיע בהיסטוריה/ממוצע/גרפים) עד לפנות בוקר
+function _blLocalDateStr(d) { const p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+function _blTodayStr() { return _blLocalDateStr(new Date()); }
 function _blShortDate(d) { const p = d.split('-'); return `${p[2]}.${p[1]}`; }          // DD.MM (ציר הגרף)
 function _blListDate(d) { const p = d.split('-'); return `${p[2]}.${p[1]}.${p[0]}`; }   // DD.MM.YYYY (לוג השקילות)
-function _blCutoff(days) { return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10); }
+function _blCutoff(days) { return _blLocalDateStr(new Date(Date.now() - days * 86400000)); }
 
 // ─── רינדור ראשי ────────────────────────────────────────────────────────────
 function renderBodyLog() {

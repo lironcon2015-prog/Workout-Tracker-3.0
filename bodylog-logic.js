@@ -270,6 +270,7 @@ function _renderNutritionDaily(allDays) {
     const ioBtn = `<button class="bl-nutri-import" onclick="openNutriIOSheet()"><span class="material-symbols-outlined">swap_vert</span><span>ייבוא · ייצוא</span></button>`;
 
     if (!all.length) {
+        card.classList.remove('bl-daily-live');
         card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">תזונה היום</div>${ioBtn}</div>
             <p class="bl-nutri-hint">אין עדיין נתוני תזונה — חבר את גשר ה-Health (הגדרות) או ייבא ייצוא MFP דרך "ייבוא · ייצוא".</p>`;
         return;
@@ -277,7 +278,10 @@ function _renderNutritionDaily(allDays) {
     const today = _blTodayStr();
     const latest = all[all.length - 1];               // ממוין מהישן לחדש
     const isToday = latest.date === today;
-    const title = isToday ? 'תזונה היום' : `יום אחרון <small>— ${_blListDate(latest.date)}</small>`;
+    // הבלטה — תג LIVE פולס + מסגרת accent רק כשמוצגים נתוני היום השוטף
+    card.classList.toggle('bl-daily-live', isToday);
+    const liveBadge = isToday ? `<span class="bl-live-badge"><span class="bl-live-dot"></span>LIVE</span>` : '';
+    const title = (isToday ? 'תזונה היום' : `יום אחרון <small>— ${_blListDate(latest.date)}</small>`) + liveBadge;
     const foot = [`מקור: ${latest.src === 'health' ? 'Apple Health' : 'MyFitnessPal'}`];
     const lastSync = StorageManager.getHealthLastSync();
     if (lastSync) {
@@ -343,7 +347,9 @@ function _nutriKpi(label, val, unit) {
 
 function _renderNutritionCharts(allDays) {
     const all = allDays || StorageManager.getNutritionDaily();
-    const days = _blFilter(all).sort((a, b) => a.date < b.date ? -1 : 1);
+    // היום השוטף מוחרג מהגרפים — נקודה חלקית (Health תוך-יומי) מזהמת את המגמה
+    const today = _blTodayStr();
+    const days = _blFilter(all).filter(d => d.date !== today).sort((a, b) => a.date < b.date ? -1 : 1);
     const cal  = _cleanNutriOutliers(days.map(d => ({ date: d.date, val: d.calories })));
     const prot = _cleanNutriOutliers(days.map(d => ({ date: d.date, val: d.protein })));
     _drawBlChart('bl-cal-svg', 'bl-cal-dates', 'bl-cal-yaxis', cal, true, 'kcal');
@@ -365,7 +371,9 @@ function _cleanNutriOutliers(points) {
 function _renderNutritionList(allDays) {
     const el = document.getElementById('bl-nutrition-list');
     if (!el) return;
-    const all = allDays || StorageManager.getNutritionDaily();
+    // היום השוטף לא מוצג בהיסטוריה — הוא חלקי ויש לו כרטיס ייעודי למעלה
+    const today = _blTodayStr();
+    const all = (allDays || StorageManager.getNutritionDaily()).filter(d => d.date !== today);
     if (!all.length) { el.innerHTML = ''; return; }
     const sorted = all.slice().sort((a, b) => a.date < b.date ? 1 : -1); // חדש→ישן
     const show = _blNutriExpanded ? sorted : sorted.slice(0, _BL_LIST_LIMIT);

@@ -28,6 +28,7 @@ const StorageManager = {
     KEY_MFP_BRIDGE_TOKEN: 'gympro_mfp_bridge_token',  // token סודי לגשר
     KEY_HEALTH_BRIDGE_URL:   'gympro_health_bridge_url',    // גשר תזונה Apple Health
     KEY_HEALTH_BRIDGE_TOKEN: 'gympro_health_bridge_token',  // token סודי לגשר ה-Health
+    KEY_HEALTH_LAST_SYNC:    'gympro_health_last_sync',     // timestamp משיכה מוצלחת אחרונה מהגשר
     KEY_WATCH_BRIDGE_URL:   'gympro_watch_bridge_url',    // Apps Script proxy לגשר השעון
     KEY_WATCH_BRIDGE_TOKEN: 'gympro_watch_bridge_token',  // SECRET_TOKEN לגשר השעון
     KEY_WATCH_BRIDGE_ON:    'gympro_watch_bridge_on',     // האם גשר השעון פעיל (ברירת מחדל: כבוי)
@@ -632,6 +633,13 @@ const StorageManager = {
     saveHealthBridge(url, token) {
         localStorage.setItem(this.KEY_HEALTH_BRIDGE_URL, (url || '').trim());
         localStorage.setItem(this.KEY_HEALTH_BRIDGE_TOKEN, (token || '').trim());
+    },
+
+    getHealthLastSync() {
+        return parseInt(localStorage.getItem(this.KEY_HEALTH_LAST_SYNC), 10) || 0;
+    },
+    setHealthLastSync(ts) {
+        localStorage.setItem(this.KEY_HEALTH_LAST_SYNC, String(ts));
     },
 
     // ── Watch Bridge (גשר אפל-ווטש) — כבוי כברירת מחדל ──

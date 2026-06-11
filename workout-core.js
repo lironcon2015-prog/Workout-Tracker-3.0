@@ -4897,10 +4897,13 @@ async function syncHealthNutrition(manual = false) {
             if (manual) showCloudToast('הגשר ריק — ודא שהקיצור רץ לפחות פעם אחת', true);
             return;
         }
+        StorageManager.setHealthLastSync(Date.now()); // משיכה מוצלחת עם נתונים — לחותמת בכרטיס היומי
         const changed = StorageManager.mergeHealthNutritionDays(days);
-        if (changed > 0) {
+        if (changed > 0 || manual) {
             const blScreen = document.getElementById('ui-bodylog');
             if (typeof renderBodyLog === 'function' && blScreen && blScreen.classList.contains('active')) renderBodyLog();
+        }
+        if (changed > 0) {
             if (typeof FirebaseManager !== 'undefined') FirebaseManager.saveConfigToCloud().catch(() => {});
             showCloudToast(`✅ עודכנו ${changed} ימי תזונה מ-Health`, true);
         } else if (manual) {

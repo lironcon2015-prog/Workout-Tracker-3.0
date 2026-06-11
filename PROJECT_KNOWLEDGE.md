@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 15.99
+## גרסה נוכחית: 16.00
 
 ---
 
@@ -147,6 +147,7 @@
 - **משיכה:** בכל כניסה לאפליקציה (load + visibilitychange) + כל שעה עגולה כשהיא פתוחה + כניסה לטאב Composition. throttle 15 דק' (`syncHealthNutrition`), שקט לחלוטין במצב אוטומטי.
 - **כלל הזהב — MFP מקור האמת:** ימי Health מסומנים `src:'health'` ב-`nutritionDaily`. `mergeHealthNutritionDays` לעולם לא דורס יום MFP; `saveNutritionDaily` (ייבוא MFP) דורס הכל כולל ימי Health. ל-Health אין per-meal — `nutritionRaw` נשאר בלעדי ל-MFP ולא נגעו בו.
 - **לימי Health אין `meals`** — מוצג ריק בייצוא CSV עד שייבוא MFP דורס.
+- **מסך תזונה (v16.00):** כרטיס "תזונה היום" (`bl-daily-card`) מעל הממוצע — נתוני היום + חותמת משיכה אחרונה (`KEY_HEALTH_LAST_SYNC`). כל פעולות ייבוא/ייצוא אוחדו ל-bottom sheet אחד (`nutri-io-sheet`) שנפתח מכפתור בכרטיס היומי. **ממוצע התזונה ומנוע ה-TDEE מחריגים את היום הנוכחי** (תיעוד חלקי תוך-יומי מ-Health מטה אותם). כרטיס המאזן מקופל כברירת מחדל (hero+קצב נוכחי) — `_blTdeeExpanded`.
 
 ---
 

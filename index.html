@@ -1493,6 +1493,9 @@
 
                 <!-- ========== תצוגת תזונה (MyFitnessPal) ========== -->
                 <div id="bl-view-nutrition" style="display:none;">
+                    <!-- תזונה היום — מתעדכן תוך-יומית מגשר ה-Health -->
+                    <div class="bl-chart-card" id="bl-daily-card"></div>
+
                     <div class="bl-chart-card" id="bl-nutrition-card"></div>
 
                     <!-- מאזן אנרגיה / TDEE — מנוע רב-שיטתי -->
@@ -1801,6 +1804,67 @@
         <button class="range-copy-btn" id="btn-range-download" onclick="executeDownloadByRange()" disabled style="opacity:0.45;margin-top:8px;">
             <span>הורד קובץ לקלוד</span>
             <span class="material-symbols-outlined" style="font-size:1.1rem;">download</span>
+        </button>
+    </div>
+
+    <!-- Nutrition Import/Export Sheet — כל פעולות הייבוא/ייצוא של מסך התזונה -->
+    <div id="nutri-io-overlay" class="bottom-sheet-overlay" onclick="closeNutriIOSheet()"></div>
+    <div id="nutri-io-sheet" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <h3 class="range-sheet-title" style="margin-bottom:14px;">ייבוא וייצוא תזונה</h3>
+
+        <div class="nutri-io-group-label">ייבוא</div>
+        <button class="nutri-io-row" onclick="_nutriIOAction(() => syncHealthNutrition(true))">
+            <span class="material-symbols-outlined nutri-io-icon">ecg_heart</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">סנכרון מ-Apple Health</span>
+                <span class="nutri-io-desc">מושך עכשיו את הימים שהקיצור דחף לגשר</span>
+            </span>
+        </button>
+        <button class="nutri-io-row" onclick="_nutriIOAction(importNutritionFromGmail)">
+            <span class="material-symbols-outlined nutri-io-icon">cloud_download</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">ייבוא MyFitnessPal מ-Gmail</span>
+                <span class="nutri-io-desc">הייצוא המלא — כולל פירוט ארוחות. דורס ימי Health (מקור האמת)</span>
+            </span>
+        </button>
+
+        <div class="nutri-io-group-label">ייצוא</div>
+        <button class="nutri-io-row" onclick="_nutriIOAction(() => exportNutritionCsv('all'))">
+            <span class="material-symbols-outlined nutri-io-icon">table_view</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">CSV יומי · הכל</span>
+                <span class="nutri-io-desc">קלוריות ומאקרו לכל יום, מכל ההיסטוריה</span>
+            </span>
+        </button>
+        <button class="nutri-io-row" onclick="_nutriIOAction(() => exportNutritionCsv('range'))">
+            <span class="material-symbols-outlined nutri-io-icon">date_range</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">CSV יומי · תקופה</span>
+                <span class="nutri-io-desc">לפי הטווח שנבחר בצ'יפים (7/30/90/מותאם)</span>
+            </span>
+        </button>
+        <button class="nutri-io-row" onclick="_nutriIOAction(() => exportNutritionRawCsv('all'))">
+            <span class="material-symbols-outlined nutri-io-icon">description</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">MFP גולמי · הכל</span>
+                <span class="nutri-io-desc">קובץ הארוחות המקורי — שורה לכל ארוחה</span>
+            </span>
+        </button>
+        <button class="nutri-io-row" onclick="_nutriIOAction(() => exportNutritionRawCsv('range'))">
+            <span class="material-symbols-outlined nutri-io-icon">segment</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">MFP גולמי · תקופה</span>
+                <span class="nutri-io-desc">פירוט ארוחות לטווח שנבחר בצ'יפים</span>
+            </span>
+        </button>
+
+        <button class="nutri-io-row nutri-io-danger" onclick="_nutriIOAction(resetNutritionData)">
+            <span class="material-symbols-outlined nutri-io-icon">delete</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">מחק נתוני תזונה</span>
+                <span class="nutri-io-desc">מוחק את כל הסיכום היומי ופירוט הארוחות מהמכשיר</span>
+            </span>
         </button>
     </div>
 

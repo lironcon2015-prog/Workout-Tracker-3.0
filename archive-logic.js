@@ -260,10 +260,29 @@ function updateCopySelectedBtn() {
     }
 }
 
+// _coachToggleState — מצב מתג "כלול סיכומי מאמן" כפי שהמשתמש רואה אותו.
+// קורא את ה-checkbox עצמו (מקור האמת הוויזואלי) עם fallback לדגל השמור —
+// מגן מפני חוסר סנכרון בין ה-UI ל-localStorage.
+function _coachToggleState() {
+    const el = document.getElementById('archive-coach-toggle');
+    return el ? el.checked : StorageManager.getArchiveCopyCoach();
+}
+
+// _stripCoachFromSummary — מסיר בלוק "=== סיכום המאמן ===" שהוטמע בשדה summary
+// ברשומות מגרסאות ישנות (אז הסיכום צורף לטקסט עצמו ולא נשמר ב-aiSummary בלבד).
+function _stripCoachFromSummary(text) {
+    if (!text) return text;
+    const idx = text.indexOf('=== סיכום המאמן ===');
+    if (idx === -1) return text;
+    return text.slice(0, idx).trimEnd();
+}
+
 // _archiveCopyText — טקסט להעתקה של רשומת ארכיון. מצרף סיכום מאמן אם המתג דלוק.
 function _archiveCopyText(item) {
+    const withCoach = _coachToggleState();
     let txt = item.summary || '';
-    if (StorageManager.getArchiveCopyCoach() && item.aiSummary) {
+    if (!withCoach) txt = _stripCoachFromSummary(txt);
+    if (withCoach && item.aiSummary) {
         txt += `\n\n=== סיכום המאמן ===\n${item.aiSummary}`;
     }
     return txt;
@@ -3107,15 +3126,19 @@ function _rangeLabelText() {
 }
 
 // _downloadClaudeFile — בונה קובץ JSON של לוג האימונים ומוריד אותו.
-// מכבד את מתג "כלול סיכומי מאמן": כשהוא כבוי — שדה aiSummary מוסר מכל רשומה.
+// מכבד את מתג "כלול סיכומי מאמן": כשהוא כבוי — שדה aiSummary מוסר מכל רשומה,
+// וגם בלוק סיכום שהוטמע ב-summary ברשומות ישנות מנוקה.
 function _downloadClaudeFile(items, scopeLabel, scopeSlug) {
     if (!items.length) { showAlert('אין אימונים לייצוא'); return; }
-    var withCoach = StorageManager.getArchiveCopyCoach();
+    var withCoach = _coachToggleState();
     var workouts = items.slice()
         .sort(function(a, b) { return a.timestamp - b.timestamp; }) // כרונולוגי — עולה
         .map(function(item) {
             var clone = JSON.parse(JSON.stringify(item));
-            if (!withCoach) delete clone.aiSummary;
+            if (!withCoach) {
+                delete clone.aiSummary;
+                clone.summary = _stripCoachFromSummary(clone.summary);
+            }
             return clone;
         });
     var payload = {

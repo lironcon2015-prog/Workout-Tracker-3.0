@@ -1816,6 +1816,9 @@ function cycleWeightMode() {
     const keepNote = noteEl ? noteEl.value : '';
     initPickers();
     if (noteEl) noteEl.value = keepNote;
+    // סנכרון תצוגות ה-Live — ההחלפה זמינה גם מה-sheet של מצב Live
+    if (typeof _syncLiveEditSheetDisplays === 'function') _syncLiveEditSheetDisplays();
+    if (typeof _syncLiveWeightModeUI === 'function') _syncLiveWeightModeUI();
     StorageManager.saveSessionState();
 }
 
@@ -2006,6 +2009,7 @@ function initPickers() {
     // אז אחרי שמילאנו אותם בערכים החדשים, צריך לרענן את מסך ה-Live כדי שלא יציג ערכים של תרגיל קודם
     if (typeof updateLiveViewContent === 'function' && document.body.classList.contains('live-mode-active')) {
         updateLiveViewContent();
+        if (typeof _syncLiveWeightModeUI === 'function') _syncLiveWeightModeUI();
     }
 }
 
@@ -5172,6 +5176,18 @@ function _syncLiveResumeBtn() {
 }
 
 // ─── Live Edit Sheet — עריכת weight/reps/RIR ממסך הטיימר ─────────────
+// _syncLiveWeightModeUI — מסנכרן את כרטיס המשקל ב-sheet של ה-Live לשיטת המשקל:
+// תווית (לחיצה מחליפה שיטה), יחידה, והסתרת +/- במשקל גוף — מקביל ל-initPickers במסך המפורט
+function _syncLiveWeightModeUI() {
+    const mode = _effWeightMode();
+    const lbl = document.getElementById('live-weight-mode-lbl');
+    if (lbl) lbl.textContent = (mode === 'bw' ? 'משקל גוף' : mode === 'plates' ? 'פלטות' : 'משקל') + ' ⇄';
+    const unit = document.getElementById('live-edit-weight-unit');
+    if (unit) unit.textContent = mode === 'bw' ? ' ' : mode === 'plates' ? 'יח׳ (×4 ק"ג)' : 'ק"ג';
+    const pmRow = document.getElementById('live-weight-pm-row');
+    if (pmRow) pmRow.style.visibility = mode === 'bw' ? 'hidden' : 'visible';
+}
+
 function openLiveEditSheet() {
     if (!document.body.classList.contains('live-mode-active')) return;
     const overlay = document.getElementById('live-edit-overlay');
@@ -5180,6 +5196,7 @@ function openLiveEditSheet() {
     overlay.style.display = 'block';
     requestAnimationFrame(() => sheet.classList.add('open'));
     _syncLiveEditSheetDisplays();
+    _syncLiveWeightModeUI();
     // טען את ההערה הנוכחית מ-set-notes (מקור האמת) לתוך השדה ב-sheet
     const mainNotes = document.getElementById('set-notes');
     const liveNotes = document.getElementById('live-edit-notes');
@@ -5246,6 +5263,7 @@ function _liveStepPicker(field, dir) {
 
 // לחיצה על המספר ב-sheet "ערוך סט נוכחי" — הקלדת ערך חופשי, כמו בפיקרים הראשיים
 function editLivePickerValue(field) {
+    if (field === 'weight' && _effWeightMode() === 'bw') return; // משקל גוף — אין ערך לערוך
     const disp = document.getElementById('live-edit-' + field + '-disp');
     if (!disp || disp.querySelector('input')) return;
 

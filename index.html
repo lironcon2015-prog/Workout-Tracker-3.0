@@ -1690,10 +1690,10 @@
         </div>
         <div class="live-edit-grid">
             <div class="live-edit-card">
-                <div class="live-edit-card-lbl">משקל</div>
+                <div class="live-edit-card-lbl wmode-toggle" id="live-weight-mode-lbl" onclick="cycleWeightMode()">משקל ⇄</div>
                 <div id="live-edit-weight-disp" class="live-edit-card-val" onclick="editLivePickerValue('weight')">—</div>
-                <div class="live-edit-card-unit">ק"ג</div>
-                <div class="live-edit-pm-row">
+                <div class="live-edit-card-unit" id="live-edit-weight-unit">ק"ג</div>
+                <div class="live-edit-pm-row" id="live-weight-pm-row">
                     <button class="live-edit-pm-btn" onclick="_liveStepPicker('weight',-1)">−</button>
                     <button class="live-edit-pm-btn" onclick="_liveStepPicker('weight',1)">+</button>
                 </div>

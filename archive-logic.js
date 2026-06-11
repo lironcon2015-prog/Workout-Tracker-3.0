@@ -373,7 +373,7 @@ function buildArchiveDetailHTML(item) {
                     const noteStr = entry.note ? ` | ${entry.note}` : '';
                     setRows += `<div class="summary-set-row">
                         <div class="summary-set-num">${i + 1}</div>
-                        <div class="summary-set-details">${entry.w}kg x ${entry.r} (RIR ${rir}${noteStr})</div>
+                        <div class="summary-set-details">${_fmtW(entry)} x ${entry.r} (RIR ${rir}${noteStr})</div>
                     </div>`;
                 });
                 html += `<div class="summary-ex-card">
@@ -401,7 +401,7 @@ function buildArchiveDetailHTML(item) {
                             <div class="summary-set-num">${i + 1}</div>
                             <div class="summary-set-details">
                                 <span class="summary-cluster-ex-name">${entry.exName}</span>
-                                ${entry.w}kg x ${entry.r} (RIR ${rir}${noteStr})
+                                ${_fmtW(entry)} x ${entry.r} (RIR ${rir}${noteStr})
                             </div>
                         </div>`;
                     });
@@ -625,7 +625,7 @@ function _buildArchiveEditHTML_withLog(item) {
                 const noteStr = entry.note ? ` | ${entry.note}` : '';
                 setRows += `<div class="summary-set-row archive-edit-set" onclick="openArchiveSetEditor(${logIdx})">
                     <div class="summary-set-num">${i + 1}</div>
-                    <div class="summary-set-details">${entry.w}kg x ${entry.r} (RIR ${rir}${noteStr})</div>
+                    <div class="summary-set-details">${_fmtW(entry)} x ${entry.r} (RIR ${rir}${noteStr})</div>
                     <span class="material-symbols-outlined archive-edit-icon">edit</span>
                 </div>`;
             });
@@ -655,7 +655,7 @@ function _buildArchiveEditHTML_withLog(item) {
                         <div class="summary-set-num">${i + 1}</div>
                         <div class="summary-set-details">
                             <span class="summary-cluster-ex-name">${entry.exName}</span>
-                            ${entry.w}kg x ${entry.r} (RIR ${rir}${noteStr})
+                            ${_fmtW(entry)} x ${entry.r} (RIR ${rir}${noteStr})
                         </div>
                         <span class="material-symbols-outlined archive-edit-icon">edit</span>
                     </div>`;
@@ -789,10 +789,10 @@ function _parseSetString(setStr) {
         note = parts.slice(1).join('|').trim();
     }
 
-    // פרסור משקל וחזרות
+    // פרסור משקל וחזרות — תומך גם ב"5 פלטות x 10" ו-"BW x 12" (w=0)
     const xParts = setStr.split('x');
     if (xParts.length >= 2) {
-        w = parseFloat(xParts[0].replace('kg', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim()) || 0;
+        w = parseFloat(xParts[0].replace('kg', '').replace('פלטות', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim()) || 0;
         const afterX = xParts.slice(1).join('x').trim();
         const rMatch = afterX.match(/(\d+)/);
         r = rMatch ? parseInt(rMatch[1]) : 0;
@@ -888,21 +888,14 @@ function _recalcArchiveDetails() {
         if (!details[key]) { details[key] = { sets: [], vol: 0 }; exOrder.push(key); }
         const rir = entry.rir !== undefined ? entry.rir : '—';
         const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-        details[key].sets.push(`${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+        details[key].sets.push(`${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
     });
 
     // חישוב volume
     exOrder.forEach(exName => {
         let exVol = 0;
         details[exName].sets.forEach(setStr => {
-            const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
-            const parts = core.split('x');
-            if (parts.length >= 2) {
-                const w = parseFloat(parts[0].replace('kg', '').trim());
-                const rMatch = parts[1].match(/\d+/);
-                const r = rMatch ? parseInt(rMatch[0]) : 1;
-                if (!isNaN(w)) exVol += w * r * (isUnilateral(exName) ? 2 : 1);
-            }
+            exVol += _setStrVol(setStr) * (isUnilateral(exName) ? 2 : 1);
         });
         details[exName].vol = exVol;
     });
@@ -918,14 +911,7 @@ function _recalcExVolume(exName) {
 
     let exVol = 0;
     exData.sets.forEach(setStr => {
-        const core = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
-        const parts = core.split('x');
-        if (parts.length >= 2) {
-            const w = parseFloat(parts[0].replace('kg', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim());
-            const rMatch = parts[1].match(/\d+/);
-            const r = rMatch ? parseInt(rMatch[0]) : 1;
-            if (!isNaN(w)) exVol += w * r * (isUnilateral(exName) ? 2 : 1);
-        }
+        exVol += _setStrVol(setStr) * (isUnilateral(exName) ? 2 : 1);
     });
     exData.vol = exVol;
 }
@@ -971,7 +957,7 @@ function _rebuildArchiveSummary(item) {
                 seg.sets.forEach(entry => {
                     const rir = entry.rir !== undefined ? entry.rir : '—';
                     const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-                    lines.push(`${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+                    lines.push(`${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
                 });
                 lines.push('');
             } else {
@@ -986,7 +972,7 @@ function _rebuildArchiveSummary(item) {
                     byRound[rn].forEach(entry => {
                         const rir = entry.rir !== undefined ? entry.rir : '—';
                         const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-                        lines.push(`  ${entry.exName}: ${entry.w}kg x ${entry.r} (RIR ${rir})${noteStr}`);
+                        lines.push(`  ${entry.exName}: ${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
                     });
                     lines.push('');
                 });
@@ -1917,7 +1903,8 @@ function parseSetsFromStrings(sets) {
     return sets.map(s => {
         try {
             // Regex חסין במיוחד ששולף נתונים גם אם יש טקסט מיותר מסביב (כמו Notes או כיתובים שונים)
-            const wMatch = s.match(/([\d\.]+)\s*kg/);
+            // פלטות נספרות ביחידות פלטה — עקבי בתוך אותו תרגיל; סטים של BW מסוננים (אין משקל)
+            const wMatch = s.match(/([\d\.]+)\s*kg/) || s.match(/([\d\.]+)\s*פלטות/);
             const w = wMatch ? parseFloat(wMatch[1]) : 0;
 
             const rMatch = s.match(/x\s*(\d+)/);

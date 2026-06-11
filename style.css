@@ -653,6 +653,13 @@ body::before {
     font-size: 0.6rem; font-weight: 800; color: rgba(255,255,255,0.4);
     text-transform: uppercase; letter-spacing: 0.18em; margin-bottom: 4px;
 }
+/* תווית שיטת המשקל — לחיצה מחליפה ק"ג ⇄ פלטות ⇄ משקל גוף */
+.stepper-card label.wmode-toggle {
+    cursor: pointer;
+    border-bottom: 1px dotted rgba(255,255,255,0.25);
+    padding-bottom: 2px;
+    -webkit-user-select: none; user-select: none;
+}
 .stepper-row { display: flex; align-items: center; justify-content: center; width: 100%; gap: 14px; margin-top: 8px; }
 .stepper-pm-btn {
     width: 44px; height: 44px; border-radius: 50%;

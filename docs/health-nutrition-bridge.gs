@@ -38,7 +38,9 @@ function doPost(e) {
   try { body = JSON.parse(e.postData.contents); }
   catch (err) { return _json({ ok: false, error: 'BAD_JSON' }); }
 
-  if (!body || body.token !== SECRET_TOKEN) return _json({ ok: false, error: 'BAD_TOKEN' });
+  // הטוקן מתקבל מה-body או מה-URL ‏(?token=...) — נוח יותר לקיצורי דרך
+  var tok = (body && body.token) || (e && e.parameter && e.parameter.token) || '';
+  if (tok !== SECRET_TOKEN) return _json({ ok: false, error: 'BAD_TOKEN' });
   var incoming = Array.isArray(body.days) ? body.days : [];
   if (!incoming.length) return _json({ ok: false, error: 'NO_DAYS' });
 

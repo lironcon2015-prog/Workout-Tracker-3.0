@@ -33,7 +33,8 @@
 6. **Format Date** → Date: **Current Date** · Format: **Custom** · תבנית: `yyyy-MM-dd`
    → משתנה `TODAY`.
 7. **Get Contents of URL**:
-   - URL: `URL`
+   - URL: `URL` — מומלץ לכלול את הטוקן ב-URL עצמו (`…/exec?token=TOKEN`),
+     ואז אין צורך בשדה `token` ב-JSON (הגשר מקבל את שניהם)
    - Method: **POST** · Request Body: **JSON**
    - מבנה ה-JSON (הוסף שדות עם המשתנים):
      ```json

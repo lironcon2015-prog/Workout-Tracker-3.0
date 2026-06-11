@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.02
+## גרסה נוכחית: 16.03
 
 ---
 
@@ -124,6 +124,7 @@
 
 ### זיכרון מאמן — קונטקסט ארוך-טווח (v15.86)
 המאמן זוכר תובנות מעבר לחלון ה-10 הודעות, **בלי לפגוע במהירות התגובה** (כל התוספת היא צד-קלט / רקע).
+- **ביצועי AI (v16.03):** `_callGeminiOneShot` זוכר את המודל האחרון שהצליח (`gympro_ai_pref_model`) ובודק אותו ראשון — מפתח שחוטף 404/429 במודל הראשון לא משלם סיבוב מבוזבז בכל קריאה. נוסף timeout לניסיון (20ש'/60ש' freeText). המלצת plateau באנליטיקה רצה כ-freeText — מצב ה-JSON הכפוי התנגש עם פרומפט "plain text" וגרם לאיטיות.
 - **#1 ניתוחים קודמים:** `_buildCondensedCoachSummaries(2, 800)` מזריק ל-`buildSystemPrompt` את 2 סיכומי המאמן האחרונים (`aiSummary`), מקוצרים ל-~800 תווים. צד-קלט בלבד → השפעה זניחה על latency.
 - **#2 זיכרון מתגלגל:** `KEY_COACH_MEMORY` (`{text, coveredLen, updatedAt}`). `_coachMemorySection()` מזריק אותו ל-`buildSystemPrompt`. הרענון (`_updateCoachMemory`) רץ **ברקע, off-critical-path** — מופעל ע"י `_maybeUpdateCoachMemory()` אחרי הצגת התשובה, רק כשנצברו ≥`COACH_MEMORY_THRESHOLD` (20) הודעות חדשות. משתמש ב-`_callGeminiOneShot(freeText, maxTokens:700)`. **לעולם לא לתמצת סינכרונית לפני תשובה** — זו קריאת API נוספת שתכפיל latency.
 - **סנכרון ענן (v15.87):** הזיכרון נשמר ב-doc `ai_history` בפיירבייס יחד עם הצ'אט (`coachMemory` field) — גיבוי אוטומטי ב-`closeAICoach`, שחזור דרך כפתור "שחזר היסטוריה". מסונכרן בין מכשירים בדיוק כמו השיחות.

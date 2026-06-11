@@ -2110,6 +2110,15 @@ async function _callGeminiOneShot(prompt, opts = {}) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
 
+    // מודל מועדף — האחרון שהצליח נשמר ונבדק ראשון בקריאות הבאות.
+    // בלי זה, מפתח שחוטף 404/429 במודל הראשון משלם סיבוב מבוזבז בכל קריאה (איטיות כרונית).
+    const PREF_KEY = 'gympro_ai_pref_model';
+    const pref = localStorage.getItem(PREF_KEY);
+    const models = (pref && config.models.includes(pref))
+        ? [pref, ...config.models.filter(m => m !== pref)]
+        : config.models;
+    const _markOk = (m) => { try { localStorage.setItem(PREF_KEY, m); } catch (e) {} };
+
     // Gemini 3 אינו תומך ב-thinkingBudget:0 לכיבוי חשיבה — שם הפרמטר הוא thinkingLevel.
     // בלעדיו המודל "חושב" בברירת מחדל (medium), מבזבז את תקרת הטוקנים על מחשבות
     // ומחזיר טקסט גלוי ריק (finishReason=MAX_TOKENS) → סיכום ריק/איטי מאוד.
@@ -2122,10 +2131,12 @@ async function _callGeminiOneShot(prompt, opts = {}) {
 
     // freeText — מאפשרים עד 3 סבבי המשך אם התשובה נחתכה (finishReason === 'MAX_TOKENS')
     const MAX_CONT_ROUNDS = opts.freeText ? 3 : 0;
+    // timeout לניסיון בודד — בקשה תקועה עוברת למודל הבא במקום להיתקע לנצח
+    const ATTEMPT_TIMEOUT_MS = opts.freeText ? 60000 : 20000;
 
     let lastErr = '';
     modelLoop:
-    for (const modelName of config.models) {
+    for (const modelName of models) {
         try {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
             // שיחה רב-תורית — מתחילה מה-prompt, וגדלה עם כל סבב המשך
@@ -2134,11 +2145,19 @@ async function _callGeminiOneShot(prompt, opts = {}) {
             let fullText = '';
 
             for (let round = 0; round <= MAX_CONT_ROUNDS; round++) {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents, generationConfig })
-                });
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), ATTEMPT_TIMEOUT_MS);
+                let response;
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents, generationConfig }),
+                        signal: ctrl.signal
+                    });
+                } finally {
+                    clearTimeout(timer);
+                }
                 if (!response.ok) {
                     if (response.status === 429 || response.status === 503 || response.status === 404) {
                         lastErr = `${modelName}: ${response.status}`;
@@ -2150,24 +2169,26 @@ async function _callGeminiOneShot(prompt, opts = {}) {
                 const data = await response.json();
                 const candidate = data.candidates?.[0];
                 const parts = candidate?.content?.parts || [];
-                if (!opts.freeText) return parts.find(p => !p.thought)?.text || '';
+                if (!opts.freeText) { _markOk(modelName); return parts.find(p => !p.thought)?.text || ''; }
 
                 // freeText — איחוד כל ה-parts (תשובה ארוכה עלולה להתפצל)
                 const chunk = parts.filter(p => !p.thought).map(p => p.text || '').join('');
                 fullText += chunk;
 
                 // אם המודל סיים מרצונו (STOP) או שאין עוד מה לחתוך — מחזירים
-                if (candidate?.finishReason !== 'MAX_TOKENS' || !chunk) return fullText.trim();
+                if (candidate?.finishReason !== 'MAX_TOKENS' || !chunk) { _markOk(modelName); return fullText.trim(); }
 
                 // נחתך באמצע — מבקשים המשך מהנקודה שבה עצר, בלי לחזור על מה שנכתב.
                 // דוחפים את ה-parts המקוריים (כולל thoughtSignature) — Gemini 3 דורש זאת ב-multi-turn.
                 contents.push({ role: 'model', parts });
                 contents.push({ role: 'user', parts: [{ text: 'המשך בדיוק מהמקום שבו עצרת, ללא חזרה על מה שכבר נכתב וללא הקדמה.' }] });
             }
+            _markOk(modelName);
             return fullText.trim();
         } catch(e) {
-            if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
-                lastErr = `${modelName}: ${e.message}`;
+            // AbortError (timeout) או שגיאת רשת — מנסים את המודל הבא
+            if (e.name === 'AbortError' || (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')))) {
+                lastErr = `${modelName}: ${e.name === 'AbortError' ? 'timeout' : e.message}`;
                 continue;
             }
             throw e;

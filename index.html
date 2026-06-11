@@ -1447,16 +1447,7 @@
 
                 <!-- ========== תצוגת שקילה ========== -->
                 <div id="bl-view-weight">
-                    <div class="bodylog-top-actions bl-weight-actions">
-                        <button class="bl-icon-btn" onclick="openBodyImportInput()" aria-label="ייבוא שקילות">
-                            <span class="material-symbols-outlined">upload_file</span>
-                        </button>
-                        <button class="bl-icon-btn" onclick="openBodyExportSheet()" aria-label="ייצוא שקילות">
-                            <span class="material-symbols-outlined">download</span>
-                        </button>
-                    </div>
-
-                    <!-- כניסת צילום — לחיצה = מצלמה מיידית; כפתור צד = הזנה ידנית -->
+                    <!-- כניסת צילום — לחיצה = מצלמה מיידית; כפתורי צד = הזנה ידנית + ייבוא/ייצוא -->
                     <div class="bl-capture-bar">
                         <button class="bl-capture-cta" onclick="openBodyCaptureInput()">
                             <span class="material-symbols-outlined">photo_camera</span>
@@ -1464,6 +1455,9 @@
                         </button>
                         <button class="bl-manual-btn" onclick="openBodyEntryModal()" aria-label="הזנה ידנית">
                             <span class="material-symbols-outlined">keyboard</span>
+                        </button>
+                        <button class="bl-manual-btn" onclick="openWeightIOSheet()" aria-label="ייבוא וייצוא שקילות">
+                            <span class="material-symbols-outlined">swap_vert</span>
                         </button>
                     </div>
 
@@ -1804,6 +1798,27 @@
         <button class="range-copy-btn" id="btn-range-download" onclick="executeDownloadByRange()" disabled style="opacity:0.45;margin-top:8px;">
             <span>הורד קובץ לקלוד</span>
             <span class="material-symbols-outlined" style="font-size:1.1rem;">download</span>
+        </button>
+    </div>
+
+    <!-- Weight Import/Export Sheet — פעולות הייבוא/ייצוא של מסך השקילה -->
+    <div id="weight-io-overlay" class="bottom-sheet-overlay" onclick="closeWeightIOSheet()"></div>
+    <div id="weight-io-sheet" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <h3 class="range-sheet-title" style="margin-bottom:14px;">ייבוא וייצוא שקילות</h3>
+        <button class="nutri-io-row" onclick="_weightIOAction(openBodyImportInput)">
+            <span class="material-symbols-outlined nutri-io-icon">upload_file</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">ייבוא שקילות</span>
+                <span class="nutri-io-desc">קובץ CSV או Excel — ממשקל חכם או מאפליקציה אחרת</span>
+            </span>
+        </button>
+        <button class="nutri-io-row" onclick="_weightIOAction(openBodyExportSheet)">
+            <span class="material-symbols-outlined nutri-io-icon">download</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">ייצוא שקילות</span>
+                <span class="nutri-io-desc">CSV לפי טווח — נפתח בורר טווח (7/30/הכל/מותאם)</span>
+            </span>
         </button>
     </div>
 

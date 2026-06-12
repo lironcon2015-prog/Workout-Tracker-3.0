@@ -2967,11 +2967,13 @@ function _homeTodayRenderNutrition() {
     const lblEl = document.getElementById('home-today-nutri-lbl');
     const liveEl = document.getElementById('home-today-live');
     const rowsEl = document.getElementById('home-today-macros');
+    const remEl = document.getElementById('home-today-remain');
     const all = StorageManager.getNutritionDaily();
     if (!all.length) {
         numEl.textContent = '—';
         lblEl.textContent = 'תזונה היום';
         liveEl.style.display = 'none';
+        if (remEl) remEl.style.display = 'none';
         rowsEl.innerHTML = '<div class="home-today-empty">אין עדיין נתוני תזונה — חבר Health או ייבא MFP</div>';
         return;
     }
@@ -2980,6 +2982,19 @@ function _homeTodayRenderNutrition() {
     lblEl.textContent = isToday ? 'תזונה היום' : 'יום אחרון · ' + _blShortDate(latest.date);
     liveEl.style.display = isToday ? '' : 'none';
     numEl.textContent = Math.round(latest.calories || 0);
+    // קלוריות שנותרו מול היעד היומי (הגדרות → מאמן) — מספר בלבד, ירוק/אדום
+    if (remEl) {
+        const target = Number(getAnalyticsPrefs().kcalTarget);
+        if (target > 0) {
+            const rem = Math.round(target - (latest.calories || 0));
+            remEl.textContent = rem;
+            remEl.classList.toggle('left', rem >= 0);
+            remEl.classList.toggle('over', rem < 0);
+            remEl.style.display = '';
+        } else {
+            remEl.style.display = 'none';
+        }
+    }
     const kv = (lbl, v, cls) =>
         `<div class="home-today-kv"><span class="home-today-kv-lbl">${lbl}</span>` +
         `<span class="home-today-kv-val ${cls}">${Math.round(v || 0)}g</span></div>`;

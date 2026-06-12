@@ -1107,6 +1107,19 @@ function _renderNutritionalToggle() {
     if (metaEl) metaEl.textContent = nutri.startDate
         ? `במצב מאז ${nutri.startDate} (${_daysInState(nutri.startDate)} ימים)`
         : 'קבע תאריך תחילת מצב';
+    const targetEl = document.getElementById('nutri-target-input');
+    if (targetEl) targetEl.value = getAnalyticsPrefs().kcalTarget || '';
+}
+
+// saveKcalTarget — שמירת היעד הקלורי היומי (הגדרות → מאמן → Nutritional State).
+// ערך ריק/אפס מבטל את היעד ומסתיר את מספר ה"נותרו" בכרטיס הבית.
+function saveKcalTarget(val) {
+    const p = getAnalyticsPrefs();
+    const n = parseInt(val, 10);
+    p.kcalTarget = n > 0 ? n : null;
+    saveAnalyticsPrefs(p);
+    if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
+    haptic('light');
 }
 
 function selectNutritionalState(state) {

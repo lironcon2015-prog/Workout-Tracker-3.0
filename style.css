@@ -3034,6 +3034,30 @@ body::before {
     color: #aac7ff;
     box-shadow: inset 0 0 0 1px rgba(10,132,255,0.25);
 }
+/* יעד קלורי יומי — שורת קלט בבנטו של ה-Nutritional State */
+.nutri-target-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 12px; padding: 10px 14px;
+    background: #1b1b1b;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+}
+.nutri-target-lbl { font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.75); }
+.nutri-target-input { display: flex; align-items: baseline; gap: 5px; direction: ltr; }
+.nutri-target-input input {
+    width: 76px; padding: 3px 8px;
+    font-family: inherit; font-size: 1.05rem; font-weight: 900; text-align: center;
+    color: #aac7ff;
+    background: rgba(10,132,255,0.12);
+    border: 1px solid rgba(10,132,255,0.4);
+    border-radius: 10px;
+    outline: none;
+    -moz-appearance: textfield;
+}
+.nutri-target-input input::-webkit-outer-spin-button,
+.nutri-target-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.nutri-target-input input::placeholder { color: rgba(170,199,255,0.4); }
+.nutri-target-unit { font-size: 0.62rem; font-weight: 600; color: var(--text-dim); }
 .stg-nutri-meta {
     font-size: 0.7rem;
     color: rgba(255,255,255,0.4);
@@ -3500,6 +3524,17 @@ body::before {
 }
 .home-today-num { font-size: 1.55rem; font-weight: 900; line-height: 1; color: var(--text); }
 .home-today-unit { font-size: 0.62rem; font-weight: 600; color: var(--text-dim); }
+/* קלוריות שנותרו — מספר בלבד, מתחת לצריכה. LTR כדי שהמינוס יוצג לפני הספרות */
+.home-today-remain {
+    font-size: 1.02rem;   /* בין הצריכה (1.55rem) למאקרוז (0.68rem) */
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 0.3rem;
+    direction: ltr;
+    text-align: right;
+}
+.home-today-remain.left { color: var(--secondary); }
+.home-today-remain.over { color: #ff6b6b; }
 .home-today-rows {
     margin-top: auto;
     display: flex;

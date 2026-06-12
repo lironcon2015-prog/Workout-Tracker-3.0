@@ -13,6 +13,7 @@
 - הטאב "אימון" שונה ל-**"בית"**: סקשן השיאים האישיים הוחלף בשתי כרטיסיות "היום" — תזונה (ימין, LIVE badge כשהנתון מהיום) והרכב גוף (שמאל: משקל, אחוז שומן, LBM, שינוי 30 יום). לחיצה מנווטת ל-Composition עם תת-טאב מתאים (`goToComposition` קובע `_blTab` לפני `switchMainTab` — בלי `setBodyTab`, שמרנדר כפול).
 - סקשן ה-PR **לא נמחק** — pref חדש `homeCard: 'today' | 'pr'` ב-analytics prefs + toggle בהגדרות (`toggleHomeCard`/`applyHomeSectionPref` ב-archive-logic.js). **מלכודת:** `getAnalyticsPrefs()` לא ממזג defaults למשתמשים קיימים — כל קריאה חייבת `prefs.homeCard || 'today'`.
 - רענון הכרטיסים: בכל `switchMainTab('workout')` + אחרי כל שינוי דאטה (שקילה/מחיקה/ייבוא CSV, סנכרון Health, ייבוא MFP, איפוס תזונה) דרך `renderHomeTodayCards()`.
+- **יעד קלורי יומי (v16.08):** pref `kcalTarget` (null = כבוי), קלט בבנטו ה-Nutritional State (הגדרות → מאמן, `saveKcalTarget` ב-workout-core.js). כרטיס התזונה בבית מציג מתחת לצריכה את ההפרש יעד−צריכה — מספר בלבד, ירוק כשנותר / אדום כשחרגו, `direction:ltr` כדי שהמינוס יוצג נכון.
 
 ---
 

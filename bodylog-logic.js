@@ -452,6 +452,7 @@ function resetNutritionData() {
         StorageManager.clearNutrition();
         _blNutriExpanded = false;
         renderBodyLog();
+        if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
         if (typeof showCloudToast === 'function') showCloudToast('🗑️ נתוני התזונה נמחקו', true);
         haptic('warning');
     });
@@ -804,6 +805,7 @@ function saveBodyEntry() {
 
     closeBodyEntryModal();
     renderBodyLog();
+    if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
     _blSyncCloud();
     haptic('success');
 }
@@ -820,6 +822,7 @@ function deleteBodyEntryUI() {
         StorageManager.deleteBodyEntry(_blEditDate);
         closeBodyEntryModal();
         renderBodyLog();
+        if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
         _blSyncCloud();
     });
 }
@@ -1102,6 +1105,7 @@ function confirmBodyImport() {
     });
     closeBodyImportModal();
     renderBodyLog();
+    if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
     _blSyncCloud();
     showAlert(`יובאו ${count} שקילות בהצלחה.`);
 }

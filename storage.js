@@ -186,7 +186,10 @@ const StorageManager = {
             heatmapMuscle: 'all',
             plateauThreshold: 3,  // מינימום שבועות flat שמסומנים כ-plateau
             // Sprint 4 — Workout Live View
-            liveMode: false       // מצב fullscreen עם טיימר ענק וסוואייפ לרישום סט
+            liveMode: false,      // מצב fullscreen עם טיימר ענק וסוואייפ לרישום סט
+            // מסך הבית — 'today' (כרטיסי תזונה+גוף) או 'pr' (גרף שיאים).
+            // משתמשים קיימים: ה-prefs השמורים לא עוברים merge — קוראים תמיד עם || 'today'
+            homeCard: 'today'
             // consistencyGreen / consistencyOrange — נשמרים רק אם הוגדרו ידנית
         };
     },

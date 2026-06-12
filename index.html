@@ -369,7 +369,7 @@
                 </div>
 
                 <!-- PR SECTION HEADER — מחוץ לכרטיס -->
-                <div class="home-pr-section-hdr">
+                <div class="home-pr-section-hdr" id="home-pr-hdr" style="display:none">
                     <span class="home-pr-section-title">שיאים אישיים</span>
                     <div class="home-pr-toggle">
                         <button class="home-pr-btn active" id="home-pr-bench" onclick="switchHomePR('bench',this)">Bench Press</button>
@@ -378,7 +378,7 @@
                 </div>
 
                 <!-- PR CARD -->
-                <div class="home-pr-card" id="home-pr-card">
+                <div class="home-pr-card" id="home-pr-card" style="display:none">
                     <!-- המספר קודם -->
                     <div class="home-pr-metric-row">
                         <span class="home-pr-num" id="home-pr-num">—</span>
@@ -396,6 +396,36 @@
                     <div class="home-pr-chart-wrap">
                         <svg id="home-pr-svg" viewBox="0 0 180 68" style="display:block;width:100%;height:auto;overflow:visible;"></svg>
                     </div>
+                </div>
+
+                <!-- TODAY SECTION HEADER -->
+                <div class="home-pr-section-hdr" id="home-today-hdr">
+                    <span class="home-pr-section-title">היום</span>
+                </div>
+
+                <!-- TODAY CARDS — RTL: תזונה ראשונה ב-DOM = צד ימין -->
+                <div class="home-today-row" id="home-today-row">
+                    <button class="home-today-card" id="home-today-nutrition" onclick="goToComposition('nutrition')">
+                        <div class="home-today-top">
+                            <span class="home-today-lbl" id="home-today-nutri-lbl">תזונה היום</span>
+                            <span class="bl-live-badge" id="home-today-live" style="display:none"><span class="bl-live-dot"></span>LIVE</span>
+                        </div>
+                        <div class="home-today-metric">
+                            <span class="home-today-num" id="home-today-kcal">—</span>
+                            <span class="home-today-unit">kcal</span>
+                        </div>
+                        <div class="home-today-rows" id="home-today-macros"></div>
+                    </button>
+                    <button class="home-today-card" id="home-today-body" onclick="goToComposition('weight')">
+                        <div class="home-today-top">
+                            <span class="home-today-lbl">הרכב גוף</span>
+                        </div>
+                        <div class="home-today-metric">
+                            <span class="home-today-num" id="home-body-weight">—</span>
+                            <span class="home-today-unit">kg</span>
+                        </div>
+                        <div class="home-today-rows" id="home-body-rows"></div>
+                    </button>
                 </div>
 
                 <div class="section-label">בחר תוכנית</div>
@@ -466,6 +496,16 @@
                                 </div>
                                 <label class="stg-switch">
                                     <input type="checkbox" id="live-mode-toggle" onchange="toggleLiveMode(this.checked)">
+                                    <span class="stg-switch-slider"></span>
+                                </label>
+                            </div>
+                            <div class="stg-toggle-row">
+                                <div class="stg-toggle-info">
+                                    <div class="stg-row-title">כרטיסי "היום" בבית</div>
+                                    <div class="stg-toggle-hint">מציג תזונה והרכב גוף במסך הבית. כיבוי מחזיר את גרף השיאים האישיים (Bench/OHP).</div>
+                                </div>
+                                <label class="stg-switch">
+                                    <input type="checkbox" id="home-card-toggle" onchange="toggleHomeCard(this.checked)">
                                     <span class="stg-switch-slider"></span>
                                 </label>
                             </div>
@@ -1571,7 +1611,7 @@
                 <rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/>
                 <line x1="8" y1="12" x2="16" y2="12"/>
             </svg>
-            <span class="tab-label">אימון</span>
+            <span class="tab-label">בית</span>
         </button>
         <button class="tab-btn" id="tabbtn-analytics" onclick="switchMainTab('analytics')">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

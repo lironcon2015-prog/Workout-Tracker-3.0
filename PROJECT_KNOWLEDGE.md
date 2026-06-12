@@ -4,7 +4,15 @@
 
 ---
 
-## גרסה נוכחית: 16.04
+## גרסה נוכחית: 16.05
+
+---
+
+## מסך הבית — כרטיסי "היום" (v16.05)
+
+- הטאב "אימון" שונה ל-**"בית"**: סקשן השיאים האישיים הוחלף בשתי כרטיסיות "היום" — תזונה (ימין, LIVE badge כשהנתון מהיום) והרכב גוף (שמאל: משקל, אחוז שומן, LBM, שינוי 30 יום). לחיצה מנווטת ל-Composition עם תת-טאב מתאים (`goToComposition` קובע `_blTab` לפני `switchMainTab` — בלי `setBodyTab`, שמרנדר כפול).
+- סקשן ה-PR **לא נמחק** — pref חדש `homeCard: 'today' | 'pr'` ב-analytics prefs + toggle בהגדרות (`toggleHomeCard`/`applyHomeSectionPref` ב-archive-logic.js). **מלכודת:** `getAnalyticsPrefs()` לא ממזג defaults למשתמשים קיימים — כל קריאה חייבת `prefs.homeCard || 'today'`.
+- רענון הכרטיסים: בכל `switchMainTab('workout')` + אחרי כל שינוי דאטה (שקילה/מחיקה/ייבוא CSV, סנכרון Health, ייבוא MFP, איפוס תזונה) דרך `renderHomeTodayCards()`.
 
 ---
 

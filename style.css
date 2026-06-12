@@ -3435,6 +3435,73 @@ body::before {
 }
 
 
+/* ── 3b. Home "היום" cards — תזונה + הרכב גוף ── */
+#ui-week .home-today-row {
+    display: flex;
+    gap: 0.625rem;
+    margin-bottom: 0.75rem;
+}
+#ui-week .home-today-card {
+    flex: 1;
+    min-width: 0;
+    height: 10.75rem;   /* תואם את שטח כרטיס ה-PR */
+    background: var(--surface-2);
+    box-shadow: var(--top-glint), var(--elev-2);
+    border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
+    border-radius: var(--r-lg);
+    padding: 0.875rem 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+    font-family: inherit;
+    color: var(--text);
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+#ui-week .home-today-card:active { transform: scale(0.97); }
+.home-today-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 1rem;
+}
+.home-today-lbl {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #c0c6d6;
+}
+.home-today-metric {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    margin-top: 0.625rem;
+}
+.home-today-num { font-size: 1.55rem; font-weight: 900; line-height: 1; color: var(--text); }
+.home-today-unit { font-size: 0.62rem; font-weight: 600; color: var(--text-dim); }
+.home-today-rows {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.home-today-kv {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 0.68rem;
+}
+.home-today-kv-lbl { color: var(--text-dim); font-weight: 600; }
+.home-today-kv-val { font-weight: 800; color: var(--text); }
+.home-today-kv-val.macro-p { color: #4a86e8; }
+.home-today-kv-val.macro-c { color: #ffad47; }
+.home-today-kv-val.macro-f { color: #f6c5be; }
+.home-today-kv-val.delta-up { color: #ff6b6b; }      /* עלייה במשקל = אדום, כמו .bl-kpi-val--up */
+.home-today-kv-val.delta-down { color: var(--secondary); }
+.home-today-empty { margin-top: auto; font-size: 0.66rem; color: var(--text-dim); line-height: 1.5; }
+
+
 /* ── 4. Week Grid (UNCHANGED STYLES) ── */
 #ui-week .section-label { margin-top: 6px; margin-bottom: 6px; font-size: 1.05em; font-weight: 900; letter-spacing: -0.03em; font-family: 'Heebo', sans-serif; text-transform: uppercase; }
 

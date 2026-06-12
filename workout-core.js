@@ -248,7 +248,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (WatchBridge.enabled()) WatchBridge.activate();
     } catch (e) {}
     if (typeof renderHeroCard === 'function') renderHeroCard();
-    if (typeof renderHomePRCard === 'function') renderHomePRCard();
+    // מציג את הסקשן לפי ההעדפה (כרטיסי "היום" / גרף PR) ומרנדר את הפעיל
+    if (typeof applyHomeSectionPref === 'function') applyHomeSectionPref();
     maybeShowCloudSyncBanner();
     fetch('./version.json')
         .then(r => r.json())
@@ -1080,6 +1081,7 @@ function openSettings() {
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
+    if (typeof syncHomeCardToggle === 'function') syncHomeCardToggle();
     const _st = document.getElementById('sound-toggle');
     if (_st) _st.checked = soundEnabled;
     switchSettingsTab('general');   // תמיד נפתח על לשונית "כללי"
@@ -4927,6 +4929,7 @@ async function syncHealthNutrition(manual = false) {
         if (changed > 0 || manual) {
             const blScreen = document.getElementById('ui-bodylog');
             if (typeof renderBodyLog === 'function' && blScreen && blScreen.classList.contains('active')) renderBodyLog();
+            if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
         }
         if (changed > 0) {
             if (typeof FirebaseManager !== 'undefined') FirebaseManager.saveConfigToCloud().catch(() => {});
@@ -5038,6 +5041,7 @@ async function importNutritionFromGmail() {
             if (raw) StorageManager.saveNutritionRaw(raw);
         }
         if (typeof renderBodyLog === 'function') renderBodyLog();
+        if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
         // סנכרון אוטומטי לענן (אם Firebase מוגדר): תזונה יומית בקונפיג + הקובץ הגולמי ב-chunks
         if (typeof FirebaseManager !== 'undefined') {
             FirebaseManager.saveConfigToCloud().catch(() => {});

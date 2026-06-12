@@ -1224,7 +1224,11 @@ function renderHeroCard() {
 function switchMainTab(name) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById('tabbtn-' + name); if (btn) btn.classList.add('active');
-    if (name === 'workout') navigate('ui-week', true);
+    if (name === 'workout') {
+        navigate('ui-week', true);
+        // רענון כרטיסי "היום" בכל חזרה הביתה (גלגול חצות / עריכות במסך Composition)
+        if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
+    }
     else if (name === 'analytics') {
         navigate('ui-analytics', true);
         // Sprint 2: flash skeleton בזמן המעבר; הרינדור עצמו מהיר אך המעבר הויזואלי משופר
@@ -2948,6 +2952,103 @@ function _homePRDrawChart(sessions, _all) {
             stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
         ${prLabel}
         ${dotsHtml}`;
+}
+
+// ─── HOME TODAY CARDS — תזונה + הרכב גוף במסך הבית ──────────────────────
+
+function renderHomeTodayCards() {
+    _homeTodayRenderNutrition();
+    _homeTodayRenderBody();
+}
+
+function _homeTodayRenderNutrition() {
+    const numEl = document.getElementById('home-today-kcal');
+    if (!numEl) return;
+    const lblEl = document.getElementById('home-today-nutri-lbl');
+    const liveEl = document.getElementById('home-today-live');
+    const rowsEl = document.getElementById('home-today-macros');
+    const all = StorageManager.getNutritionDaily();
+    if (!all.length) {
+        numEl.textContent = '—';
+        lblEl.textContent = 'תזונה היום';
+        liveEl.style.display = 'none';
+        rowsEl.innerHTML = '<div class="home-today-empty">אין עדיין נתוני תזונה — חבר Health או ייבא MFP</div>';
+        return;
+    }
+    const latest = all[all.length - 1];               // ממוין מהישן לחדש
+    const isToday = latest.date === _blTodayStr();
+    lblEl.textContent = isToday ? 'תזונה היום' : 'יום אחרון · ' + _blShortDate(latest.date);
+    liveEl.style.display = isToday ? '' : 'none';
+    numEl.textContent = Math.round(latest.calories || 0);
+    const kv = (lbl, v, cls) =>
+        `<div class="home-today-kv"><span class="home-today-kv-lbl">${lbl}</span>` +
+        `<span class="home-today-kv-val ${cls}">${Math.round(v || 0)}g</span></div>`;
+    rowsEl.innerHTML = kv('חלבון', latest.protein, 'macro-p')
+                     + kv('פחמימה', latest.carbs, 'macro-c')
+                     + kv('שומן', latest.fat, 'macro-f');
+}
+
+function _homeTodayRenderBody() {
+    const numEl = document.getElementById('home-body-weight');
+    if (!numEl) return;
+    const rowsEl = document.getElementById('home-body-rows');
+    const log = StorageManager.getBodyLog();
+    if (!log.length) {
+        numEl.textContent = '—';
+        rowsEl.innerHTML = '<div class="home-today-empty">אין עדיין שקילות — צלם או הזן במסך Composition</div>';
+        return;
+    }
+    // שיקוף הלוגיקה של _renderBodyKpis (bodylog-logic.js)
+    const sorted = log.slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    const cur = sorted[sorted.length - 1];
+    const ref30 = sorted.find(e => e.date >= _blCutoff(30)) || sorted[0];
+    const d30 = cur.weight - ref30.weight;
+    const fat = cur.bodyFat;
+    const lbm = fat != null ? cur.weight * (1 - fat / 100) : null;
+    numEl.textContent = cur.weight.toFixed(1);
+    const deltaCls = d30 > 0 ? 'delta-up' : d30 < 0 ? 'delta-down' : '';
+    const arrow = d30 > 0 ? '▲ ' : d30 < 0 ? '▼ ' : '';
+    const kv = (lbl, v, cls = '') =>
+        `<div class="home-today-kv"><span class="home-today-kv-lbl">${lbl}</span>` +
+        `<span class="home-today-kv-val ${cls}">${v}</span></div>`;
+    rowsEl.innerHTML =
+        kv('אחוז שומן', fat != null ? fat.toFixed(1) + '%' : '—') +
+        kv('מסת גוף רזה', lbm != null ? lbm.toFixed(1) + ' ק"ג' : '—') +
+        kv('שינוי 30 יום', arrow + Math.abs(d30).toFixed(1) + ' ק"ג', deltaCls);
+}
+
+// ניווט מכרטיס בית → Composition עם תת-טאב נבחר מראש.
+// קביעת _blTab לפני switchMainTab מספיקה — renderBodyLog קורא ל-_applyTabVisibility
+// שמסנכרן את כפתורי ה-seg (setBodyTab היה גורם לרינדור כפול).
+function goToComposition(tab) {
+    _blTab = tab;
+    switchMainTab('bodylog');
+}
+
+// toggle בהגדרות: checked = כרטיסי "היום" (ברירת מחדל), off = גרף שיאים
+function toggleHomeCard(showToday) {
+    const p = getAnalyticsPrefs();
+    p.homeCard = showToday ? 'today' : 'pr';
+    saveAnalyticsPrefs(p);
+    applyHomeSectionPref();
+    haptic('light');
+}
+
+function applyHomeSectionPref() {
+    // משתמשים קיימים: ה-prefs השמורים לא מכילים homeCard — לכן ברירת מחדל ידנית
+    const mode = getAnalyticsPrefs().homeCard || 'today';
+    const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+    show('home-today-hdr', mode === 'today');
+    show('home-today-row', mode === 'today');
+    show('home-pr-hdr', mode === 'pr');
+    show('home-pr-card', mode === 'pr');
+    if (mode === 'today') renderHomeTodayCards();
+    else if (typeof renderHomePRCard === 'function') renderHomePRCard();
+}
+
+function syncHomeCardToggle() {
+    const tog = document.getElementById('home-card-toggle');
+    if (tog) tog.checked = (getAnalyticsPrefs().homeCard || 'today') === 'today';
 }
 
 // ─── ARCHIVE RANGE COPY ──────────────────────────────────────────────────

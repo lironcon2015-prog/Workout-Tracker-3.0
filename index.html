@@ -418,6 +418,7 @@
                             <span class="home-today-num" id="home-today-kcal">—</span>
                             <span class="home-today-unit">kcal</span>
                         </div>
+                        <div class="home-today-remain" id="home-today-remain" style="display:none"></div>
                         <div class="home-today-rows" id="home-today-macros"></div>
                     </button>
                     <button class="home-today-card" id="home-today-body" onclick="goToComposition('weight')">
@@ -574,6 +575,13 @@
                                 <button class="nutri-pill" data-state="cut" onclick="selectNutritionalState('cut')">Cut</button>
                                 <button class="nutri-pill" data-state="maintenance" onclick="selectNutritionalState('maintenance')">Maintenance</button>
                                 <button class="nutri-pill" data-state="surplus" onclick="selectNutritionalState('surplus')">Surplus</button>
+                            </div>
+                            <div class="nutri-target-row">
+                                <span class="nutri-target-lbl">יעד קלורי יומי</span>
+                                <span class="nutri-target-input">
+                                    <input type="number" id="nutri-target-input" inputmode="numeric" min="0" max="9999" placeholder="—" onchange="saveKcalTarget(this.value)">
+                                    <span class="nutri-target-unit">kcal</span>
+                                </span>
                             </div>
                             <div class="stg-nutri-meta stg-nutri-meta--tappable" id="nutri-meta" onclick="openNutriDateModal()" role="button" tabindex="0"></div>
                         </div>

@@ -189,7 +189,9 @@ const StorageManager = {
             liveMode: false,      // מצב fullscreen עם טיימר ענק וסוואייפ לרישום סט
             // מסך הבית — 'today' (כרטיסי תזונה+גוף) או 'pr' (גרף שיאים).
             // משתמשים קיימים: ה-prefs השמורים לא עוברים merge — קוראים תמיד עם || 'today'
-            homeCard: 'today'
+            homeCard: 'today',
+            // יעד קלורי יומי (null = לא הוגדר, מספר ה"נותרו" בבית מוסתר)
+            kcalTarget: null
             // consistencyGreen / consistencyOrange — נשמרים רק אם הוגדרו ידנית
         };
     },

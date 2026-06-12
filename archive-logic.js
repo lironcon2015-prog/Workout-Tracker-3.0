@@ -3040,6 +3040,13 @@ function goToComposition(tab) {
     switchMainTab('bodylog');
 }
 
+// רענון Health ידני מתג ה-LIVE בכרטיס הבית (stopPropagation מונע ניווט).
+// משיכה manual — עוקפת throttle ומציגה toast; בהצלחה הכרטיס מתרענן דרך ה-hook הקיים.
+function refreshHomeNutrition() {
+    if (typeof syncHealthNutrition === 'function') syncHealthNutrition(true);
+    haptic('light');
+}
+
 // toggle בהגדרות: checked = כרטיסי "היום" (ברירת מחדל), off = גרף שיאים
 function toggleHomeCard(showToday) {
     const p = getAnalyticsPrefs();

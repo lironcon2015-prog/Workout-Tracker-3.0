@@ -3516,6 +3516,12 @@ body::before {
     letter-spacing: 0.12em;
     color: #c0c6d6;
 }
+/* תג ה-LIVE בכרטיס הבית לחיץ (רענון Health) — הרחבת שטח המגע בלי להזיז את הפריסה */
+#home-today-live {
+    cursor: pointer;
+    padding: 8px 10px;
+    margin: -8px -10px;
+}
 .home-today-metric {
     display: flex;
     align-items: baseline;

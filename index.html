@@ -412,7 +412,7 @@
                     <button class="home-today-card" id="home-today-nutrition" onclick="goToComposition('nutrition')">
                         <div class="home-today-top">
                             <span class="home-today-lbl" id="home-today-nutri-lbl">תזונה היום</span>
-                            <span class="bl-live-badge" id="home-today-live" style="display:none"><span class="bl-live-dot"></span>LIVE</span>
+                            <span class="bl-live-badge" id="home-today-live" style="display:none" role="button" onclick="event.stopPropagation();refreshHomeNutrition()"><span class="bl-live-dot"></span>LIVE</span>
                         </div>
                         <div class="home-today-metric">
                             <span class="home-today-num" id="home-today-kcal">—</span>

@@ -200,8 +200,28 @@ body::before {
     padding-top: 6px; position: relative; 
 }
 .back-btn { background: none; border: none; padding: 8px; visibility: hidden; cursor: pointer; display: flex; align-items: center; }
-.brand-logo { font-weight: 900; font-size: 1.25em; letter-spacing: -0.05em; font-family: 'Heebo', sans-serif; text-transform: uppercase; font-style: italic; position: absolute; left: 50%; transform: translateX(-50%); }
-.brand-logo span { color: var(--accent); }
+/* לוגו Obsidian Chrome — מרקם מתכתי חרוט + קו אור accent (v16.06) */
+.brand-logo {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center;
+    line-height: 1; direction: ltr;
+    font-family: 'Heebo', sans-serif;
+}
+.brand-logo .brand-word {
+    font-weight: 900; font-size: 1.32rem; letter-spacing: 0.02em; text-transform: uppercase;
+    background: linear-gradient(180deg, #ffffff 12%, #c8cdd6 38%, #6e7480 52%, #b6bcc8 66%, #eef1f6 92%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 1px 0 rgba(0,0,0,0.8));
+}
+.brand-logo .brand-glowline {
+    margin-top: 4px; width: 86%; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, #0A84FF 30%, #4da3ff 50%, #0A84FF 70%, transparent);
+    box-shadow: 0 0 8px rgba(10,132,255,0.8), 0 0 18px rgba(10,132,255,0.45);
+}
+.brand-logo .brand-elite {
+    font-weight: 700; font-size: 0.46rem; letter-spacing: 0.55em; margin-left: 0.55em;
+    color: #5a91c9; margin-top: 4.5px; text-transform: uppercase;
+}
 
 /* ── SVG Icon Buttons ── */
 .settings-btn {

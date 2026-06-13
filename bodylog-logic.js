@@ -135,6 +135,34 @@ function _linReg(points) {
     return { slope, rmse };
 }
 
+// _latestWeightSegment — מחזיר את המקטע הרציף האחרון של סדרת המשקל. פער > 4 ימים בין
+// שקילות = מאזניים חדש / baseline חדש (הפרש כיול), ואסור לחצות אותו ברגרסיה אחת —
+// אחרת קפיצת הכיול נספרת כ"ירידת משקל" מלאכותית ומנפחת את ה-TDEE.
+// points: [{t(ms), v, date}] ממוינים עולה.
+function _latestWeightSegment(points) {
+    if (points.length < 6) return points;               // מעט מדי לפיצול אמין
+    let seg = [points[0]];
+    for (let i = 1; i < points.length; i++) {
+        if ((points[i].t - points[i - 1].t) / 86400000 > 4) seg = [points[i]];
+        else seg.push(points[i]);
+    }
+    return seg;
+}
+
+// _despikeWeight — מסיר ספייק יומי בודד: נקודה שחורגת > 0.8 ק"ג מממוצע שכניה המיידיים
+// (אגירת מים/ריפיד/מסעדה/יום פחמימה גבוה). נקודה כזו, בעיקר בקצה החלון, מושכת את קו
+// הרגרסיה ומנפחת את קצב הירידה. שומר על המגמה האמיתית שרוב הנקודות משקפות.
+function _despikeWeight(seg) {
+    if (seg.length < 6) return seg;                      // מקטע קצר — אל תסנן
+    const kept = seg.filter((p, i) => {
+        const nb = [seg[i - 1], seg[i + 1]].filter(Boolean).map(x => x.v);
+        if (!nb.length) return true;
+        const avg = nb.reduce((a, b) => a + b, 0) / nb.length;
+        return Math.abs(p.v - avg) <= 0.8;
+    });
+    return (kept.length >= 4 && kept.length < seg.length) ? kept : seg;
+}
+
 /**
  * computeTDEE — מנוע רב-שיטתי: מדידה (back-calc) + Katch-McArdle + Cunningham + Mifflin,
  * עם reconciliation וטווח ביטחון. מחזיר null אם אין מספיק נתונים אפילו לתחזית.
@@ -182,14 +210,20 @@ function computeTDEE() {
 
     // היום הנוכחי מוחרג — תיעוד חלקי (Health תוך-יומי) מטה את הצריכה הממוצעת כלפי מטה
     const _tdToday = _blTodayStr();
-    const nutW = (StorageManager.getNutritionDaily() || []).filter(d => d.date >= startDate && d.date !== _tdToday);
-    const bodW = (StorageManager.getBodyLog() || []).filter(e => e.date >= startDate).sort((a, b) => a.date < b.date ? -1 : 1);
-    const spanDays = bodW.length ? (_blDTs(bodW[bodW.length - 1].date) - _blDTs(bodW[0].date)) / 86400000 : 0;
+    // ניקוי סדרת המשקל לפני רגרסיה — מקטע רציף אחרון (פער מאזניים/baseline) + הסרת ספייק מים/ריפיד.
+    // מונע ניפוח השיפוע מנקודה חריגה בקצה החלון (לדוגמה משקל אחרי מסעדה / יום פחמימה גבוה).
+    const bodRaw = (StorageManager.getBodyLog() || []).filter(e => e.date >= startDate).sort((a, b) => a.date < b.date ? -1 : 1);
+    const bodSeg = _latestWeightSegment(bodRaw.map(e => ({ t: _blDTs(e.date), v: e.weight, date: e.date })));
+    const bodW = _despikeWeight(bodSeg);
+    // הצריכה הממוצעת מיושרת לתחילת מקטע המשקל (לפני ה-despike) — תקפות מאזן אנרגיה
+    const segStart = bodSeg.length ? bodSeg[0].date : startDate;
+    const nutW = (StorageManager.getNutritionDaily() || []).filter(d => d.date >= segStart && d.date !== _tdToday);
+    const spanDays = bodSeg.length ? (bodSeg[bodSeg.length - 1].t - bodSeg[0].t) / 86400000 : 0;
     if (nutW.length >= 10 && bodW.length >= 4 && spanDays >= 10) {
         const cleaned = _cleanNutriOutliers(nutW.map(d => ({ date: d.date, val: d.calories })));
         const avgIntake = Math.round(cleaned.reduce((s, p) => s + p.val, 0) / cleaned.length);
-        const t0 = _blDTs(bodW[0].date);
-        const reg = _linReg(bodW.map(e => ({ t: (_blDTs(e.date) - t0) / 86400000, v: e.weight })));
+        const t0 = bodW[0].t;
+        const reg = _linReg(bodW.map(p => ({ t: (p.t - t0) / 86400000, v: p.v })));
         if (reg) {
             measured = Math.round(avgIntake - reg.slope * _KCAL_PER_KG);
             rmse = reg.rmse;

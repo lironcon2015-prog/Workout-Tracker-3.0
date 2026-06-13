@@ -315,7 +315,7 @@ function _renderTdeeCard() {
     const shortNote = t.shortWindow ? `<div class="bl-nutri-hint">החלון קצר מ-10 ימים — אין מדידת back-calc. בחר תאריך התחלה מוקדם יותר, או חזור לאוטומטי.</div>` : '';
     const windowLine = `<div class="bl-tdee-window" onclick="openTdeeRangeModal()" role="button" tabindex="0">
         <span class="material-symbols-outlined">date_range</span>
-        <span>טווח חישוב: מ-${_blListDate(winStart)} ${t.customStart ? '· ידני' : '· 28 ימים אחרונים'}</span>
+        <span>טווח חישוב: מ-${_blListDate(winStart)} ${t.customStart ? '· ידני' : '· אוטומטי'}</span>
     </div>${trimNote}${shortNote}`;
     // הפירוט (טבלת שיטות, יעדים, הערות) מוסתר כברירת מחדל — נפתח בלחיצה
     const details = !_blTdeeExpanded ? '' : `

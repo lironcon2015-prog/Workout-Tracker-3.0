@@ -280,9 +280,14 @@ document.addEventListener('DOMContentLoaded', () => {
     _scheduleHealthHourlySync();
 });
 
-// חזרה לאפליקציה מהרקע (PWA ב-iOS נשאר בזיכרון) = "כניסה" — משיכת Health שקטה
+// חזרה לאפליקציה מהרקע (PWA ב-iOS נשאר בזיכרון) = "כניסה" — משיכת Health שקטה.
+// force=true: כל העלאה לפרונט מושכת מחדש, גם אם האפליקציה לא נסגרה (עוקף throttle).
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') syncHealthNutrition(false);
+    if (document.visibilityState === 'visible') syncHealthNutrition(false, true);
+});
+// iOS PWA: שחזור מ-bfcache לא תמיד יורה visibilitychange — pageshow מכסה את המקרה
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted) syncHealthNutrition(false, true);
 });
 
 function checkRecovery() {
@@ -4916,14 +4921,19 @@ function updateHealthBridgeStatus() {
 let _healthSyncLast = 0;
 const HEALTH_SYNC_THROTTLE_MS = 15 * 60 * 1000;
 
-async function syncHealthNutrition(manual = false) {
+async function syncHealthNutrition(manual = false, force = false) {
     const { url, token } = StorageManager.getHealthBridge();
     if (!url) {
         if (manual) showAlert('יש להגדיר קודם את גשר ה-Health בהגדרות → "גשר תזונה Apple Health".');
         return;
     }
     const now = Date.now();
-    if (!manual && now - _healthSyncLast < HEALTH_SYNC_THROTTLE_MS) return;
+    // force (כניסה לפרונט) עוקף את ה-throttle של 15 דק' — אך שומר מרווח 4ש' נגד ירי כפול
+    // (visibilitychange עלול לירות פעמיים). אוטומטי רגיל (שעתי) נשאר עם throttle מלא.
+    if (!manual) {
+        const minGap = force ? 4000 : HEALTH_SYNC_THROTTLE_MS;
+        if (now - _healthSyncLast < minGap) return;
+    }
     _healthSyncLast = now;
 
     if (manual) showCloudToast('⏳ מושך תזונה מ-Health…', true);

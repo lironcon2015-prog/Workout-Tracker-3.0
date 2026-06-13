@@ -9,6 +9,12 @@
 function getAnalyticsPrefs() { return StorageManager.getAnalyticsPrefs(); }
 function saveAnalyticsPrefs(prefs) { StorageManager.saveAnalyticsPrefs(prefs); }
 
+// תווית מצב תזונתי לסיכום האימון (נשמר ברשומה בעת האימון). רשומות ישנות → "—".
+const _ARCHIVE_STATE_LBL = { cut: 'Cut', maintenance: 'Maintenance', surplus: 'Surplus' };
+function _nutriStateLabel(item) {
+    return (item && item.nutritionalState) ? (_ARCHIVE_STATE_LBL[item.nutritionalState] || item.nutritionalState) : '—';
+}
+
 // ─── ARCHIVE VIEW ─────────────────────────────────────────────────────────
 
 const MONTH_NAMES_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -343,6 +349,10 @@ function buildArchiveDetailHTML(item) {
             <div class="summary-overview-val">${item.date || ''}</div>
             <div class="summary-overview-label">${item.time || ''}</div>
         </div>
+        <div class="summary-overview-col">
+            <div class="summary-overview-val">${_nutriStateLabel(item)}</div>
+            <div class="summary-overview-label">מצב תזונתי</div>
+        </div>
     </div>`;
 
     if (item.note) {
@@ -595,6 +605,10 @@ function _buildArchiveEditHTML_withLog(item) {
             <div class="summary-overview-val">${item.date || ''}</div>
             <div class="summary-overview-label">${item.time || ''}</div>
         </div>
+        <div class="summary-overview-col">
+            <div class="summary-overview-val">${_nutriStateLabel(item)}</div>
+            <div class="summary-overview-label">מצב תזונתי</div>
+        </div>
     </div>`;
 
     // חלוקה לסגמנטים (רגיל / cluster)
@@ -693,6 +707,10 @@ function _buildArchiveEditHTML_detailsOnly(item) {
         <div class="summary-overview-col">
             <div class="summary-overview-val">${item.date || ''}</div>
             <div class="summary-overview-label">${item.time || ''}</div>
+        </div>
+        <div class="summary-overview-col">
+            <div class="summary-overview-val">${_nutriStateLabel(item)}</div>
+            <div class="summary-overview-label">מצב תזונתי</div>
         </div>
     </div>`;
 

@@ -1114,6 +1114,8 @@ function _renderNutritionalToggle() {
         : 'קבע תאריך תחילת מצב';
     const targetEl = document.getElementById('nutri-target-input');
     if (targetEl) targetEl.value = getAnalyticsPrefs().kcalTarget || '';
+    const capEl = document.getElementById('cut-cap-main-toggle');
+    if (capEl) capEl.checked = getAnalyticsPrefs().cutCapMainSets !== false;   // ברירת מחדל: דלוק
 }
 
 // saveKcalTarget — שמירת היעד הקלורי היומי (הגדרות → מאמן → Nutritional State).
@@ -1135,6 +1137,24 @@ function selectNutritionalState(state) {
     StorageManager.setNutritionalState(state, keepDate);
     _renderNutritionalToggle();
     haptic('success');
+}
+
+// ── Cut: הפחתת תרגילי מיין ל-4 סטים ──────────────────────────────────────────
+// בקאט, תרגילי MAIN LIFT (isMain) מוגבלים ל-4 הסטים הראשונים (הכבדים) כדי לחתוך
+// נפח/עייפות בלי לדלג ידנית. טוגל בהגדרות (דלוק כברירת מחדל), עוקף = כיבוי.
+const CUT_MAIN_SET_CAP = 4;
+function _cutCapMainActive() {
+    try {
+        if (StorageManager.getNutritionalState().state !== 'cut') return false;
+        const p = (typeof getAnalyticsPrefs === 'function') ? getAnalyticsPrefs() : {};
+        return p.cutCapMainSets !== false;   // ברירת מחדל: דלוק
+    } catch (e) { return false; }
+}
+function toggleCutCapMainSets(on) {
+    const p = getAnalyticsPrefs();
+    p.cutCapMainSets = !!on;
+    saveAnalyticsPrefs(p);
+    haptic('light');
 }
 
 // _daysInState — מחשב ימים לפי חצות מקומית בשני הקצוות, כדי למנוע סטיית יום
@@ -1330,9 +1350,11 @@ function openCurrentPlanSheet() {
             const isCurrent = (exName === state.currentExName) && !isDone;
             const isMain = item.isMain && item.type !== 'cluster';
             const exData = state.exercises.find(e => e.name === exName);
-            const totalSets = isMain
+            let totalSets = isMain
                 ? (exData && exData.sets ? exData.sets.length : (item.sets || 0))
                 : (item.type === 'cluster' ? 1 : (item.sets || (exData && exData.sets ? exData.sets.length : 0)));
+            // Cut: תצוגת תרגיל מיין מוגבלת ל-4 סטים — תואם את הקאפ בפועל
+            if (isMain && totalSets > CUT_MAIN_SET_CAP && _cutCapMainActive()) totalSets = CUT_MAIN_SET_CAP;
             const doneSets = setsCountMap[exName] || 0;
             const muscles = exData ? (exData.muscles || []).join(', ') : '';
 
@@ -1725,6 +1747,9 @@ function save1RM() {
     else if (w === 3) { percentages = [0.75, 0.85, 0.95, 0.85, 0.75, 0.75]; reps = [5, 3, 1, 8, 10, 10]; }
     else { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
     state.currentEx.sets = percentages.map((pct, i) => ({ w: Math.round((state.rm * pct) / 2.5) * 2.5, r: reps[i] }));
+    // Cut: הגבלת תרגיל מיין ל-4 הסטים הראשונים (הכבדים) — לא הרסני, רק ל-session הנוכחי
+    if (_cutCapMainActive() && state.currentEx.sets.length > CUT_MAIN_SET_CAP)
+        state.currentEx.sets = state.currentEx.sets.slice(0, CUT_MAIN_SET_CAP);
     startRecording();
 }
 
@@ -3451,6 +3476,11 @@ function _saveToArchive(note) {
     state.archivedTimestamp = ts;
     const aiSummary = (_coachSummaryText || _existingAiSummary(ts) || '').slice(0, 6000);
 
+    // מצב תזונתי בעת האימון — נשמר פעם אחת (נתון קבוע); עריכות עתידיות לא דורסות אותו
+    const _prevEntry = StorageManager.getArchive().find(a => a.timestamp === ts);
+    const nutritionalState = (_prevEntry && _prevEntry.nutritionalState)
+        || (StorageManager.getNutritionalState() || {}).state || null;
+
     const archiveEntry = {
         timestamp: ts,
         date: archiveDateStr,
@@ -3464,6 +3494,7 @@ function _saveToArchive(note) {
         log: archivedLog,
         note,
         rmValues: state.rmUsed || {},
+        nutritionalState,
         aiSummary
     };
 

@@ -5488,6 +5488,27 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 }
 .bl-tdee-window:active { background: rgba(10,132,255,0.18); }
 .bl-tdee-window .material-symbols-outlined { font-size: 1rem; }
+/* כפתור ה-"i" על שבב הטווח — פותח את חלונית ההסבר */
+.bl-tdee-info { display: inline-flex; align-items: center; margin-right: 2px; opacity: 0.8; }
+.bl-tdee-info .material-symbols-outlined { font-size: 1.05rem; }
+.bl-tdee-info:active { opacity: 1; }
+/* קישור "i" בתוך בורר הטווח */
+.bl-tdee-info-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 0.72rem; font-weight: 700; color: #aac7ff;
+    cursor: pointer; margin-bottom: 16px;
+}
+.bl-tdee-info-link .material-symbols-outlined { font-size: 1.05rem; }
+/* גוף חלונית ההסבר */
+.bl-tdee-info-body { text-align: right; font-size: 0.8rem; line-height: 1.6; color: var(--text); margin-bottom: 18px; max-height: 56vh; overflow-y: auto; }
+.bl-tdee-info-body p { margin: 0 0 10px; }
+.bl-tdee-info-body .bl-info-block {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-radius: 12px; padding: 10px 12px; margin: 10px 0;
+    font-size: 0.76rem; line-height: 1.65; color: var(--text-dim, #c7c7c7);
+}
+.bl-tdee-info-body .bl-info-block b { color: var(--text); }
 .bl-tdee-window--reset {
     margin-top: 14px;
     background: rgba(255,176,104,0.10);

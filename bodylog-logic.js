@@ -233,7 +233,16 @@ function computeTDEE() {
     const nutW = (StorageManager.getNutritionDaily() || []).filter(d => d.date >= segStart && d.date !== _tdToday);
     const spanDays = bodSeg.length ? (bodSeg[bodSeg.length - 1].t - bodSeg[0].t) / 86400000 : 0;
     res.effectiveStart = segStart;                       // נקודת הפתיחה האפקטיבית (אחרי פיצול פער מאזניים)
+    res.spanDays = Math.round(spanDays);
     res.trimmedOld = !!(bodRaw.length && bodSeg.length && bodSeg[0].date !== bodRaw[0].date);
+    // פרטי הפער שגרם לחיתוך — עבור חלונית ההסבר ("i")
+    if (res.trimmedOld) {
+        const idx = bodRaw.findIndex(e => e.date === bodSeg[0].date);
+        const prev = idx > 0 ? bodRaw[idx - 1] : null;
+        if (prev) { res.gapLastOld = prev.date; res.gapDays = Math.round((bodSeg[0].t - _blDTs(prev.date)) / 86400000); }
+    }
+    // שקילות שדולגו ע"י ה-despike (ספייק מים/ריפיד) — עבור חלונית ההסבר
+    res.despiked = bodSeg.filter(p => !bodW.includes(p)).map(p => ({ date: p.date, weight: p.v }));
     if (nutW.length >= 10 && bodW.length >= 4 && spanDays >= 10) {
         const cleaned = _cleanNutriOutliers(nutW.map(d => ({ date: d.date, val: d.calories })));
         const avgIntake = Math.round(cleaned.reduce((s, p) => s + p.val, 0) / cleaned.length);
@@ -245,10 +254,11 @@ function computeTDEE() {
             res.avgIntake = avgIntake;
             res.weeklyKg = +(reg.slope * 7).toFixed(2);
             days = nutW.length;
+            res.days = days;
             noisy = (rmse > 0.7) || (days < 14);           // מגמה רועשת / חלון קצר
             // חסם שפיות — קצב בלתי-אפשרי = נתונים פגומים, אל תעגן עליו
-            if (Math.abs(res.weeklyKg) > 1.6) measured = null;
-            else res.methods.push({ name: 'מדידה (back-calc)', bmr: null, tdee: measured, note: `<span class="bl-tdee-days-tap" onclick="openTdeeRangeModal()" role="button" tabindex="0">${days} ימים</span>` });
+            if (Math.abs(res.weeklyKg) > 1.6) { measured = null; res.clamped = true; }
+            else { res.measuredOk = true; res.methods.push({ name: 'מדידה (back-calc)', bmr: null, tdee: measured, note: `<span class="bl-tdee-days-tap" onclick="openTdeeRangeModal()" role="button" tabindex="0">${days} ימים</span>` }); }
         }
     } else if (bodSeg.length >= 2 && (spanDays < 10 || nutW.length < 10)) {
         // אין מדידה כי החלון קצר מ-10 ימי מגמה/תזונה — נשמר כדי להציג רמז למשתמש
@@ -316,6 +326,7 @@ function _renderTdeeCard() {
     const windowLine = `<div class="bl-tdee-window" onclick="openTdeeRangeModal()" role="button" tabindex="0">
         <span class="material-symbols-outlined">date_range</span>
         <span>טווח חישוב: מ-${_blListDate(winStart)} ${t.customStart ? '· ידני' : '· אוטומטי'}</span>
+        <span class="bl-tdee-info" onclick="event.stopPropagation(); openTdeeWindowInfo()" role="button" tabindex="0" aria-label="הסבר על טווח החישוב"><span class="material-symbols-outlined">info</span></span>
     </div>${trimNote}${shortNote}`;
     // הפירוט (טבלת שיטות, יעדים, הערות) מוסתר כברירת מחדל — נפתח בלחיצה
     const details = !_blTdeeExpanded ? '' : `
@@ -391,6 +402,59 @@ function resetTdeeStartDate() {
     _renderTdeeCard();
     _blSyncCloud();
     haptic('success');
+}
+
+// ─── חלונית הסבר על טווח החישוב ("i") ────────────────────────────────────────
+// מסבירה דינמית למה החלון האפקטיבי שונה ממה שביקש המשתמש: פער מאזניים / ספייק
+// מים / חלון קצר / קצב חורג — בכל המקרים שבהם המנוע "לא בחר" את התאריך שנקבע.
+function _tdeeWindowExplainHTML(t) {
+    if (!t) return '<p class="sub-text">אין כרגע מספיק נתונים לחישוב מאזן אנרגיה.</p>';
+    const D = d => d ? _blListDate(d) : '—';
+    const out = [];
+    const req = t.customStart
+        ? `התאריך שבחרת ידנית — <b>${D(t.startDate)}</b>`
+        : `החלון האוטומטי — 28 הימים האחרונים (מ-<b>${D(t.startDate)}</b>)`;
+    out.push(`<p>📅 <b>ביקשת:</b> ${req}.</p>`);
+    out.push(`<p>⚙️ <b>חושב בפועל:</b> מ-<b>${D(t.effectiveStart)}</b>${t.measuredOk ? ` · ${t.days} ימי תזונה · קצב ${t.weeklyKg} ק"ג/שבוע` : ' · ללא מדידת back-calc (הערכת נוסחה בלבד)'}.</p>`);
+    let any = false;
+    if (t.trimmedOld) {
+        any = true;
+        out.push(`<div class="bl-info-block">🔒 <b>למה לא התחיל מהתאריך שביקשת?</b><br>
+        בין השקילה ב-${D(t.gapLastOld)} לשקילה ב-${D(t.effectiveStart)} יש פער של <b>${t.gapDays} ימים</b> — סימן למאזניים חדש או baseline חדש. הפרש הכיול בין שני המאזניים (לרוב ~1 ק"ג) היה נספר בטעות כשינוי משקל ומנפח את ה-TDEE. לכן החישוב משתמש רק במקטע הרציף האחרון, מ-${D(t.effectiveStart)}.</div>`);
+    }
+    if (t.despiked && t.despiked.length) {
+        any = true;
+        const list = t.despiked.map(p => `${D(p.date)} (${p.weight} ק"ג)`).join(', ');
+        out.push(`<div class="bl-info-block">💧 <b>שקילות שדולגו ברגרסיה:</b><br>
+        ${t.despiked.length === 1 ? 'שקילה אחת חרגה' : `${t.despiked.length} שקילות חרגו`} ביותר מ-0.8 ק"ג מהשכנות — כנראה אגירת מים / ריפיד / מסעדה: ${list}. נקודה כזו מושכת את קו המגמה ומנפחת את הקצב, לכן הושמטה מהחישוב (אך נשמרה בהיסטוריה ובגרף).</div>`);
+    }
+    if (t.shortWindow) {
+        any = true;
+        out.push(`<div class="bl-info-block">⏳ <b>אין מדידה — החלון קצר מדי:</b><br>
+        החלון מכסה ${t.spanDays} ימי מגמת משקל, מתחת למינימום של 10 ימים למדידה אמינה. הקדם את תאריך ההתחלה או המתן לעוד שקילות. בינתיים מוצגות הערכות נוסחה בלבד.</div>`);
+    }
+    if (t.clamped) {
+        any = true;
+        out.push(`<div class="bl-info-block">⚠️ <b>הקצב חרג מהסביר:</b><br>
+        קצב המשקל שחושב (${t.weeklyKg} ק"ג/שבוע) חורג מהטווח הפיזיולוגי (מעל 1.6) — סימן לנתונים פגומים. לכן לא הוצגה מדידה, ונבחרה הערכת נוסחה.</div>`);
+    }
+    if (!any) {
+        out.push(`<div class="bl-info-block">✅ החישוב השתמש בכל השקילות בחלון שבחרת, ללא דילוגים.<br>
+        הנוסחה: <b>back-calc = צריכה ממוצעת − (שיפוע המשקל × 7,700 קק"ל/ק"ג)</b>.</div>`);
+    }
+    return out.join('');
+}
+
+function openTdeeWindowInfo() {
+    const body = document.getElementById('tdee-info-body');
+    if (body) body.innerHTML = _tdeeWindowExplainHTML(computeTDEE());
+    const m = document.getElementById('tdee-info-modal');
+    if (m) m.style.display = 'flex';
+    haptic('light');
+}
+function closeTdeeWindowInfo() {
+    const m = document.getElementById('tdee-info-modal');
+    if (m) m.style.display = 'none';
 }
 
 // _renderNutritionDaily — כרטיס "תזונה היום": נתוני היום (מתעדכנים תוך-יומית מ-Health)

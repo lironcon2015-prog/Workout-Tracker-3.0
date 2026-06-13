@@ -255,7 +255,8 @@
     <div id="tdee-range-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>טווח חישוב TDEE</h3>
-            <p class="sub-text" style="margin-bottom:16px;">בחר את התאריך שממנו מחשבון מאזן האנרגיה ימשוך שקילות וצריכה קלורית. ברירת המחדל: 28 הימים האחרונים.</p>
+            <p class="sub-text" style="margin-bottom:12px;">בחר את התאריך שממנו מחשבון מאזן האנרגיה ימשוך שקילות וצריכה קלורית. ברירת המחדל: 28 הימים האחרונים.</p>
+            <p class="bl-tdee-info-link" onclick="openTdeeWindowInfo()" role="button" tabindex="0"><span class="material-symbols-outlined">info</span> למה לפעמים החישוב מתחיל מתאריך אחר ממה שבחרתי?</p>
             <div class="glass-card compact m-0" style="margin-bottom:20px;text-align:right;">
                 <label>תאריך תחילת החישוב</label>
                 <input type="date" id="tdee-range-input" class="minimal-input m-0">
@@ -263,6 +264,15 @@
             <button class="btn-main primary-gradient" onclick="saveTdeeStartDate()">שמור</button>
             <button class="btn-text" id="tdee-range-reset" onclick="resetTdeeStartDate()">חזרה לאוטומטי (28 ימים)</button>
             <button class="btn-text" onclick="closeTdeeRangeModal()">ביטול</button>
+        </div>
+    </div>
+
+    <!-- הסבר דינמי על טווח החישוב — למה החלון האפקטיבי שונה ממה שנבחר -->
+    <div id="tdee-info-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>איך נקבע טווח החישוב</h3>
+            <div id="tdee-info-body" class="bl-tdee-info-body"></div>
+            <button class="btn-main primary-gradient" onclick="closeTdeeWindowInfo()">הבנתי</button>
         </div>
     </div>
 

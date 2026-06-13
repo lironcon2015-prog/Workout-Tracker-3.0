@@ -5475,6 +5475,30 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-tdee-unit { font-size: 0.7rem; font-weight: 600; color: var(--text-dim); margin-right: 4px; }
 .bl-tdee-range { font-size: 0.72rem; color: var(--text-dim); margin-top: 3px; }
 .bl-tdee-balance { font-size: 0.74rem; color: var(--type-b); font-weight: 700; margin-top: 8px; }
+/* שורת טווח חישוב — לחיצה פותחת בורר תאריך תחילה */
+.bl-tdee-window {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 12px; padding: 7px 12px;
+    background: rgba(10,132,255,0.10);
+    border: 1px solid rgba(10,132,255,0.30);
+    border-radius: 9999px;
+    font-size: 0.7rem; font-weight: 700; color: #aac7ff;
+    cursor: pointer; align-self: flex-start;
+    transition: background 0.15s;
+}
+.bl-tdee-window:active { background: rgba(10,132,255,0.18); }
+.bl-tdee-window .material-symbols-outlined { font-size: 1rem; }
+.bl-tdee-window--reset {
+    margin-top: 14px;
+    background: rgba(255,176,104,0.10);
+    border-color: rgba(255,176,104,0.35);
+    color: var(--type-c, #ffb868);
+}
+/* מספר הימים בטבלת השיטות — לחיץ לפתיחת אותו בורר */
+.bl-tdee-days-tap {
+    cursor: pointer; color: #aac7ff; font-weight: 700;
+    text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+}
 .bl-tdee-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.72rem; }
 .bl-tdee-table th { color: var(--text-dim); font-weight: 700; text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .bl-tdee-table td { color: var(--text); padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }

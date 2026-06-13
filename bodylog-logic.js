@@ -165,11 +165,20 @@ function computeTDEE() {
     let measured = null, days = 0, rmse = 0, noisy = false;
     // תחילת חלון: 28 הימים האחרונים, אך לא לפני (תחילת השלב הנוכחי + 7 ימים)
     let startDate = _blCutoff(_TDEE_WINDOW);
-    try {
-        const nlog = (typeof StorageManager.getNutritionLog === 'function') ? StorageManager.getNutritionLog() : null;
-        const phaseStart = (nlog && nlog.length) ? nlog[nlog.length - 1].startDate : null;
-        if (phaseStart) { const skip = _addDays(phaseStart, 7); if (skip > startDate) startDate = skip; }
-    } catch (e) { /* אין לוג מעברים — נשארים עם חלון 28 הימים */ }
+    const _tdeePrefs = (typeof getAnalyticsPrefs === 'function') ? getAnalyticsPrefs() : {};
+    const _tdeeCustom = !!_tdeePrefs.tdeeStartDate;
+    if (_tdeeCustom) {
+        // override ידני — המשתמש שולט במלואו על נקודת הפתיחה (עוקף את לוגיקת השלב)
+        startDate = _tdeePrefs.tdeeStartDate;
+    } else {
+        try {
+            const nlog = (typeof StorageManager.getNutritionLog === 'function') ? StorageManager.getNutritionLog() : null;
+            const phaseStart = (nlog && nlog.length) ? nlog[nlog.length - 1].startDate : null;
+            if (phaseStart) { const skip = _addDays(phaseStart, 7); if (skip > startDate) startDate = skip; }
+        } catch (e) { /* אין לוג מעברים — נשארים עם חלון 28 הימים */ }
+    }
+    res.startDate = startDate;
+    res.customStart = _tdeeCustom;
 
     // היום הנוכחי מוחרג — תיעוד חלקי (Health תוך-יומי) מטה את הצריכה הממוצעת כלפי מטה
     const _tdToday = _blTodayStr();
@@ -190,7 +199,7 @@ function computeTDEE() {
             noisy = (rmse > 0.7) || (days < 14);           // מגמה רועשת / חלון קצר
             // חסם שפיות — קצב בלתי-אפשרי = נתונים פגומים, אל תעגן עליו
             if (Math.abs(res.weeklyKg) > 1.6) measured = null;
-            else res.methods.push({ name: 'מדידה (back-calc)', bmr: null, tdee: measured, note: `${days} ימים` });
+            else res.methods.push({ name: 'מדידה (back-calc)', bmr: null, tdee: measured, note: `<span class="bl-tdee-days-tap" onclick="openTdeeRangeModal()" role="button" tabindex="0">${days} ימים</span>` });
         }
     }
 
@@ -231,8 +240,13 @@ function _renderTdeeCard() {
     if (!card) return;
     const t = computeTDEE();
     if (!t) {
+        // אם פעיל טווח ידני שמרוקן את הנתונים — קישור חזרה לאוטומטי (מניעת מצב "לכוד")
+        const customSet = (typeof getAnalyticsPrefs === 'function') && getAnalyticsPrefs().tdeeStartDate;
+        const resetLink = customSet
+            ? `<div class="bl-tdee-window bl-tdee-window--reset" onclick="resetTdeeStartDate()" role="button" tabindex="0">טווח חישוב ידני פעיל — חזרה לאוטומטי (28 ימים)</div>`
+            : '';
         card.innerHTML = `<div class="bl-chart-title">מאזן אנרגיה · TDEE</div>
-            <p class="bl-nutri-hint">צריך עוד נתונים: שקילה עם אחוז שומן (לתחזית מיידית) או ≥14 ימי תזונה+שקילות (למדידה מדויקת). אפשר גם להוסיף מין/גיל/גובה בהגדרות.</p>`;
+            <p class="bl-nutri-hint">צריך עוד נתונים: שקילה עם אחוז שומן (לתחזית מיידית) או ≥14 ימי תזונה+שקילות (למדידה מדויקת). אפשר גם להוסיף מין/גיל/גובה בהגדרות.</p>${resetLink}`;
         return;
     }
     const fmt = n => Math.round(n).toLocaleString('he-IL');
@@ -242,8 +256,14 @@ function _renderTdeeCard() {
     const bulk = t.best + 275;       // עודף ל-~0.25 ק"ג/שבוע
     const balance = (t.weeklyKg != null)
         ? `<div class="bl-tdee-balance">קצב נוכחי: ${t.weeklyKg >= 0 ? '+' : ''}${t.weeklyKg} ק"ג/שבוע · צריכה ממוצעת ${fmt(t.avgIntake)} קק"ל</div>` : '';
+    // שורת טווח החישוב — לחיצה פותחת בורר תאריך תחילה (ידני / אוטומטי 28 ימים)
+    const windowLine = `<div class="bl-tdee-window" onclick="openTdeeRangeModal()" role="button" tabindex="0">
+        <span class="material-symbols-outlined">date_range</span>
+        <span>טווח חישוב: מ-${_blListDate(t.startDate)} ${t.customStart ? '· ידני' : '· 28 ימים אחרונים'}</span>
+    </div>`;
     // הפירוט (טבלת שיטות, יעדים, הערות) מוסתר כברירת מחדל — נפתח בלחיצה
     const details = !_blTdeeExpanded ? '' : `
+        ${windowLine}
         <table class="bl-tdee-table"><thead><tr><th>שיטה</th><th>BMR</th><th>TDEE</th><th></th></tr></thead><tbody>${rows}</tbody></table>
         ${t.diverge ? `<div class="bl-tdee-warn">⚠ השיטות סוטות &gt;15% זו מזו — ייתכן דיווח לא עקבי</div>` : ''}
         <div class="bl-tdee-targets">
@@ -262,6 +282,57 @@ function _renderTdeeCard() {
             <span>${_blTdeeExpanded ? 'הסתר פירוט' : 'הצג פירוט'}</span>
             <span class="material-symbols-outlined">${_blTdeeExpanded ? 'expand_less' : 'expand_more'}</span>
         </button>`;
+}
+
+// ─── טווח חישוב TDEE — בורר תאריך תחילה ──────────────────────────────────────
+// נקודת הפתיחה שממנה המנוע מושך שקילות + צריכה. ברירת מחדל: 28 הימים האחרונים.
+function openTdeeRangeModal() {
+    const input = document.getElementById('tdee-range-input');
+    if (!input) return;
+    const todayStr = _blTodayStr();
+    const prefs = (typeof getAnalyticsPrefs === 'function') ? getAnalyticsPrefs() : {};
+    input.value = prefs.tdeeStartDate || _blCutoff(_TDEE_WINDOW);
+    input.max = todayStr;
+    // min = הנתון המוקדם ביותר (שקילה/תזונה) — אין טעם לבחור לפניו
+    const dates = []
+        .concat((StorageManager.getBodyLog() || []).map(e => e.date))
+        .concat((StorageManager.getNutritionDaily() || []).map(d => d.date))
+        .filter(Boolean)
+        .sort();
+    if (dates.length) input.min = dates[0];
+    // סימון מצב פעיל: אם אין override — כפתור ה-reset מיותר אך נשאר נגיש
+    const resetBtn = document.getElementById('tdee-range-reset');
+    if (resetBtn) resetBtn.style.display = prefs.tdeeStartDate ? '' : 'none';
+    document.getElementById('tdee-range-modal').style.display = 'flex';
+}
+
+function closeTdeeRangeModal() {
+    const m = document.getElementById('tdee-range-modal');
+    if (m) m.style.display = 'none';
+}
+
+function saveTdeeStartDate() {
+    const val = document.getElementById('tdee-range-input').value;
+    const todayStr = _blTodayStr();
+    if (!val) { showAlert('בחר תאריך.'); return; }
+    if (val > todayStr) { showAlert('לא ניתן לבחור תאריך עתידי.'); return; }
+    const prefs = getAnalyticsPrefs();
+    prefs.tdeeStartDate = val;
+    saveAnalyticsPrefs(prefs);
+    closeTdeeRangeModal();
+    _renderTdeeCard();
+    _blSyncCloud();
+    haptic('success');
+}
+
+function resetTdeeStartDate() {
+    const prefs = getAnalyticsPrefs();
+    prefs.tdeeStartDate = null;
+    saveAnalyticsPrefs(prefs);
+    closeTdeeRangeModal();
+    _renderTdeeCard();
+    _blSyncCloud();
+    haptic('success');
 }
 
 // _renderNutritionDaily — כרטיס "תזונה היום": נתוני היום (מתעדכנים תוך-יומית מ-Health)

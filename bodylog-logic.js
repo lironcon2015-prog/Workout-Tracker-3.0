@@ -83,6 +83,19 @@ function applyCustomRange() {
     _refreshActiveView();
 }
 
+// _syncGraphToTdeeWindow — מסנכרן את טווח הגרפים (משקל/תזונה) לחלון ה-TDEE הידני,
+// כך שהמשתמש רואה ויזואלית בדיוק את הנתונים שמזינים את חישוב ה-back-calc.
+function _syncGraphToTdeeWindow(from) {
+    _blRange = 'custom';
+    _blCustom = { from, to: _blTodayStr() };
+    document.querySelectorAll('#bl-range-chips .bl-chip').forEach(b =>
+        b.classList.toggle('active', b.dataset.range === 'custom'));
+    const cr = document.getElementById('bl-custom-range'); if (cr) cr.style.display = 'flex';
+    const f = document.getElementById('bl-custom-from'); if (f) f.value = from;
+    const tEl = document.getElementById('bl-custom-to'); if (tEl) tEl.value = _blCustom.to;
+    _refreshActiveView();
+}
+
 function _rangeLabel() {
     if (_blRange === 'all') return 'כל הימים';
     if (_blRange === 'custom')
@@ -219,6 +232,8 @@ function computeTDEE() {
     const segStart = bodSeg.length ? bodSeg[0].date : startDate;
     const nutW = (StorageManager.getNutritionDaily() || []).filter(d => d.date >= segStart && d.date !== _tdToday);
     const spanDays = bodSeg.length ? (bodSeg[bodSeg.length - 1].t - bodSeg[0].t) / 86400000 : 0;
+    res.effectiveStart = segStart;                       // נקודת הפתיחה האפקטיבית (אחרי פיצול פער מאזניים)
+    res.trimmedOld = !!(bodRaw.length && bodSeg.length && bodSeg[0].date !== bodRaw[0].date);
     if (nutW.length >= 10 && bodW.length >= 4 && spanDays >= 10) {
         const cleaned = _cleanNutriOutliers(nutW.map(d => ({ date: d.date, val: d.calories })));
         const avgIntake = Math.round(cleaned.reduce((s, p) => s + p.val, 0) / cleaned.length);
@@ -235,6 +250,9 @@ function computeTDEE() {
             if (Math.abs(res.weeklyKg) > 1.6) measured = null;
             else res.methods.push({ name: 'מדידה (back-calc)', bmr: null, tdee: measured, note: `<span class="bl-tdee-days-tap" onclick="openTdeeRangeModal()" role="button" tabindex="0">${days} ימים</span>` });
         }
+    } else if (bodSeg.length >= 2 && (spanDays < 10 || nutW.length < 10)) {
+        // אין מדידה כי החלון קצר מ-10 ימי מגמה/תזונה — נשמר כדי להציג רמז למשתמש
+        res.shortWindow = true;
     }
 
     // --- reconciliation ---
@@ -291,10 +309,14 @@ function _renderTdeeCard() {
     const balance = (t.weeklyKg != null)
         ? `<div class="bl-tdee-balance">קצב נוכחי: ${t.weeklyKg >= 0 ? '+' : ''}${t.weeklyKg} ק"ג/שבוע · צריכה ממוצעת ${fmt(t.avgIntake)} קק"ל</div>` : '';
     // שורת טווח החישוב — לחיצה פותחת בורר תאריך תחילה (ידני / אוטומטי 28 ימים)
+    // מציג את נקודת הפתיחה האפקטיבית (אחרי פיצול פער מאזניים), כך ש-"מ-X" תואם את מספר הימים
+    const winStart = t.effectiveStart || t.startDate;
+    const trimNote = t.trimmedOld ? `<div class="bl-nutri-hint">דילג על שקילות לפני ${_blListDate(winStart)} (פער מאזניים / baseline חדש)</div>` : '';
+    const shortNote = t.shortWindow ? `<div class="bl-nutri-hint">החלון קצר מ-10 ימים — אין מדידת back-calc. בחר תאריך התחלה מוקדם יותר, או חזור לאוטומטי.</div>` : '';
     const windowLine = `<div class="bl-tdee-window" onclick="openTdeeRangeModal()" role="button" tabindex="0">
         <span class="material-symbols-outlined">date_range</span>
-        <span>טווח חישוב: מ-${_blListDate(t.startDate)} ${t.customStart ? '· ידני' : '· 28 ימים אחרונים'}</span>
-    </div>`;
+        <span>טווח חישוב: מ-${_blListDate(winStart)} ${t.customStart ? '· ידני' : '· 28 ימים אחרונים'}</span>
+    </div>${trimNote}${shortNote}`;
     // הפירוט (טבלת שיטות, יעדים, הערות) מוסתר כברירת מחדל — נפתח בלחיצה
     const details = !_blTdeeExpanded ? '' : `
         ${windowLine}
@@ -354,6 +376,7 @@ function saveTdeeStartDate() {
     prefs.tdeeStartDate = val;
     saveAnalyticsPrefs(prefs);
     closeTdeeRangeModal();
+    _syncGraphToTdeeWindow(val);        // הגרפים יציגו בדיוק את חלון ה-TDEE שנבחר
     _renderTdeeCard();
     _blSyncCloud();
     haptic('success');
@@ -364,6 +387,7 @@ function resetTdeeStartDate() {
     prefs.tdeeStartDate = null;
     saveAnalyticsPrefs(prefs);
     closeTdeeRangeModal();
+    setBodyRange(30);                   // החזרת הגרפים לברירת מחדל (30 יום)
     _renderTdeeCard();
     _blSyncCloud();
     haptic('success');

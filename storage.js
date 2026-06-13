@@ -191,7 +191,9 @@ const StorageManager = {
             // משתמשים קיימים: ה-prefs השמורים לא עוברים merge — קוראים תמיד עם || 'today'
             homeCard: 'today',
             // יעד קלורי יומי (null = לא הוגדר, מספר ה"נותרו" בבית מוסתר)
-            kcalTarget: null
+            kcalTarget: null,
+            // נקודת פתיחה ידנית לחישוב ה-TDEE (null = אוטומטי: 28 ימים אחרונים)
+            tdeeStartDate: null
             // consistencyGreen / consistencyOrange — נשמרים רק אם הוגדרו ידנית
         };
     },

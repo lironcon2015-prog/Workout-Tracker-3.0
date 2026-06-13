@@ -4111,13 +4111,15 @@ function _buildNutritionAIContext(slim) {
     const days = all.filter(d => d.date !== todayStr);     // ימים מלאים בלבד — היום חלקי ומשטיח ממוצעים
     const avgN = (arr, k) => arr.length ? Math.round(arr.reduce((s, d) => s + (d[k] || 0), 0) / arr.length) : 0;
     const macro = arr => `${avgN(arr, 'calories')} קק"ל | חלבון ${avgN(arr, 'protein')}g | פחמימה ${avgN(arr, 'carbs')}g | שומן ${avgN(arr, 'fat')}g`;
-    let s = `\n=== תזונה בפועל (MyFitnessPal) ===\n`;
-    // צריכה שוטפת היום — נתון חלקי שמתעדכן במהלך היום (מסונכרן מ-Apple Health)
+    let s = `\n=== תזונה בפועל (MyFitnessPal + Apple Health) ===\n`;
+    // צריכה שוטפת היום — נתון חלקי שמתעדכן במהלך היום (מסונכרן מ-Apple Health / MFP)
     if (todayEntry) {
-        s += `צריכה שוטפת היום (${todayStr}, חלקי — מתעדכן במהלך היום): ${todayEntry.calories} קק"ל | חלבון ${todayEntry.protein || 0}g | פחמימה ${todayEntry.carbs || 0}g | שומן ${todayEntry.fat || 0}g`;
-        const tgt = getAnalyticsPrefs().kcalTarget;
-        if (tgt) s += ` | יעד יומי ${tgt} קק"ל (נותרו ~${Math.max(0, tgt - (todayEntry.calories || 0))})`;
-        s += `\n`;
+        const src = todayEntry.src === 'health' ? 'Apple Health' : 'MyFitnessPal';
+        s += `צריכה שוטפת היום (${todayStr}, חלקי — מתעדכן במהלך היום, מקור ${src}): ${todayEntry.calories} קק"ל | חלבון ${todayEntry.protein || 0}g | פחמימה ${todayEntry.carbs || 0}g | שומן ${todayEntry.fat || 0}g\n`;
+        // קלוריות שנותרו היום — מול יעד ידני אם הוגדר, אחרת מול ה-TDEE (תחזוקה)
+        let ref = getAnalyticsPrefs().kcalTarget, refLbl = 'היעד היומי';
+        if (!ref && typeof computeTDEE === 'function') { try { const tt = computeTDEE(); if (tt && tt.best) { ref = tt.best; refLbl = 'ה-TDEE (תחזוקה)'; } } catch (e) {} }
+        if (ref) s += `קלוריות שנותרו היום מול ${refLbl} (${ref} קק"ל): ~${Math.max(0, ref - (todayEntry.calories || 0))} קק"ל.\n`;
     } else {
         s += `צריכה שוטפת היום (${todayStr}): טרם תועדה.\n`;
     }
@@ -4209,6 +4211,7 @@ function buildSystemPrompt(opts = {}) {
 - הסתמך אך ורק על הנתונים שמופיעים למטה (פרופיל, מצב נוכחי, מצב תזונתי, תזונה בפועל מ-MyFitnessPal כולל הצריכה השוטפת היום, מאזן אנרגיה/TDEE והבסיס שלו, הרכב גוף/שקילות, אנליטיקה, היסטוריית בלוקים) ועל ידע מבוסס-מחקר בפיזיולוגיה ואימוני כוח. אל תמציא מספרים, מגמות או עובדות, ואל תסתמך על "ברו-סיינס".
 - הנתונים שלמטה הם מקור האמת על המתאמן. אם נדרש מידע שאינו מופיע — אמור זאת ובקש אותו, במקום לנחש.
 - אם נשאלת על תאריך, אימון, משקל או מספר שלא מופיעים מילולית בנתונים שלמטה — השב במפורש "הנתון לא קיים במידע שיש לי כרגע". אל תמציא ערכים ואל תסיק תאריכים מהקשר.
+- חריג: **מותר ומומלץ** לחשב חישובים אריתמטיים פשוטים מנתונים שכן מופיעים (חיבור/חיסור/ממוצע). בפרט — שאלות על הצריכה היומית ("כמה אכלתי היום", "כמה קלוריות נותרו") נענות מהשורה "צריכה שוטפת היום" שבמקטע התזונה (מתעדכנת במהלך היום, מקורה Apple Health או MyFitnessPal — שתיהן תקפות), וכמות הנותרת = יעד/TDEE פחות הצריכה השוטפת. אל תאמר שאין לך נתון יומי אם השורה "צריכה שוטפת היום" קיימת.
 
 # מתודולוגיה
 - בהשוואה בין בלוקים: השווה תמיד שבועות מקבילים (שבוע N בבלוק הנוכחי מול שבוע N בבלוק קודם), לא מספרים מוחלטים מתקופות שונות.

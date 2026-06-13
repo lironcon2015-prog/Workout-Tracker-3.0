@@ -4102,21 +4102,35 @@ function buildAnalyticsSnapshot() {
     return snap;
 }
 
-// _buildNutritionAIContext — סיכום נתוני התזונה (MyFitnessPal) ל-AI: ממוצעים + פירוט אחרון.
+// _buildNutritionAIContext — סיכום נתוני התזונה (MyFitnessPal) ל-AI: צריכה שוטפת היום + ממוצעים + פירוט אחרון.
 function _buildNutritionAIContext(slim) {
-    const days = (StorageManager.getNutritionDaily() || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
-    if (!days.length) return '';
+    const all = (StorageManager.getNutritionDaily() || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    if (!all.length) return '';
+    const todayStr = StorageManager._todayStr();
+    const todayEntry = all.find(d => d.date === todayStr);
+    const days = all.filter(d => d.date !== todayStr);     // ימים מלאים בלבד — היום חלקי ומשטיח ממוצעים
     const avgN = (arr, k) => arr.length ? Math.round(arr.reduce((s, d) => s + (d[k] || 0), 0) / arr.length) : 0;
     const macro = arr => `${avgN(arr, 'calories')} קק"ל | חלבון ${avgN(arr, 'protein')}g | פחמימה ${avgN(arr, 'carbs')}g | שומן ${avgN(arr, 'fat')}g`;
-    const last = days[days.length - 1];
     let s = `\n=== תזונה בפועל (MyFitnessPal) ===\n`;
-    s += `ימים מתועדים: ${days.length} | עדכון אחרון: ${last.date}\n`;
-    s += `ממוצע 7 ימים: ${macro(days.slice(-7))}\n`;
-    s += `ממוצע 30 ימים: ${macro(days.slice(-30))}\n`;
-    if (!slim) {
-        const recent = days.slice(-14);
-        s += `פירוט ${recent.length} הימים האחרונים (תאריך — קק"ל | חלבון/פחמימה/שומן g):\n`;
-        recent.forEach(d => { s += `${d.date} — ${d.calories} | ${d.protein}/${d.carbs}/${d.fat}\n`; });
+    // צריכה שוטפת היום — נתון חלקי שמתעדכן במהלך היום (מסונכרן מ-Apple Health)
+    if (todayEntry) {
+        s += `צריכה שוטפת היום (${todayStr}, חלקי — מתעדכן במהלך היום): ${todayEntry.calories} קק"ל | חלבון ${todayEntry.protein || 0}g | פחמימה ${todayEntry.carbs || 0}g | שומן ${todayEntry.fat || 0}g`;
+        const tgt = getAnalyticsPrefs().kcalTarget;
+        if (tgt) s += ` | יעד יומי ${tgt} קק"ל (נותרו ~${Math.max(0, tgt - (todayEntry.calories || 0))})`;
+        s += `\n`;
+    } else {
+        s += `צריכה שוטפת היום (${todayStr}): טרם תועדה.\n`;
+    }
+    if (days.length) {
+        const last = days[days.length - 1];
+        s += `ימים מלאים מתועדים: ${days.length} | אחרון: ${last.date}\n`;
+        s += `ממוצע 7 ימים (לא כולל היום): ${macro(days.slice(-7))}\n`;
+        s += `ממוצע 30 ימים: ${macro(days.slice(-30))}\n`;
+        if (!slim) {
+            const recent = days.slice(-14);
+            s += `פירוט ${recent.length} ימים מלאים אחרונים (תאריך — קק"ל | חלבון/פחמימה/שומן g):\n`;
+            recent.forEach(d => { s += `${d.date} — ${d.calories} | ${d.protein}/${d.carbs}/${d.fat}\n`; });
+        }
     }
     return s;
 }
@@ -4144,16 +4158,34 @@ function _buildBodylogAIContext(slim) {
     return s;
 }
 
-// _buildTdeeAIContext — מאזן אנרגיה מחושב (TDEE + טווח + קצב) לעיגון המלצות ה-AI.
-function _buildTdeeAIContext() {
+// _buildTdeeAIContext — מאזן אנרגיה מחושב (TDEE + טווח + קצב) + הבסיס והמתודולוגיה, לעיגון המלצות ה-AI.
+function _buildTdeeAIContext(slim) {
     if (typeof computeTDEE !== 'function') return '';
     let t;
     try { t = computeTDEE(); } catch (e) { return ''; }
     if (!t || t.best == null) return '';
+    const D = d => (typeof _blListDate === 'function' && d) ? _blListDate(d) : (d || '—');
     let s = `\n=== מאזן אנרגיה / TDEE (מחושב מהנתונים) ===\n`;
     s += `TDEE מוערך: ${t.best} קק"ל/יום (טווח ${t.low}–${t.high}, ביטחון ${t.confidence}, מקור: ${t.source})\n`;
     if (t.weeklyKg != null) s += `קצב משקל נוכחי: ${t.weeklyKg >= 0 ? '+' : ''}${t.weeklyKg} ק"ג/שבוע · צריכה ממוצעת ${t.avgIntake} קק"ל\n`;
-    s += `אי-ודאות עיקרית: ${t.uncertainty}. התייחס לזה כעוגן והצג כהערכה (לא כמספר מוחלט).\n`;
+    // בסיס המדידה (back-calc) — החלון והנתונים ששימשו לחישוב
+    if (t.measuredOk) {
+        s += `בסיס המדידה: חלון מ-${D(t.effectiveStart)} (${t.days} ימי תזונה, ${t.spanDays} ימי מגמת משקל) · נוסחה: ${t.avgIntake} (ממוצע צריכה) − שיפוע משקל ${t.weeklyKg} ק"ג/שבוע × 7700.\n`;
+        const adj = [];
+        if (t.trimmedOld) adj.push(`דולגו שקילות לפני ${D(t.effectiveStart)} (פער מאזניים/baseline חדש)`);
+        if (t.despiked && t.despiked.length) adj.push(`${t.despiked.length === 1 ? 'הוסרה שקילה חריגה אחת' : `הוסרו ${t.despiked.length} שקילות חריגות`} (ספייק מים/ריפיד)`);
+        if (adj.length) s += `התאמות שבוצעו: ${adj.join('; ')}.\n`;
+    } else if (t.shortWindow) {
+        s += `אין מדידת back-calc — חלון קצר מ-10 ימי מגמת משקל; ההערכה מבוססת נוסחאות בלבד.\n`;
+    }
+    // שיטות הנוסחה המקבילות — לעיגון/השוואה
+    const fm = (t.methods || []).filter(m => m.bmr != null);
+    if (fm.length) s += `שיטות נוסחה (BMR→TDEE): ${fm.map(m => `${m.name} ${m.bmr}→${m.tdee}`).join(' · ')}.\n`;
+    s += `אי-ודאות עיקרית: ${t.uncertainty}. התייחס לזה כעוגן והצג כהערכה (לא מספר מוחלט).\n`;
+    // מתודולוגיה תמציתית (כדי שה-AI יבין איך נגזר ה-TDEE) — מושמט במצב slim (שאלות תוך-אימון)
+    if (!slim) {
+        s += `מתודולוגיה: מריצים כמה שיטות ומעגנים על המדידה בפועל כשקיימת. back-calc = ממוצע_צריכה − שיפוע_משקל(ק"ג/יום)×7700, כששיפוע המשקל מגיע מרגרסיית least-squares על כל השקילות בחלון (עמיד לרעש מים, לא נקודה-מול-נקודה), עם ניקוי ימי תזונה חסרים, פיצול פער-מאזניים, וסינון ספייקים. נוסחאות תחזית: Katch/Cunningham (LBM מ-%שומן) ו-Mifflin (פרופיל)×מכפיל פעילות. best = המדידה כשקיימת (CI ±7%), אחרת חציון התחזיות (CI ±10-15%). 7700 קק"ל/ק"ג; תת-דיווח עקבי מתקזז כי הפלט באותן יחידות דיווח.\n`;
+    }
     return s;
 }
 
@@ -4174,7 +4206,7 @@ function buildSystemPrompt(opts = {}) {
 - כשמתבקש "סיכום", "ניתוח", "סקירה", "דוח" או הסבר מעמיק — ספק תשובה מלאה, מובנית ויסודית בהודעה אחת. כסה את כל ההיבטים הרלוונטיים, אל תקצר באופן מלאכותי ואל תפצל לחלקים שמחייבים "המשך".
 
 # מקורות ואמינות
-- הסתמך אך ורק על הנתונים שמופיעים למטה (פרופיל, מצב נוכחי, מצב תזונתי, תזונה בפועל מ-MyFitnessPal, הרכב גוף/שקילות, אנליטיקה, היסטוריית בלוקים) ועל ידע מבוסס-מחקר בפיזיולוגיה ואימוני כוח. אל תמציא מספרים, מגמות או עובדות, ואל תסתמך על "ברו-סיינס".
+- הסתמך אך ורק על הנתונים שמופיעים למטה (פרופיל, מצב נוכחי, מצב תזונתי, תזונה בפועל מ-MyFitnessPal כולל הצריכה השוטפת היום, מאזן אנרגיה/TDEE והבסיס שלו, הרכב גוף/שקילות, אנליטיקה, היסטוריית בלוקים) ועל ידע מבוסס-מחקר בפיזיולוגיה ואימוני כוח. אל תמציא מספרים, מגמות או עובדות, ואל תסתמך על "ברו-סיינס".
 - הנתונים שלמטה הם מקור האמת על המתאמן. אם נדרש מידע שאינו מופיע — אמור זאת ובקש אותו, במקום לנחש.
 - אם נשאלת על תאריך, אימון, משקל או מספר שלא מופיעים מילולית בנתונים שלמטה — השב במפורש "הנתון לא קיים במידע שיש לי כרגע". אל תמציא ערכים ואל תסיק תאריכים מהקשר.
 
@@ -4198,7 +4230,7 @@ function buildSystemPrompt(opts = {}) {
     // נתוני תזונה בפועל (MyFitnessPal) + שקילות — לניתוח קלורי/מאקרו ומגמת משקל
     prompt += _buildNutritionAIContext(slim);
     prompt += _buildBodylogAIContext(slim);
-    prompt += _buildTdeeAIContext();
+    prompt += _buildTdeeAIContext(slim);
 
     // מצב נוכחי
     prompt += `\n=== מצב נוכחי ===\n`;

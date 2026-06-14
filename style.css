@@ -1649,11 +1649,10 @@ body::before {
    ה-mask מדהה את התמונה בתחתית במקום fade ל-bg אטום שיסתיר תוכן. */
 .hero-bg-ana {
     position: absolute; top: 0; left: 0; right: 0; height: 480px;
-    z-index: 11; pointer-events: none; opacity: 0.36;
-    /* וינייטה רדיאלית — זוהר מרכזי-עליון שדועך לכל הצדדים, כך שכל תמונה
-       (גם חתך רחב) נראית כרקע אמביינטי מכוון ולא כצילום חתוך בקצוות */
-    -webkit-mask-image: radial-gradient(ellipse 62% 55% at 50% 28%, #000 45%, transparent 100%);
-            mask-image: radial-gradient(ellipse 62% 55% at 50% 28%, #000 45%, transparent 100%);
+    z-index: 11; pointer-events: none; opacity: 0.33;
+    /* וינייטה רחבה — מגיעה עד קצוות המסך (בלי מסגרת שחורה) ומרככת רק את הפינות העליונות */
+    -webkit-mask-image: radial-gradient(ellipse 130% 72% at 50% 30%, #000 55%, transparent 100%);
+            mask-image: radial-gradient(ellipse 130% 72% at 50% 30%, #000 55%, transparent 100%);
 }
 .hero-bg-ana img {
     width: 100%; height: 100%; object-fit: cover;
@@ -1665,9 +1664,9 @@ body::before {
    נצבע מעל הכרטיסים (z-index 11), מתחת לכותרת ה-sticky (50), opacity .35 עם mask. */
 .screen-bg {
     position: absolute; top: 0; left: 0; right: 0; height: 480px;
-    z-index: 11; pointer-events: none; opacity: 0.36;
-    -webkit-mask-image: radial-gradient(ellipse 62% 55% at 50% 28%, #000 45%, transparent 100%);
-            mask-image: radial-gradient(ellipse 62% 55% at 50% 28%, #000 45%, transparent 100%);
+    z-index: 11; pointer-events: none; opacity: 0.33;
+    -webkit-mask-image: radial-gradient(ellipse 130% 72% at 50% 30%, #000 55%, transparent 100%);
+            mask-image: radial-gradient(ellipse 130% 72% at 50% 30%, #000 55%, transparent 100%);
 }
 .screen-bg img {
     width: 100%; height: 100%; object-fit: cover;

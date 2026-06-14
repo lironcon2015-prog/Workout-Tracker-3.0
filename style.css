@@ -1799,6 +1799,7 @@ body::before {
 
 /* MICRO TAB */
 .ex-selector {
+    position: relative;   /* כולא את ה-<select> ה-absolute בתוך הפיל בלבד (אחרת הוא מכסה את כל ה-tab ותופס קליקים) */
     background: var(--surface-2);
     border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
     border-radius: var(--r-lg); padding: 18px 24px; display: flex; justify-content: space-between; align-items: center;

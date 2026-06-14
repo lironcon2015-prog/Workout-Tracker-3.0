@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 16.27
+ * Version: 16.28
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v16.27';
+const CACHE_VERSION = 'gympro-v16.28';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -31,7 +31,8 @@ const FILES_TO_CACHE = [
     './img/bg-berries.jpg',
     './img/bg-eggs.jpg',
     './img/bg-bowl.jpg',
-    './img/bg-avocado.jpg'
+    './img/bg-avocado.jpg',
+    './img/bg-meal.jpg'
 ];
 
 self.addEventListener('install', event => {

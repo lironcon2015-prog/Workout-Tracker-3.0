@@ -1634,24 +1634,27 @@ body::before {
    ========================================= */
 
 #ui-analytics {
-    --bg-lowest: #0a0a0a;
-    background-color: var(--bg-lowest);
-    color: #e5e2e1;
+    /* פלטה מאוחדת עם דף הבית — אותו שחור (#070708) ואותו צבע טקסט */
+    --bg-lowest: #070708;
+    background-color: var(--bg);
+    color: var(--text);
     position: relative;
 }
 
-/* Hero Background */
+/* Hero Background — מיושר לטיפול של דף הבית (home-bg-hero):
+   תמונה גבוהה יותר שיושבת מאחורי הכרטיסים העליונים, אותה אטימות/בהירות,
+   ומתפוגגת ל-#070708 כך שהלומיננס מתמזג עם הכרטיסים (אפקט ה"שקיפות"). */
 .hero-bg-ana {
-    position: absolute; top: 0; left: 0; right: 0; height: 450px;
-    z-index: 0; pointer-events: none;
+    position: absolute; top: 0; left: 0; right: 0; height: 60%;
+    z-index: 0; pointer-events: none; opacity: 0.35;
 }
 .hero-bg-ana img {
     width: 100%; height: 100%; object-fit: cover;
-    opacity: 0.3; filter: grayscale(1) contrast(1.2);
+    filter: grayscale(1) contrast(1.2) brightness(0.8);
 }
 .hero-bg-ana .hero-gradient-ana {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 100%;
-    background: linear-gradient(to bottom, transparent 0%, var(--bg-lowest) 100%);
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(10,10,10,0.1) 0%, rgba(10,10,10,0.6) 60%, var(--bg) 100%);
 }
 
 /* Utilities */
@@ -1691,6 +1694,23 @@ body::before {
     border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
     box-shadow: var(--top-glint), var(--elev-3);
     border-radius: var(--r-lg); padding: 24px; margin-bottom: 24px;
+}
+
+/* ── שקיפות זכוכית באנליטיקה בלבד ──
+   הכרטיסים חצי-שקופים עם blur כך שתמונת חדר-הכושר נראית דרכם, כמו בדף הבית.
+   ממוקד ל-#ui-analytics כדי לא להשפיע על מסך סיכום האימון (workout-core) שמשתמש
+   גם הוא ב-.obsidian-card. */
+#ui-analytics .obsidian-card,
+#ui-analytics .bento-card {
+    background: rgba(22, 22, 25, 0.62);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border-top-color: rgba(255, 255, 255, 0.14);
+}
+/* Fallback לדפדפנים בלי תמיכה ב-backdrop-filter — רקע אטום יותר לשמירת קריאוּת */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    #ui-analytics .obsidian-card,
+    #ui-analytics .bento-card { background: var(--surface-2); }
 }
 
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }

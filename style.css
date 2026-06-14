@@ -1696,21 +1696,15 @@ body::before {
     border-radius: var(--r-lg); padding: 24px; margin-bottom: 24px;
 }
 
-/* ── שקיפות זכוכית באנליטיקה בלבד ──
-   הכרטיסים חצי-שקופים עם blur כך שתמונת חדר-הכושר נראית דרכם, כמו בדף הבית.
-   ממוקד ל-#ui-analytics כדי לא להשפיע על מסך סיכום האימון (workout-core) שמשתמש
-   גם הוא ב-.obsidian-card. */
+/* ── "שקיפות" באנליטיקה — זהה לכרטיסי "היום" בדף הבית ──
+   הכרטיסים אטומים (surface-2), והאפקט ה"שקוף" נוצר מתמונת הרקע שיושבת מאחוריהם
+   והלומיננס שלה מתמזג עם צבע הכרטיס — בדיוק כמו במסך הבית. ללא backdrop-filter.
+   ממוקד ל-#ui-analytics כדי לא להשפיע על מסך סיכום האימון (workout-core). */
 #ui-analytics .obsidian-card,
 #ui-analytics .bento-card {
-    background: rgba(22, 22, 25, 0.62);
-    backdrop-filter: blur(22px) saturate(160%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
-    border-top-color: rgba(255, 255, 255, 0.14);
-}
-/* Fallback לדפדפנים בלי תמיכה ב-backdrop-filter — רקע אטום יותר לשמירת קריאוּת */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    #ui-analytics .obsidian-card,
-    #ui-analytics .bento-card { background: var(--surface-2); }
+    background: var(--surface-2);
+    box-shadow: var(--top-glint), var(--elev-2);
+    border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
 }
 
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }

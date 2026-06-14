@@ -1173,6 +1173,7 @@
             </div>
 
             <div id="ui-archive" class="screen">
+                <div class="screen-bg"><img id="archive-bg-img" loading="lazy" src="./img/bg-dumbbells.jpg"></div>
                 <!-- בורר רשימה/לוח שנה — האלמנט העליון, בסגנון מסך האנליטיקה -->
                 <div class="analytics-header-sticky">
                     <div class="segment-wrapper">
@@ -1260,27 +1261,6 @@
                     <img id="ana-bg-img" class="hero-image-ana" loading="lazy" src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=900&auto=format&fit=crop">
                     <div class="hero-gradient-ana"></div>
                 </div>
-
-                <!-- TEMP: בורר רקע — לבחירה חיה. להסרה אחרי שתבחר מספר. -->
-                <button id="ana-bg-cycler" onclick="cycleAnaBg()" style="position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:200;background:#0A84FF;color:#fff;border:none;border-radius:9999px;padding:12px 22px;font-family:inherit;font-weight:900;font-size:0.95rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;">החלף רקע (1/7)</button>
-                <script>
-                window.__ANA_BGS = [
-                    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=900&auto=format&fit=crop",
-                    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=900&auto=format&fit=crop",
-                    "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=900&auto=format&fit=crop",
-                    "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=900&auto=format&fit=crop",
-                    "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=900&auto=format&fit=crop",
-                    "./img/thumb-back-1.jpg",
-                    "./img/thumb-chest-1.jpg"
-                ];
-                window.__anaBgI = 0;
-                function cycleAnaBg(){
-                    var a = window.__ANA_BGS;
-                    window.__anaBgI = (window.__anaBgI + 1) % a.length;
-                    var img = document.getElementById('ana-bg-img'); if (img) img.src = a[window.__anaBgI];
-                    var b = document.getElementById('ana-bg-cycler'); if (b) b.textContent = 'החלף רקע (' + (window.__anaBgI + 1) + '/' + a.length + ')';
-                }
-                </script>
 
                 <div class="analytics-header-sticky">
                     <div class="segment-wrapper" id="analytics-seg">
@@ -1531,6 +1511,7 @@
 
             <!-- =================== BODY LOG (שקילות) =================== -->
             <div id="ui-bodylog" class="screen">
+                <div class="screen-bg"><img id="bodylog-bg-img" loading="lazy" src="./img/bg-bowl.jpg"></div>
                 <!-- בורר תתי-מסכים (שקילה / תזונה) — האלמנט העליון, בסגנון מסך האנליטיקה -->
                 <div class="analytics-header-sticky">
                     <div class="segment-wrapper" id="bl-subtab">
@@ -2130,5 +2111,46 @@
         <button class="csb-action" onclick="manualBackupArchive()">גבה עכשיו</button>
         <button class="csb-close" onclick="dismissCloudSyncBanner()" aria-label="סגור">&times;</button>
     </div>
+
+    <!-- TEMP: בורר רקע גלובלי לבחירה חיה (אנליטיקה/ארכיון/תזונה). להסרה אחרי הבחירה. -->
+    <button id="bg-lab" onclick="cycleBg()" style="position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:500;background:#0A84FF;color:#fff;border:none;border-radius:9999px;padding:11px 20px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;max-width:92vw;white-space:nowrap;">בורר רקע — לחץ</button>
+    <script>
+    (function(){
+        window.BG_LIB = [
+            {n:'מוט',            s:'./img/bg-barbell.jpg'},
+            {n:'מסלול ריצה',     s:'./img/bg-track.jpg'},
+            {n:'דמבלים',         s:'./img/bg-dumbbells.jpg'},
+            {n:'פירות יער',      s:'./img/bg-berries.jpg'},
+            {n:'ביצים/אבוקדו',   s:'./img/bg-eggs.jpg'},
+            {n:'קערת סלט',       s:'./img/bg-bowl.jpg'},
+            {n:'אבוקדו+תרד',     s:'./img/bg-avocado.jpg'},
+            {n:'גב',             s:'./img/thumb-back-1.jpg'},
+            {n:'חזה',            s:'./img/thumb-chest-1.jpg'},
+            {n:'רגליים',         s:'./img/thumb-legs-1.jpg'},
+            {n:'כתפיים',         s:'./img/thumb-shoulders-1.jpg'},
+            {n:'ידיים',          s:'./img/thumb-arms-1.jpg'},
+            {n:'חדר כושר (Unsplash)', s:'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=900&auto=format&fit=crop'}
+        ];
+        var ix = {};
+        function active(){
+            var a = document.getElementById('ui-analytics');
+            if (a && a.classList.contains('active')) {
+                var mi = document.getElementById('analytics-micro');
+                return { img:'ana-bg-img', label:(mi && mi.classList.contains('active')) ? 'אנליטיקה·תרגיל' : 'אנליטיקה·סקירה' };
+            }
+            if (document.getElementById('ui-archive').classList.contains('active')) return { img:'archive-bg-img', label:'ארכיון' };
+            if (document.getElementById('ui-bodylog').classList.contains('active')) return { img:'bodylog-bg-img', label:'תזונה/גוף' };
+            return null;
+        }
+        window.cycleBg = function(){
+            var b = document.getElementById('bg-lab'); var t = active();
+            if (!t) { b.textContent = 'פתח אנליטיקה / ארכיון / תזונה'; return; }
+            ix[t.img] = ((ix[t.img] == null ? -1 : ix[t.img]) + 1) % window.BG_LIB.length;
+            var o = window.BG_LIB[ix[t.img]];
+            var img = document.getElementById(t.img); if (img) img.src = o.s;
+            b.textContent = t.label + ': ' + o.n + ' (' + (ix[t.img] + 1) + '/' + window.BG_LIB.length + ')';
+        };
+    })();
+    </script>
 </body>
 </html>

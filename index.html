@@ -1257,9 +1257,30 @@
                 
                 <!-- Hero Background -->
                 <div class="hero-bg-ana">
-                    <img class="hero-image-ana" loading="lazy" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6J3AfEvcpPozzfrnUanXA0Qfohcy0ajd4CRR55ZMnKpMNXGSutcKB2SOxJHDi6CbiJO_BBldaEvvpdUlhznsMSylCunal_RQzdot0VjMPAo0EXnZcZ02z8PbNNCaTfX_HrfxKrQVF4e4vWo19wq9I1FotGwZYQ7nmL8sugf72NkFb3pafSOIkZh9ysUgH8ioSD_ldTkZ_Bi2lUfQkOXBbsc7YNOjoOo9At3vZzpdPqXeRMnzsxwi9DSa7sZP6fwUl4iXJuZbR5_1m=w800">
+                    <img id="ana-bg-img" class="hero-image-ana" loading="lazy" src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=900&auto=format&fit=crop">
                     <div class="hero-gradient-ana"></div>
                 </div>
+
+                <!-- TEMP: בורר רקע — לבחירה חיה. להסרה אחרי שתבחר מספר. -->
+                <button id="ana-bg-cycler" onclick="cycleAnaBg()" style="position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:200;background:#0A84FF;color:#fff;border:none;border-radius:9999px;padding:12px 22px;font-family:inherit;font-weight:900;font-size:0.95rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;">החלף רקע (1/7)</button>
+                <script>
+                window.__ANA_BGS = [
+                    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=900&auto=format&fit=crop",
+                    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=900&auto=format&fit=crop",
+                    "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=900&auto=format&fit=crop",
+                    "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=900&auto=format&fit=crop",
+                    "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=900&auto=format&fit=crop",
+                    "./img/thumb-back-1.jpg",
+                    "./img/thumb-chest-1.jpg"
+                ];
+                window.__anaBgI = 0;
+                function cycleAnaBg(){
+                    var a = window.__ANA_BGS;
+                    window.__anaBgI = (window.__anaBgI + 1) % a.length;
+                    var img = document.getElementById('ana-bg-img'); if (img) img.src = a[window.__anaBgI];
+                    var b = document.getElementById('ana-bg-cycler'); if (b) b.textContent = 'החלף רקע (' + (window.__anaBgI + 1) + '/' + a.length + ')';
+                }
+                </script>
 
                 <div class="analytics-header-sticky">
                     <div class="segment-wrapper" id="analytics-seg">

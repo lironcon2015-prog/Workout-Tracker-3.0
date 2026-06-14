@@ -2128,7 +2128,7 @@
     <button id="bg-save" onclick="saveBgEdit()" style="display:none;position:fixed;bottom:104px;left:50%;transform:translateX(-50%);z-index:500;background:#47e266;color:#0a0a0a;border:none;border-radius:9999px;padding:11px 24px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;">✓ שמור וסיום</button>
     <script>
     (function(){
-        var KEY = 'gympro-bg-choices-v1';
+        var KEY = 'gympro-bg-choices-v2';
         var LIB = [
             {n:'מסלול ריצה',     s:'./img/bg-track.jpg'},
             {n:'מוט',            s:'./img/bg-barbell.jpg'},
@@ -2144,13 +2144,29 @@
             {n:'ידיים',          s:'./img/thumb-arms-1.jpg'},
             {n:'חדר כושר (Unsplash)', s:'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=900&auto=format&fit=crop'}
         ];
-        // slot -> תמונת ברירת מחדל (בחירות המשתמש)
+        // slot לכל תת-מסך -> תמונת ברירת מחדל
         var DEFAULTS = {
-            'ana-macro': './img/bg-track.jpg',
-            'ana-micro': './img/bg-track.jpg',
-            'archive':   './img/bg-dumbbells.jpg',
-            'bodylog':   './img/bg-bowl.jpg'
+            'ana-macro':         './img/bg-track.jpg',
+            'ana-micro':         './img/bg-track.jpg',
+            'archive-list':      './img/bg-dumbbells.jpg',
+            'archive-calendar':  './img/bg-dumbbells.jpg',
+            'bodylog-weight':    './img/bg-bowl.jpg',
+            'bodylog-nutrition': './img/bg-bowl.jpg'
         };
+        // מיגרציה ממפתח v1 (slot אחד לכל מסך) ל-v2 (slot לכל תת-מסך)
+        (function migrate(){
+            if (localStorage.getItem(KEY)) return;
+            try {
+                var old = JSON.parse(localStorage.getItem('gympro-bg-choices-v1') || 'null');
+                if (!old) return;
+                var m = {};
+                if (old['ana-macro']) m['ana-macro'] = old['ana-macro'];
+                if (old['ana-micro']) m['ana-micro'] = old['ana-micro'];
+                if (old['archive'])   { m['archive-list'] = old['archive']; m['archive-calendar'] = old['archive']; }
+                if (old['bodylog'])   { m['bodylog-weight'] = old['bodylog']; m['bodylog-nutrition'] = old['bodylog']; }
+                localStorage.setItem(KEY, JSON.stringify(m));
+            } catch (e) {}
+        })();
         function loadChoices(){
             try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}')); }
             catch (e) { return Object.assign({}, DEFAULTS); }
@@ -2161,34 +2177,42 @@
 
         function setImg(id, src){ var el = document.getElementById(id); if (el && src) el.src = src; }
         function st(){ return draft || choices; }
-        function applyAnalytics(){
-            var mi = document.getElementById('analytics-micro');
-            var micro = mi && mi.classList.contains('active');
-            setImg('ana-bg-img', st()[micro ? 'ana-micro' : 'ana-macro']);
-        }
-        function applyAll(){
-            setImg('archive-bg-img', st()['archive']);
-            setImg('bodylog-bg-img', st()['bodylog']);
-            applyAnalytics();
-        }
-        // יישום הבחירות בטעינה + חיבור להחלפת תת-טאב באנליטיקה
+
+        // ── זיהוי תת-המסך הפעיל בכל מסך ──
+        function anaMicro(){ var mi = document.getElementById('analytics-micro'); return !!(mi && mi.classList.contains('active')); }
+        function archCalendar(){ var b = document.getElementById('btn-view-calendar'); return !!(b && b.classList.contains('active')); }
+        function blNutrition(){ var b = document.querySelector('#bl-subtab .seg-btn.active'); return !!(b && b.getAttribute('data-tab') === 'nutrition'); }
+
+        function applyAnalytics(){ setImg('ana-bg-img',     st()[anaMicro()    ? 'ana-micro'         : 'ana-macro']); }
+        function applyArchive(){   setImg('archive-bg-img', st()[archCalendar() ? 'archive-calendar'  : 'archive-list']); }
+        function applyBodylog(){   setImg('bodylog-bg-img', st()[blNutrition()  ? 'bodylog-nutrition' : 'bodylog-weight']); }
+        function applyAll(){ applyAnalytics(); applyArchive(); applyBodylog(); }
+
+        // יישום בטעינה + חיבור (wrap) לפונקציות החלפת תת-המסכים — כדי לעדכן רקע בכל מעבר
         document.addEventListener('DOMContentLoaded', function(){
             applyAll();
-            var orig = window.switchAnalyticsTab;
-            if (typeof orig === 'function') {
-                window.switchAnalyticsTab = function(tab, el){ orig(tab, el); applyAnalytics(); };
+            function wrap(name, after){
+                var orig = window[name];
+                if (typeof orig === 'function') window[name] = function(){ var r = orig.apply(this, arguments); after(); return r; };
             }
+            wrap('switchAnalyticsTab', applyAnalytics);
+            wrap('switchArchiveView',  applyArchive);
+            wrap('setBodyTab',         applyBodylog);
         });
 
         function active(){
-            var a = document.getElementById('ui-analytics');
-            if (a && a.classList.contains('active')) {
-                var mi = document.getElementById('analytics-micro');
-                var micro = mi && mi.classList.contains('active');
-                return { slot: micro ? 'ana-micro' : 'ana-macro', img:'ana-bg-img', label: micro ? 'אנליטיקה·תרגיל' : 'אנליטיקה·סקירה' };
-            }
-            if (document.getElementById('ui-archive').classList.contains('active'))  return { slot:'archive', img:'archive-bg-img', label:'ארכיון' };
-            if (document.getElementById('ui-bodylog').classList.contains('active'))  return { slot:'bodylog', img:'bodylog-bg-img', label:'תזונה/גוף' };
+            if (document.getElementById('ui-analytics').classList.contains('active'))
+                return anaMicro()
+                    ? { slot:'ana-micro', img:'ana-bg-img', label:'אנליטיקה·תרגיל' }
+                    : { slot:'ana-macro', img:'ana-bg-img', label:'אנליטיקה·סקירה' };
+            if (document.getElementById('ui-archive').classList.contains('active'))
+                return archCalendar()
+                    ? { slot:'archive-calendar', img:'archive-bg-img', label:'ארכיון·לוח שנה' }
+                    : { slot:'archive-list', img:'archive-bg-img', label:'ארכיון·רשימה' };
+            if (document.getElementById('ui-bodylog').classList.contains('active'))
+                return blNutrition()
+                    ? { slot:'bodylog-nutrition', img:'bodylog-bg-img', label:'תזונה' }
+                    : { slot:'bodylog-weight', img:'bodylog-bg-img', label:'שקילה' };
             return null;
         }
         window.enterBgEdit = function(){
@@ -2200,8 +2224,9 @@
             document.getElementById('bg-lab').textContent = 'לחץ להחלפת רקע';
         };
         window.cycleBg = function(){
-            var b = document.getElementById('bg-lab'); var t = active();
+            var b = document.getElementById('bg-lab');
             if (!draft) return;
+            var t = active();
             if (!t) { b.textContent = 'פתח אנליטיקה / ארכיון / תזונה'; return; }
             ix[t.slot] = ((ix[t.slot] == null ? -1 : ix[t.slot]) + 1) % LIB.length;
             var o = LIB[ix[t.slot]];

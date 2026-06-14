@@ -552,6 +552,17 @@
                         </div>
                     </div>
 
+                    <!-- תצוגה — התאמת תמונות רקע -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">תצוגה</div>
+                        <div class="stg-bento">
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="enterBgEdit()">
+                                <span class="stg-row-title">התאמת תמונות רקע</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">image</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <button class="stg-reset-btn" onclick="resetToFactorySettings()">
                         <span class="material-symbols-outlined">restart_alt</span>
                         איפוס להגדרות יצרן
@@ -1258,7 +1269,7 @@
                 
                 <!-- Hero Background -->
                 <div class="hero-bg-ana">
-                    <img id="ana-bg-img" class="hero-image-ana" loading="lazy" src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=900&auto=format&fit=crop">
+                    <img id="ana-bg-img" class="hero-image-ana" loading="lazy" src="./img/bg-track.jpg">
                     <div class="hero-gradient-ana"></div>
                 </div>
 
@@ -2112,13 +2123,15 @@
         <button class="csb-close" onclick="dismissCloudSyncBanner()" aria-label="סגור">&times;</button>
     </div>
 
-    <!-- TEMP: בורר רקע גלובלי לבחירה חיה (אנליטיקה/ארכיון/תזונה). להסרה אחרי הבחירה. -->
-    <button id="bg-lab" onclick="cycleBg()" style="position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:500;background:#0A84FF;color:#fff;border:none;border-radius:9999px;padding:11px 20px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;max-width:92vw;white-space:nowrap;">בורר רקע — לחץ</button>
+    <!-- מצב עריכת תמונות רקע (מופעל מההגדרות). כפתורים מוסתרים עד כניסה למצב עריכה. -->
+    <button id="bg-lab" onclick="cycleBg()" style="display:none;position:fixed;bottom:150px;left:50%;transform:translateX(-50%);z-index:500;background:#0A84FF;color:#fff;border:none;border-radius:9999px;padding:11px 20px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;max-width:92vw;white-space:nowrap;">לחץ להחלפת רקע</button>
+    <button id="bg-save" onclick="saveBgEdit()" style="display:none;position:fixed;bottom:104px;left:50%;transform:translateX(-50%);z-index:500;background:#47e266;color:#0a0a0a;border:none;border-radius:9999px;padding:11px 24px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;">✓ שמור וסיום</button>
     <script>
     (function(){
-        window.BG_LIB = [
-            {n:'מוט',            s:'./img/bg-barbell.jpg'},
+        var KEY = 'gympro-bg-choices-v1';
+        var LIB = [
             {n:'מסלול ריצה',     s:'./img/bg-track.jpg'},
+            {n:'מוט',            s:'./img/bg-barbell.jpg'},
             {n:'דמבלים',         s:'./img/bg-dumbbells.jpg'},
             {n:'פירות יער',      s:'./img/bg-berries.jpg'},
             {n:'ביצים/אבוקדו',   s:'./img/bg-eggs.jpg'},
@@ -2131,24 +2144,78 @@
             {n:'ידיים',          s:'./img/thumb-arms-1.jpg'},
             {n:'חדר כושר (Unsplash)', s:'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=900&auto=format&fit=crop'}
         ];
-        var ix = {};
+        // slot -> תמונת ברירת מחדל (בחירות המשתמש)
+        var DEFAULTS = {
+            'ana-macro': './img/bg-track.jpg',
+            'ana-micro': './img/bg-track.jpg',
+            'archive':   './img/bg-dumbbells.jpg',
+            'bodylog':   './img/bg-bowl.jpg'
+        };
+        function loadChoices(){
+            try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}')); }
+            catch (e) { return Object.assign({}, DEFAULTS); }
+        }
+        var choices = loadChoices();   // המצב השמור/מיושם
+        var draft = null;              // עותק עבודה במצב עריכה
+        var ix = {};                   // אינדקס נוכחי לכל slot במצב עריכה
+
+        function setImg(id, src){ var el = document.getElementById(id); if (el && src) el.src = src; }
+        function st(){ return draft || choices; }
+        function applyAnalytics(){
+            var mi = document.getElementById('analytics-micro');
+            var micro = mi && mi.classList.contains('active');
+            setImg('ana-bg-img', st()[micro ? 'ana-micro' : 'ana-macro']);
+        }
+        function applyAll(){
+            setImg('archive-bg-img', st()['archive']);
+            setImg('bodylog-bg-img', st()['bodylog']);
+            applyAnalytics();
+        }
+        // יישום הבחירות בטעינה + חיבור להחלפת תת-טאב באנליטיקה
+        document.addEventListener('DOMContentLoaded', function(){
+            applyAll();
+            var orig = window.switchAnalyticsTab;
+            if (typeof orig === 'function') {
+                window.switchAnalyticsTab = function(tab, el){ orig(tab, el); applyAnalytics(); };
+            }
+        });
+
         function active(){
             var a = document.getElementById('ui-analytics');
             if (a && a.classList.contains('active')) {
                 var mi = document.getElementById('analytics-micro');
-                return { img:'ana-bg-img', label:(mi && mi.classList.contains('active')) ? 'אנליטיקה·תרגיל' : 'אנליטיקה·סקירה' };
+                var micro = mi && mi.classList.contains('active');
+                return { slot: micro ? 'ana-micro' : 'ana-macro', img:'ana-bg-img', label: micro ? 'אנליטיקה·תרגיל' : 'אנליטיקה·סקירה' };
             }
-            if (document.getElementById('ui-archive').classList.contains('active')) return { img:'archive-bg-img', label:'ארכיון' };
-            if (document.getElementById('ui-bodylog').classList.contains('active')) return { img:'bodylog-bg-img', label:'תזונה/גוף' };
+            if (document.getElementById('ui-archive').classList.contains('active'))  return { slot:'archive', img:'archive-bg-img', label:'ארכיון' };
+            if (document.getElementById('ui-bodylog').classList.contains('active'))  return { slot:'bodylog', img:'bodylog-bg-img', label:'תזונה/גוף' };
             return null;
         }
+        window.enterBgEdit = function(){
+            draft = Object.assign({}, choices);
+            ix = {};
+            document.getElementById('bg-lab').style.display = '';
+            document.getElementById('bg-save').style.display = '';
+            if (typeof navigate === 'function') navigate('ui-analytics');
+            document.getElementById('bg-lab').textContent = 'לחץ להחלפת רקע';
+        };
         window.cycleBg = function(){
             var b = document.getElementById('bg-lab'); var t = active();
+            if (!draft) return;
             if (!t) { b.textContent = 'פתח אנליטיקה / ארכיון / תזונה'; return; }
-            ix[t.img] = ((ix[t.img] == null ? -1 : ix[t.img]) + 1) % window.BG_LIB.length;
-            var o = window.BG_LIB[ix[t.img]];
-            var img = document.getElementById(t.img); if (img) img.src = o.s;
-            b.textContent = t.label + ': ' + o.n + ' (' + (ix[t.img] + 1) + '/' + window.BG_LIB.length + ')';
+            ix[t.slot] = ((ix[t.slot] == null ? -1 : ix[t.slot]) + 1) % LIB.length;
+            var o = LIB[ix[t.slot]];
+            draft[t.slot] = o.s; setImg(t.img, o.s);
+            b.textContent = t.label + ': ' + o.n + ' (' + (ix[t.slot] + 1) + '/' + LIB.length + ')';
+        };
+        window.saveBgEdit = function(){
+            if (draft) choices = Object.assign({}, draft);
+            draft = null;
+            try { localStorage.setItem(KEY, JSON.stringify(choices)); } catch (e) {}
+            document.getElementById('bg-lab').style.display = 'none';
+            document.getElementById('bg-save').style.display = 'none';
+            applyAll();
+            if (typeof showCloudToast === 'function') showCloudToast('תמונות הרקע נשמרו ✓');
         };
     })();
     </script>

@@ -1347,6 +1347,8 @@ function exportUnifiedData(range) {
         .sort((a, b) => a.timestamp - b.timestamp)
         .map(w => {
             const c = JSON.parse(JSON.stringify(w));
+            // נרמול תאריך אחיד (YYYY-MM-DD) להצלבה מול שקילות/תזונה — נגזר מה-timestamp, לא נוגע ב-storage
+            c.date_iso = _blLocalDateStr(new Date(w.timestamp));
             delete c.aiSummary;
             if (typeof _stripCoachFromSummary === 'function') c.summary = _stripCoachFromSummary(c.summary);
             return c;

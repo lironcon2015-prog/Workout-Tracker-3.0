@@ -1303,6 +1303,90 @@ function confirmBodyImport() {
     showAlert(`יובאו ${count} שקילות בהצלחה.`);
 }
 
+// ─── ייצוא מאוחד (לקלוד) ─────────────────────────────────────────────────────
+// קובץ JSON יחיד עם 4 מקטעים: שקילות, תזונה יומית, תזונה גולמית MFP, אימונים.
+// כל מקור מסונן בנפרד — מחזיר את כל מה שקיים בטווח גם אם חלקי.
+function _unifiedRange(range) {
+    const today = _blTodayStr();
+    if (range === 7 || range === 30) return { from: _blCutoff(range), to: today, label: range + ' ימים' };
+    if (range === 'custom') {
+        const f = document.getElementById('uni-export-start').value;
+        const t = document.getElementById('uni-export-end').value;
+        if (!f || !t) { showAlert('בחר תאריך התחלה וסיום.'); return null; }
+        return { from: f, to: t, label: 'טווח מותאם' };
+    }
+    return { from: null, to: null, label: 'הכל' }; // 'all'
+}
+
+function exportUnifiedData(range) {
+    const r = _unifiedRange(range);
+    if (r === null) return;
+    const inRange = d => (!r.from || d >= r.from) && (!r.to || d <= r.to);
+
+    // שקילות + תזונה יומית — סינון לפי YYYY-MM-DD
+    const weights = StorageManager.getBodyLog().filter(e => inRange(e.date))
+        .sort((a, b) => a.date < b.date ? -1 : 1);
+    const nutritionDaily = StorageManager.getNutritionDaily().filter(d => inRange(d.date))
+        .sort((a, b) => a.date < b.date ? -1 : 1);
+
+    // תזונה גולמית MFP — סינון rows לפי _parseFlexDate(dateIdx)
+    const raw = StorageManager.getNutritionRaw();
+    let rawOut = null;
+    if (raw && Array.isArray(raw.rows) && raw.rows.length) {
+        const di = raw.dateIdx != null ? raw.dateIdx : 0;
+        const rows = (!r.from && !r.to) ? raw.rows
+            : raw.rows.filter(row => { const d = _parseFlexDate(row[di]); return d && inRange(d); });
+        rawOut = { header: raw.header, rows };
+    }
+
+    // אימונים — סינון לפי timestamp, הסרת aiSummary + ניקוי טקסט מאמן מוטמע
+    const fromMs = r.from ? new Date(r.from + 'T00:00:00').getTime() : -Infinity;
+    const toMs = r.to ? new Date(r.to + 'T23:59:59').getTime() : Infinity;
+    const workouts = StorageManager.getArchive()
+        .filter(w => w.timestamp >= fromMs && w.timestamp <= toMs)
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .map(w => {
+            const c = JSON.parse(JSON.stringify(w));
+            delete c.aiSummary;
+            if (typeof _stripCoachFromSummary === 'function') c.summary = _stripCoachFromSummary(c.summary);
+            return c;
+        });
+
+    if (!weights.length && !nutritionDaily.length && !(rawOut && rawOut.rows.length) && !workouts.length) {
+        showAlert('אין נתונים לייצוא בטווח שנבחר.'); return;
+    }
+
+    const payload = {
+        app: 'GYMPRO ELITE', type: 'unified_export',
+        generated: new Date().toISOString(),
+        range: { label: r.label, from: r.from, to: r.to },
+        counts: {
+            weights: weights.length, nutrition_daily: nutritionDaily.length,
+            nutrition_raw_rows: rawOut ? rawOut.rows.length : 0, workouts: workouts.length
+        },
+        weights, nutrition_daily: nutritionDaily, nutrition_raw_mfp: rawOut, workouts
+    };
+    const slug = range === 'custom' ? 'custom' : (range === 'all' ? 'all' : range + 'd');
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `gympro_unified_${slug}_${_blTodayStr()}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    closeUnifiedExportModal();
+    haptic('success');
+    showAlert(`קובץ מאוחד הורד · ${weights.length} שקילות · ${nutritionDaily.length} ימי תזונה · ${workouts.length} אימונים`);
+}
+
+function openUnifiedExportModal() {
+    const today = _blTodayStr();
+    const s = document.getElementById('uni-export-start'), e = document.getElementById('uni-export-end');
+    if (s) s.max = today;
+    if (e) { e.max = today; e.value = today; }
+    document.getElementById('unified-export-modal').style.display = 'flex';
+}
+function closeUnifiedExportModal() { document.getElementById('unified-export-modal').style.display = 'none'; }
+
 // ─── ייצוא CSV ──────────────────────────────────────────────────────────────
 function openBodyExportSheet() {
     const today = _blTodayStr();

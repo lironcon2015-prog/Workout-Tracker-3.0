@@ -339,6 +339,28 @@
         </div>
     </div>
 
+    <!-- ייצוא מאוחד (לקלוד) -->
+    <div id="unified-export-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>ייצוא קובץ מאוחד (לניתוח)</h3>
+            <p class="sub-text" style="margin-bottom:16px;">קובץ JSON אחד: שקילות, תזונה (יומית + גולמית MFP) והיסטוריית אימונים. בחר טווח.</p>
+            <div class="vertical-stack">
+                <button class="btn-main primary-gradient" onclick="exportUnifiedData('all')">הכל</button>
+                <button class="btn-text" onclick="exportUnifiedData(7)">7 ימים אחרונים</button>
+                <button class="btn-text" onclick="exportUnifiedData(30)">30 ימים אחרונים</button>
+            </div>
+            <div class="glass-card compact m-0" style="text-align:right;margin:14px 0 6px;">
+                <label>טווח מותאם</label>
+                <div style="display:flex;gap:8px;">
+                    <input type="date" id="uni-export-start" class="minimal-input m-0">
+                    <input type="date" id="uni-export-end" class="minimal-input m-0">
+                </div>
+            </div>
+            <button class="btn-text" onclick="exportUnifiedData('custom')">ייצא טווח מותאם</button>
+            <button class="btn-text color-dim" onclick="closeUnifiedExportModal()">ביטול</button>
+        </div>
+    </div>
+
     <!-- Bottom Sheet -->
     <div id="sheet-overlay" class="bottom-sheet-overlay" onclick="closeDayDrawer()"></div>
     <div id="sheet-modal" class="bottom-sheet">
@@ -764,9 +786,13 @@
                                 <span class="stg-row-title">ייצוא חיבורים (Firebase / API / גשרים)</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">key</span>
                             </button>
-                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="triggerConnectionsImport()">
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="triggerConnectionsImport()">
                                 <span class="stg-row-title">ייבוא חיבורים</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">key</span>
+                            </button>
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="openUnifiedExportModal()">
+                                <span class="stg-row-title">ייצוא קובץ מאוחד (לקלוד)</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:#0A84FF;">database</span>
                             </button>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">תבנית = תוכניות ותרגילים. חיבורים = Firebase, מפתח Gemini, גשרי MFP/שעון והעדפות — לשחזור מערכת בלי הזנה ידנית. ⚠️ קובץ החיבורים מכיל מפתחות אישיים — לשמור במקום בטוח.</div>

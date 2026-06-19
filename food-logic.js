@@ -56,6 +56,105 @@ function _offToFood(p) {
     };
 }
 
+// ── מאגר חומרי גלם ישראלי מובנה (offline) ────────────────────────────
+// Open Food Facts הוא מאגר מוצרים ארוזים — חסרים בו חומרי גלם בסיסיים.
+// ערכים ל-100 גרם (חלק אכיל). s = מנה נפוצה אופציונלית (יחידה/כוס).
+const _BASIC_RAW = [
+    // עוף / בשר / דגים (נא, חלק אכיל)
+    { n: 'חזה עוף', k: 120, p: 23, c: 0, f: 2.6 },
+    { n: 'שוקיים עוף', k: 172, p: 18, c: 0, f: 10.5 },
+    { n: 'כרעיים עוף', k: 177, p: 18, c: 0, f: 11 },
+    { n: 'שניצל עוף (נא)', k: 120, p: 23, c: 0, f: 2.6 },
+    { n: 'חזה הודו', k: 115, p: 24, c: 0, f: 1.7 },
+    { n: 'הודו טחון', k: 150, p: 21, c: 0, f: 7 },
+    { n: 'בשר בקר טחון 5%', k: 137, p: 21, c: 0, f: 5 },
+    { n: 'בשר בקר טחון 15%', k: 215, p: 18, c: 0, f: 15 },
+    { n: 'אנטריקוט בקר', k: 250, p: 19, c: 0, f: 19 },
+    { n: 'סלמון', k: 208, p: 20, c: 0, f: 13 },
+    { n: 'טונה (טרי)', k: 130, p: 28, c: 0, f: 1 },
+    { n: 'טונה בשימור במים', k: 116, p: 26, c: 0, f: 1 },
+    { n: 'ביצה', k: 143, p: 13, c: 1.1, f: 9.5, s: [{ label: 'ביצה (M, 50 ג\')', grams: 50 }] },
+    { n: 'חלבון ביצה', k: 52, p: 11, c: 0.7, f: 0.2, s: [{ label: 'חלבון אחד (33 ג\')', grams: 33 }] },
+    // חלב ומוצריו
+    { n: 'חלב 3%', k: 60, p: 3.3, c: 4.7, f: 3, s: [{ label: 'כוס (240 מ"ל)', grams: 240 }] },
+    { n: 'חלב 1%', k: 42, p: 3.4, c: 5, f: 1, s: [{ label: 'כוס (240 מ"ל)', grams: 240 }] },
+    { n: 'יוגורט טבעי', k: 61, p: 3.5, c: 4.7, f: 3.3 },
+    { n: 'גבינה לבנה 5%', k: 90, p: 10, c: 4, f: 5 },
+    { n: 'גבינה לבנה 3%', k: 70, p: 10, c: 4, f: 3 },
+    { n: 'קוטג\' 5%', k: 98, p: 11, c: 3, f: 5 },
+    { n: 'גבינה צהובה', k: 350, p: 25, c: 2, f: 27 },
+    { n: 'גבינת בולגרית 5%', k: 100, p: 13, c: 4, f: 5 },
+    // פחמימות / דגנים (מבושל אלא אם צוין)
+    { n: 'אורז לבן (מבושל)', k: 130, p: 2.7, c: 28, f: 0.3, s: [{ label: 'כוס (158 ג\')', grams: 158 }] },
+    { n: 'אורז מלא (מבושל)', k: 112, p: 2.6, c: 24, f: 0.9 },
+    { n: 'פסטה (מבושלת)', k: 131, p: 5, c: 25, f: 1.1 },
+    { n: 'קוסקוס (מבושל)', k: 112, p: 3.8, c: 23, f: 0.2 },
+    { n: 'קינואה (מבושלת)', k: 120, p: 4.4, c: 21, f: 1.9 },
+    { n: 'שיבולת שועל (יבש)', k: 389, p: 17, c: 66, f: 7 },
+    { n: 'תפוח אדמה (מבושל)', k: 87, p: 2, c: 20, f: 0.1 },
+    { n: 'בטטה', k: 86, p: 1.6, c: 20, f: 0.1 },
+    { n: 'לחם לבן', k: 265, p: 9, c: 49, f: 3.2, s: [{ label: 'פרוסה (28 ג\')', grams: 28 }] },
+    { n: 'לחם מלא', k: 247, p: 13, c: 41, f: 3.4, s: [{ label: 'פרוסה (32 ג\')', grams: 32 }] },
+    // קטניות
+    { n: 'עדשים (מבושל)', k: 116, p: 9, c: 20, f: 0.4 },
+    { n: 'חומוס גרגרים (מבושל)', k: 164, p: 9, c: 27, f: 2.6 },
+    { n: 'שעועית לבנה (מבושל)', k: 127, p: 9, c: 23, f: 0.5 },
+    { n: 'טופו', k: 76, p: 8, c: 1.9, f: 4.8 },
+    { n: 'אדממה', k: 121, p: 12, c: 9, f: 5 },
+    // ירקות (נא)
+    { n: 'מלפפון', k: 15, p: 0.7, c: 3.6, f: 0.1 },
+    { n: 'עגבנייה', k: 18, p: 0.9, c: 3.9, f: 0.2 },
+    { n: 'חסה', k: 15, p: 1.4, c: 2.9, f: 0.2 },
+    { n: 'גזר', k: 41, p: 0.9, c: 10, f: 0.2 },
+    { n: 'בצל', k: 40, p: 1.1, c: 9, f: 0.1 },
+    { n: 'פלפל אדום', k: 31, p: 1, c: 6, f: 0.3 },
+    { n: 'ברוקולי', k: 34, p: 2.8, c: 7, f: 0.4 },
+    { n: 'כרובית', k: 25, p: 1.9, c: 5, f: 0.3 },
+    { n: 'קישוא', k: 17, p: 1.2, c: 3.1, f: 0.3 },
+    { n: 'חציל', k: 25, p: 1, c: 6, f: 0.2 },
+    { n: 'תרד', k: 23, p: 2.9, c: 3.6, f: 0.4 },
+    { n: 'פטריות', k: 22, p: 3.1, c: 3.3, f: 0.3 },
+    { n: 'אבוקדו', k: 160, p: 2, c: 9, f: 15, s: [{ label: 'חצי בינוני (100 ג\')', grams: 100 }] },
+    // פירות
+    { n: 'תפוח', k: 52, p: 0.3, c: 14, f: 0.2, s: [{ label: 'בינוני (180 ג\')', grams: 180 }] },
+    { n: 'בננה', k: 89, p: 1.1, c: 23, f: 0.3, s: [{ label: 'בינונית (118 ג\')', grams: 118 }] },
+    { n: 'תפוז', k: 47, p: 0.9, c: 12, f: 0.1 },
+    { n: 'ענבים', k: 69, p: 0.7, c: 18, f: 0.2 },
+    { n: 'תות', k: 32, p: 0.7, c: 7.7, f: 0.3 },
+    { n: 'אבטיח', k: 30, p: 0.6, c: 8, f: 0.2 },
+    { n: 'מלון', k: 34, p: 0.8, c: 8, f: 0.2 },
+    { n: 'אגס', k: 57, p: 0.4, c: 15, f: 0.1 },
+    { n: 'תמר', k: 282, p: 2.5, c: 75, f: 0.4, s: [{ label: 'תמר אחד (24 ג\')', grams: 24 }] },
+    // אגוזים / שמנים / ממרחים
+    { n: 'שקדים', k: 579, p: 21, c: 22, f: 50 },
+    { n: 'אגוזי מלך', k: 654, p: 15, c: 14, f: 65 },
+    { n: 'בוטנים', k: 567, p: 26, c: 16, f: 49 },
+    { n: 'חמאת בוטנים', k: 588, p: 25, c: 20, f: 50, s: [{ label: 'כף (16 ג\')', grams: 16 }] },
+    { n: 'טחינה גולמית', k: 595, p: 17, c: 21, f: 53, s: [{ label: 'כף (15 ג\')', grams: 15 }] },
+    { n: 'שמן זית', k: 884, p: 0, c: 0, f: 100, s: [{ label: 'כף (14 ג\')', grams: 14 }] },
+    { n: 'חמאה', k: 717, p: 0.9, c: 0.1, f: 81, s: [{ label: 'כף (14 ג\')', grams: 14 }] },
+    { n: 'דבש', k: 304, p: 0.3, c: 82, f: 0, s: [{ label: 'כף (21 ג\')', grams: 21 }] },
+    { n: 'סוכר', k: 387, p: 0, c: 100, f: 0, s: [{ label: 'כפית (4 ג\')', grams: 4 }] }
+];
+const BASIC_FOODS = _BASIC_RAW.map((x, i) => ({
+    id: 'basic:' + i,
+    name: x.n, brand: 'חומר גלם', barcode: null, source: 'basic',
+    per100: { kcal: x.k, p: x.p, c: x.c, f: x.f },
+    servings: (x.s || []).concat([{ label: '100 גרם', grams: 100 }])
+}));
+
+function _fdBasicMatches(q) {
+    const s = String(q || '').trim();
+    if (!s) return [];
+    return BASIC_FOODS.filter(f => f.name.indexOf(s) >= 0);
+}
+
+function _fdDedup(list) {
+    const seen = {}, out = [];
+    list.forEach(f => { if (f && !seen[f.id]) { seen[f.id] = 1; out.push(f); } });
+    return out;
+}
+
 // ── Open Food Facts: חיפוש + ברקוד ───────────────────────────────────
 const _OFF_FIELDS = 'code,product_name,product_name_he,brands,nutriments,serving_size,serving_quantity';
 
@@ -278,8 +377,22 @@ function fdOpenAdd(meal) {
     document.getElementById('fd-add-sheet').classList.add('open');
     const t = document.getElementById('fd-add-meal-name');
     if (t) t.textContent = meal || _fdMeal;
+    _fdAttachScrollBlur();
     fdSetTab('recent');
     haptic('light');
+}
+
+// הסתרת המקלדת בעת גלילת רשימת התוצאות — חשוב ל-UI במובייל
+function _fdAttachScrollBlur() {
+    const box = document.getElementById('fd-results');
+    if (!box || box.dataset.blurBound) return;
+    const blur = () => {
+        const s = document.getElementById('fd-search');
+        if (s && document.activeElement === s) s.blur();
+    };
+    box.addEventListener('scroll', blur, { passive: true });
+    box.addEventListener('touchmove', blur, { passive: true });
+    box.dataset.blurBound = '1';
 }
 function closeFoodAdd() {
     document.getElementById('fd-add-overlay').style.display = 'none';
@@ -322,28 +435,28 @@ async function fdDoSearch(q) {
     const box = document.getElementById('fd-results');
     if (!box) return;
     const seq = ++_fdSearchSeq;   // הבקשה הנוכחית; תוצאה ישנה תזוהה ותידחה
-    // הצגה מיידית של תוצאות שמורות (אם יש) — תחושת מהירות + גיבוי offline
+    // חומרי גלם מובנים (offline) + תוצאות שמורות — מוצגים מיידית בראש
+    const basics = _fdBasicMatches(q);
     const local = StorageManager.getFoodDb().filter(f => f.name && f.name.includes(q));
-    if (local.length) _fdRenderFoodList(local, box);
+    const immediate = _fdDedup(basics.concat(local));
+    if (immediate.length) _fdRenderFoodList(immediate, box);
     else box.innerHTML = '<div class="fd-loading">מחפש ב-Open Food Facts…</div>';
 
     try {
         const foods = await searchFoods(q);
         if (seq !== _fdSearchSeq) return;   // בקשה חדשה יותר כבר רצה — התעלם
-        if (foods.length) {
-            foods.forEach(f => StorageManager.upsertFoodToDb(f));   // קאש לשימוש עתידי
-            _fdRenderFoodList(foods, box);
-        } else if (!local.length) {
-            box.innerHTML = '<div class="fd-empty">לא נמצאו תוצאות. נסה שם אחר או צור מזון מותאם.</div>';
-        }
-        // אם החיפוש לא החזיר אך יש תוצאות שמורות — משאירים אותן מוצגות
+        foods.forEach(f => StorageManager.upsertFoodToDb(f));   // קאש לשימוש עתידי
+        // חומרי גלם בראש, אחריהם תוצאות OFF (ללא כפילויות)
+        const merged = _fdDedup(basics.concat(foods));
+        if (merged.length) _fdRenderFoodList(merged, box);
+        else if (!immediate.length) box.innerHTML = '<div class="fd-empty">לא נמצאו תוצאות. נסה שם אחר או צור מזון מותאם.</div>';
     } catch (e) {
         if (seq !== _fdSearchSeq) return;   // כשל של בקשה ישנה — אל תדרוס תוצאות חדשות
-        if (!local.length) {
+        if (!immediate.length) {
             const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
             box.innerHTML = `<div class="fd-empty">${offline ? 'אין חיבור לרשת — חבר רשת ונסה שוב' : 'החיפוש נכשל — נסה שוב, או הוסף מזון מותאם'}</div>`;
         }
-        // אם כבר מוצגות תוצאות שמורות — לא מציגים באנר כשל בכלל
+        // אם כבר מוצגות תוצאות (חומרי גלם/שמורות) — לא מציגים באנר כשל בכלל
     }
 }
 

@@ -193,7 +193,9 @@ const StorageManager = {
             // יעד קלורי יומי (null = לא הוגדר, מספר ה"נותרו" בבית מוסתר)
             kcalTarget: null,
             // נקודת פתיחה ידנית לחישוב ה-TDEE (null = אוטומטי: 28 ימים אחרונים)
-            tdeeStartDate: null
+            tdeeStartDate: null,
+            // ערכת צבעים: obsidian (ברירת מחדל) | bronze | midnight | crimson | emerald | purple
+            colorTheme: 'obsidian'
             // consistencyGreen / consistencyOrange — נשמרים רק אם הוגדרו ידנית
         };
     },

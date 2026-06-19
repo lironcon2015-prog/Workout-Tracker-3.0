@@ -13,6 +13,7 @@ let _fdMeal = null;           // הארוחה שנבחרה לזרימת ההוס
 let _fdEditEntryId = null;    // עריכת רשומה קיימת (null = הוספה חדשה)
 let _fdSelectedFood = null;   // המזון שנמצא בעורך המנה
 let _fdSearchTimer = null;
+let _fdSearchSeq = 0;         // מזהה רצף — מתעלם מתוצאות של בקשות שעבר זמנן
 let _fdTab = 'recent';
 let _fdFoodCache = {};        // id → food עבור הפריטים המוצגים כרגע
 
@@ -320,21 +321,29 @@ function fdOnSearchInput(q) {
 async function fdDoSearch(q) {
     const box = document.getElementById('fd-results');
     if (!box) return;
-    box.innerHTML = '<div class="fd-loading">מחפש ב-Open Food Facts…</div>';
+    const seq = ++_fdSearchSeq;   // הבקשה הנוכחית; תוצאה ישנה תזוהה ותידחה
+    // הצגה מיידית של תוצאות שמורות (אם יש) — תחושת מהירות + גיבוי offline
+    const local = StorageManager.getFoodDb().filter(f => f.name && f.name.includes(q));
+    if (local.length) _fdRenderFoodList(local, box);
+    else box.innerHTML = '<div class="fd-loading">מחפש ב-Open Food Facts…</div>';
+
     try {
         const foods = await searchFoods(q);
-        if (!foods.length) { box.innerHTML = '<div class="fd-empty">לא נמצאו תוצאות. נסה שם אחר או צור מזון מותאם.</div>'; return; }
-        // קאש כל התוצאות (ללא bump) לשימוש offline עתידי
-        foods.forEach(f => StorageManager.upsertFoodToDb(f));
-        _fdRenderFoodList(foods, box);
+        if (seq !== _fdSearchSeq) return;   // בקשה חדשה יותר כבר רצה — התעלם
+        if (foods.length) {
+            foods.forEach(f => StorageManager.upsertFoodToDb(f));   // קאש לשימוש עתידי
+            _fdRenderFoodList(foods, box);
+        } else if (!local.length) {
+            box.innerHTML = '<div class="fd-empty">לא נמצאו תוצאות. נסה שם אחר או צור מזון מותאם.</div>';
+        }
+        // אם החיפוש לא החזיר אך יש תוצאות שמורות — משאירים אותן מוצגות
     } catch (e) {
-        const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
-        const local = StorageManager.getFoodDb().filter(f => f.name && f.name.includes(q));
-        const msg = offline
-            ? 'אין חיבור לרשת — מציג תוצאות מהמאגר המקומי'
-            : 'החיפוש נכשל זמנית — נסה שוב בעוד רגע, או הוסף מזון מותאם';
-        box.innerHTML = `<div class="fd-empty">${msg}</div>`;
-        if (local.length) _fdRenderFoodList(local, box, true);
+        if (seq !== _fdSearchSeq) return;   // כשל של בקשה ישנה — אל תדרוס תוצאות חדשות
+        if (!local.length) {
+            const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
+            box.innerHTML = `<div class="fd-empty">${offline ? 'אין חיבור לרשת — חבר רשת ונסה שוב' : 'החיפוש נכשל — נסה שוב, או הוסף מזון מותאם'}</div>`;
+        }
+        // אם כבר מוצגות תוצאות שמורות — לא מציגים באנר כשל בכלל
     }
 }
 

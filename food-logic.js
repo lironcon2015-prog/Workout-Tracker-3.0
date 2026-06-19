@@ -58,18 +58,42 @@ function _offToFood(p) {
 // ── Open Food Facts: חיפוש + ברקוד ───────────────────────────────────
 const _OFF_FIELDS = 'code,product_name,product_name_he,brands,nutriments,serving_size,serving_quantity';
 
+// fetch עם timeout (AbortController) — מונע תקיעה שנראית כמו כשל
+function _fdFetch(url, ms) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms || 12000);
+    return fetch(url, { signal: ctrl.signal, headers: { 'Accept': 'application/json' } })
+        .finally(() => clearTimeout(t));
+}
+
+// חיפוש: מנסה קודם את ה-API המודרני (search.openfoodfacts.org — בנוי ל-CORS),
+// ובכשל נופל ל-search.pl הישן. מחזיר רשימת מזונות מנורמלת. זורק רק אם שניהם נכשלו.
 async function searchFoods(q) {
-    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}` +
+    const enc = encodeURIComponent(q);
+    // 1) Search-a-licious (CORS-first). תגובה: { hits: [...] }
+    try {
+        const url = `https://search.openfoodfacts.org/search?q=${enc}&page_size=25&` +
+            `fields=${_OFF_FIELDS}&lang=he`;
+        const resp = await _fdFetch(url);
+        if (resp.ok) {
+            const data = await resp.json();
+            const arr = data.hits || data.products || [];
+            const foods = arr.map(_offToFood).filter(Boolean);
+            if (foods.length) return foods;
+        }
+    } catch (e) { /* נופל ל-legacy */ }
+    // 2) Legacy search.pl. תגובה: { products: [...] }
+    const url2 = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${enc}` +
         `&search_simple=1&action=process&json=1&page_size=25&fields=${_OFF_FIELDS}&lc=he`;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error('OFF_' + resp.status);
-    const data = await resp.json();
-    return (data.products || []).map(_offToFood).filter(Boolean);
+    const resp2 = await _fdFetch(url2);
+    if (!resp2.ok) throw new Error('OFF_' + resp2.status);
+    const data2 = await resp2.json();
+    return (data2.products || []).map(_offToFood).filter(Boolean);
 }
 
 async function lookupBarcode(code) {
     const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${_OFF_FIELDS}`;
-    const resp = await fetch(url);
+    const resp = await _fdFetch(url);
     if (!resp.ok) throw new Error('OFF_' + resp.status);
     const d = await resp.json();
     if (d.status !== 1 || !d.product) return null;
@@ -285,6 +309,11 @@ function fdOnSearchInput(q) {
     clearTimeout(_fdSearchTimer);
     q = (q || '').trim();
     if (!q) { fdRenderTab(); return; }
+    if (q.length < 2) {  // תו בודד — לא מחפשים עדיין (מונע 400 ורעש)
+        const box = document.getElementById('fd-results');
+        if (box) box.innerHTML = '<div class="fd-empty">הקלד לפחות 2 תווים…</div>';
+        return;
+    }
     _fdSearchTimer = setTimeout(() => fdDoSearch(q), 350);
 }
 
@@ -299,8 +328,12 @@ async function fdDoSearch(q) {
         foods.forEach(f => StorageManager.upsertFoodToDb(f));
         _fdRenderFoodList(foods, box);
     } catch (e) {
+        const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
         const local = StorageManager.getFoodDb().filter(f => f.name && f.name.includes(q));
-        box.innerHTML = '<div class="fd-empty">אין חיבור לרשת — מציג תוצאות מהמאגר המקומי</div>';
+        const msg = offline
+            ? 'אין חיבור לרשת — מציג תוצאות מהמאגר המקומי'
+            : 'החיפוש נכשל זמנית — נסה שוב בעוד רגע, או הוסף מזון מותאם';
+        box.innerHTML = `<div class="fd-empty">${msg}</div>`;
         if (local.length) _fdRenderFoodList(local, box, true);
     }
 }

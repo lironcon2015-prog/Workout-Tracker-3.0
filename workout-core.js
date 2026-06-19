@@ -237,6 +237,8 @@ document.addEventListener('visibilitychange', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     StorageManager.initDB();
+    // החלת ערכת הצבעים השמורה (גיבוי לסקריפט ה-head) + סנכרון השבבים
+    if (typeof initColorTheme === 'function') initColorTheme();
     // שחזור העדפת הצלילים (ברירת מחדל: כבוי) + סנכרון אייקון הכפתור
     soundEnabled = StorageManager.getData(StorageManager.KEY_SOUND) === true;
     const _soundTgl = document.getElementById('sound-toggle');
@@ -1087,6 +1089,7 @@ function openSettings() {
     _renderNutritionalToggle();
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
     if (typeof syncHomeCardToggle === 'function') syncHomeCardToggle();
+    if (typeof syncThemePicker === 'function') syncThemePicker();
     const _st = document.getElementById('sound-toggle');
     if (_st) _st.checked = soundEnabled;
     switchSettingsTab('general');   // תמיד נפתח על לשונית "כללי"
@@ -5545,4 +5548,45 @@ function toggleLiveMode(enabled) {
 function syncLiveModeToggle() {
     const tog = document.getElementById('live-mode-toggle');
     if (tog) tog.checked = isLiveModeEnabled();
+}
+
+// ── ערכות צבעים ──────────────────────────────────────────────────────
+// 'obsidian' (ברירת מחדל) ללא data-theme; השאר דורסים משתני CSS ב-style.css.
+const COLOR_THEMES = ['obsidian', 'bronze', 'midnight', 'crimson', 'emerald', 'purple'];
+
+function getStoredColorTheme() {
+    try {
+        const p = (typeof getAnalyticsPrefs === 'function') ? getAnalyticsPrefs() : null;
+        const t = p && p.colorTheme;
+        return COLOR_THEMES.includes(t) ? t : 'obsidian';
+    } catch (e) { return 'obsidian'; }
+}
+
+// החלת ערכת צבעים: data-theme על <html> + שמירה ל-prefs + סנכרון השבבים
+function applyColorTheme(themeId, el) {
+    if (!COLOR_THEMES.includes(themeId)) themeId = 'obsidian';
+    const root = document.documentElement;
+    if (themeId === 'obsidian') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', themeId);
+
+    // שמירה — רק אם נקראה מאינטראקציה (יש el) או שהערך השתנה
+    if (typeof getAnalyticsPrefs === 'function' && typeof saveAnalyticsPrefs === 'function') {
+        const p = getAnalyticsPrefs();
+        if (p.colorTheme !== themeId) { p.colorTheme = themeId; saveAnalyticsPrefs(p); }
+    }
+    if (el) haptic('light');
+    syncThemePicker();
+}
+
+// סימון השבב הפעיל לפי הערכה השמורה — נקרא בכניסה להגדרות
+function syncThemePicker() {
+    const current = getStoredColorTheme();
+    document.querySelectorAll('#theme-picker .theme-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.themeId === current);
+    });
+}
+
+// אתחול בעת טעינה — מוודא שה-attribute תואם ל-prefs (גיבוי לסקריפט ב-head)
+function initColorTheme() {
+    applyColorTheme(getStoredColorTheme());
 }

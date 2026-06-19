@@ -45,6 +45,9 @@
     --primary-container: #3e90ff;
     --secondary: #47e266;
 
+    /* זוהר המסך (body::before) — נשלט ע"י ערכת הצבעים */
+    --screen-glow: rgba(40, 42, 54, 0.22);
+
     /* Design System: Spacing */
     --sp-xs: 4px;
     --sp-sm: 8px;
@@ -58,6 +61,164 @@
     --text-base: 1em;
     --text-lg: 1.2em;
     --text-xl: 1.5em;
+}
+
+/* =========================================
+   COLOR THEMES — ערכות צבעים
+   דריסת משתני הליבה לפי data-theme על <html>.
+   ברירת מחדל (Obsidian) = ללא attribute.
+   ========================================= */
+
+/* Bronze Eclipse — בהשראת רקע ה-iPhone 16: שחור חם + זוהר ענבר/נחושת */
+html[data-theme="bronze"] {
+    --bg: #0a0806;
+    --surface-1: #14110d;
+    --surface-2: #1b1712;
+    --surface-3: #241e17;
+    --surface-4: #2f271d;
+    --accent: #FF9F45;
+    --accent-gradient: linear-gradient(135deg, #FFB766, #E07B2E);
+    --text: #ece6dd;
+    --text-dim: #9a9080;
+    --type-a: #FF9F45;
+    --primary: #ffd9a8;
+    --primary-container: #c8772e;
+    --secondary: #ffb868;
+    --screen-glow: rgba(150, 95, 45, 0.26);
+}
+
+/* Midnight Blue — נייבי עמוק + כחול חשמלי */
+html[data-theme="midnight"] {
+    --bg: #05070f;
+    --surface-1: #0c1020;
+    --surface-2: #121831;
+    --surface-3: #1a2240;
+    --surface-4: #243052;
+    --accent: #4D7CFF;
+    --accent-gradient: linear-gradient(135deg, #6B9CFF, #2E5BD0);
+    --text: #e3e8f5;
+    --text-dim: #8a92ac;
+    --type-a: #4D7CFF;
+    --primary: #aac7ff;
+    --primary-container: #3e90ff;
+    --secondary: #6ea8ff;
+    --screen-glow: rgba(40, 65, 130, 0.30);
+}
+
+/* Crimson — שחור + אדום/ארגמן עז */
+html[data-theme="crimson"] {
+    --bg: #0c0606;
+    --surface-1: #160c0c;
+    --surface-2: #1d1011;
+    --surface-3: #281618;
+    --surface-4: #341d1f;
+    --accent: #FF4D5E;
+    --accent-gradient: linear-gradient(135deg, #FF6B6B, #C81E2E);
+    --text: #f0e3e3;
+    --text-dim: #a88f8f;
+    --type-a: #FF4D5E;
+    --primary: #ffb3b8;
+    --primary-container: #d63340;
+    --secondary: #ff6b6b;
+    --screen-glow: rgba(130, 35, 45, 0.28);
+}
+
+/* Emerald — שחור + ירוק זמרלד */
+html[data-theme="emerald"] {
+    --bg: #050a07;
+    --surface-1: #0b1410;
+    --surface-2: #101b15;
+    --surface-3: #16241c;
+    --surface-4: #1d2f25;
+    --accent: #30D158;
+    --accent-gradient: linear-gradient(135deg, #4BE07A, #1E9E48);
+    --text: #e2efe7;
+    --text-dim: #87a094;
+    --type-a: #30D158;
+    --primary: #a8ffc8;
+    --primary-container: #1e9e48;
+    --secondary: #47e266;
+    --screen-glow: rgba(30, 105, 60, 0.26);
+}
+
+/* Royal Purple — שחור + סגול מלכותי/לבנדר */
+html[data-theme="purple"] {
+    --bg: #08060f;
+    --surface-1: #110c1d;
+    --surface-2: #171026;
+    --surface-3: #211733;
+    --surface-4: #2c2042;
+    --accent: #BF5AF2;
+    --accent-gradient: linear-gradient(135deg, #C77DFF, #8A3FD1);
+    --text: #ebe3f5;
+    --text-dim: #9a8fb0;
+    --type-a: #BF5AF2;
+    --primary: #e0c3ff;
+    --primary-container: #9a4fd6;
+    --secondary: #c77dff;
+    --screen-glow: rgba(95, 50, 135, 0.30);
+}
+
+/* בורר ערכות צבעים — שבבים עגולים */
+.theme-picker {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 4px 2px;
+}
+.theme-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.theme-chip-swatch {
+    width: 46px;
+    height: 46px;
+    border-radius: 9999px;
+    position: relative;
+    border: 2px solid var(--hairline-hi);
+    box-shadow: var(--elev-1);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+    overflow: hidden;
+}
+/* חצי תחתון בצבע ה-accent של הערכה, חצי עליון ברקע הערכה */
+.theme-chip-swatch::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 50%, var(--chip-accent) 50%);
+}
+.theme-chip-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    transition: color 0.15s ease;
+}
+.theme-chip.active .theme-chip-swatch {
+    border-color: var(--accent);
+    transform: scale(1.06);
+}
+.theme-chip.active .theme-chip-swatch::before {
+    content: "✓";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+.theme-chip.active .theme-chip-label {
+    color: var(--text);
 }
 
 .material-symbols-outlined {
@@ -91,7 +252,7 @@ body::before {
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: radial-gradient(120% 80% at 50% -10%, rgba(40, 42, 54, 0.22), transparent 60%);
+    background: radial-gradient(120% 80% at 50% -10%, var(--screen-glow), transparent 60%);
 }
 
 /* =========================================

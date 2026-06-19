@@ -5554,6 +5554,15 @@ function syncLiveModeToggle() {
 // 'obsidian' (ברירת מחדל) ללא data-theme; השאר דורסים משתני CSS ב-style.css.
 const COLOR_THEMES = ['obsidian', 'bronze', 'midnight', 'crimson', 'emerald', 'purple'];
 
+// קורא ערך משתנה CSS חי מה-<html> — לשימוש בגרפים שמציירים SVG כמחרוזת.
+// כך הגרפים נצבעים לפי הערכה הפעילה בזמן הציור (במקום hardcode).
+function themeVar(name, fallback) {
+    try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || (fallback || '');
+    } catch (e) { return fallback || ''; }
+}
+
 function getStoredColorTheme() {
     try {
         const p = (typeof getAnalyticsPrefs === 'function') ? getAnalyticsPrefs() : null;
@@ -5576,6 +5585,17 @@ function applyColorTheme(themeId, el) {
     }
     if (el) haptic('light');
     syncThemePicker();
+    // עדכון צבע סרגל המערכת (Android/Chrome PWA) לרקע הערכה
+    try {
+        const meta = document.getElementById('meta-theme-color');
+        if (meta) meta.setAttribute('content', themeVar('--bg', '#070708'));
+    } catch (e) {}
+    // ריענון גרפים גלויים כדי שייצבעו מיד בצבע הערכה (הם מציירים מחרוזת SVG)
+    if (el) {
+        try { if (typeof renderHeroCard === 'function') renderHeroCard(); } catch (e) {}
+        try { if (typeof renderHomePRCard === 'function') renderHomePRCard(); } catch (e) {}
+        try { if (typeof renderBodyLog === 'function' && document.getElementById('ui-bodylog')?.classList.contains('active')) renderBodyLog(); } catch (e) {}
+    }
 }
 
 // סימון השבב הפעיל לפי הערכה השמורה — נקרא בכניסה להגדרות

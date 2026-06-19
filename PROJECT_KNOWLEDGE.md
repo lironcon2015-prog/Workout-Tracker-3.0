@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.05
+## גרסה נוכחית: 16.39
 
 ---
 
@@ -58,6 +58,26 @@
 - `sw.js` + `version.json` חייבים להשתנות באותו commit עם שאר הקבצים. bump גרסה ב-commit נפרד = cache ישן לטעות.
 
 ---
+
+## ערכות צבעים (Color Themes) — v16.38→16.39
+
+6 ערכות: `obsidian` (ברירת מחדל, ללא attribute), `bronze` (iPhone 16), `midnight`, `crimson`, `emerald`, `purple`.
+
+**ארכיטקטורה:**
+- כל ערכה דורסת משתני CSS תחת `html[data-theme="..."]` ב-`style.css`. נשמר ב-`analyticsPrefs.colorTheme`.
+- החלה מוקדמת ע"י סקריפט inline ב-`<head>` (לפני paint) למניעת הבזק; `initColorTheme()` ב-DOMContentLoaded כגיבוי.
+- `applyColorTheme(id, el)` / `syncThemePicker()` / `themeVar(name, fallback)` ב-`workout-core.js`.
+
+**לקח קריטי — למה גרסה ראשונה (16.38) הרגישה זניחה:** דריסת `--accent` לבדה לא מספיקה. הזהות הכחולה הייתה
+קשיחה בעשרות נקודות: **75 מופעי `rgba(10,132,255,α)`** ב-CSS, ~14 `#0A84FF` ישירים, וגרפי SVG ב-JS
+(`drawMicroLineChart`, דונאט, bodylog) עם hex קשיח שלא מגיב ל-CSS.
+**הפתרון (16.39):** טוקן `--accent-rgb: R, G, B` ב-`:root` + כל ערכה → ואז `rgba(var(--accent-rgb), α)`
+בכל 75 המקומות. הגרפים קוראים `themeVar('--accent')` בזמן ציור (לא hardcode). רקע `body::before` עבר
+לשתי שכבות `--ambient-1/2` בעוצמה מורגשת (aurora/eclipse לכל ערכה). `<meta theme-color>` מתעדכן דינמית.
+
+**מה נשאר קבוע בכוונה (סמנטיקה):** `--type-b/c/free`, danger אדום, success ירוק, `HEATMAP_MUSCLE_COLORS`
+(מפת שרירים), `HOME_PR_COLORS` (Bench ירוק/OHP כתום), `nutri-log-dot--cut`, ופלטת בורר הצבעים
+ב-`editor-logic.js` (בחירת משתמש, לא ערכה).
 
 ## שפה עיצובית — Liquid Obsidian → Deep Obsidian (v15.81)
 

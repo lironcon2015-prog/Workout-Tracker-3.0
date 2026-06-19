@@ -809,24 +809,26 @@ function _drawBlChart(svgId, datesId, yaxisId, points, withMA, unit) {
         return `<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
     }).join('');
     const last = pts[n - 1];
+    const ac = (typeof themeVar === 'function') ? themeVar('--accent', '#0A84FF') : '#0A84FF';
+    const acRgb = (typeof themeVar === 'function') ? themeVar('--accent-rgb', '10,132,255') : '10,132,255';
 
     // נקודה נבחרת (לחיצה על הגרף) — קו אנכי + נקודה מודגשת
     const sel = (svgId in _blSel) ? _blSel[svgId] : -1;
     let selMark = '';
     if (sel >= 0 && sel < n) {
         const sx = pts[sel][0].toFixed(1), sy = pts[sel][1].toFixed(1);
-        selMark = `<line x1="${sx}" y1="${pad.t}" x2="${sx}" y2="${(pad.t + cH).toFixed(1)}" stroke="rgba(10,132,255,0.45)" stroke-width="1"/>
-                   <circle cx="${sx}" cy="${sy}" r="6" fill="#0A84FF" stroke="#fff" stroke-width="1.5"/>`;
+        selMark = `<line x1="${sx}" y1="${pad.t}" x2="${sx}" y2="${(pad.t + cH).toFixed(1)}" stroke="rgba(${acRgb},0.45)" stroke-width="1"/>
+                   <circle cx="${sx}" cy="${sy}" r="6" fill="${ac}" stroke="#fff" stroke-width="1.5"/>`;
     }
 
     svg.innerHTML = `
         <defs><linearGradient id="bl-grad-${svgId}" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stop-color="#0A84FF"/><stop offset="100%" stop-color="transparent"/></linearGradient></defs>
+            <stop offset="0%" stop-color="${ac}"/><stop offset="100%" stop-color="transparent"/></linearGradient></defs>
         ${grid}
         <path d="${areaPath}" fill="url(#bl-grad-${svgId})" opacity="0.22"/>
-        <path d="${linePath}" fill="none" stroke="#0A84FF" stroke-width="3" stroke-linecap="round"/>
+        <path d="${linePath}" fill="none" stroke="${ac}" stroke-width="3" stroke-linecap="round"/>
         ${maPath}
-        <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5" fill="#0A84FF"/>
+        <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5" fill="${ac}"/>
         ${selMark}`;
 
     // תוויות ציר Y כ-HTML חד (לא מעוות ע"י מתיחת ה-SVG). top באחוזים מגובה ה-plot.

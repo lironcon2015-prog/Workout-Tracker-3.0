@@ -5209,6 +5209,18 @@ function updateAIStatus() {
     } else {
         el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
     }
+    // מילוי שדה מפתח USDA (שכבת מזון נוספת)
+    const uk = document.getElementById('usda-key-input');
+    if (uk && !uk.value) uk.value = StorageManager.getUsdaKey();
+}
+
+// saveUsdaKey — שמירת מפתח USDA FoodData Central (אופציונלי, מקומי בלבד)
+function saveUsdaKey() {
+    const el = document.getElementById('usda-key-input');
+    if (!el) return;
+    StorageManager.saveUsdaKey(el.value);
+    haptic('light');
+    showAlert(el.value.trim() ? 'מפתח USDA נשמר. חיפוש המזון יכלול עכשיו חומרי גלם מ-USDA.' : 'מפתח USDA נמחק.');
 }
 
 /**

@@ -39,6 +39,10 @@ const StorageManager = {
     KEY_COACH_PROMPTS:      'gympro_coach_prompts',
     KEY_FOOD_LOG:     'gympro_food_log',     // יומן מזון פנימי — רשומות לפי יום
     KEY_FOOD_DB:      'gympro_food_db',        // מאגר מזון: קאש OFF + מותאמים + מועדפים
+    KEY_USDA_KEY:     'gympro_usda_key',        // מפתח USDA FoodData Central (אופציונלי)
+
+    getUsdaKey() { return localStorage.getItem(this.KEY_USDA_KEY) || ''; },
+    saveUsdaKey(k) { localStorage.setItem(this.KEY_USDA_KEY, (k || '').trim()); },
 
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); }

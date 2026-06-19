@@ -1402,7 +1402,7 @@ function renderWorkoutTypeChart(archive) {
 
     if (!entries.length) { el.innerHTML = '<p class="color-dim text-sm text-center">אין נתונים</p>'; return; }
     const maxAvg = Math.max(...entries.map(e => e.avg)) || 1;
-    const COLORS =['#0A84FF', '#47e266', '#ffb868', '#5E5CE6', '#ff453a'];
+    const COLORS =[(typeof themeVar === 'function' ? themeVar('--accent', '#0A84FF') : '#0A84FF'), '#47e266', '#ffb868', '#5E5CE6', '#ff453a'];
 
     el.innerHTML = entries.map((e, i) => {
         const pct = (e.avg / maxAvg * 100).toFixed(1);
@@ -1679,14 +1679,16 @@ function renderDonutChart(archive, range) {
     }
     
     const r = 40, ci = 2 * Math.PI * r;
+    // הצבע הראשי נגזר מהערכה הפעילה; שאר הצבעים קטגוריים-קבועים
+    const DC = [(typeof themeVar === 'function' ? themeVar('--accent', DONUT_COLORS[0]) : DONUT_COLORS[0]), ...DONUT_COLORS.slice(1)];
     let offset = 0, circles = '', legendHtml = '';
     entries.forEach(([name, sets], i) => {
         const da = (sets / total * ci).toFixed(2), gap = (ci - parseFloat(da)).toFixed(2);
-        circles += `<circle cx="50" cy="50" r="${r}" fill="none" stroke="${DONUT_COLORS[i]}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${da} ${gap}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
+        circles += `<circle cx="50" cy="50" r="${r}" fill="none" stroke="${DC[i]}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${da} ${gap}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
         legendHtml += `
             <div class="legend-row">
                 <div class="legend-left">
-                    <div class="legend-dot" style="background:${DONUT_COLORS[i]}"></div>
+                    <div class="legend-dot" style="background:${DC[i]}"></div>
                     <span class="font-bold text-xs" style="opacity:0.8; text-transform:uppercase;">${name}</span>
                 </div>
                 <span class="font-headline italic-black" style="font-size:0.85rem;">${sets} <span style="font-size:0.55rem; opacity:0.5; font-family:'Inter'; font-weight:700; font-style:normal;">סטים</span></span>
@@ -2017,6 +2019,7 @@ function drawMicroLineChart(vals, dates) {
         return;
     }
 
+    const ac = (typeof themeVar === 'function') ? themeVar('--accent', '#0A84FF') : '#0A84FF';
     const W = 400, H = 160, pad = { t: 20, b: 15, l: 20, r: 20 };
     const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
     const spread = Math.max(...vals) - Math.min(...vals);
@@ -2049,11 +2052,11 @@ function drawMicroLineChart(vals, dates) {
         const tipY = Math.max(sy - 28, pad.t + 2);
 
         selectedOverlay = `
-            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" fill="#0A84FF" opacity="0.25"/>
-            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="#0A84FF"/>
+            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" fill="${ac}" opacity="0.25"/>
+            <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="${ac}"/>
             <rect x="${(tipX - labelW / 2).toFixed(1)}" y="${(tipY - 10).toFixed(1)}"
                 width="${labelW.toFixed(1)}" height="17" rx="5"
-                fill="rgba(18,18,20,0.92)" stroke="#0A84FF" stroke-width="0.8"/>
+                fill="rgba(18,18,20,0.92)" stroke="${ac}" stroke-width="0.8"/>
             <text x="${tipX.toFixed(1)}" y="${(tipY + 3).toFixed(1)}"
                 fill="#fff" font-size="9.5" text-anchor="middle"
                 font-weight="700" font-family="-apple-system,Inter,sans-serif">${label}</text>`;
@@ -2062,14 +2065,14 @@ function drawMicroLineChart(vals, dates) {
     svg.innerHTML = `
         <defs>
             <linearGradient id="chart-grad" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="#0A84FF"></stop>
+                <stop offset="0%" stop-color="${ac}"></stop>
                 <stop offset="100%" stop-color="transparent"></stop>
             </linearGradient>
         </defs>
         <path d="${areaPath}" fill="url(#chart-grad)" opacity="0.25"></path>
-        <path d="${linePath}" fill="none" stroke="#0A84FF" stroke-width="4" stroke-linecap="round"></path>
-        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="6" fill="#0A84FF"></circle>
-        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="12" fill="none" stroke="#0A84FF" stroke-width="2" opacity="0.4"></circle>
+        <path d="${linePath}" fill="none" stroke="${ac}" stroke-width="4" stroke-linecap="round"></path>
+        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="6" fill="${ac}"></circle>
+        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="12" fill="none" stroke="${ac}" stroke-width="2" opacity="0.4"></circle>
         ${selectedOverlay}
     `;
 
@@ -2274,7 +2277,7 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
                 const dom = _dominantMuscle(cell.breakdown);
                 baseColor = HEATMAP_MUSCLE_COLORS[dom] || HEATMAP_MUSCLE_COLORS._mixed;
             } else {
-                baseColor = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#0A84FF';
+                baseColor = HEATMAP_MUSCLE_COLORS[muscleFilter] || (typeof themeVar === 'function' ? themeVar('--accent','#0A84FF') : '#0A84FF');
             }
             const bgRGBA = _hexToRGBA(baseColor, intensity);
             cellsHTML += `<div class="heatmap-cell has-vol" style="background:${bgRGBA};" data-vol="${Math.round(cell.vol)}" data-sets="${cell.sets}" data-date="${dStr}" data-bk='${JSON.stringify(cell.breakdown).replace(/'/g, "&#39;")}' onclick="_onHeatmapCellClick(this)"></div>`;
@@ -2327,7 +2330,7 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
                 `<span class="hm-leg-item"><span class="hm-leg-dot" style="background:${HEATMAP_MUSCLE_COLORS[m]}"></span>${m}</span>`
             ).join('') + `<span class="hm-leg-item"><span class="hm-leg-dot" style="background:${HEATMAP_MUSCLE_COLORS._mixed}"></span>מעורב</span>`;
         } else {
-            const c = HEATMAP_MUSCLE_COLORS[muscleFilter] || '#0A84FF';
+            const c = HEATMAP_MUSCLE_COLORS[muscleFilter] || (typeof themeVar === 'function' ? themeVar('--accent','#0A84FF') : '#0A84FF');
             legendEl.innerHTML = `
                 <span class="hm-leg-lbl">פחות</span>
                 <span class="hm-leg-grad">

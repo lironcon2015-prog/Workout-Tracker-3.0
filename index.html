@@ -465,7 +465,9 @@
                             <span class="home-today-lbl" id="home-today-nutri-lbl">תזונה היום</span>
                             <span class="bl-live-badge" id="home-today-live" style="display:none" role="button" onclick="event.stopPropagation();refreshHomeNutrition()"><span class="bl-live-dot"></span>LIVE</span>
                         </div>
-                        <span class="home-today-diary" role="button" onclick="event.stopPropagation();openFoodDiary()"><span class="material-symbols-outlined">menu_book</span>יומן תזונה</span>
+                        <div class="home-today-diary-row">
+                            <span class="home-today-diary" role="button" onclick="event.stopPropagation();openFoodDiary()"><span class="material-symbols-outlined">menu_book</span>יומן תזונה</span>
+                        </div>
                         <div class="home-today-metric">
                             <span class="home-today-num" id="home-today-kcal">—</span>
                             <span class="home-today-unit">kcal</span>
@@ -719,6 +721,19 @@
                             <button class="cloud-btn full-w" style="margin-top:4px;color:var(--danger);border-color:rgba(255,69,58,0.3);background:rgba(255,69,58,0.06);border-radius:12px;" onclick="clearAIHistory()">מחק היסטוריית שיחות</button>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן. מומלץ להגביל אותו ל-GitHub Pages שלך ב-Google Cloud Console.</div>
+                    </div>
+
+                    <!-- מאגר מזון USDA (אופציונלי) -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">מאגר מזון USDA (חומרי גלם)</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">USDA FoodData Central API KEY</label>
+                                <input type="password" id="usda-key-input" class="stg-ai-input" placeholder="הדבק מפתח (חינמי) מ-fdc.nal.usda.gov" autocomplete="off">
+                            </div>
+                            <button class="stg-ai-save" onclick="saveUsdaKey()">שמור מפתח USDA</button>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">שכבת חיפוש נוספת לחומרי גלם וגנריים (מעבר ל-Open Food Facts). מפתח חינמי מ-<strong>fdc.nal.usda.gov/api-key-signup.html</strong>. נשמר מקומית בלבד. ללא מפתח — החיפוש ממשיך לעבוד עם Open Food Facts והמאגר המובנה.</div>
                     </div>
 
                     <!-- פרופיל גוף (TDEE) -->

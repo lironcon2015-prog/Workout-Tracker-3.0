@@ -166,9 +166,24 @@ function _fdFetch(url, ms) {
         .finally(() => clearTimeout(t));
 }
 
-// חיפוש: מנסה קודם את ה-API המודרני (search.openfoodfacts.org — בנוי ל-CORS),
-// ובכשל נופל ל-search.pl הישן. מחזיר רשימת מזונות מנורמלת. זורק רק אם שניהם נכשלו.
+// חיפוש מאוחד: Open Food Facts (מוצרים ארוזים) + USDA (חומרי גלם/גנרי, אם הוגדר מפתח),
+// במקביל. מחזיר רשימה ממוזגת; זורק רק אם כל המקורות נכשלו וגם אין תוצאות.
 async function searchFoods(q) {
+    const [offRes, usdaRes] = await Promise.allSettled([_searchOFF(q), searchUSDA(q)]);
+    const off  = offRes.status  === 'fulfilled' ? offRes.value  : [];
+    const usda = usdaRes.status === 'fulfilled' ? usdaRes.value : [];
+    const merged = _fdDedup(off.concat(usda));
+    if (merged.length) return merged;
+    // שניהם ריקים: אם שניהם נכשלו (לא סתם 0 תוצאות) — זרוק כדי להציג שגיאה
+    if (offRes.status === 'rejected' && (usdaRes.status === 'rejected' || !StorageManager.getUsdaKey())) {
+        throw (offRes.reason || new Error('SEARCH_FAILED'));
+    }
+    return [];
+}
+
+// _searchOFF: מנסה קודם את ה-API המודרני (search.openfoodfacts.org — בנוי ל-CORS),
+// ובכשל נופל ל-search.pl הישן. זורק רק אם שניהם נכשלו.
+async function _searchOFF(q) {
     const enc = encodeURIComponent(q);
     // 1) Search-a-licious (CORS-first). תגובה: { hits: [...] }
     try {
@@ -198,6 +213,42 @@ async function lookupBarcode(code) {
     const d = await resp.json();
     if (d.status !== 1 || !d.product) return null;
     return _offToFood(Object.assign({ code }, d.product));
+}
+
+// ── USDA FoodData Central — שכבת חומרי גלם/גנרי (אופציונלי, דורש מפתח) ──
+// מחזיר ערכים ל-100 גרם מסוגי Foundation / SR Legacy (חומרי גלם איכותיים).
+function _usdaToFood(it) {
+    if (!it) return null;
+    const nut = {};
+    (it.foodNutrients || []).forEach(n => {
+        const id = n.nutrientId != null ? n.nutrientId : (n.nutrient && n.nutrient.id);
+        const v = n.value != null ? n.value : n.amount;
+        if (v == null) return;
+        if (id === 1008) nut.kcal = v;        // Energy (kcal)
+        else if (id === 1003) nut.p = v;      // Protein
+        else if (id === 1005) nut.c = v;      // Carbohydrate
+        else if (id === 1004) nut.f = v;      // Total fat
+    });
+    if (nut.kcal == null) return null;
+    const name = String(it.description || '').trim();
+    if (!name) return null;
+    return {
+        id: 'usda:' + it.fdcId,
+        name, brand: String(it.brandName || it.foodCategory || 'USDA'), barcode: null, source: 'usda',
+        per100: { kcal: Math.round(nut.kcal), p: _fdR(nut.p), c: _fdR(nut.c), f: _fdR(nut.f) },
+        servings: [{ label: '100 גרם', grams: 100 }]
+    };
+}
+
+async function searchUSDA(q) {
+    const key = StorageManager.getUsdaKey();
+    if (!key) return [];   // ללא מפתח — שכבה כבויה
+    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}` +
+        `&query=${encodeURIComponent(q)}&dataType=${encodeURIComponent('Foundation,SR Legacy')}&pageSize=15`;
+    const resp = await _fdFetch(url);
+    if (!resp.ok) throw new Error('USDA_' + resp.status);
+    const data = await resp.json();
+    return (data.foods || []).map(_usdaToFood).filter(Boolean);
 }
 
 // ── Gemini Vision: קריאת תווית/ברקוד מתמונה (מיחזור התשתית מ-bodylog) ──

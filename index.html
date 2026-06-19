@@ -27,6 +27,7 @@
     <script defer src="editor-logic.js"></script>
     <script defer src="archive-logic.js"></script>
     <script defer src="bodylog-logic.js"></script>
+    <script defer src="food-logic.js"></script>
 
     <!-- Firebase SDK (Compat) — טעינה lazy/non-blocking. לא חוסם DOMContentLoaded.
          נטען ברקע רק למשתמשים עם cloud מוגדר, או on-demand דרך FirebaseManager. -->
@@ -470,6 +471,7 @@
                         </div>
                         <div class="home-today-remain" id="home-today-remain" style="display:none"></div>
                         <div class="home-today-rows" id="home-today-macros"></div>
+                        <span class="home-today-diary" role="button" onclick="event.stopPropagation();openFoodDiary()"><span class="material-symbols-outlined">menu_book</span>יומן תזונה</span>
                     </button>
                     <button class="home-today-card" id="home-today-body" onclick="goToComposition('weight')">
                         <div class="home-today-top">
@@ -675,6 +677,14 @@
                                 <span class="nutri-target-input">
                                     <input type="number" id="nutri-target-input" inputmode="numeric" min="0" max="9999" placeholder="—" onchange="saveKcalTarget(this.value)">
                                     <span class="nutri-target-unit">kcal</span>
+                                </span>
+                            </div>
+                            <div class="nutri-target-row">
+                                <span class="nutri-target-lbl">יעדי מאקרו (גרם)</span>
+                                <span class="nutri-macro-targets">
+                                    <input type="number" id="macro-target-p" class="macro-p" inputmode="numeric" min="0" max="999" placeholder="חלבון" onchange="saveMacroTarget('proteinTarget',this.value)">
+                                    <input type="number" id="macro-target-c" class="macro-c" inputmode="numeric" min="0" max="999" placeholder="פחמ'" onchange="saveMacroTarget('carbsTarget',this.value)">
+                                    <input type="number" id="macro-target-f" class="macro-f" inputmode="numeric" min="0" max="999" placeholder="שומן" onchange="saveMacroTarget('fatTarget',this.value)">
                                 </span>
                             </div>
                             <div class="stg-toggle-row stg-toggle-row--last">
@@ -2043,6 +2053,50 @@
                 <span class="nutri-io-desc">מוחק את כל הסיכום היומי ופירוט הארוחות מהמכשיר</span>
             </span>
         </button>
+    </div>
+
+    <!-- ════════ FOOD DIARY — יומן מזון (overlay מסך-מלא) ════════ -->
+    <div id="food-diary" class="food-diary-overlay" style="display:none">
+        <div class="fd-header">
+            <button class="fd-close" onclick="closeFoodDiary()"><span class="material-symbols-outlined">close</span></button>
+            <div class="fd-daynav">
+                <button class="fd-day-arrow" onclick="fdShiftDay(-1)" aria-label="יום קודם"><span class="material-symbols-outlined">chevron_right</span></button>
+                <button class="fd-date" id="fd-date-label" onclick="fdOpenDatePicker()">היום</button>
+                <button class="fd-day-arrow" id="fd-day-next" onclick="fdShiftDay(1)" aria-label="יום הבא"><span class="material-symbols-outlined">chevron_left</span></button>
+            </div>
+            <div class="fd-header-spacer"></div>
+            <input type="date" id="fd-date-input" class="fd-date-input" onchange="fdSetDate(this.value)">
+        </div>
+        <div class="fd-scroll" id="fd-scroll"></div>
+    </div>
+
+    <!-- שיט הוספת מזון (חיפוש/אחרונים/מועדפים/מותאמים) -->
+    <div id="fd-add-overlay" class="bottom-sheet-overlay" onclick="closeFoodAdd()"></div>
+    <div id="fd-add-sheet" class="bottom-sheet fd-add-sheet">
+        <div class="sheet-handle"></div>
+        <div class="fd-add-head">
+            <input type="search" id="fd-search" class="fd-search-input" placeholder="חיפוש מזון…" oninput="fdOnSearchInput(this.value)" autocomplete="off">
+            <button class="fd-cam-btn" onclick="fdScanPhoto()" aria-label="צילום תווית/ברקוד"><span class="material-symbols-outlined">photo_camera</span></button>
+        </div>
+        <div class="fd-add-sub">הוספה ל: <strong id="fd-add-meal-name">בוקר</strong></div>
+        <div class="fd-tabs" id="fd-tabs">
+            <button class="fd-tab active" data-fdtab="recent" onclick="fdSetTab('recent',this)">אחרונים</button>
+            <button class="fd-tab" data-fdtab="fav" onclick="fdSetTab('fav',this)">מועדפים</button>
+            <button class="fd-tab" data-fdtab="custom" onclick="fdSetTab('custom',this)">מותאמים</button>
+        </div>
+        <div class="fd-results" id="fd-results"></div>
+        <div class="fd-add-foot">
+            <button class="fd-custom-btn" onclick="fdNewCustomFood()"><span class="material-symbols-outlined">add</span>מזון מותאם</button>
+            <span class="fd-credit">נתוני מזון: Open Food Facts</span>
+        </div>
+        <input type="file" id="fd-cam-input" accept="image/*" capture="environment" style="display:none" onchange="fdOnPhoto(this.files[0])">
+    </div>
+
+    <!-- שיט עורך מנה/כמות/ארוחה/שעה -->
+    <div id="fd-portion-overlay" class="bottom-sheet-overlay" onclick="closeFoodPortion()"></div>
+    <div id="fd-portion-sheet" class="bottom-sheet fd-portion-sheet">
+        <div class="sheet-handle"></div>
+        <div id="fd-portion-body"></div>
     </div>
 
     <!-- AI Coach Modal -->

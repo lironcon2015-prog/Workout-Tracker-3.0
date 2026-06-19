@@ -95,7 +95,7 @@
 
 ## חובה בכל שינוי קוד לפני push
 
-**בכל commit שמשנה קבצי אפליקציה** (workout-core.js, style.css, index.html, archive-logic.js, editor-logic.js, storage.js, data.js) —
+**בכל commit שמשנה קבצי אפליקציה** (workout-core.js, style.css, index.html, archive-logic.js, editor-logic.js, bodylog-logic.js, food-logic.js, storage.js, data.js) —
 חובה לעדכן **באותו commit**:
 
 1. **`sw.js`** — העלה את `CACHE_VERSION` ב-1 (למשל `gympro-v15.75` → `gympro-v15.76`)
@@ -150,6 +150,7 @@ version.json: { "version": "15.X" }
 | `archive-logic.js` | ארכיון אימונים + `switchMainTab` + סנכרון ענן (Firestore chunked) |
 | `editor-logic.js` | עורך תוכנית + `renderWorkoutMenu` + `checkForUpdate` |
 | `bodylog-logic.js` | מסך Composition: שקילות (משקל/שומן) + תזונה (MyFitnessPal: גרפים, ממוצעים, ייצוא) |
+| `food-logic.js` | יומן מזון מובנה: חיפוש Open Food Facts, ברקוד/תווית דרך Gemini, עורך מנה/ארוחה/שעה, מועדפים/אחרונים/מותאמים. כותב ל-NUTRITION_DAILY דרך `recomputeNutritionDay` |
 | `storage.js` | StorageManager (localStorage) + FirebaseManager (סנכרון ענן) |
 | `data.js` | נתוני ברירת מחדל |
 | `docs/mfp-nutrition-bridge.gs` | Google Apps Script — גשר שמושך ייצוא MyFitnessPal מ-Gmail (JSONP) |
@@ -171,7 +172,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-16.39
+16.40
 
 ---
 

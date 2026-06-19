@@ -1071,6 +1071,8 @@ function _initAllSheetsDrag() {
         { id: 'workout-plan-sheet',         closer: () => closePlanSheet() },
         { id: 'range-copy-sheet',           closer: () => (typeof closeRangeSheet === 'function') && closeRangeSheet() },
         { id: 'set-rec-sheet',              closer: () => dismissAIRecommendation() },
+        { id: 'fd-add-sheet',               closer: () => (typeof closeFoodAdd === 'function') && closeFoodAdd() },
+        { id: 'fd-portion-sheet',           closer: () => (typeof closeFoodPortion === 'function') && closeFoodPortion() },
     ];
     sheets.forEach(s => {
         const el = document.getElementById(s.id);
@@ -1117,6 +1119,10 @@ function _renderNutritionalToggle() {
         : 'קבע תאריך תחילת מצב';
     const targetEl = document.getElementById('nutri-target-input');
     if (targetEl) targetEl.value = getAnalyticsPrefs().kcalTarget || '';
+    const _ap = getAnalyticsPrefs();
+    [['macro-target-p', 'proteinTarget'], ['macro-target-c', 'carbsTarget'], ['macro-target-f', 'fatTarget']].forEach(([id, key]) => {
+        const el = document.getElementById(id); if (el) el.value = _ap[key] || '';
+    });
     const capEl = document.getElementById('cut-cap-main-toggle');
     if (capEl) capEl.checked = getAnalyticsPrefs().cutCapMainSets !== false;   // ברירת מחדל: דלוק
 }
@@ -1129,6 +1135,15 @@ function saveKcalTarget(val) {
     p.kcalTarget = n > 0 ? n : null;
     saveAnalyticsPrefs(p);
     if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
+    haptic('light');
+}
+
+// saveMacroTarget — יעד מאקרו יומי (גרם) ליומן המזון. ריק/0 = ללא יעד.
+function saveMacroTarget(key, val) {
+    const p = getAnalyticsPrefs();
+    const n = parseInt(val, 10);
+    p[key] = n > 0 ? n : null;
+    saveAnalyticsPrefs(p);
     haptic('light');
 }
 

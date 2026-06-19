@@ -37,6 +37,8 @@ const StorageManager = {
     KEY_COPY_INCLUDE_COACH: 'gympro_copy_include_coach',
     KEY_ARCHIVE_COPY_COACH: 'gympro_archive_copy_coach',
     KEY_COACH_PROMPTS:      'gympro_coach_prompts',
+    KEY_FOOD_LOG:     'gympro_food_log',     // יומן מזון פנימי — רשומות לפי יום
+    KEY_FOOD_DB:      'gympro_food_db',        // מאגר מזון: קאש OFF + מותאמים + מועדפים
 
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); }
@@ -195,7 +197,13 @@ const StorageManager = {
             // נקודת פתיחה ידנית לחישוב ה-TDEE (null = אוטומטי: 28 ימים אחרונים)
             tdeeStartDate: null,
             // ערכת צבעים: obsidian (ברירת מחדל) | bronze | midnight | crimson | emerald | purple
-            colorTheme: 'obsidian'
+            colorTheme: 'obsidian',
+            // יעדי מאקרו יומיים (גרם) ליומן המזון — null = לא הוגדר ("נותרו" מוסתר)
+            proteinTarget: null,
+            carbsTarget: null,
+            fatTarget: null,
+            // שמות ארוחות ליומן המזון (ניתן להוסיף ארוחות ביניים חופשיות)
+            mealLabels: ['בוקר', 'צהריים', 'ערב', 'נשנוש']
             // consistencyGreen / consistencyOrange — נשמרים רק אם הוגדרו ידנית
         };
     },
@@ -459,6 +467,8 @@ const StorageManager = {
             nutritionLog: this.getNutritionLog(),
             nutritionDaily: this.getNutritionDaily(),
             nutritionRaw: this.getNutritionRaw(),
+            foodLog: this.getFoodLog(),
+            foodDb: this.getFoodDb(),
             bodyProfile: this.getBodyProfile(),
             bodylog: this.getBodyLog(),
             analyticsPrefs: {
@@ -475,7 +485,11 @@ const StorageManager = {
                 units:              prefs.units,
                 name:               prefs.name,
                 homePRRange:        prefs.homePRRange,
-                workoutAliasColors: prefs.workoutAliasColors || {}
+                workoutAliasColors: prefs.workoutAliasColors || {},
+                proteinTarget:      prefs.proteinTarget,
+                carbsTarget:        prefs.carbsTarget,
+                fatTarget:          prefs.fatTarget,
+                mealLabels:         prefs.mealLabels
             }
         };
         const a = document.createElement('a');
@@ -498,7 +512,7 @@ const StorageManager = {
             if (data.aliases)        prefs.workoutAliases    = data.aliases;
             if (data.analyticsPrefs) {
                 const ap = data.analyticsPrefs;
-                ['heroMetrics','volumeRange','muscleRange','consistencyRange','consistencyGreen','consistencyOrange','microPoints','microAxis','microOrder','formula','units','name','homePRRange','workoutAliasColors'].forEach(k => {
+                ['heroMetrics','volumeRange','muscleRange','consistencyRange','consistencyGreen','consistencyOrange','microPoints','microAxis','microOrder','formula','units','name','homePRRange','workoutAliasColors','proteinTarget','carbsTarget','fatTarget','mealLabels'].forEach(k => {
                     if (ap[k] !== undefined) prefs[k] = ap[k];
                 });
             }
@@ -507,6 +521,8 @@ const StorageManager = {
             if (data.nutritionLog)   this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) this.saveData(this.KEY_NUTRITION_DAILY, data.nutritionDaily);
             if (data.nutritionRaw)   this.saveData(this.KEY_NUTRITION_RAW, data.nutritionRaw);
+            if (data.foodLog)        this.saveData(this.KEY_FOOD_LOG, data.foodLog);
+            if (data.foodDb)         this.saveData(this.KEY_FOOD_DB, data.foodDb);
             if (data.bodyProfile)    this.saveData(this.KEY_BODY_PROFILE, data.bodyProfile);
             if (data.bodylog)        this.saveData(this.KEY_BODYLOG, data.bodylog);
             showAlert("התבניות נטענו בהצלחה!", () => { window.location.reload(); });
@@ -611,6 +627,119 @@ const StorageManager = {
         const merged = kept.concat(incoming.rows)
             .sort((a, b) => (String(a[di] || '') < String(b[di] || '') ? -1 : 1));
         this.saveData(this.KEY_NUTRITION_RAW, { header: incoming.header, rows: merged, dateIdx: di });
+    },
+
+    // ── יומן מזון פנימי (Food Diary) ─────────────────────────────────────
+    // log = { "YYYY-MM-DD": [ {id, name, brand, source, barcode?, meal, time,
+    //         qty, unit, gramsPerUnit?, per100:{kcal,p,c,f}, kcal,p,c,f}, ... ] }
+    getFoodLog() { return this.getData(this.KEY_FOOD_LOG) || {}; },
+    getFoodLogDay(date) { return this.getFoodLog()[date] || []; },
+    _saveFoodLog(log) { this.saveData(this.KEY_FOOD_LOG, log); },
+
+    addFoodEntry(date, entry) {
+        const log = this.getFoodLog();
+        if (!log[date]) log[date] = [];
+        if (!entry.id) entry.id = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        log[date].push(entry);
+        this._saveFoodLog(log);
+        this.recomputeNutritionDay(date);
+        return entry;
+    },
+
+    updateFoodEntry(date, id, patch) {
+        const log = this.getFoodLog();
+        const arr = log[date]; if (!arr) return;
+        const i = arr.findIndex(e => e.id === id); if (i < 0) return;
+        arr[i] = Object.assign({}, arr[i], patch);
+        this._saveFoodLog(log);
+        this.recomputeNutritionDay(date);
+    },
+
+    deleteFoodEntry(date, id) {
+        const log = this.getFoodLog();
+        const arr = log[date]; if (!arr) return;
+        log[date] = arr.filter(e => e.id !== id);
+        if (!log[date].length) delete log[date];
+        this._saveFoodLog(log);
+        this.recomputeNutritionDay(date);
+    },
+
+    // recomputeNutritionDay — מסכם את רשומות היום וכותב ל-NUTRITION_DAILY עם src:'app'.
+    // עדיפות (אושר ע"י המשתמש): MFP מנצח — יום שמקורו MFP (src ריק/'mfp') לא נדרס.
+    recomputeNutritionDay(date) {
+        const entries = this.getFoodLogDay(date);
+        const daily = this.getNutritionDaily();
+        const idx = daily.findIndex(d => d.date === date);
+        const existing = idx >= 0 ? daily[idx] : null;
+        const isMfpOwned = existing && (existing.src == null || existing.src === 'mfp');
+        if (isMfpOwned) return;  // MFP מנצח — לא נוגעים בסיכום היומי
+        if (!entries.length) {
+            // אין רשומות פנימיות — הסר יום שמקורו 'app' (חזרה למצב ריק)
+            if (existing && existing.src === 'app') {
+                daily.splice(idx, 1);
+                this.saveData(this.KEY_NUTRITION_DAILY, daily);
+            }
+            return;
+        }
+        const sum = entries.reduce((a, e) => {
+            a.calories += Number(e.kcal) || 0;
+            a.protein  += Number(e.p)    || 0;
+            a.carbs    += Number(e.c)    || 0;
+            a.fat      += Number(e.f)    || 0;
+            return a;
+        }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+        const rec = {
+            date,
+            calories: Math.round(sum.calories),
+            protein:  Math.round(sum.protein),
+            carbs:    Math.round(sum.carbs),
+            fat:      Math.round(sum.fat),
+            meals:    new Set(entries.map(e => e.meal)).size,
+            src: 'app'
+        };
+        if (idx >= 0) daily[idx] = rec; else daily.push(rec);
+        daily.sort((a, b) => a.date < b.date ? -1 : 1);
+        this.saveData(this.KEY_NUTRITION_DAILY, daily);
+    },
+
+    // ── מאגר מזון (קאש + מותאמים + מועדפים) ──────────────────────────────
+    getFoodDb() { return this.getData(this.KEY_FOOD_DB) || []; },
+
+    upsertFoodToDb(food) {
+        const db = this.getFoodDb();
+        const i = db.findIndex(f => f.id === food.id || (f.barcode && food.barcode && f.barcode === food.barcode));
+        if (i >= 0) db[i] = Object.assign({}, db[i], food);
+        else db.push(Object.assign({ useCount: 0, lastUsed: 0, favorite: false }, food));
+        this.saveData(this.KEY_FOOD_DB, db);
+    },
+
+    bumpFoodUsage(id) {
+        const db = this.getFoodDb();
+        const f = db.find(x => x.id === id); if (!f) return;
+        f.useCount = (f.useCount || 0) + 1;
+        f.lastUsed = Date.now();
+        this.saveData(this.KEY_FOOD_DB, db);
+    },
+
+    toggleFavoriteFood(id) {
+        const db = this.getFoodDb();
+        const f = db.find(x => x.id === id); if (!f) return false;
+        f.favorite = !f.favorite;
+        this.saveData(this.KEY_FOOD_DB, db);
+        return f.favorite;
+    },
+
+    recentFoods(n) {
+        return this.getFoodDb().filter(f => f.lastUsed)
+            .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0)).slice(0, n || 20);
+    },
+    favoriteFoods() {
+        return this.getFoodDb().filter(f => f.favorite)
+            .sort((a, b) => (b.useCount || 0) - (a.useCount || 0));
+    },
+    customFoods() {
+        return this.getFoodDb().filter(f => f.source === 'custom')
+            .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
     },
 
     // ── פרופיל גוף (TDEE) ────────────────────────────────────────────────
@@ -1198,6 +1327,8 @@ const FirebaseManager = {
                 nutrition:      StorageManager.getNutritionalState(),
                 nutritionLog:   StorageManager.getNutritionLog(),
                 nutritionDaily: StorageManager.getNutritionDaily(),
+                foodLog:        StorageManager.getFoodLog(),
+                foodDb:         StorageManager.getFoodDb(),
                 bodyProfile:    StorageManager.getBodyProfile(),
                 bodylog:        StorageManager.getBodyLog(),
                 coachPrompts:   StorageManager.getData(StorageManager.KEY_COACH_PROMPTS) || {},
@@ -1230,6 +1361,8 @@ const FirebaseManager = {
             if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
             if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
+            if (data.foodLog)        StorageManager.saveData(StorageManager.KEY_FOOD_LOG, data.foodLog);
+            if (data.foodDb)         StorageManager.saveData(StorageManager.KEY_FOOD_DB, data.foodDb);
             if (data.bodyProfile)    StorageManager.saveData(StorageManager.KEY_BODY_PROFILE, data.bodyProfile);
             if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
             if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);

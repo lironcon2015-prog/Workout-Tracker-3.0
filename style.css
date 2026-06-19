@@ -5875,3 +5875,221 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-prev-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bl-prev-head { font-weight: 800; color: var(--text-dim); font-size: 0.68rem; }
 .bl-prev-more { font-size: 0.72rem; color: var(--text-dim); text-align: center; padding: 6px 0; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   FOOD DIARY — יומן מזון מובנה
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* כפתור "יומן תזונה" בכרטיס הבית (מתחת ל-LIVE) */
+.home-today-diary {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 10px; align-self: flex-start;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 0.68rem; font-weight: 800;
+    border-radius: 9999px; padding: 5px 11px;
+}
+.home-today-diary .material-symbols-outlined { font-size: 0.95rem; }
+
+/* כפתורי כותרת כרטיס התזונה במסך Composition */
+.bl-nutri-head-btns { display: flex; gap: 8px; align-items: center; }
+.bl-nutri-diary .material-symbols-outlined { color: var(--accent); }
+
+/* ── Overlay מסך-מלא ── */
+.food-diary-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    animation: fdSlideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes fdSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.fd-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: max(env(safe-area-inset-top), 14px) 14px 12px;
+    border-bottom: 1px solid var(--hairline);
+    position: relative;
+}
+.fd-close, .fd-day-arrow {
+    background: var(--surface-3); border: none; color: var(--text);
+    width: 40px; height: 40px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+}
+.fd-day-arrow:disabled { opacity: 0.3; pointer-events: none; }
+.fd-day-arrow { width: 36px; height: 36px; background: transparent; }
+.fd-daynav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.fd-date {
+    background: var(--surface-3); border: none; color: var(--text);
+    font-family: inherit; font-weight: 900; font-size: 1rem;
+    padding: 8px 18px; border-radius: 9999px; cursor: pointer; min-width: 120px;
+}
+.fd-header-spacer { width: 40px; flex-shrink: 0; }
+.fd-date-input {
+    position: absolute; opacity: 0; pointer-events: none;
+    bottom: 0; left: 50%; width: 1px; height: 1px;
+}
+
+.fd-scroll { flex: 1; overflow-y: auto; padding: 16px 14px calc(40px + env(safe-area-inset-bottom)); }
+
+/* ── סיכום יומי ── */
+.fd-summary {
+    background: var(--surface-2); border-radius: var(--r-lg);
+    border: 1px solid var(--hairline); box-shadow: var(--top-glint);
+    padding: 18px; margin-bottom: 16px;
+}
+.fd-kcal { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.fd-kcal-num { font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 2.4rem; line-height: 1; color: var(--text); }
+.fd-kcal-unit { font-size: 0.9rem; color: var(--text-dim); font-weight: 700; }
+.fd-kcal-rem { margin-inline-start: auto; font-size: 0.78rem; font-weight: 800; padding: 4px 10px; border-radius: 9999px; }
+.fd-kcal-rem.left { background: rgba(48, 209, 88, 0.14); color: #30D158; }
+.fd-kcal-rem.over { background: rgba(255, 69, 58, 0.14); color: #ff453a; }
+.fd-macros { display: flex; flex-direction: column; gap: 12px; }
+.fd-macro-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.fd-macro-lbl { font-size: 0.78rem; color: var(--text-dim); font-weight: 700; }
+.fd-macro-val { font-size: 0.82rem; font-weight: 800; }
+.fd-macro-val small { font-size: 0.7em; opacity: 0.7; font-weight: 600; }
+.fd-macro-val.macro-p, .fd-macro-fill.macro-p { color: #4a86e8; }
+.fd-macro-val.macro-c, .fd-macro-fill.macro-c { color: #ffad47; }
+.fd-macro-val.macro-f, .fd-macro-fill.macro-f { color: #f6c5be; }
+.fd-macro-bar { height: 6px; border-radius: 9999px; background: var(--surface-4); overflow: hidden; }
+.fd-macro-fill { display: block; height: 100%; border-radius: 9999px; }
+.fd-macro-fill.macro-p { background: #4a86e8; }
+.fd-macro-fill.macro-c { background: #ffad47; }
+.fd-macro-fill.macro-f { background: #f6c5be; }
+.fd-macro-rem { font-size: 0.66rem; color: var(--text-dim); margin-top: 3px; display: inline-block; }
+.fd-mfp-note {
+    display: flex; align-items: center; gap: 6px; margin-top: 14px;
+    font-size: 0.7rem; color: var(--text-dim); line-height: 1.4;
+    background: var(--surface-1); border-radius: var(--r-sm); padding: 8px 10px;
+}
+.fd-mfp-note .material-symbols-outlined { font-size: 1rem; color: var(--accent); flex-shrink: 0; }
+
+/* ── ארוחות ── */
+.fd-meal { margin-bottom: 14px; }
+.fd-meal-hdr { display: flex; align-items: center; gap: 8px; padding: 4px 4px 8px; }
+.fd-meal-name { font-weight: 900; font-size: 0.95rem; color: var(--text); }
+.fd-meal-kcal { font-size: 0.74rem; color: var(--text-dim); font-weight: 700; }
+.fd-meal-add {
+    margin-inline-start: auto; background: var(--accent-soft); color: var(--accent);
+    border: none; width: 30px; height: 30px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.fd-meal-add .material-symbols-outlined { font-size: 1.2rem; }
+.fd-entry {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: var(--r-md); padding: 11px 14px; margin-bottom: 7px;
+    font-family: inherit; text-align: right; cursor: pointer; color: var(--text);
+}
+.fd-entry:active { transform: scale(0.99); }
+.fd-entry-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fd-entry-name { font-weight: 700; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-entry-sub { font-size: 0.68rem; color: var(--text-dim); }
+.fd-entry-macros { text-align: left; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
+.fd-entry-kcal { font-weight: 900; font-size: 0.95rem; }
+.fd-entry-pcf { font-size: 0.62rem; color: var(--text-dim); letter-spacing: 0.02em; }
+.fd-meal-empty { font-size: 0.74rem; color: var(--text-dim); padding: 4px 8px 8px; }
+.fd-add-meal {
+    display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+    background: transparent; border: 1.5px dashed var(--hairline-hi); color: var(--text-dim);
+    border-radius: var(--r-md); padding: 12px; margin-top: 6px;
+    font-family: inherit; font-weight: 700; font-size: 0.82rem; cursor: pointer;
+}
+
+/* ── שיט הוספת מזון ── */
+.fd-add-sheet, .fd-portion-sheet { max-height: 88vh; display: flex; flex-direction: column; }
+.fd-add-head { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.fd-search-input {
+    flex: 1; background: var(--surface-1); border: 1px solid var(--hairline);
+    border-radius: var(--r-pill); padding: 12px 16px; color: var(--text);
+    font-family: inherit; font-size: 0.95rem;
+}
+.fd-search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.fd-cam-btn {
+    background: var(--accent-soft); color: var(--accent); border: none;
+    width: 46px; height: 46px; border-radius: 9999px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.fd-add-sub { font-size: 0.74rem; color: var(--text-dim); margin: 0 4px 10px; }
+.fd-add-sub strong { color: var(--accent); }
+.fd-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.fd-tab {
+    flex: 1; background: var(--surface-1); border: none; color: var(--text-dim);
+    font-family: inherit; font-weight: 700; font-size: 0.78rem;
+    padding: 9px; border-radius: var(--r-sm); cursor: pointer;
+}
+.fd-tab.active { background: var(--accent); color: var(--accent-text); }
+.fd-results { flex: 1; overflow-y: auto; min-height: 120px; }
+.fd-loading, .fd-empty { text-align: center; color: var(--text-dim); font-size: 0.82rem; padding: 28px 12px; line-height: 1.5; }
+.fd-food-row {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: var(--r-md); padding: 12px 14px; margin-bottom: 7px;
+    font-family: inherit; text-align: right; cursor: pointer; color: var(--text);
+}
+.fd-food-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fd-food-name { font-weight: 700; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-food-sub { font-size: 0.68rem; color: var(--text-dim); }
+.fd-food-star { font-size: 1.2rem; color: var(--text-dim); flex-shrink: 0; line-height: 1; }
+.fd-food-star.on { color: #ffcf3f; }
+.fd-add-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--hairline); }
+.fd-custom-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--surface-3); border: none; color: var(--text);
+    font-family: inherit; font-weight: 700; font-size: 0.8rem;
+    padding: 9px 14px; border-radius: 9999px; cursor: pointer;
+}
+.fd-custom-btn .material-symbols-outlined { font-size: 1.1rem; color: var(--accent); }
+.fd-credit { font-size: 0.62rem; color: var(--text-dim); opacity: 0.7; }
+
+/* ── עורך מנה ── */
+.fd-portion-title { font-weight: 900; font-size: 1.1rem; margin-bottom: 16px; }
+.fd-portion-title small { display: block; font-size: 0.72rem; color: var(--text-dim); font-weight: 600; margin-top: 2px; }
+.fd-portion-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.fd-field { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.fd-field--full { flex-basis: 100%; }
+.fd-field span { font-size: 0.7rem; color: var(--text-dim); font-weight: 700; }
+.fd-field input, .fd-field select {
+    background: var(--surface-1); border: 1px solid var(--hairline); border-radius: var(--r-sm);
+    padding: 11px 12px; color: var(--text); font-family: inherit; font-size: 0.95rem; width: 100%; box-sizing: border-box;
+}
+.fd-field input:focus, .fd-field select:focus { outline: none; border-color: var(--accent); }
+.fd-meal-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+.fd-chip {
+    background: var(--surface-3); border: none; color: var(--text);
+    font-family: inherit; font-weight: 700; font-size: 0.78rem;
+    padding: 8px 14px; border-radius: 9999px; cursor: pointer;
+}
+.fd-chip.active { background: var(--accent); color: var(--accent-text); }
+.fd-chip--add { background: var(--accent-soft); color: var(--accent); padding: 8px 12px; }
+.fd-preview {
+    display: flex; flex-direction: column; gap: 4px; align-items: center;
+    background: var(--surface-1); border-radius: var(--r-md); padding: 14px; margin-bottom: 16px;
+}
+.fd-preview-kcal { font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 1.8rem; line-height: 1; color: var(--accent); }
+.fd-preview-kcal small { font-size: 0.5em; color: var(--text-dim); margin-inline-start: 4px; }
+.fd-preview-pcf { font-size: 0.76rem; color: var(--text); }
+.fd-preview-g { font-size: 0.68rem; color: var(--text-dim); }
+.fd-portion-actions { display: flex; gap: 10px; }
+.fd-save-btn {
+    flex: 1; background: var(--accent-gradient); color: var(--accent-text); border: none;
+    border-radius: var(--r-pill); padding: 15px; font-family: inherit; font-weight: 900;
+    font-size: 0.95rem; cursor: pointer; box-shadow: var(--accent-glow);
+}
+.fd-del-btn {
+    background: rgba(255, 69, 58, 0.14); color: #ff453a; border: none;
+    border-radius: var(--r-pill); width: 52px; flex-shrink: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
+
+/* יעדי מאקרו בהגדרות (הגדרות → מאמן) */
+.nutri-macro-targets { display: flex; gap: 6px; }
+.nutri-macro-targets input {
+    width: 64px; background: var(--surface-1); border: 1px solid var(--hairline);
+    border-radius: var(--r-sm); padding: 8px 6px; color: var(--text);
+    font-family: inherit; font-size: 0.82rem; text-align: center;
+}
+.nutri-macro-targets input:focus { outline: none; border-color: var(--accent); }
+.nutri-macro-targets input.macro-p::placeholder { color: #4a86e8; }
+.nutri-macro-targets input.macro-c::placeholder { color: #ffad47; }
+.nutri-macro-targets input.macro-f::placeholder { color: #f6c5be; }

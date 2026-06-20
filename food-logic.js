@@ -437,9 +437,15 @@ function fdOpenAdd(meal) {
 function _fdAttachScrollBlur() {
     const box = document.getElementById('fd-results');
     if (!box || box.dataset.blurBound) return;
+    // מסתיר מקלדת בגלילה — תוך שימור מיקום הגלילה כדי שהמסך לא "יקפוץ" כשהמקלדת יורדת
     const blur = () => {
         const s = document.getElementById('fd-search');
-        if (s && document.activeElement === s) s.blur();
+        if (s && document.activeElement === s) {
+            const top = box.scrollTop;
+            s.blur();
+            requestAnimationFrame(() => { box.scrollTop = top; });
+            setTimeout(() => { box.scrollTop = top; }, 60);  // אחרי שינוי ה-viewport ב-iOS
+        }
     };
     box.addEventListener('scroll', blur, { passive: true });
     box.addEventListener('touchmove', blur, { passive: true });
@@ -460,8 +466,9 @@ function fdRenderTab() {
     const box = document.getElementById('fd-results');
     if (!box) return;
     let foods = [];
-    if (_fdTab === 'recent') foods = StorageManager.recentFoods(30);
-    else if (_fdTab === 'fav') foods = StorageManager.favoriteFoods();
+    // מועדפים/אחרונים מדורגים לפי הארוחה הנוכחית (_fdMeal) — מזונות הארוחה קודם
+    if (_fdTab === 'recent') foods = StorageManager.recentFoods(30, _fdMeal);
+    else if (_fdTab === 'fav') foods = StorageManager.favoriteFoods(_fdMeal);
     else if (_fdTab === 'custom') foods = StorageManager.customFoods();
     if (!foods.length) {
         box.innerHTML = `<div class="fd-empty">${_fdTab === 'recent' ? 'אין עדיין מזונות אחרונים — חפש מוצר למעלה' : _fdTab === 'fav' ? 'אין מועדפים. סמן ⭐ על מזון' : 'אין מזונות מותאמים. צור באמצעות הכפתור למטה'}</div>`;
@@ -562,7 +569,9 @@ function _fdOpenPortion(food, entry) {
         <div class="fd-portion-row">
             <label class="fd-field"><span>כמות</span><input type="number" id="fd-qty" inputmode="decimal" min="0" step="any" value="${qty}" oninput="_fdUpdatePreview()"></label>
             <label class="fd-field"><span>יחידה</span><select id="fd-unit" onchange="_fdUpdatePreview()">${unitOpts}</select></label>
-            <label class="fd-field"><span>שעה</span><input type="time" id="fd-time" value="${time}"></label>
+        </div>
+        <div class="fd-portion-row">
+            <label class="fd-field fd-field--full"><span>שעה</span><input type="time" id="fd-time" value="${time}"></label>
         </div>
         <div class="fd-meal-chips" id="fd-meal-chips">
             ${meals.map(m => `<button class="fd-chip ${m === curMeal ? 'active' : ''}" data-meal="${_fdEsc(m)}" onclick="_fdPickMeal(this)">${_fdEsc(m)}</button>`).join('')}
@@ -627,7 +636,7 @@ function fdSavePortion() {
         StorageManager.updateFoodEntry(_fdDate, _fdEditEntryId, entry);
     } else {
         StorageManager.addFoodEntry(_fdDate, entry);
-        if (food.id) StorageManager.bumpFoodUsage(food.id);
+        if (food.id) StorageManager.bumpFoodUsage(food.id, entry.meal);
     }
     closeFoodPortion();
     closeFoodAdd();
@@ -765,4 +774,27 @@ function fdOnPhoto(file) {
     }).catch(() => {
         if (box) box.innerHTML = '<div class="fd-empty">⚠ קריאת התמונה נכשלה — חפש ידנית.</div>';
     });
+}
+
+// ════════ ייצוא יומן מזון (JSON) ════════
+// מייצא את היומן המלא (רשומות per-food לכל יום) + מאגר המזון לקובץ JSON.
+function exportFoodDiaryJson() {
+    const data = {
+        type: 'gympro_food_diary',
+        version: (window._gymproVersion || ''),
+        exportedAt: new Date().toISOString(),
+        foodLog: StorageManager.getFoodLog(),
+        foodDb: StorageManager.getFoodDb()
+    };
+    try {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `gympro_food_diary_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        haptic('light');
+    } catch (e) {
+        if (typeof showAlert === 'function') showAlert('ייצוא היומן נכשל: ' + e.message);
+    }
 }

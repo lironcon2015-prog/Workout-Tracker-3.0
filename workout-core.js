@@ -5141,26 +5141,97 @@ async function importNutritionFromGmail() {
         }
         const days = Array.isArray(data.days) ? data.days : [];
         if (!days.length) throw new Error('הייצוא לא הכיל ימי תזונה.');
-        StorageManager.saveNutritionDaily(days);
-        // שמירת הקובץ הגולמי המקורי (per-meal) לייצוא נאמן בהמשך
-        if (data.rawCsv && typeof _parseRawNutrition === 'function') {
-            const raw = _parseRawNutrition(data.rawCsv);
-            if (raw) StorageManager.saveNutritionRaw(raw);
+        // בקרת דריסה: אם יש ימים קיימים ששונים מהנכנס — לשאול אילו לדרוס לפני שמירה
+        const conflicts = StorageManager.mfpConflicts(days);
+        if (conflicts.length) {
+            _pendingMfpImport = { days, rawCsv: data.rawCsv || '', conflicts };
+            _showMfpConflictDialog(conflicts);
+            showCloudToast(`נמצאו ${conflicts.length} ימים קיימים — בחר אילו לדרוס`, true);
+        } else {
+            _applyMfpImport(days, data.rawCsv || '', null, []);
+            showCloudToast(`✅ יובאו ${days.length} ימי תזונה`, true);
         }
-        if (typeof renderBodyLog === 'function') renderBodyLog();
-        if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
-        // סנכרון אוטומטי לענן (אם Firebase מוגדר): תזונה יומית בקונפיג + הקובץ הגולמי ב-chunks
-        if (typeof FirebaseManager !== 'undefined') {
-            FirebaseManager.saveConfigToCloud().catch(() => {});
-            FirebaseManager.saveNutritionRawToCloud().catch(() => {});
-        }
-        showCloudToast(`✅ יובאו ${days.length} ימי תזונה`, true);
     } catch (e) {
         console.error('GymPro: nutrition import error', e);
         showCloudToast('⚠️ ' + e.message, false);
     } finally {
         if (btn) btn.disabled = false;
     }
+}
+
+// ── דיאלוג דריסה בייבוא MFP ───────────────────────────────────────────
+let _pendingMfpImport = null;
+
+// _applyMfpImport — מחיל ימי MFP. overwriteSet=Set תאריכים לדריסה (null=הכל).
+// conflicts = רשימת ההתנגשויות (לסינון ה-raw לימים שלא נדרסו).
+function _applyMfpImport(days, rawCsv, overwriteSet, conflicts) {
+    StorageManager.applyMfpDays(days, overwriteSet);
+    // הקובץ הגולמי (per-meal): לדלג על ימי התנגשות שלא אושרו לדריסה
+    if (rawCsv && typeof _parseRawNutrition === 'function') {
+        const raw = _parseRawNutrition(rawCsv);
+        if (raw) {
+            if (overwriteSet && conflicts && conflicts.length) {
+                const skip = new Set(conflicts.filter(c => !overwriteSet.has(c.date)).map(c => c.date));
+                const di = raw.dateIdx != null ? raw.dateIdx : 0;
+                raw.rows = raw.rows.filter(r => !skip.has(String(r[di] || '').trim()));
+            }
+            if (raw.rows.length) StorageManager.saveNutritionRaw(raw);
+        }
+    }
+    if (typeof renderBodyLog === 'function') renderBodyLog();
+    if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
+    if (typeof FirebaseManager !== 'undefined') {
+        FirebaseManager.saveConfigToCloud().catch(() => {});
+        FirebaseManager.saveNutritionRawToCloud().catch(() => {});
+    }
+}
+
+function _mfpSrcLabel(d) {
+    if (!d) return '';
+    return d.src === 'health' ? 'Health' : d.src === 'app' ? 'תיעוד ידני' : 'MFP';
+}
+
+function _showMfpConflictDialog(conflicts) {
+    const modal = document.getElementById('mfp-conflict-modal');
+    const list = document.getElementById('mfp-conflict-list');
+    if (!modal || !list) return;
+    // ברירת מחדל מסומן: ימי MFP (re-import). ימי app/health (ידני) לא מסומנים — הגנה על תיעוד פנימי
+    list.innerHTML = conflicts.map(c => {
+        const src = c.existing.src;
+        const checked = (src == null || src === 'mfp') ? 'checked' : '';
+        const ex = Math.round(c.existing.calories || 0), nw = Math.round(c.incoming.calories || 0);
+        return `<label class="mfp-conf-row">
+            <input type="checkbox" class="mfp-conf-cb" value="${c.date}" ${checked}>
+            <span class="mfp-conf-info">
+                <span class="mfp-conf-date">${c.date}</span>
+                <span class="mfp-conf-vals">קיים: ${ex} kcal (${_mfpSrcLabel(c.existing)}) ← חדש: ${nw} kcal</span>
+            </span>
+        </label>`;
+    }).join('');
+    modal.style.display = 'flex';
+}
+
+function mfpConflictSelectAll(on) {
+    document.querySelectorAll('#mfp-conflict-list .mfp-conf-cb').forEach(cb => { cb.checked = on; });
+}
+
+function closeMfpConflict() {
+    const modal = document.getElementById('mfp-conflict-modal');
+    if (modal) modal.style.display = 'none';
+    _pendingMfpImport = null;
+}
+
+// confirmMfpOverwrite — מחיל: ימים חדשים + ימי ההתנגשות שסומנו. שאר ההתנגשויות נשמרות כפי שהן.
+function confirmMfpOverwrite() {
+    if (!_pendingMfpImport) { closeMfpConflict(); return; }
+    const set = new Set();
+    document.querySelectorAll('#mfp-conflict-list .mfp-conf-cb:checked').forEach(cb => set.add(cb.value));
+    const { days, rawCsv, conflicts } = _pendingMfpImport;
+    _applyMfpImport(days, rawCsv, set, conflicts);
+    const total = days.length, overwritten = set.size, kept = conflicts.length - overwritten;
+    if (typeof showCloudToast === 'function') showCloudToast(`✅ יובאו ${total} ימים · נדרסו ${overwritten} · נשמרו ${kept}`, true);
+    closeMfpConflict();
+    haptic('medium');
 }
 
 /**

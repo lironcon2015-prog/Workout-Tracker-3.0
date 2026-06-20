@@ -4952,13 +4952,16 @@ function saveMfpBridgeSettings() {
     const urlInput   = document.getElementById('mfp-bridge-url-input');
     const tokenInput = document.getElementById('mfp-bridge-token-input');
     if (!urlInput || !tokenInput) return;
-    StorageManager.saveMfpBridge(urlInput.value.trim(), tokenInput.value.trim());
+    const on = !!(document.getElementById('mfp-bridge-toggle') || {}).checked;
+    StorageManager.saveMfpBridge(on, urlInput.value.trim(), tokenInput.value.trim());
     updateMfpBridgeStatus();
     showAlert('הגדרות גשר התזונה נשמרו!');
 }
 
 function updateMfpBridgeStatus() {
     const el = document.getElementById('mfp-bridge-status');
+    const tg = document.getElementById('mfp-bridge-toggle');
+    if (tg) tg.checked = StorageManager.isMfpBridgeOn();
     if (!el) return;
     const { url, token } = StorageManager.getMfpBridge();
     if (url) {
@@ -4977,14 +4980,17 @@ function saveHealthBridgeSettings() {
     const urlInput   = document.getElementById('health-bridge-url-input');
     const tokenInput = document.getElementById('health-bridge-token-input');
     if (!urlInput || !tokenInput) return;
-    StorageManager.saveHealthBridge(urlInput.value.trim(), tokenInput.value.trim());
+    const on = !!(document.getElementById('health-bridge-toggle') || {}).checked;
+    StorageManager.saveHealthBridge(on, urlInput.value.trim(), tokenInput.value.trim());
     updateHealthBridgeStatus();
     showAlert('הגדרות גשר ה-Health נשמרו!');
-    syncHealthNutrition(true); // משיכה מיידית — פידבק מהיר שהחיבור עובד
+    if (on) syncHealthNutrition(true); // משיכה מיידית — פידבק מהיר שהחיבור עובד (רק אם דלוק)
 }
 
 function updateHealthBridgeStatus() {
     const el = document.getElementById('health-bridge-status');
+    const tg = document.getElementById('health-bridge-toggle');
+    if (tg) tg.checked = StorageManager.isHealthBridgeOn();
     if (!el) return;
     const { url, token } = StorageManager.getHealthBridge();
     if (url) {
@@ -5007,6 +5013,10 @@ let _healthSyncLast = 0;
 const HEALTH_SYNC_THROTTLE_MS = 15 * 60 * 1000;
 
 async function syncHealthNutrition(manual = false, force = false) {
+    if (!StorageManager.isHealthBridgeOn()) {
+        if (manual) showAlert('גשר ה-Health כבוי — הפעל אותו בהגדרות → "גשר תזונה Apple Health".');
+        return;
+    }
     const { url, token } = StorageManager.getHealthBridge();
     if (!url) {
         if (manual) showAlert('יש להגדיר קודם את גשר ה-Health בהגדרות → "גשר תזונה Apple Health".');
@@ -5116,6 +5126,10 @@ function updateBodyProfileStatus() {
  * מאחסן את הנתונים היומיים ומרענן את כרטיס התזונה במסך Composition.
  */
 async function importNutritionFromGmail() {
+    if (!StorageManager.isMfpBridgeOn()) {
+        showAlert('גשר MFP כבוי — הפעל אותו בהגדרות → "ייבוא תזונה (MyFitnessPal)".');
+        return;
+    }
     const { url, token } = StorageManager.getMfpBridge();
     if (!url) {
         showAlert('יש להגדיר קודם את כתובת הגשר (Apps Script) בהגדרות → "ייבוא תזונה".');

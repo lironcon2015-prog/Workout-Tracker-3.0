@@ -863,6 +863,10 @@
                         <div class="settings-group-label">ייבוא תזונה (MyFitnessPal)</div>
                         <div class="stg-bento stg-ai-bento">
                             <div id="mfp-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
+                            <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>הפעל גשר MFP</span>
+                                <span class="stg-switch"><input type="checkbox" id="mfp-bridge-toggle" onchange="saveMfpBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                            </label>
                             <div class="stg-ai-field">
                                 <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
                                 <input type="text" id="mfp-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
@@ -881,6 +885,10 @@
                         <div class="settings-group-label">גשר תזונה Apple Health</div>
                         <div class="stg-bento stg-ai-bento">
                             <div id="health-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
+                            <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>הפעל גשר Health</span>
+                                <span class="stg-switch"><input type="checkbox" id="health-bridge-toggle" onchange="saveHealthBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                            </label>
                             <div class="stg-ai-field">
                                 <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
                                 <input type="text" id="health-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
@@ -2029,40 +2037,19 @@
             </span>
         </button>
 
-        <div class="nutri-io-group-label">ייצוא</div>
-        <button class="nutri-io-row" onclick="_nutriIOAction(exportFoodDiaryJson)">
-            <span class="material-symbols-outlined nutri-io-icon">data_object</span>
-            <span class="nutri-io-text">
-                <span class="nutri-io-title">ייצוא יומן מזון (JSON)</span>
-                <span class="nutri-io-desc">היומן המלא — כל המזונות והרשומות לכל יום + המאגר המקומי</span>
-            </span>
-        </button>
-        <button class="nutri-io-row" onclick="_nutriIOAction(() => exportNutritionCsv('all'))">
+        <div class="nutri-io-group-label">ייצוא · לפי הטווח שנבחר בצ'יפים (7/30/90/מותאם)</div>
+        <button class="nutri-io-row" onclick="_nutriIOAction(exportNutritionDailyJson)">
             <span class="material-symbols-outlined nutri-io-icon">table_view</span>
             <span class="nutri-io-text">
-                <span class="nutri-io-title">CSV יומי · הכל</span>
-                <span class="nutri-io-desc">קלוריות ומאקרו לכל יום, מכל ההיסטוריה</span>
+                <span class="nutri-io-title">תזונה יומית · מקוצר (JSON)</span>
+                <span class="nutri-io-desc">קלוריות ומאקרו לכל יום</span>
             </span>
         </button>
-        <button class="nutri-io-row" onclick="_nutriIOAction(() => exportNutritionCsv('range'))">
-            <span class="material-symbols-outlined nutri-io-icon">date_range</span>
-            <span class="nutri-io-text">
-                <span class="nutri-io-title">CSV יומי · תקופה</span>
-                <span class="nutri-io-desc">לפי הטווח שנבחר בצ'יפים (7/30/90/מותאם)</span>
-            </span>
-        </button>
-        <button class="nutri-io-row" onclick="_nutriIOAction(() => exportNutritionRawCsv('all'))">
-            <span class="material-symbols-outlined nutri-io-icon">description</span>
-            <span class="nutri-io-text">
-                <span class="nutri-io-title">MFP גולמי · הכל</span>
-                <span class="nutri-io-desc">קובץ הארוחות המקורי — שורה לכל ארוחה</span>
-            </span>
-        </button>
-        <button class="nutri-io-row" onclick="_nutriIOAction(() => exportNutritionRawCsv('range'))">
+        <button class="nutri-io-row" onclick="_nutriIOAction(exportNutritionDetailedJson)">
             <span class="material-symbols-outlined nutri-io-icon">segment</span>
             <span class="nutri-io-text">
-                <span class="nutri-io-title">MFP גולמי · תקופה</span>
-                <span class="nutri-io-desc">פירוט ארוחות לטווח שנבחר בצ'יפים</span>
+                <span class="nutri-io-title">תזונה מפורטת · ארוחות ומרכיבים (JSON)</span>
+                <span class="nutri-io-desc">לכל יום: ארוחות, פריטים ומרכיבים (תיעוד ישיר), או שורות MFP לימים ישנים</span>
             </span>
         </button>
 

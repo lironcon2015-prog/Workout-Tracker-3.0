@@ -6048,15 +6048,39 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 /* ── עורך מנה ── */
 .fd-portion-title { font-weight: 900; font-size: 1.1rem; margin-bottom: 16px; }
 .fd-portion-title small { display: block; font-size: 0.72rem; color: var(--text-dim); font-weight: 600; margin-top: 2px; }
-.fd-portion-row { display: flex; gap: 10px; margin-bottom: 14px; }
-.fd-field { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.fd-portion-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.fd-field { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .fd-field--full { flex-basis: 100%; }
-.fd-field span { font-size: 0.7rem; color: var(--text-dim); font-weight: 700; }
-.fd-field input, .fd-field select {
-    background: var(--surface-1); border: 1px solid var(--hairline); border-radius: var(--r-sm);
-    padding: 11px 12px; color: var(--text); font-family: inherit; font-size: 0.95rem; width: 100%; box-sizing: border-box;
+/* שלושה חלונות בשורה אחת — משקלים שמבטיחים רוחב מספיק לשעה (גם בלוקאל 12 שעות) */
+.fd-field--qty  { flex: 0.85; }
+.fd-field--unit { flex: 1.1; }
+.fd-field--time { flex: 1.15; }
+.fd-field span {
+    font-size: 0.66rem; color: var(--text-dim); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em; text-align: center;
 }
-.fd-field input:focus, .fd-field select:focus { outline: none; border-color: var(--accent); }
+.fd-field input, .fd-field select {
+    background: var(--surface-1); border: 1px solid var(--hairline); border-radius: var(--r-md);
+    padding: 0 8px; height: 46px; color: var(--text); font-family: inherit;
+    font-size: 0.95rem; font-weight: 700; width: 100%; box-sizing: border-box;
+    text-align: center; text-align-last: center;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+/* רק ל-select מסירים את החץ הנייטיב (השעה/מספר שומרים על ה-picker הנייטיב) */
+.fd-field select { -webkit-appearance: none; appearance: none; }
+.fd-field input:focus, .fd-field select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft);
+}
+/* שדה השעה — ערך מלא, ממורכז, ללא חיתוך/spinner מיותר */
+.fd-field input[type="time"] {
+    min-width: 0; width: 100%; box-sizing: border-box;
+    text-align: center; padding: 0 4px;
+}
+.fd-field input[type="time"]::-webkit-date-and-time-value { text-align: center; margin: 0; }
+.fd-field input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
+.fd-field input[type="number"] { -moz-appearance: textfield; }
+.fd-field input[type="number"]::-webkit-outer-spin-button,
+.fd-field input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .fd-meal-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
 .fd-chip {
     background: var(--surface-3); border: none; color: var(--text);
@@ -6097,10 +6121,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .nutri-macro-targets input.macro-c::placeholder { color: #ffad47; }
 .nutri-macro-targets input.macro-f::placeholder { color: #f6c5be; }
 
-/* ── יומן מזון: תיקוני סבב v16.45 ── */
-/* שדה שעה בעורך המנה — מניעת חיתוך */
-.fd-field input[type="time"] { min-width: 0; width: 100%; box-sizing: border-box; }
-/* גלילה: מניעת "קפיצת" מסך בהורדת מקלדת */
+/* ── יומן מזון: גלילה — מניעת "קפיצת" מסך בהורדת מקלדת ── */
 #fd-results, #fd-scroll { overscroll-behavior: contain; }
 
 /* מודל דריסה בייבוא MFP */

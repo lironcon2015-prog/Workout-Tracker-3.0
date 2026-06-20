@@ -16,6 +16,7 @@ let _fdSearchTimer = null;
 let _fdSearchSeq = 0;         // מזהה רצף — מתעלם מתוצאות של בקשות שעבר זמנן
 let _fdTab = 'recent';
 let _fdFoodCache = {};        // id → food עבור הפריטים המוצגים כרגע
+let _fdPhotoMode = 'label';   // 'label' = ברקוד/תווית | 'meal' = הערכת מנה מצילום
 
 // ── Utils ────────────────────────────────────────────────────────────
 function _fdNowTime() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
@@ -291,6 +292,30 @@ async function _callGeminiFood(base64, mimeType) {
         'kcal/protein/carbs/fat, וציין ב-per אם הם ל-100 גרם או למנה. ערך לא קריא = null. אל תוסיף טקסט.';
     const parts = [{ text: prompt }, { inlineData: { mimeType, data: base64 } }];
     const generationConfig = { temperature: 0.1, maxOutputTokens: 200, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
+    let lastErr = '';
+    for (const modelName of config.models) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
+            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig }) });
+            if (!resp.ok) { if ([400, 404, 429, 503].includes(resp.status)) { lastErr = `${modelName}:${resp.status}`; continue; } throw new Error('API_ERROR_' + resp.status); }
+            const data = await resp.json();
+            const txt = (data.candidates?.[0]?.content?.parts || []).find(p => !p.thought)?.text || '';
+            return JSON.parse(txt);
+        } catch (e) { lastErr = e.message || String(e); }
+    }
+    throw new Error(lastErr || 'VISION_FAILED');
+}
+
+// _callGeminiMeal — הערכת מנה מתוך תמונת אוכל אמיתי (לא תווית): זיהוי + הערכת משקל ומאקרו לכל המנה
+async function _callGeminiMeal(base64, mimeType) {
+    const config = StorageManager.getAIConfig();
+    if (!config.apiKey) throw new Error('API_KEY_MISSING');
+    const prompt = 'אתה תזונאי. בתמונה יש מנת אוכל אמיתית (צלחת/מנה). זהה את המרכיבים, הערך את ' +
+        'המשקל הכולל בגרמים ואת הערכים התזונתיים של כל המנה שבתמונה (סך הכל למנה — לא ל-100 גרם). ' +
+        'החזר JSON בלבד: {"name": string, "grams": number, "kcal": number, "protein": number, "carbs": number, "fat": number, "items": [string]}. ' +
+        'name = תיאור קצר בעברית של המנה. items = רשימת המרכיבים שזוהו. אם לא בטוח — תן הערכה סבירה ביותר. אל תוסיף טקסט.';
+    const parts = [{ text: prompt }, { inlineData: { mimeType, data: base64 } }];
+    const generationConfig = { temperature: 0.2, maxOutputTokens: 400, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
     let lastErr = '';
     for (const modelName of config.models) {
         try {
@@ -770,11 +795,23 @@ function fdScanPhoto() {
         showAlert('לקריאת תווית/ברקוד מתמונה נדרש מפתח Gemini (הגדרות → AI Coach).');
         return;
     }
+    _fdPhotoMode = 'label';
+    document.getElementById('fd-cam-input').click();
+}
+
+// הערכת מנה מצילום האוכל עצמו — Gemini מעריך משקל ומאקרו, והמשתמש מכוון
+function fdEstimateMeal() {
+    if (!StorageManager.getAIConfig().apiKey) {
+        showAlert('להערכת מנה מתמונה נדרש מפתח Gemini (הגדרות → AI Coach).');
+        return;
+    }
+    _fdPhotoMode = 'meal';
     document.getElementById('fd-cam-input').click();
 }
 
 function fdOnPhoto(file) {
     if (!file) return;
+    if (_fdPhotoMode === 'meal') { _fdOnMealPhoto(file); return; }
     const box = document.getElementById('fd-results');
     if (box) box.innerHTML = '<div class="fd-loading">📷 קורא את התווית/ברקוד…</div>';
     _fileToBase64(file).then(({ base64, mime }) => _callGeminiFood(base64, mime)).then(async res => {
@@ -799,6 +836,40 @@ function fdOnPhoto(file) {
         if (box) box.innerHTML = '<div class="fd-empty">⚠ לא זוהו ערכים מהתמונה — חפש ידנית או צור מזון מותאם.</div>';
     }).catch(() => {
         if (box) box.innerHTML = '<div class="fd-empty">⚠ קריאת התמונה נכשלה — חפש ידנית.</div>';
+    });
+}
+
+// _fdOnMealPhoto — הערכת מנה שלמה מצילום האוכל. בונה "מנה מהתמונה" כ-serving יחיד
+// (qty=1 = ההערכה המלאה) ופותח את עורך המנה — שם המשתמש יכול לכוון כמות/שעה/ארוחה.
+function _fdOnMealPhoto(file) {
+    const box = document.getElementById('fd-results');
+    if (box) box.innerHTML = '<div class="fd-loading">🍽️ מעריך את המנה מהתמונה…</div>';
+    _fileToBase64(file).then(({ base64, mime }) => _callGeminiMeal(base64, mime)).then(res => {
+        if (!res || res.kcal == null) {
+            if (box) box.innerHTML = '<div class="fd-empty">⚠ לא הצלחתי להעריך את המנה — נסה תמונה ברורה יותר או חפש ידנית.</div>';
+            return;
+        }
+        const grams = (Number(res.grams) > 0) ? Number(res.grams) : 100;
+        const factor = 100 / grams;   // המרה לערכים ל-100 גרם כדי להשתלב במודל הקיים
+        const per100 = {
+            kcal: Math.round((Number(res.kcal) || 0) * factor),
+            p: _fdR((Number(res.protein) || 0) * factor),
+            c: _fdR((Number(res.carbs) || 0) * factor),
+            f: _fdR((Number(res.fat) || 0) * factor)
+        };
+        const items = Array.isArray(res.items) && res.items.length ? res.items.join(', ') : '';
+        const food = {
+            id: 'gemini:' + Date.now().toString(36),
+            name: res.name || 'מנה מהתמונה',
+            brand: 'הערכת AI' + (items ? ' · ' + items : ''),
+            barcode: null, source: 'gemini',
+            per100,
+            servings: [{ label: `מנה מהתמונה (≈${Math.round(grams)} ג')`, grams }]
+        };
+        StorageManager.upsertFoodToDb(food);
+        _fdOpenPortion(food, null);   // נפתח עם מנה=1 (ההערכה המלאה); ניתן לכוון
+    }).catch(() => {
+        if (box) box.innerHTML = '<div class="fd-empty">⚠ הערכת המנה נכשלה — נסה שוב או חפש ידנית.</div>';
     });
 }
 

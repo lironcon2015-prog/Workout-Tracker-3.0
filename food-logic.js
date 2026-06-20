@@ -22,7 +22,37 @@ function _fdNowTime() { const d = new Date(), p = x => String(x).padStart(2, '0'
 function _fdNum(v) { const n = Number(v); return isFinite(n) ? n : null; }
 function _fdR(v) { const n = Number(v); return isFinite(n) ? Math.round(n * 10) / 10 : 0; }
 function _fdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-function _fdMealLabels() { return (getAnalyticsPrefs().mealLabels && getAnalyticsPrefs().mealLabels.length) ? getAnalyticsPrefs().mealLabels.slice() : ['בוקר', 'צהריים', 'ערב', 'נשנוש']; }
+const _FD_DEFAULT_MEALS = ['בוקר', 'צהריים', 'ערב', 'נשנוש'];
+function _fdMealLabels() { return (getAnalyticsPrefs().mealLabels && getAnalyticsPrefs().mealLabels.length) ? getAnalyticsPrefs().mealLabels.slice() : _FD_DEFAULT_MEALS.slice(); }
+
+// שורת צ'יפים של ארוחות — לארוחות מותאמות (לא ברירת מחדל) מתווסף × למחיקה
+function _fdMealChipsHTML(curMeal) {
+    const meals = _fdMealLabels();
+    if (curMeal && meals.indexOf(curMeal) < 0) meals.push(curMeal);
+    return meals.map(m => {
+        const x = _FD_DEFAULT_MEALS.indexOf(m) < 0
+            ? `<span class="fd-chip-x" onclick="event.stopPropagation();fdDeleteMeal(this)">×</span>` : '';
+        return `<button class="fd-chip ${m === curMeal ? 'active' : ''}" data-meal="${_fdEsc(m)}" onclick="_fdPickMeal(this)">${_fdEsc(m)}${x}</button>`;
+    }).join('') + `<button class="fd-chip fd-chip--add" onclick="_fdShowMealNamePrompt()">+</button>`;
+}
+
+// מחיקת ארוחה מותאמת מרשימת הארוחות (לא מוחק רשומות קיימות)
+function fdDeleteMeal(el) {
+    const chip = el.closest('.fd-chip');
+    if (!chip) return;
+    const name = chip.dataset.meal;
+    if (!name || _FD_DEFAULT_MEALS.indexOf(name) >= 0) return;
+    showConfirm(`למחוק את הארוחה "${name}" מהרשימה? (רשומות קיימות יישמרו)`, () => {
+        const prefs = getAnalyticsPrefs();
+        prefs.mealLabels = (prefs.mealLabels || _FD_DEFAULT_MEALS.slice()).filter(m => m !== name);
+        saveAnalyticsPrefs(prefs);
+        if (_fdMeal === name) _fdMeal = _fdMealLabels()[0];
+        const wrap = document.getElementById('fd-meal-chips');
+        if (wrap) wrap.innerHTML = _fdMealChipsHTML(_fdMeal);
+        if (typeof fdRender === 'function') fdRender();
+        haptic('light');
+    });
+}
 
 // פירוק גודל מנה (גרם) משדות OFF: serving_quantity מספרי, או "30 g" מתוך serving_size
 function _fdParseServingGrams(qty, sizeStr) {
@@ -560,8 +590,6 @@ function _fdOpenPortion(food, entry) {
     const qty = entry ? entry.qty : (servings[0].grams && servings[0].grams !== 100 ? 1 : 100);
     const unit = entry ? (entry.unit === 'serving' ? 's0' : 'g') : (servings[0].grams && servings[0].grams !== 100 ? 's0' : 'g');
     const time = entry ? entry.time : _fdNowTime();
-    const meals = _fdMealLabels();
-    if (entry && meals.indexOf(entry.meal) < 0) meals.push(entry.meal);
     const curMeal = entry ? entry.meal : _fdMeal;
 
     body.innerHTML = `
@@ -571,10 +599,7 @@ function _fdOpenPortion(food, entry) {
             <label class="fd-field fd-field--unit"><span>יחידה</span><select id="fd-unit" onchange="_fdUpdatePreview()">${unitOpts}</select></label>
             <label class="fd-field fd-field--time"><span>שעה</span><input type="time" id="fd-time" value="${time}"></label>
         </div>
-        <div class="fd-meal-chips" id="fd-meal-chips">
-            ${meals.map(m => `<button class="fd-chip ${m === curMeal ? 'active' : ''}" data-meal="${_fdEsc(m)}" onclick="_fdPickMeal(this)">${_fdEsc(m)}</button>`).join('')}
-            <button class="fd-chip fd-chip--add" onclick="_fdShowMealNamePrompt()">+</button>
-        </div>
+        <div class="fd-meal-chips" id="fd-meal-chips">${_fdMealChipsHTML(curMeal)}</div>
         <div class="fd-preview" id="fd-preview"></div>
         <div class="fd-portion-actions">
             ${_fdEditEntryId ? `<button class="fd-del-btn" onclick="fdDeleteCurrentEntry()"><span class="material-symbols-outlined">delete</span></button>` : ''}
@@ -672,6 +697,7 @@ function fdNewCustomFood() {
     _fdEditEntryId = null;
     _fdSelectedFood = null;
     const meals = _fdMealLabels();
+    _fdMeal = meals[0];
     body.innerHTML = `
         <div class="fd-portion-title">מזון מותאם</div>
         <label class="fd-field fd-field--full"><span>שם</span><input type="text" id="fd-c-name" placeholder="לדוגמה: חביתה ביתית"></label>
@@ -683,13 +709,10 @@ function fdNewCustomFood() {
             <label class="fd-field"><span>פחמימה</span><input type="number" id="fd-c-c" inputmode="decimal" min="0"></label>
             <label class="fd-field"><span>שומן</span><input type="number" id="fd-c-f" inputmode="decimal" min="0"></label>
         </div>
-        <div class="fd-meal-chips" id="fd-meal-chips">
-            ${meals.map((m, i) => `<button class="fd-chip ${i === 0 ? 'active' : ''}" data-meal="${_fdEsc(m)}" onclick="_fdPickMeal(this)">${_fdEsc(m)}</button>`).join('')}
-        </div>
+        <div class="fd-meal-chips" id="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>
         <div class="fd-portion-actions">
             <button class="fd-save-btn" onclick="fdSaveCustomFood()">המשך</button>
         </div>`;
-    _fdMeal = meals[0];
     document.getElementById('fd-portion-overlay').style.display = 'block';
     sheet.classList.add('open');
 }

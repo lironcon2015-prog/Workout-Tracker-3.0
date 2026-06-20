@@ -3770,7 +3770,6 @@ body::before {
     align-items: center;
     justify-content: space-between;
     min-height: 1rem;
-    position: relative;   /* עוגן לכפתור היומן ה-absolute — הכרטיס עצמו נשאר ללא position (זהה לכרטיס הרכב הגוף) */
 }
 .home-today-lbl {
     font-size: 0.62rem;
@@ -3793,6 +3792,19 @@ body::before {
 }
 .home-today-num { font-size: 1.55rem; font-weight: 900; line-height: 1; color: var(--text); }
 .home-today-unit { font-size: 0.62rem; font-weight: 600; color: var(--text-dim); }
+/* מספר הקלוריות בכרטיס התזונה לחיץ — פותח את יומן התזונה. הרחבת שטח מגע בלי להזיז פריסה. */
+#home-today-nutrition .home-today-metric {
+    cursor: pointer;
+    padding: 6px 8px;
+    margin: 0.625rem -8px 0;
+    border-radius: 12px;
+}
+.home-today-diary-hint {
+    font-size: 1rem;
+    color: var(--accent);
+    align-self: center;
+    opacity: 0.85;
+}
 /* קלוריות שנותרו — מספר בלבד, מתחת לצריכה. LTR כדי שהמינוס יוצג לפני הספרות */
 .home-today-remain {
     font-size: 1.02rem;   /* בין הצריכה (1.55rem) למאקרוז (0.68rem) */
@@ -5887,18 +5899,6 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 /* ═══════════════════════════════════════════════════════════════════
    FOOD DIARY — יומן מזון מובנה
    ═══════════════════════════════════════════════════════════════════ */
-
-/* כפתור "יומן תזונה" — absolute יחסית לשורת הכותרת (.home-today-top), כך שהכרטיס עצמו
-   נשאר ללא position וזהה לחלוטין לכרטיס הרכב הגוף (אותה שקיפות/משטח). top:100% = מתחת
-   לשורת ה-LIVE; left:-10px מיישר לקצה השמאלי הוויזואלי של LIVE (שמוסט -10px). */
-.home-today-diary {
-    position: absolute; top: calc(100% + 5px); left: -10px; z-index: 2;
-    display: inline-flex; align-items: center; gap: 4px;
-    background: var(--accent-soft); color: var(--accent);
-    font-size: 0.66rem; font-weight: 800;
-    border-radius: 9999px; padding: 4px 10px;
-}
-.home-today-diary .material-symbols-outlined { font-size: 0.9rem; }
 
 /* כפתורי כותרת כרטיס התזונה במסך Composition */
 .bl-nutri-head-btns { display: flex; gap: 8px; align-items: center; }

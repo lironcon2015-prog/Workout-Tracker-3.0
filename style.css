@@ -5950,16 +5950,26 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     content: ""; position: absolute; inset: 0 0 auto 0; height: 120px; pointer-events: none;
     background: radial-gradient(80% 90% at 50% 0%, rgba(var(--accent-rgb), 0.12), transparent 70%);
 }
-.fd-ring-wrap { display: flex; justify-content: center; position: relative; }
-.fd-ring { width: 168px; height: 168px; }
-.fd-ring-track { fill: none; stroke: var(--surface-4); stroke-width: 12; }
-.fd-ring-prog { fill: none; stroke: var(--accent); stroke-width: 12; transform: rotate(-90deg); transform-origin: 60px 60px; }
-.fd-ring-prog.over { stroke: #ff453a; }
-.fd-ring-num { fill: var(--text); font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 30px; text-anchor: middle; }
-.fd-ring-lbl { fill: var(--text-dim); font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 11px; text-anchor: middle; letter-spacing: 0.04em; }
-.fd-kcal-caption { text-align: center; font-size: 0.78rem; color: var(--text-dim); font-weight: 600; margin: 6px 0 18px; }
-.fd-cap-strong { color: var(--text); font-weight: 900; font-size: 0.92rem; }
-.fd-cap-dim { color: var(--text-dim); }
+.fd-ring-wrap { display: flex; justify-content: center; position: relative; margin: 4px 0 2px; }
+.fd-ring { width: 208px; height: 208px; display: block; }
+.fd-ring-track { fill: none; stroke: var(--surface-4); stroke-width: 6; }
+.fd-ring-prog { fill: none; stroke: var(--accent); stroke-width: 6; transform: rotate(-90deg); transform-origin: 60px 60px; filter: drop-shadow(0 0 5px rgba(var(--accent-rgb), 0.45)); }
+.fd-ring-prog.over { stroke: #ff453a; filter: drop-shadow(0 0 5px rgba(255,69,58,0.45)); }
+/* טקסט מרכזי כ-HTML overlay (RTL תקין, טיפוגרפיה נקייה) */
+.fd-ring-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1px; pointer-events: none;
+}
+.fd-ring-num { font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 3rem; line-height: 1; color: var(--text); letter-spacing: -0.03em; }
+.fd-ring-num.over { color: #ff453a; }
+.fd-ring-lbl { font-size: 0.74rem; color: var(--text-dim); font-weight: 700; letter-spacing: 0.02em; }
+/* נצרכו / יעד — שני סטטים מובחנים ובולטים */
+.fd-kcal-caption { display: flex; align-items: center; justify-content: center; gap: 22px; margin: 12px 0 20px; }
+.fd-kcap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.fd-kcap-lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); font-weight: 800; }
+.fd-kcap-val { font-family: 'Heebo', sans-serif; font-size: 1.3rem; font-weight: 900; line-height: 1; color: var(--text); }
+.fd-kcap-val.accent { color: var(--accent); }
+.fd-kcap-sep { width: 1px; height: 30px; background: var(--hairline-hi); }
 .fd-macros { display: flex; gap: 10px; }
 .fd-mstat { flex: 1; background: var(--surface-1); border-radius: var(--r-md); padding: 10px 10px 11px; }
 .fd-mstat-hd { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }

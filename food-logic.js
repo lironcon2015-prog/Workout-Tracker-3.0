@@ -415,20 +415,16 @@ function _fdAnimateRing(scope) {
     });
 }
 
-// טבעת קלוריות (SVG) — נצרך מול יעד
+// טבעת קלוריות (SVG, ללא טקסט — הטקסט המרכזי כ-HTML overlay כדי לשמור RTL תקין)
 function _fdRingSVG(consumed, target) {
-    const r = 52, circ = 2 * Math.PI * r;
+    const r = 54, circ = 2 * Math.PI * r;
     const pct = target > 0 ? Math.min(consumed / target, 1) : (consumed > 0 ? 1 : 0);
     const over = target > 0 && consumed > target;
     const off = circ * (1 - pct);
-    const big = target > 0 ? Math.abs(Math.round(target - consumed)) : Math.round(consumed);
-    const lbl = target > 0 ? (consumed <= target ? 'נותרו' : 'מעל היעד') : 'נצרכו';
     return `<svg class="fd-ring" viewBox="0 0 120 120" aria-hidden="true">
         <circle class="fd-ring-track" cx="60" cy="60" r="${r}"/>
         <circle class="fd-ring-prog${over ? ' over' : ''}" cx="60" cy="60" r="${r}"
             stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" stroke-linecap="round"/>
-        <text class="fd-ring-num" x="60" y="62">${big}</text>
-        <text class="fd-ring-lbl" x="60" y="80">${lbl}</text>
     </svg>`;
 }
 
@@ -445,11 +441,23 @@ function _fdMacroStat(lbl, val, target, cls) {
 function _fdSummaryHTML(t, mfpOwned) {
     const prefs = getAnalyticsPrefs();
     const kcalT = Number(prefs.kcalTarget) || 0;
+    const consumed = Math.round(t.kcal);
+    const over = kcalT > 0 && t.kcal > kcalT;
+    const big = kcalT > 0 ? Math.abs(Math.round(kcalT - t.kcal)) : consumed;
+    const lbl = kcalT > 0 ? (over ? 'מעל היעד' : 'נותרו') : 'נצרכו';
     const caption = kcalT > 0
-        ? `<span class="fd-cap-strong">${Math.round(t.kcal)}</span> נצרכו · <span class="fd-cap-dim">יעד ${kcalT}</span>`
-        : `<span class="fd-cap-strong">${Math.round(t.kcal)}</span> קלוריות`;
+        ? `<div class="fd-kcap"><span class="fd-kcap-lbl">נצרכו</span><span class="fd-kcap-val accent">${consumed}</span></div>
+           <span class="fd-kcap-sep"></span>
+           <div class="fd-kcap"><span class="fd-kcap-lbl">יעד</span><span class="fd-kcap-val">${kcalT}</span></div>`
+        : `<div class="fd-kcap"><span class="fd-kcap-lbl">קלוריות</span><span class="fd-kcap-val accent">${consumed}</span></div>`;
     return `<div class="fd-summary">
-        <div class="fd-ring-wrap">${_fdRingSVG(t.kcal, kcalT)}</div>
+        <div class="fd-ring-wrap">
+            ${_fdRingSVG(t.kcal, kcalT)}
+            <div class="fd-ring-center">
+                <span class="fd-ring-num${over ? ' over' : ''}">${big}</span>
+                <span class="fd-ring-lbl">${lbl}</span>
+            </div>
+        </div>
         <div class="fd-kcal-caption">${caption}</div>
         <div class="fd-macros">
             ${_fdMacroStat('חלבון', t.p, Number(prefs.proteinTarget) || 0, 'macro-p')}

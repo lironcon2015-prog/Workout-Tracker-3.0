@@ -3763,6 +3763,7 @@ body::before {
     align-items: center;
     justify-content: space-between;
     min-height: 1rem;
+    position: relative;   /* עוגן לכפתור היומן ה-absolute — הכרטיס עצמו נשאר ללא position (זהה לכרטיס הרכב הגוף) */
 }
 .home-today-lbl {
     font-size: 0.62rem;
@@ -5880,12 +5881,11 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
    FOOD DIARY — יומן מזון מובנה
    ═══════════════════════════════════════════════════════════════════ */
 
-/* כפתור "יומן תזונה" בכרטיס הבית — absolute מתחת לתגית LIVE, ללא השפעה על זרימת התוכן
-   (כך מספר הקלוריות נשאר בדיוק בגובה המשקל בכרטיס הרכב הגוף). left:6px = הקצה השמאלי
-   הוויזואלי של LIVE (שמוסט -10px ע"י margin של #home-today-live). */
-#ui-week #home-today-nutrition { position: relative; }
+/* כפתור "יומן תזונה" — absolute יחסית לשורת הכותרת (.home-today-top), כך שהכרטיס עצמו
+   נשאר ללא position וזהה לחלוטין לכרטיס הרכב הגוף (אותה שקיפות/משטח). top:100% = מתחת
+   לשורת ה-LIVE; left:-10px מיישר לקצה השמאלי הוויזואלי של LIVE (שמוסט -10px). */
 .home-today-diary {
-    position: absolute; top: 2.45rem; left: 6px; z-index: 2;
+    position: absolute; top: calc(100% + 5px); left: -10px; z-index: 2;
     display: inline-flex; align-items: center; gap: 4px;
     background: var(--accent-soft); color: var(--accent);
     font-size: 0.66rem; font-weight: 800;
@@ -6089,6 +6089,14 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 }
 .fd-chip.active { background: var(--accent); color: var(--accent-text); }
 .fd-chip--add { background: var(--accent-soft); color: var(--accent); padding: 8px 12px; }
+/* × למחיקת ארוחה מותאמת */
+.fd-chip-x {
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-inline-start: 7px; width: 16px; height: 16px; border-radius: 9999px;
+    background: rgba(255,255,255,0.14); font-size: 0.8rem; font-weight: 900; line-height: 1;
+    opacity: 0.85; vertical-align: middle;
+}
+.fd-chip.active .fd-chip-x { background: rgba(0,0,0,0.22); }
 .fd-preview {
     display: flex; flex-direction: column; gap: 4px; align-items: center;
     background: var(--surface-1); border-radius: var(--r-md); padding: 14px; margin-bottom: 16px;

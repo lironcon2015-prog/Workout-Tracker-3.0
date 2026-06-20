@@ -567,11 +567,9 @@ function _fdOpenPortion(food, entry) {
     body.innerHTML = `
         <div class="fd-portion-title">${_fdEsc(food.name)}${food.brand ? `<small>${_fdEsc(food.brand)}</small>` : ''}</div>
         <div class="fd-portion-row">
-            <label class="fd-field"><span>כמות</span><input type="number" id="fd-qty" inputmode="decimal" min="0" step="any" value="${qty}" oninput="_fdUpdatePreview()"></label>
-            <label class="fd-field"><span>יחידה</span><select id="fd-unit" onchange="_fdUpdatePreview()">${unitOpts}</select></label>
-        </div>
-        <div class="fd-portion-row">
-            <label class="fd-field fd-field--full"><span>שעה</span><input type="time" id="fd-time" value="${time}"></label>
+            <label class="fd-field fd-field--qty"><span>כמות</span><input type="number" id="fd-qty" inputmode="decimal" min="0" step="any" value="${qty}" oninput="_fdUpdatePreview()"></label>
+            <label class="fd-field fd-field--unit"><span>יחידה</span><select id="fd-unit" onchange="_fdUpdatePreview()">${unitOpts}</select></label>
+            <label class="fd-field fd-field--time"><span>שעה</span><input type="time" id="fd-time" value="${time}"></label>
         </div>
         <div class="fd-meal-chips" id="fd-meal-chips">
             ${meals.map(m => `<button class="fd-chip ${m === curMeal ? 'active' : ''}" data-meal="${_fdEsc(m)}" onclick="_fdPickMeal(this)">${_fdEsc(m)}</button>`).join('')}

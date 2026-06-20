@@ -1393,25 +1393,5 @@ function fdMealDeleteEntry() {
     haptic('warning');
 }
 
-// ════════ ייצוא יומן מזון (JSON) ════════
-// מייצא את היומן המלא (רשומות per-food לכל יום) + מאגר המזון לקובץ JSON.
-function exportFoodDiaryJson() {
-    const data = {
-        type: 'gympro_food_diary',
-        version: (window._gymproVersion || ''),
-        exportedAt: new Date().toISOString(),
-        foodLog: StorageManager.getFoodLog(),
-        foodDb: StorageManager.getFoodDb()
-    };
-    try {
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `gympro_food_diary_${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        haptic('light');
-    } catch (e) {
-        if (typeof showAlert === 'function') showAlert('ייצוא היומן נכשל: ' + e.message);
-    }
-}
+// ייצוא יומן המזון/המאגר המקומי הוסר — הכל מסונכרן לפיירבייס (מסמך config).
+// ייצוא תזונה מרוכז: exportNutritionDailyJson / exportNutritionDetailedJson (bodylog-logic.js).

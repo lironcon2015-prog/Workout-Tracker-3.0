@@ -614,30 +614,128 @@ function _renderNutritionList(allDays) {
 
 function toggleNutriListExpand() { _blNutriExpanded = !_blNutriExpanded; _renderNutritionList(); }
 
-// ─── ייצוא תזונה ל-CSV ────────────────────────────────────────────────────────
-// exportNutritionCsv — סיכום יומי (יום → קק"ל + מאקרו).
-// scope==='range' → רק הטווח הנבחר; אחרת → כל ההיסטוריה.
-function exportNutritionCsv(scope) {
-    const all = StorageManager.getNutritionDaily();
-    if (!all.length) { showAlert('אין נתוני תזונה לייצוא.'); return; }
-    let days;
-    if (scope === 'range') {
-        days = _blFilter(all).sort((a, b) => a.date < b.date ? -1 : 1);
-        if (!days.length) { showAlert('אין נתוני תזונה בטווח שנבחר.'); return; }
-    } else {
-        days = all.slice().sort((a, b) => a.date < b.date ? -1 : 1);
+// ─── ייצוא תזונה (JSON) — מקוצר + מפורט, מכבדי בורר-טווח ──────────────────────
+const _nR = v => Math.round((Number(v) || 0) * 10) / 10;   // עיגול ל-decimal אחד
+
+// _nutritionRangeBounds — ממיר את הבורר הנוכחי (7/30/90/custom/all) ל-{from,to,slug,label}
+function _nutritionRangeBounds() {
+    const today = _blTodayStr();
+    if (_blRange === 'all') return { from: null, to: null, slug: 'all', label: 'הכל' };
+    if (_blRange === 'custom') {
+        return { from: _blCustom.from || null, to: _blCustom.to || today, slug: 'custom', label: 'טווח מותאם' };
     }
-    const header = ['Date', 'Calories', 'Protein (g)', 'Carbs (g)', 'Fat (g)', 'Meals'];
-    const rows = days.map(d => [d.date, d.calories, d.protein, d.carbs, d.fat, d.meals != null ? d.meals : '']);
-    const esc = c => { const s = String(c); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-    const csv = [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM — תאימות אקסל
+    return { from: _blCutoff(_blRange), to: today, slug: _blRange + 'd', label: _blRange + ' ימים' };
+}
+
+function _blDownloadJson(payload, filename) {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `gympro_nutrition_${scope === 'range' ? 'range' : 'all'}_${_blTodayStr()}.csv`;
+    a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
+}
+
+// (א) מקוצר — יום → קלוריות + מאקרו בלבד, לפי הבורר הנוכחי
+function exportNutritionDailyJson() {
+    const all = StorageManager.getNutritionDaily();
+    if (!all || !all.length) { showAlert('אין נתוני תזונה לייצוא.'); return; }
+    const days = _blFilter(all).slice().sort((a, b) => a.date < b.date ? -1 : 1)
+        .map(d => ({ date: d.date, calories: d.calories || 0, protein: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0 }));
+    if (!days.length) { showAlert('אין נתוני תזונה בטווח שנבחר.'); return; }
+    const b = _nutritionRangeBounds();
+    _blDownloadJson({
+        app: 'GYMPRO ELITE', type: 'nutrition_daily',
+        range: { label: b.label, from: b.from, to: b.to },
+        generated: new Date().toISOString(), days
+    }, `gympro_nutrition_daily_${b.slug}_${_blTodayStr()}.json`);
     haptic('success');
+}
+
+// (ב) מפורט — לכל יום ארוחות→פריטים→מרכיבים (תיעוד ישיר) או שורות MFP גולמיות
+function exportNutritionDetailedJson() {
+    const b = _nutritionRangeBounds();
+    const days = _buildNutritionDetailed(b.from, b.to);
+    if (!days.length) { showAlert('אין נתוני תזונה בטווח שנבחר.'); return; }
+    _blDownloadJson({
+        app: 'GYMPRO ELITE', type: 'nutrition_detailed',
+        range: { label: b.label, from: b.from, to: b.to },
+        generated: new Date().toISOString(), days
+    }, `gympro_nutrition_detailed_${b.slug}_${_blTodayStr()}.json`);
+    haptic('success');
+}
+
+// _buildNutritionDetailed — בונה משותף (גם לייצוא הנפרד וגם לקובץ המאוחד).
+// כלל קדימות ליום: אם יש תיעוד ישיר באפליקציה — הוא גובר; אחרת שורות MFP; אחרת סיכום בלבד.
+function _buildNutritionDetailed(from, to) {
+    const inRange = d => (!from || d >= from) && (!to || d <= to);
+    const foodLog = StorageManager.getFoodLog() || {};
+    const daily = StorageManager.getNutritionDaily() || [];
+    const raw = StorageManager.getNutritionRaw();
+
+    // אינדוקס שורות MFP לפי תאריך ISO מנורמל
+    const mfpByDate = {}; let header = null;
+    if (raw && Array.isArray(raw.rows) && raw.rows.length) {
+        header = raw.header || [];
+        const di = raw.dateIdx != null ? raw.dateIdx : 0;
+        raw.rows.forEach(r => { const d = _parseFlexDate(r[di]); if (d) (mfpByDate[d] = mfpByDate[d] || []).push(r); });
+    }
+    const dailyByDate = {};
+    daily.forEach(d => { if (d && d.date) dailyByDate[d.date] = d; });
+
+    // איחוד התאריכים מכל המקורות, מסונן לטווח
+    const set = {};
+    Object.keys(foodLog).forEach(d => set[d] = 1);
+    Object.keys(mfpByDate).forEach(d => set[d] = 1);
+    daily.forEach(d => { if (d && d.date) set[d.date] = 1; });
+    const dates = Object.keys(set).filter(inRange).sort();
+
+    return dates.map(date => {
+        const entries = foodLog[date] || [];
+        const sum = dailyByDate[date] || null;
+        const totals = sum ? { calories: sum.calories || 0, protein: sum.protein || 0, carbs: sum.carbs || 0, fat: sum.fat || 0 } : null;
+        if (entries.length) {   // תיעוד ישיר גובר
+            return { date, source: 'app', totals: totals || _sumFoodEntries(entries), meals: _detailMealsFromEntries(entries) };
+        }
+        const rows = mfpByDate[date];
+        if (rows && rows.length) {
+            return { date, source: 'mfp', totals, mfp_rows: rows.map(r => _rowToObj(header, r)) };
+        }
+        return { date, source: (sum && sum.src) || 'summary', totals };   // סיכום בלבד (Health וכו')
+    });
+}
+
+// קיבוץ רשומות יום לפי ארוחה → פריטים (כולל מרכיבי Meal Builder כשקיימים)
+function _detailMealsFromEntries(entries) {
+    const order = [], byMeal = {};
+    entries.forEach(e => {
+        const m = e.meal || 'אחר';
+        if (!byMeal[m]) { byMeal[m] = []; order.push(m); }
+        const grams = (e.unit === 'serving' && e.gramsPerUnit) ? (Number(e.qty) || 0) * Number(e.gramsPerUnit) : (Number(e.qty) || 0);
+        const item = {
+            name: e.name || '', brand: e.brand || '', grams: Math.round(grams),
+            kcal: Math.round(Number(e.kcal) || 0), protein: _nR(e.p), carbs: _nR(e.c), fat: _nR(e.f)
+        };
+        if (Array.isArray(e.components) && e.components.length) {
+            item.components = e.components.map(c => ({
+                name: c.name || '', grams: Math.round(Number(c.grams) || 0),
+                kcal: Math.round(Number(c.kcal) || 0), protein: _nR(c.p), carbs: _nR(c.c), fat: _nR(c.f)
+            }));
+        }
+        byMeal[m].push(item);
+    });
+    return order.map(m => ({ meal: m, items: byMeal[m] }));
+}
+function _sumFoodEntries(entries) {
+    return entries.reduce((a, e) => {
+        a.calories += Number(e.kcal) || 0; a.protein += Number(e.p) || 0;
+        a.carbs += Number(e.c) || 0; a.fat += Number(e.f) || 0; return a;
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+}
+function _rowToObj(header, row) {
+    const o = {};
+    (header || []).forEach((h, i) => { o[h || ('col' + i)] = row[i] != null ? row[i] : ''; });
+    return o;
 }
 
 // resetNutritionData — מוחק את כל נתוני התזונה (לאחר אישור). שאיבה מחדש תתחיל מאפס.
@@ -665,38 +763,6 @@ function _parseRawNutrition(text) {
     return { header, rows: aoa.slice(1), dateIdx };
 }
 
-// exportNutritionRawCsv — מייצא את הקובץ הגולמי המקורי של MFP (per-meal),
-// אגרגציה נאמנה של כל הקבצים שהועלו, ללא פאראפרזה של המערכת.
-// scope==='range' → מסנן לפי בורר הטווח הקיים בראש המסך (7/30/90/מותאם),
-// דרך תאריך עמודת ה-Date הגולמית; אחרת → הקובץ המלא.
-function exportNutritionRawCsv(scope) {
-    const raw = StorageManager.getNutritionRaw();
-    if (!raw || !Array.isArray(raw.rows) || !raw.rows.length) {
-        showAlert('אין קובץ MFP גולמי שמור. ייבא מ-Gmail (בגרסה החדשה של הגשר) כדי לשמור אותו.');
-        return;
-    }
-    let rows = raw.rows;
-    let suffix = 'full';
-    if (scope === 'range') {
-        const di = raw.dateIdx != null ? raw.dateIdx : 0;
-        // תיוג כל שורה בתאריך ISO מנורמל, ואז סינון דרך אותו _blFilter של שאר המסך
-        const tagged = raw.rows
-            .map(r => ({ date: _parseFlexDate(r[di]), _row: r }))
-            .filter(o => o.date);
-        rows = _blFilter(tagged).map(o => o._row);
-        if (!rows.length) { showAlert('אין שורות גולמיות בטווח שנבחר.'); return; }
-        suffix = 'range';
-    }
-    const esc = c => { const s = String(c == null ? '' : c); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-    const csv = [raw.header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `MyFitnessPal_${suffix}_${_blTodayStr()}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
-    haptic('success');
-}
 
 // ─── KPIs ───────────────────────────────────────────────────────────────────
 function _renderBodyKpis(log) {
@@ -1332,15 +1398,8 @@ function exportUnifiedData(range) {
     const nutritionDaily = StorageManager.getNutritionDaily().filter(d => inRange(d.date))
         .sort((a, b) => a.date < b.date ? -1 : 1);
 
-    // תזונה גולמית MFP — סינון rows לפי _parseFlexDate(dateIdx)
-    const raw = StorageManager.getNutritionRaw();
-    let rawOut = null;
-    if (raw && Array.isArray(raw.rows) && raw.rows.length) {
-        const di = raw.dateIdx != null ? raw.dateIdx : 0;
-        const rows = (!r.from && !r.to) ? raw.rows
-            : raw.rows.filter(row => { const d = _parseFlexDate(row[di]); return d && inRange(d); });
-        rawOut = { header: raw.header, rows };
-    }
+    // תזונה מפורטת — ארוחות/מרכיבים (תיעוד ישיר גובר על MFP), לפי הטווח
+    const nutritionDetailed = _buildNutritionDetailed(r.from, r.to);
 
     // אימונים — סינון לפי timestamp, הסרת aiSummary + ניקוי טקסט מאמן מוטמע
     const fromMs = r.from ? new Date(r.from + 'T00:00:00').getTime() : -Infinity;
@@ -1358,7 +1417,7 @@ function exportUnifiedData(range) {
             return c;
         });
 
-    if (!weights.length && !nutritionDaily.length && !(rawOut && rawOut.rows.length) && !workouts.length) {
+    if (!weights.length && !nutritionDaily.length && !nutritionDetailed.length && !workouts.length) {
         showAlert('אין נתונים לייצוא בטווח שנבחר.'); return;
     }
 
@@ -1368,9 +1427,9 @@ function exportUnifiedData(range) {
         range: { label: r.label, from: r.from, to: r.to },
         counts: {
             weights: weights.length, nutrition_daily: nutritionDaily.length,
-            nutrition_raw_rows: rawOut ? rawOut.rows.length : 0, workouts: workouts.length
+            nutrition_detailed_days: nutritionDetailed.length, workouts: workouts.length
         },
-        weights, nutrition_daily: nutritionDaily, nutrition_raw_mfp: rawOut, workouts
+        weights, nutrition_daily: nutritionDaily, nutrition_detailed: nutritionDetailed, workouts
     };
     const slug = range === 'custom' ? 'custom' : (range === 'all' ? 'all' : range + 'd');
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });

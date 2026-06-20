@@ -26,8 +26,10 @@ const StorageManager = {
     KEY_BODY_PROFILE:    'gympro_body_profile',        // מין/גיל/גובה/רמת פעילות — לחישוב TDEE
     KEY_MFP_BRIDGE_URL:   'gympro_mfp_bridge_url',    // Apps Script Web App URL
     KEY_MFP_BRIDGE_TOKEN: 'gympro_mfp_bridge_token',  // token סודי לגשר
+    KEY_MFP_BRIDGE_ON:    'gympro_mfp_bridge_on',     // האם גשר MFP פעיל (ברירת מחדל: דלוק)
     KEY_HEALTH_BRIDGE_URL:   'gympro_health_bridge_url',    // גשר תזונה Apple Health
     KEY_HEALTH_BRIDGE_TOKEN: 'gympro_health_bridge_token',  // token סודי לגשר ה-Health
+    KEY_HEALTH_BRIDGE_ON:    'gympro_health_bridge_on',     // האם גשר Health פעיל (ברירת מחדל: דלוק)
     KEY_HEALTH_LAST_SYNC:    'gympro_health_last_sync',     // timestamp משיכה מוצלחת אחרונה מהגשר
     KEY_WATCH_BRIDGE_URL:   'gympro_watch_bridge_url',    // Apps Script proxy לגשר השעון
     KEY_WATCH_BRIDGE_TOKEN: 'gympro_watch_bridge_token',  // SECRET_TOKEN לגשר השעון
@@ -382,10 +384,13 @@ const StorageManager = {
             this.KEY_AI_MODELS,
             this.KEY_AI_PERSONA,
             this.KEY_COACH_PROMPTS,
+            this.KEY_USDA_KEY,
             this.KEY_MFP_BRIDGE_URL,
             this.KEY_MFP_BRIDGE_TOKEN,
+            this.KEY_MFP_BRIDGE_ON,
             this.KEY_HEALTH_BRIDGE_URL,
             this.KEY_HEALTH_BRIDGE_TOKEN,
+            this.KEY_HEALTH_BRIDGE_ON,
             this.KEY_WATCH_BRIDGE_URL,
             this.KEY_WATCH_BRIDGE_TOKEN,
             this.KEY_WATCH_BRIDGE_ON,
@@ -816,29 +821,40 @@ const StorageManager = {
         this.saveData(this.KEY_BODY_PROFILE, Object.assign({}, cur, p));
     },
 
+    // ברירת מחדל דלוק: רק '0' מפורש מכבה (לא לשבור משתמשים קיימים בלי מפתח שמור)
     getMfpBridge() {
         return {
+            on:    localStorage.getItem(this.KEY_MFP_BRIDGE_ON) !== '0',
             url:   localStorage.getItem(this.KEY_MFP_BRIDGE_URL) || '',
             token: localStorage.getItem(this.KEY_MFP_BRIDGE_TOKEN) || ''
         };
     },
 
-    saveMfpBridge(url, token) {
-        localStorage.setItem(this.KEY_MFP_BRIDGE_URL, (url || '').trim());
-        localStorage.setItem(this.KEY_MFP_BRIDGE_TOKEN, (token || '').trim());
+    saveMfpBridge(on, url, token) {
+        localStorage.setItem(this.KEY_MFP_BRIDGE_ON, on ? '1' : '0');
+        if (url !== undefined)   localStorage.setItem(this.KEY_MFP_BRIDGE_URL, (url || '').trim());
+        if (token !== undefined) localStorage.setItem(this.KEY_MFP_BRIDGE_TOKEN, (token || '').trim());
+    },
+    isMfpBridgeOn() {
+        return localStorage.getItem(this.KEY_MFP_BRIDGE_ON) !== '0';
     },
 
     // ── Health Bridge (סנכרון תזונה מ-Apple Health דרך Shortcuts) ──────────
     getHealthBridge() {
         return {
+            on:    localStorage.getItem(this.KEY_HEALTH_BRIDGE_ON) !== '0',
             url:   localStorage.getItem(this.KEY_HEALTH_BRIDGE_URL) || '',
             token: localStorage.getItem(this.KEY_HEALTH_BRIDGE_TOKEN) || ''
         };
     },
 
-    saveHealthBridge(url, token) {
-        localStorage.setItem(this.KEY_HEALTH_BRIDGE_URL, (url || '').trim());
-        localStorage.setItem(this.KEY_HEALTH_BRIDGE_TOKEN, (token || '').trim());
+    saveHealthBridge(on, url, token) {
+        localStorage.setItem(this.KEY_HEALTH_BRIDGE_ON, on ? '1' : '0');
+        if (url !== undefined)   localStorage.setItem(this.KEY_HEALTH_BRIDGE_URL, (url || '').trim());
+        if (token !== undefined) localStorage.setItem(this.KEY_HEALTH_BRIDGE_TOKEN, (token || '').trim());
+    },
+    isHealthBridgeOn() {
+        return localStorage.getItem(this.KEY_HEALTH_BRIDGE_ON) !== '0';
     },
 
     getHealthLastSync() {

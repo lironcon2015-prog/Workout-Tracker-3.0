@@ -208,8 +208,17 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 - **זרימה:** MFP → Apple Health → קיצור דרך (אוטומציות 10:00/14:00/18:00/23:45) → `health-nutrition-bridge.gs` (PropertiesService, ~120 ימים, בלי Firestore/SA) → ה-PWA מושך JSONP.
 - **משיכה:** בכל כניסה לאפליקציה (load + visibilitychange) + כל שעה עגולה כשהיא פתוחה + כניסה לטאב Composition. throttle 15 דק' (`syncHealthNutrition`), שקט לחלוטין במצב אוטומטי.
 - **כלל הזהב — MFP מקור האמת:** ימי Health מסומנים `src:'health'` ב-`nutritionDaily`. `mergeHealthNutritionDays` לעולם לא דורס יום MFP; `saveNutritionDaily` (ייבוא MFP) דורס הכל כולל ימי Health. ל-Health אין per-meal — `nutritionRaw` נשאר בלעדי ל-MFP ולא נגעו בו.
-- **לימי Health אין `meals`** — מוצג ריק בייצוא CSV עד שייבוא MFP דורס.
+- **לימי Health אין `meals`/per-meal** — בייצוא המפורט יום כזה יוצא `source:'summary'` (totals בלבד) עד שייבוא MFP/תיעוד ישיר מוסיף פירוט.
 - **מסך תזונה (v16.00):** כרטיס "תזונה היום" (`bl-daily-card`) מעל הממוצע — נתוני היום + חותמת משיכה אחרונה (`KEY_HEALTH_LAST_SYNC`). כל פעולות ייבוא/ייצוא אוחדו ל-bottom sheet אחד (`nutri-io-sheet`) שנפתח מכפתור בכרטיס היומי. **ממוצע התזונה ומנוע ה-TDEE מחריגים את היום הנוכחי** (תיעוד חלקי תוך-יומי מ-Health מטה אותם). כרטיס המאזן מקופל כברירת מחדל (hero+קצב נוכחי) — `_blTdeeExpanded`.
+
+## ייצוא/ייבוא — סדר (v16.58)
+
+- **מתג הפעלה/כיבוי לכל גשר:** MFP ו-Health כעת ניתנים לכיבוי (`KEY_MFP_BRIDGE_ON`/`KEY_HEALTH_BRIDGE_ON`, **ברירת מחדל דלוק** — רק `'0'` מכבה, להבדיל מהשעון שכבוי). Gating בנקודה אחת: `syncHealthNutrition` ו-`importNutritionFromGmail` בודקים `is…BridgeOn()` בראש. שלושת ה-`*_ON` בקובץ החיבורים.
+- **ייצוא תזונה — בדיוק 2 קבצי JSON מכבדי-פיקר** (`_nutritionRangeBounds` ← `_blRange`/`_blCustom`): `exportNutritionDailyJson` (מקוצר: date+cal+macros) ו-`exportNutritionDetailedJson` (מפורט). הוסרו: `exportNutritionCsv`, `exportNutritionRawCsv`, `exportFoodDiaryJson`.
+- **`_buildNutritionDetailed(from,to)`** (בונה משותף לייצוא הנפרד ולמאוחד) — **קדימות ליום: תיעוד ישיר (`getFoodLogDay`) גובר על MFP**; אחרת שורות MFP; אחרת סיכום. מקור יחיד ליום, בלי ספירה כפולה. כולל `components` של Meal Builder.
+- **קובץ מאוחד (`exportUnifiedData`):** `nutrition_raw_mfp` הוחלף ב-`nutrition_detailed`. כעת = weights + nutrition_daily + nutrition_detailed + workouts.
+- **המאגר המקומי בענן בלבד:** `KEY_FOOD_DB`+`KEY_FOOD_LOG` מסונכרנים דרך מסמך `config` (saveConfigToCloud) — אין ייצוא JSON מקומי.
+- **קובץ החיבורים:** נוסף `KEY_USDA_KEY`. כלל ב-CLAUDE.md: בכל סוד/אינטגרציה חדשים — לשאול אם לכלול ב-`_connectionKeys()`.
 
 ---
 

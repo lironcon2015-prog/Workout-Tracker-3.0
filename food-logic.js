@@ -415,26 +415,32 @@ function _fdAnimateRing(scope) {
     });
 }
 
-// טבעת קלוריות (SVG, ללא טקסט — הטקסט המרכזי כ-HTML overlay כדי לשמור RTL תקין)
+// פורמט מספר עם פסיקי אלפים (1,835)
+function _fdFmt(n) { return (Math.round(Number(n) || 0)).toLocaleString('en-US'); }
+
+// טבעת קלוריות (SVG) — stroke כ-gradient עדין (accent→accent-dim), צבעי ה-stops ב-CSS.
 function _fdRingSVG(consumed, target) {
     const r = 54, circ = 2 * Math.PI * r;
     const pct = target > 0 ? Math.min(consumed / target, 1) : (consumed > 0 ? 1 : 0);
     const over = target > 0 && consumed > target;
     const off = circ * (1 - pct);
     return `<svg class="fd-ring" viewBox="0 0 120 120" aria-hidden="true">
+        <defs><linearGradient id="fdRingGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop class="fd-rg0" offset="0"/><stop class="fd-rg1" offset="1"/></linearGradient></defs>
         <circle class="fd-ring-track" cx="60" cy="60" r="${r}"/>
         <circle class="fd-ring-prog${over ? ' over' : ''}" cx="60" cy="60" r="${r}"
             stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" stroke-linecap="round"/>
     </svg>`;
 }
 
+// סטט מאקרו — ערך בלבן, הצבע רק בקו הדק (ריסון יוקרתי)
 function _fdMacroStat(lbl, val, target, cls) {
     const pct = target > 0 ? Math.min(100, Math.round(val / target * 100)) : 0;
-    const tgt = target > 0 ? ` / ${target}` : '';
+    const tgt = target > 0 ? `<small>/${target}</small>` : '';
     return `<div class="fd-mstat">
-        <div class="fd-mstat-hd"><span class="fd-mdot ${cls}"></span><span class="fd-mstat-lbl">${lbl}</span></div>
-        <div class="fd-mstat-val ${cls}">${Math.round(val)}<small>${tgt}g</small></div>
-        <div class="fd-mstat-bar"><span class="fd-mstat-fill ${cls}" style="width:${pct}%"></span></div>
+        <span class="fd-mstat-lbl">${lbl}</span>
+        <span class="fd-mstat-val">${Math.round(val)}${tgt}</span>
+        <span class="fd-mline ${cls}"><span style="width:${pct}%"></span></span>
     </div>`;
 }
 
@@ -446,15 +452,15 @@ function _fdSummaryHTML(t, mfpOwned) {
     const big = kcalT > 0 ? Math.abs(Math.round(kcalT - t.kcal)) : consumed;
     const lbl = kcalT > 0 ? (over ? 'מעל היעד' : 'נותרו') : 'נצרכו';
     const caption = kcalT > 0
-        ? `<div class="fd-kcap"><span class="fd-kcap-lbl">נצרכו</span><span class="fd-kcap-val accent">${consumed}</span></div>
+        ? `<div class="fd-kcap"><span class="fd-kcap-lbl">נצרכו</span><span class="fd-kcap-val accent">${_fdFmt(consumed)}</span></div>
            <span class="fd-kcap-sep"></span>
-           <div class="fd-kcap"><span class="fd-kcap-lbl">יעד</span><span class="fd-kcap-val">${kcalT}</span></div>`
-        : `<div class="fd-kcap"><span class="fd-kcap-lbl">קלוריות</span><span class="fd-kcap-val accent">${consumed}</span></div>`;
+           <div class="fd-kcap"><span class="fd-kcap-lbl">יעד</span><span class="fd-kcap-val">${_fdFmt(kcalT)}</span></div>`
+        : `<div class="fd-kcap"><span class="fd-kcap-lbl">קלוריות</span><span class="fd-kcap-val accent">${_fdFmt(consumed)}</span></div>`;
     return `<div class="fd-summary">
         <div class="fd-ring-wrap">
             ${_fdRingSVG(t.kcal, kcalT)}
             <div class="fd-ring-center">
-                <span class="fd-ring-num${over ? ' over' : ''}">${big}</span>
+                <span class="fd-ring-num${over ? ' over' : ''}">${_fdFmt(big)}</span>
                 <span class="fd-ring-lbl">${lbl}</span>
             </div>
         </div>
@@ -489,7 +495,7 @@ function _fdMealsHTML(entries, mfpOwned) {
                 <span class="fd-meal-icon"><span class="material-symbols-outlined">${_fdMealIcon(meal)}</span></span>
                 <div class="fd-meal-titles">
                     <span class="fd-meal-name">${_fdEsc(meal)}</span>
-                    <span class="fd-meal-kcal">${Math.round(mt)} kcal</span>
+                    <span class="fd-meal-kcal">${mt ? _fdFmt(mt) + ' קלוריות' : '—'}</span>
                 </div>
                 ${delBtn}
                 <button class="fd-meal-add" onclick="fdOpenAdd('${mealJs}')" aria-label="הוסף מזון"><span class="material-symbols-outlined">add</span></button>
@@ -508,8 +514,8 @@ function _fdMealsHTML(entries, mfpOwned) {
                         <span class="fd-entry-sub">${sub}</span>
                     </div>
                     <div class="fd-entry-macros">
-                        <span class="fd-entry-kcal">${Math.round(e.kcal)}<small>kcal</small></span>
-                        <span class="fd-entry-chips"><i class="macro-p">P${Math.round(e.p)}</i><i class="macro-c">C${Math.round(e.c)}</i><i class="macro-f">F${Math.round(e.f)}</i></span>
+                        <span class="fd-entry-kcal">${_fdFmt(e.kcal)}<small>kcal</small></span>
+                        <span class="fd-entry-pcf"><i class="macro-p">P ${Math.round(e.p)}</i><i class="macro-c">C ${Math.round(e.c)}</i><i class="macro-f">F ${Math.round(e.f)}</i></span>
                     </div>
                 </button>`;
             }).join('');
@@ -648,7 +654,7 @@ function _fdRenderFoodList(foods, box, append) {
         return `<button class="fd-food-row" onclick="fdSelectFoodById('${_fdEsc(f.id)}')">
             <div class="fd-food-main">
                 <span class="fd-food-name">${_fdSrcChip(f)}${_fdEsc(f.name)}</span>
-                <span class="fd-food-sub">${brand}${Math.round(f.per100.kcal)} kcal / 100g</span>
+                <span class="fd-food-sub">${brand}${_fdFmt(f.per100.kcal)} kcal · 100 גרם</span>
             </div>
             <span class="fd-food-star ${f.favorite ? 'on' : ''}" role="button" onclick="event.stopPropagation();fdToggleFav('${_fdEsc(f.id)}',this)">${f.favorite ? '★' : '☆'}</span>
         </button>`;
@@ -987,7 +993,7 @@ function _fdRenderComponents() {
         return `<div class="fd-comp">
             <div class="fd-comp-main">
                 <span class="fd-comp-name">${_fdEsc(c.name)}</span>
-                <span class="fd-comp-kcal"><b id="fd-mc-k-${i}">${kcal}</b> kcal</span>
+                <span class="fd-comp-kcal"><b id="fd-mc-k-${i}">${_fdFmt(kcal)}</b> kcal</span>
             </div>
             <div class="fd-comp-qty">
                 <input type="number" id="fd-mc-g-${i}" inputmode="decimal" min="0" step="any" value="${_fdR(c.grams)}" oninput="_fdMealRecalc()">
@@ -1009,11 +1015,11 @@ function _fdMealRecalc() {
         const kcal = Math.round((c.per100.kcal || 0) * f);
         tot.kcal += kcal; tot.p += (c.per100.p || 0) * f; tot.c += (c.per100.c || 0) * f; tot.f += (c.per100.f || 0) * f;
         const kEl = document.getElementById('fd-mc-k-' + i);
-        if (kEl) kEl.textContent = kcal;
+        if (kEl) kEl.textContent = _fdFmt(kcal);
     });
     const tk = document.getElementById('fd-meal-total-kcal');
     const tm = document.getElementById('fd-meal-total-macros');
-    if (tk) tk.textContent = Math.round(tot.kcal);
+    if (tk) tk.textContent = _fdFmt(tot.kcal);
     if (tm) tm.innerHTML = `<i class="macro-p">חלבון ${Math.round(tot.p)}</i><i class="macro-c">פחמ' ${Math.round(tot.c)}</i><i class="macro-f">שומן ${Math.round(tot.f)}</i>`;
 }
 

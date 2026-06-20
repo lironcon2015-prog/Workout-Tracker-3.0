@@ -177,10 +177,22 @@ const BASIC_FOODS = _BASIC_RAW.map((x, i) => ({
     servings: (x.s || []).concat([{ label: '100 גרם', grams: 100 }])
 }));
 
+// נרמול לחיפוש — trim + הסרת ניקוד/טעמים עבריים
+function _fdNorm(s) { return String(s || '').trim().replace(/[֑-ׇ]/g, ''); }
+
+// התאמה גמישה: substring רציף, או טוקן בודד מהשאילתה שמופיע בשם.
+// ("גרעיני תירס" יתפוס פריט "תירס"; ריבוי מילים לא מחמיץ בגלל סדר)
+function _fdTokenMatch(name, q) {
+    const n = _fdNorm(name), s = _fdNorm(q);
+    if (!s) return false;
+    if (n.indexOf(s) >= 0) return true;
+    const toks = s.split(/\s+/).filter(t => t.length >= 2);
+    return toks.length ? toks.some(t => n.indexOf(t) >= 0) : false;
+}
+
 function _fdBasicMatches(q) {
-    const s = String(q || '').trim();
-    if (!s) return [];
-    return BASIC_FOODS.filter(f => f.name.indexOf(s) >= 0);
+    if (!_fdNorm(q)) return [];
+    return BASIC_FOODS.filter(f => _fdTokenMatch(f.name, q));
 }
 
 function _fdDedup(list) {
@@ -274,11 +286,48 @@ function _usdaToFood(it) {
     };
 }
 
+// מילון עברית→אנגלית למונחי מזון נפוצים — USDA הוא אנגלי בלבד, ושאילתה עברית
+// לא תתאים. תרגום קצר פותח את הכיסוי הגנרי המצוין של USDA (חומרי גלם/יסוד).
+const _FD_HE_EN = {
+    'תירס': 'corn', 'פופקורן': 'popcorn', 'גרעיני תירס': 'popcorn kernels',
+    'אורז': 'rice', 'קוסקוס': 'couscous', 'בורגול': 'bulgur', 'קינואה': 'quinoa',
+    'כוסמת': 'buckwheat', 'שיבולת שועל': 'oats', 'שיבולת': 'oats', 'קוואקר': 'oats',
+    'עדשים': 'lentils', 'חומוס': 'chickpeas', 'גרגרי חומוס': 'chickpeas',
+    'שעועית': 'beans', 'אפונה': 'peas', 'פול': 'fava beans', 'סויה': 'soybeans',
+    'פסטה': 'pasta', 'אטריות': 'noodles', 'לחם': 'bread', 'קמח': 'flour',
+    'תפוח אדמה': 'potato', 'תפוחי אדמה': 'potato', 'בטטה': 'sweet potato',
+    'עוף': 'chicken', 'חזה עוף': 'chicken breast', 'הודו': 'turkey',
+    'בקר': 'beef', 'בשר בקר': 'beef', 'טחון': 'ground', 'בשר טחון': 'ground beef',
+    'דג': 'fish', 'סלמון': 'salmon', 'טונה': 'tuna', 'ביצה': 'egg', 'ביצים': 'eggs',
+    'חלב': 'milk', 'יוגורט': 'yogurt', 'גבינה': 'cheese', 'קוטג': 'cottage cheese',
+    'גבינת קוטג': 'cottage cheese', 'חמאה': 'butter', 'שמן': 'oil', 'שמן זית': 'olive oil',
+    'אגוזים': 'nuts', 'שקדים': 'almonds', 'אגוז': 'walnut', 'בוטנים': 'peanuts',
+    'חמאת בוטנים': 'peanut butter', 'טחינה': 'tahini', 'דבש': 'honey', 'סוכר': 'sugar',
+    'מלח': 'salt', 'עגבניה': 'tomato', 'עגבניות': 'tomato', 'מלפפון': 'cucumber',
+    'בצל': 'onion', 'שום': 'garlic', 'גזר': 'carrot', 'חסה': 'lettuce', 'תרד': 'spinach',
+    'ברוקולי': 'broccoli', 'כרובית': 'cauliflower', 'כרוב': 'cabbage', 'פלפל': 'pepper',
+    'חציל': 'eggplant', 'קישוא': 'zucchini', 'דלעת': 'pumpkin', 'אבוקדו': 'avocado',
+    'פטריות': 'mushrooms', 'תפוח': 'apple', 'בננה': 'banana', 'תפוז': 'orange',
+    'ענבים': 'grapes', 'תות': 'strawberry', 'אבטיח': 'watermelon', 'מלון': 'melon',
+    'אגס': 'pear', 'תמר': 'dates', 'תמרים': 'dates', 'שוקולד': 'chocolate'
+};
+// מתרגם שאילתה עברית למונח USDA אם קיים תרגום; אחרת מחזיר את המקור.
+function _fdTranslateForUsda(q) {
+    const s = _fdNorm(q);
+    if (!/[֐-׿]/.test(s)) return q;   // לא עברית — השאר כמו שהוא
+    if (_FD_HE_EN[s]) return _FD_HE_EN[s];      // התאמה מלאה
+    // התאמה לפי טוקן: אם מילה בשאילתה מופיעה במילון, תרגם אותה
+    const toks = s.split(/\s+/).filter(Boolean);
+    const mapped = toks.map(t => _FD_HE_EN[t]).filter(Boolean);
+    return mapped.length ? mapped.join(' ') : q;
+}
+
 async function searchUSDA(q) {
     const key = StorageManager.getUsdaKey();
     if (!key) return [];   // ללא מפתח — שכבה כבויה
+    const term = _fdTranslateForUsda(q);
     const url = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}` +
-        `&query=${encodeURIComponent(q)}&dataType=${encodeURIComponent('Foundation,SR Legacy')}&pageSize=15`;
+        `&query=${encodeURIComponent(term)}&dataType=${encodeURIComponent('Foundation,SR Legacy')}&pageSize=15`;
     const resp = await _fdFetch(url);
     if (!resp.ok) throw new Error('USDA_' + resp.status);
     const data = await resp.json();
@@ -654,7 +703,7 @@ async function fdDoSearch(q) {
     const seq = ++_fdSearchSeq;   // הבקשה הנוכחית; תוצאה ישנה תזוהה ותידחה
     // חומרי גלם מובנים (offline) + תוצאות שמורות — מוצגים מיידית בראש
     const basics = _fdBasicMatches(q);
-    const local = StorageManager.getFoodDb().filter(f => f.name && f.name.includes(q));
+    const local = StorageManager.getFoodDb().filter(f => f.name && _fdTokenMatch(f.name, q));
     const immediate = _fdDedup(basics.concat(local));
     if (immediate.length) _fdRenderFoodList(immediate, box);
     else box.innerHTML = '<div class="fd-loading">מחפש ב-Open Food Facts…</div>';
@@ -906,12 +955,29 @@ function fdConfirmMealName() {
     fdOpenAdd(name);
 }
 
-// ════════ BARCODE / PHOTO (Gemini) ════════
+// ════════ BARCODE / PHOTO ════════
+// פורמטים נפוצים למוצרי מזון (1D)
+const _FD_BC_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'];
+
+// פענוח ברקוד מקומי מתמונה — מיידי, ללא AI וללא רשת.
+// משתמש ב-BarcodeDetector המובנה (Android/Chrome). ב-iOS (חסר API) מחזיר null
+// והקריאה נופלת חזרה ל-Gemini (קריאת תווית). מחזיר מחרוזת ספרות או null.
+async function _fdDecodeBarcode(file) {
+    try {
+        if (!('BarcodeDetector' in window)) return null;
+        const det = new BarcodeDetector({ formats: _FD_BC_FORMATS });
+        let src = file;
+        if (typeof createImageBitmap === 'function') {
+            try { src = await createImageBitmap(file); } catch (e) { src = file; }
+        }
+        const codes = await det.detect(src);
+        if (src && typeof src.close === 'function') src.close();
+        const hit = (codes || []).map(c => String(c.rawValue || '').replace(/\D/g, '')).find(v => v.length >= 6);
+        return hit || null;
+    } catch (e) { return null; }
+}
+
 function fdScanPhoto() {
-    if (!StorageManager.getAIConfig().apiKey) {
-        showAlert('לקריאת תווית/ברקוד מתמונה נדרש מפתח Gemini (הגדרות → AI Coach).');
-        return;
-    }
     _fdPhotoMode = 'label';
     document.getElementById('fd-cam-input').click();
 }
@@ -931,6 +997,29 @@ function fdOnPhoto(file) {
     if (_fdPhotoMode === 'meal') { _fdOnMealPhoto(file); return; }
     const box = document.getElementById('fd-results');
     if (box) box.innerHTML = '<div class="fd-loading">📷 קורא את התווית/ברקוד…</div>';
+    // נתיב מהיר: פענוח ברקוד מקומי (ללא AI/רשת). הצליח → ישר ל-OFF.
+    _fdDecodeBarcode(file).then(async code => {
+        if (code) {
+            try {
+                const food = await lookupBarcode(code);
+                if (food) { StorageManager.upsertFoodToDb(food); _fdOpenPortion(food, null); return true; }
+            } catch (e) {}
+        }
+        return false;
+    }).then(done => {
+        if (done) return;
+        // אין ברקוד מקומי (iOS / תווית בלבד) → נפילה ל-Gemini לקריאת תווית
+        if (!StorageManager.getAIConfig().apiKey) {
+            if (box) box.innerHTML = '<div class="fd-empty">לא זוהה ברקוד. לקריאת <b>תווית ערכים</b> נדרש מפתח Gemini (הגדרות → AI Coach), או חפש ידנית.</div>';
+            return;
+        }
+        _fdLabelViaGemini(file, box);
+    });
+}
+
+// קריאת תווית ערך תזונתי דרך Gemini — נתיב הנפילה כשאין ברקוד מפוענח מקומית
+function _fdLabelViaGemini(file, box) {
+    if (box) box.innerHTML = '<div class="fd-loading">📷 קורא את התווית…</div>';
     _fileToBase64(file).then(({ base64, mime }) => _callGeminiFood(base64, mime)).then(async res => {
         // אם זוהה ברקוד — חיפוש ב-OFF
         if (res && res.barcode && /^\d{6,}$/.test(String(res.barcode))) {
@@ -954,6 +1043,111 @@ function fdOnPhoto(file) {
     }).catch(() => {
         if (box) box.innerHTML = '<div class="fd-empty">⚠ קריאת התמונה נכשלה — חפש ידנית.</div>';
     });
+}
+
+// ════════ LIVE BARCODE SCAN ════════
+// מצלמה חיה + פענוח בלולאה. BarcodeDetector מועדף (קל); ZXing כ-fallback (iOS).
+let _fdLiveStream = null, _fdLiveRAF = null, _fdLiveReader = null, _fdLiveActive = false;
+
+// טעינה עצלה של ZXing — רק כשנכנסים למצב חי בפלטפורמה ללא BarcodeDetector
+function _fdLoadZXing() {
+    if (window.ZXing) return Promise.resolve(window.ZXing);
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'vendor/zxing.min.js';
+        s.onload = () => window.ZXing ? resolve(window.ZXing) : reject(new Error('ZXING_LOAD'));
+        s.onerror = () => reject(new Error('ZXING_LOAD'));
+        document.head.appendChild(s);
+    });
+}
+
+function _fdLiveSetMsg(txt) { const el = document.getElementById('fd-live-msg'); if (el) el.textContent = txt; }
+function _fdLiveRetry(show) { const b = document.getElementById('fd-live-retry'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
+function _fdStopStream() {
+    if (_fdLiveStream) { _fdLiveStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} }); _fdLiveStream = null; }
+}
+function _fdLiveTeardownCamera() {
+    if (_fdLiveRAF) { cancelAnimationFrame(_fdLiveRAF); _fdLiveRAF = null; }
+    if (_fdLiveReader) { try { _fdLiveReader.reset(); } catch (e) {} _fdLiveReader = null; }
+    _fdStopStream();
+    const v = document.getElementById('fd-live-video');
+    if (v) { try { v.pause(); } catch (e) {} v.srcObject = null; }
+}
+
+async function fdLiveScanStart() {
+    const ov = document.getElementById('fd-live');
+    if (!ov) return;
+    ov.style.display = 'flex';
+    _fdLiveActive = true;
+    _fdLiveRetry(false);
+    const video = document.getElementById('fd-live-video');
+    if ('BarcodeDetector' in window) {
+        _fdLiveSetMsg('מפעיל מצלמה…');
+        try {
+            _fdLiveStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        } catch (e) { _fdLiveSetMsg('אין גישה למצלמה — אשר הרשאה, או צלם/חפש ידנית.'); _fdLiveRetry(true); return; }
+        if (!_fdLiveActive) { _fdStopStream(); return; }   // נסגר בזמן בקשת ההרשאה
+        video.srcObject = _fdLiveStream;
+        video.setAttribute('playsinline', '');
+        await video.play().catch(() => {});
+        _fdLiveSetMsg('כוון את הברקוד למסגרת');
+        _fdLiveDetectNative(video);
+    } else {
+        _fdLiveSetMsg('טוען סורק…');
+        let ZXing;
+        try { ZXing = await _fdLoadZXing(); } catch (e) { _fdLiveSetMsg('טעינת הסורק נכשלה — צלם או חפש ידנית.'); _fdLiveRetry(true); return; }
+        if (!_fdLiveActive) return;
+        try {
+            _fdLiveReader = new ZXing.BrowserMultiFormatReader();
+            _fdLiveSetMsg('כוון את הברקוד למסגרת');
+            _fdLiveReader.decodeFromVideoDevice(null, video, (result) => {
+                if (!_fdLiveActive || !result) return;
+                const hit = String(result.getText() || '').replace(/\D/g, '');
+                if (hit.length >= 6) _fdLiveOnHit(hit);
+            });
+        } catch (e) { _fdLiveSetMsg('אין גישה למצלמה — אשר הרשאה, או צלם/חפש ידנית.'); _fdLiveRetry(true); }
+    }
+}
+
+// לולאת זיהוי מקומית (BarcodeDetector) על פריימים של הווידאו
+function _fdLiveDetectNative(video) {
+    let det;
+    try { det = new BarcodeDetector({ formats: _FD_BC_FORMATS }); }
+    catch (e) { _fdLiveSetMsg('הסורק לא נתמך במכשיר — צלם או חפש ידנית.'); _fdLiveRetry(false); return; }
+    const tick = async () => {
+        if (!_fdLiveActive) return;
+        try {
+            const codes = await det.detect(video);
+            const hit = (codes || []).map(c => String(c.rawValue || '').replace(/\D/g, '')).find(v => v.length >= 6);
+            if (hit) { _fdLiveOnHit(hit); return; }
+        } catch (e) {}
+        _fdLiveRAF = requestAnimationFrame(tick);
+    };
+    _fdLiveRAF = requestAnimationFrame(tick);
+}
+
+// זוהה ברקוד → עצור מצלמה → חפש ב-OFF → פתח עורך כמות
+async function _fdLiveOnHit(code) {
+    if (!_fdLiveActive) return;
+    _fdLiveActive = false;   // מנע זיהויים כפולים בזמן ה-lookup
+    haptic('medium');
+    _fdLiveTeardownCamera();
+    _fdLiveSetMsg('נמצא ' + code + ' — טוען מוצר…');
+    try {
+        const food = await lookupBarcode(code);
+        if (food) { StorageManager.upsertFoodToDb(food); fdLiveScanStop(); _fdOpenPortion(food, null); return; }
+        _fdLiveSetMsg('המוצר (' + code + ') לא נמצא ב-Open Food Facts.');
+    } catch (e) {
+        _fdLiveSetMsg('שגיאת רשת בחיפוש המוצר.');
+    }
+    _fdLiveRetry(true);   // אפשר סריקה חוזרת
+}
+
+function fdLiveScanStop() {
+    _fdLiveActive = false;
+    _fdLiveTeardownCamera();
+    const ov = document.getElementById('fd-live');
+    if (ov) ov.style.display = 'none';
 }
 
 // בונה מרכיב Meal Builder מערכי הערכה (totals למרכיב) → per100 + grams

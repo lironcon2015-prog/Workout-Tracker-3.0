@@ -23,10 +23,15 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 
 **UI:** אין טאב קבוע — Overlay מסך-מלא (`#food-diary`) הנפתח מכפתור "יומן תזונה" בכרטיס הבית (מתחת ל-LIVE)
 ובמסך Composition. ניווט ימים: חיצים + החלקה + בורר תאריך. "+" לכל ארוחה (סגנון MFP). עורך מנה/כמות/שעה/ארוחה.
-ברקוד/תווית דרך צילום+Gemini (iOS PWA חסר BarcodeDetector — מיחזור `_callGeminiVision`).
+ברקוד: **פענוח מקומי** (`_fdDecodeBarcode` עם `BarcodeDetector`) על הצילום לפני AI; כשל → Gemini לקריאת תווית.
+**סריקה חיה** (`fdLiveScanStart`, overlay `#fd-live`, z-index 2000): `BarcodeDetector` בלולאת rAF, או ZXing
+(`vendor/zxing.min.js`, טעינה עצלה) ב-iOS. ל-OFF דרך `lookupBarcode`. מנת אוכל/תווית עדיין דרך Gemini.
 
 **לקחים:** (1) ids של מוצרי OFF ללא ברקוד מנוקים לתווים בטוחים ל-onclick. (2) חיפוש תלוי-רשת; אחרונים/מועדפים/
 מותאמים עובדים offline (קאש ב-KEY_FOOD_DB). (3) z-index: overlay=300, ה-bottom-sheets (1000/1001) מעליו בכוונה.
+(4) פענוח ברקוד = מקומי ומיידי, לא AI — AI שמור לקריאת תווית/הערכת מנה בלבד. (5) USDA אנגלי-בלבד: `_fdTranslateForUsda`
+ממפה עברית→אנגלית (`_FD_HE_EN`) לפתיחת חומרי גלם גנריים (דורש מפתח USDA). (6) `_fdTokenMatch` — התאמת חיפוש
+מבוססת-טוקן+נרמול ניקוד, מחליפה `indexOf` נאיבי. (7) ZXing מ-`vendor/` — runtime-cache ב-SW, לא pre-cache (336KB).
 
 ---
 

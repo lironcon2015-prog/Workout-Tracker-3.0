@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 16.55
+ * Version: 16.56
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v16.55';
+const CACHE_VERSION = 'gympro-v16.56';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -73,6 +73,23 @@ self.addEventListener('fetch', event => {
     if (url.includes('lh3.googleusercontent.com')) {
         event.respondWith(
             caches.open(IMG_CACHE).then(cache =>
+                cache.match(event.request).then(cached => {
+                    if (cached) return cached;
+                    return fetch(event.request).then(response => {
+                        if (response.ok) cache.put(event.request, response.clone());
+                        return response;
+                    });
+                })
+            ).catch(() => new Response('', { status: 503, statusText: 'Offline' }))
+        );
+        return;
+    }
+
+    // ספריות vendor (ZXing) — cache-first עם שמירה בזמן ריצה. נטענות עצלה רק
+    // ב-fallback של iOS, ולכן לא ב-pre-cache (כדי לא להוריד 336KB לכל המשתמשים).
+    if (url.includes('/vendor/')) {
+        event.respondWith(
+            caches.open(CACHE_VERSION).then(cache =>
                 cache.match(event.request).then(cached => {
                     if (cached) return cached;
                     return fetch(event.request).then(response => {

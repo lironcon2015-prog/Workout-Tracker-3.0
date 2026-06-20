@@ -2103,6 +2103,7 @@
                 <input type="search" id="fd-search" class="fd-search-input" placeholder="חיפוש מזון…" oninput="fdOnSearchInput(this.value)" autocomplete="off">
             </div>
             <button class="fd-cam-btn" onclick="fdEstimateMeal()" aria-label="הערכת מנה מתמונה"><span class="material-symbols-outlined">restaurant</span></button>
+            <button class="fd-cam-btn fd-cam-btn--live" onclick="fdLiveScanStart()" aria-label="סריקת ברקוד חיה"><span class="material-symbols-outlined">qr_code_scanner</span></button>
             <button class="fd-cam-btn fd-cam-btn--alt" onclick="fdScanPhoto()" aria-label="צילום תווית/ברקוד"><span class="material-symbols-outlined">barcode_scanner</span></button>
         </div>
         <div class="fd-add-sub">הוספה ל: <strong id="fd-add-meal-name">בוקר</strong></div>
@@ -2117,6 +2118,17 @@
             <span class="fd-credit">נתוני מזון: Open Food Facts</span>
         </div>
         <input type="file" id="fd-cam-input" accept="image/*" capture="environment" style="display:none" onchange="fdOnPhoto(this.files[0])">
+    </div>
+
+    <!-- מצב סריקת ברקוד חי (מצלמה + פענוח מקומי) -->
+    <div id="fd-live" class="fd-live">
+        <video id="fd-live-video" class="fd-live-video" muted playsinline webkit-playsinline></video>
+        <div class="fd-live-frame"></div>
+        <div class="fd-live-msg" id="fd-live-msg"></div>
+        <div class="fd-live-actions">
+            <button id="fd-live-retry" class="fd-live-btn" onclick="fdLiveScanStart()" style="display:none"><span class="material-symbols-outlined">refresh</span>סרוק שוב</button>
+            <button class="fd-live-btn fd-live-close" onclick="fdLiveScanStop()"><span class="material-symbols-outlined">close</span>סגור</button>
+        </div>
     </div>
 
     <!-- שיט עורך מנה/כמות/ארוחה/שעה -->

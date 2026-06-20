@@ -723,9 +723,14 @@ function _detailMealsFromEntries(entries) {
             }));
             // grams מצרפי = סכום הרכיבים (ברמת הפריט המנה הוא 0 — המשקל האמיתי ברכיבים)
             item.grams = item.components.reduce((s, c) => s + c.grams, 0);
-            // בדיקת עקביות (dev): kcal ברמת-הפריט כבר מסתכם נכון — אזהרה תתפוס חריגה עתידית
-            const sK = item.components.reduce((s, c) => s + c.kcal, 0);
-            if (Math.abs(sK - item.kcal) > 5) console.warn('[nutrition-export] kcal לא תואם לסכום הרכיבים', item.name, item.kcal, sK);
+            // עקביות כל השדות המצרפיים (grams/kcal/macros) = סכום הרכיבים — אזהרת dev שתתפוס
+            // הישנות הבאג בכל שדה עתידי (kcal/macros כבר מסתכמים נכון מ-fdSaveMeal)
+            ['grams', 'kcal', 'protein', 'carbs', 'fat'].forEach(k => {
+                const sumC = item.components.reduce((s, c) => s + (Number(c[k]) || 0), 0);
+                if (Math.abs(sumC - (Number(item[k]) || 0)) > Math.max(1, sumC * 0.02)) {
+                    console.warn('[nutrition-export] שדה מצרפי לא תואם לסכום הרכיבים:', item.name, k, item[k], '≠', sumC);
+                }
+            });
         }
         byMeal[m].push(item);
     });

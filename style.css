@@ -5978,6 +5978,12 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .fd-meal-add .material-symbols-outlined { font-size: 1.2rem; }
+.fd-meal-del {
+    background: rgba(255,69,58,0.12); color: #ff453a; border: none;
+    width: 30px; height: 30px; border-radius: 9999px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.fd-meal-del .material-symbols-outlined { font-size: 1.05rem; }
 .fd-entry {
     display: flex; align-items: center; gap: 10px; width: 100%;
     background: var(--surface-2); border: 1px solid var(--hairline);

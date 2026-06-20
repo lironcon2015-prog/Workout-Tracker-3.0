@@ -36,11 +36,11 @@ function _fdMealChipsHTML(curMeal) {
     }).join('') + `<button class="fd-chip fd-chip--add" onclick="_fdShowMealNamePrompt()">+</button>`;
 }
 
-// מחיקת ארוחה מותאמת מרשימת הארוחות (לא מוחק רשומות קיימות)
+// מחיקת ארוחה מותאמת מרשימת הארוחות (לא מוחק רשומות קיימות).
+// el = הכפתור/× עצמו (data-meal), או צאצא של אלמנט עם data-meal (צ'יפ/כותרת ארוחה).
 function fdDeleteMeal(el) {
-    const chip = el.closest('.fd-chip');
-    if (!chip) return;
-    const name = chip.dataset.meal;
+    const host = (el.dataset && el.dataset.meal) ? el : el.closest('[data-meal]');
+    const name = host ? host.dataset.meal : null;
     if (!name || _FD_DEFAULT_MEALS.indexOf(name) >= 0) return;
     showConfirm(`למחוק את הארוחה "${name}" מהרשימה? (רשומות קיימות יישמרו)`, () => {
         const prefs = getAnalyticsPrefs();
@@ -409,11 +409,16 @@ function _fdMealsHTML(entries, mfpOwned) {
         const items = entries.filter(e => e.meal === meal);
         if (!items.length && used.indexOf(meal) < 0 && order.indexOf(meal) >= _fdMealLabels().length) return;
         const mt = items.reduce((s, e) => s + (+e.kcal || 0), 0);
+        // מחיקת ארוחה מותאמת ריקה (לא ברירת מחדל, ללא רשומות היום) ישירות מהיומן
+        const delBtn = (_FD_DEFAULT_MEALS.indexOf(meal) < 0 && !items.length)
+            ? `<button class="fd-meal-del" data-meal="${_fdEsc(meal)}" onclick="event.stopPropagation();fdDeleteMeal(this)" aria-label="מחק ארוחה"><span class="material-symbols-outlined">delete</span></button>`
+            : '';
         html += `<div class="fd-meal">
             <div class="fd-meal-hdr">
                 <span class="fd-meal-name">${_fdEsc(meal)}</span>
                 <span class="fd-meal-kcal">${Math.round(mt)} kcal</span>
                 <button class="fd-meal-add" onclick="fdOpenAdd('${_fdEsc(meal).replace(/'/g, '')}')"><span class="material-symbols-outlined">add</span></button>
+                ${delBtn}
             </div>`;
         if (items.length) {
             html += items.map(e => `

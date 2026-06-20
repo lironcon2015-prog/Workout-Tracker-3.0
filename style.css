@@ -6191,6 +6191,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-src-chip.src-usda { color: var(--macro-c); border-color: color-mix(in srgb, var(--macro-c) 40%, transparent); }
 .fd-src-chip.src-custom { color: var(--accent); border-color: var(--accent-soft); }
 .fd-src-chip.src-gemini { color: var(--accent); border-color: var(--accent-soft); }
+.fd-src-chip.src-tzameret { color: var(--macro-f); border-color: color-mix(in srgb, var(--macro-f) 40%, transparent); }
 .fd-food-star { font-size: 1.25rem; color: var(--faint, var(--text-dim)); flex-shrink: 0; line-height: 1; }
 .fd-food-star.on { color: var(--accent); }
 .fd-add-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; margin-top: 6px; border-top: 1px solid var(--hairline); }

@@ -6023,7 +6023,12 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-meal-icon .material-symbols-outlined { font-size: 1.25rem; }
 .fd-meal-titles { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .fd-meal-name { font-weight: 600; font-size: 1rem; color: var(--text); letter-spacing: -0.01em; }
-.fd-meal-kcal { font-size: 0.64rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.fd-meal-kcal { font-size: 0.64rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.fd-meal-pcf { display: inline-flex; gap: 8px; letter-spacing: 0.04em; }
+.fd-meal-pcf i { font-style: normal; }
+.fd-meal-pcf i.macro-p { color: var(--macro-p); }
+.fd-meal-pcf i.macro-c { color: var(--macro-c); }
+.fd-meal-pcf i.macro-f { color: var(--macro-f); }
 .fd-meal-add {
     background: var(--accent-soft); color: var(--accent); border: 1px solid var(--hairline);
     width: 36px; height: 36px; border-radius: 9999px; flex-shrink: 0;

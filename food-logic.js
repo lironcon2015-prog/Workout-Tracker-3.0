@@ -485,6 +485,9 @@ function _fdMealsHTML(entries, mfpOwned) {
         const items = entries.filter(e => e.meal === meal);
         if (!items.length && used.indexOf(meal) < 0 && order.indexOf(meal) >= _fdMealLabels().length) return;
         const mt = items.reduce((s, e) => s + (+e.kcal || 0), 0);
+        const mp = items.reduce((s, e) => s + (+e.p || 0), 0);
+        const mc = items.reduce((s, e) => s + (+e.c || 0), 0);
+        const mf = items.reduce((s, e) => s + (+e.f || 0), 0);
         const mealJs = _fdEsc(meal).replace(/'/g, '');
         // מחיקת ארוחה מותאמת ריקה (לא ברירת מחדל, ללא רשומות היום) ישירות מהיומן
         const delBtn = (_FD_DEFAULT_MEALS.indexOf(meal) < 0 && !items.length)
@@ -495,7 +498,9 @@ function _fdMealsHTML(entries, mfpOwned) {
                 <span class="fd-meal-icon"><span class="material-symbols-outlined">${_fdMealIcon(meal)}</span></span>
                 <div class="fd-meal-titles">
                     <span class="fd-meal-name">${_fdEsc(meal)}</span>
-                    <span class="fd-meal-kcal">${mt ? _fdFmt(mt) + ' קלוריות' : '—'}</span>
+                    <span class="fd-meal-kcal">${mt
+                        ? `${_fdFmt(mt)} קלוריות <span class="fd-meal-pcf"><i class="macro-p">P ${Math.round(mp)}</i><i class="macro-c">C ${Math.round(mc)}</i><i class="macro-f">F ${Math.round(mf)}</i></span>`
+                        : '—'}</span>
                 </div>
                 ${delBtn}
                 <button class="fd-meal-add" onclick="fdOpenAdd('${mealJs}')" aria-label="הוסף מזון"><span class="material-symbols-outlined">add</span></button>
@@ -551,8 +556,36 @@ function fdOpenAdd(meal) {
     const t = document.getElementById('fd-add-meal-name');
     if (t) t.textContent = meal || _fdMeal;
     _fdAttachScrollBlur();
+    _fdBindKeyboardLift();
     fdSetTab('recent');
     haptic('light');
+}
+
+// הרמת שיט החיפוש מעל המקלדת ב-iOS — visualViewport מצמצם את הגובה הנראה כשהמקלדת עולה.
+// מרימים את השיט בגובה המקלדת ומגבילים את גובהו לאזור הנראה, כך שהתוצאות תמיד מעליה.
+let _fdVVHandler = null;
+function _fdBindKeyboardLift() {
+    const vv = window.visualViewport;
+    const sheet = document.getElementById('fd-add-sheet');
+    if (!vv || !sheet || _fdVVHandler) return;
+    _fdVVHandler = () => {
+        const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        sheet.style.bottom = kb + 'px';
+        sheet.style.maxHeight = Math.round(vv.height) + 'px';
+    };
+    vv.addEventListener('resize', _fdVVHandler);
+    vv.addEventListener('scroll', _fdVVHandler);
+    _fdVVHandler();
+}
+function _fdUnbindKeyboardLift() {
+    const vv = window.visualViewport;
+    const sheet = document.getElementById('fd-add-sheet');
+    if (vv && _fdVVHandler) {
+        vv.removeEventListener('resize', _fdVVHandler);
+        vv.removeEventListener('scroll', _fdVVHandler);
+    }
+    _fdVVHandler = null;
+    if (sheet) { sheet.style.bottom = ''; sheet.style.maxHeight = ''; }
 }
 
 // הסתרת המקלדת בעת גלילת רשימת התוצאות — חשוב ל-UI במובייל
@@ -574,6 +607,7 @@ function _fdAttachScrollBlur() {
     box.dataset.blurBound = '1';
 }
 function closeFoodAdd() {
+    _fdUnbindKeyboardLift();
     document.getElementById('fd-add-overlay').style.display = 'none';
     document.getElementById('fd-add-sheet').classList.remove('open');
 }

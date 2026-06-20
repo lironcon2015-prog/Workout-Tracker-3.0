@@ -6124,7 +6124,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     padding: 10px; border-radius: var(--r-pill); cursor: pointer; transition: color 0.15s, background 0.2s;
 }
 .fd-tab.active { background: var(--accent-gradient); color: var(--accent-text); box-shadow: var(--accent-glow); }
-.fd-results { flex: 1; overflow-y: auto; min-height: 120px; }
+.fd-results { flex: 0 1 auto; overflow-y: auto; min-height: 120px; }
 .fd-loading, .fd-empty { text-align: center; color: var(--text-dim); font-size: 0.82rem; padding: 28px 12px; line-height: 1.5; }
 .fd-food-row {
     display: flex; align-items: center; gap: 12px; width: 100%;

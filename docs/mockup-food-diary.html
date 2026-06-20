@@ -9,17 +9,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@200;300;400;500;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#060507; --s1:#121013; --s2:#17151a; --s3:#1f1c22; --s4:#2b2730;
-  --glass:rgba(30,27,33,0.55);
-  --text:#efebe4; --dim:#928c83; --faint:#666058;
-  --hair:rgba(255,255,255,0.07); --hair-hi:rgba(255,255,255,0.13);
-  --accent:#CBA567; --accent-dim:#9a763e; --accent-rgb:203,165,103; --accent-soft:rgba(203,165,103,0.13); --accent-text:#15100a;
-  --mp:#6FA39C; --mc:#C2A062; --mf:#C58A93;
+  --bg:#040406; --s1:#0e0e11; --s2:#141418; --s3:#1c1c21; --s4:#27272e;
+  --glass:rgba(26,26,31,0.5);
+  --text:#eef0f3; --dim:#888b94; --faint:#5b5e67;
+  --hair:rgba(255,255,255,0.055); --hair-hi:rgba(255,255,255,0.11);
+  /* כחול עמוק ומעודן (לא ניאון) */
+  --accent:#5A8CE6; --accent-dim:#2c4f9e; --accent-rgb:90,140,230; --accent-soft:rgba(90,140,230,0.13); --accent-text:#ffffff;
+  /* מאקרו — מורווה ועמום, ערכים בלבן */
+  --mp:#8FB0C9; --mc:#C3A874; --mf:#C594A6;
   --r-md:20px; --r-lg:28px; --r-xl:34px; --pill:9999px;
-  --glint:inset 0 1px 0 rgba(255,255,255,0.07);
-  --elev:0 1px 2px rgba(0,0,0,.5),0 18px 44px rgba(0,0,0,.5);
-  --elev-lg:0 2px 6px rgba(0,0,0,.5),0 30px 70px rgba(0,0,0,.6);
-  --blur:saturate(160%) blur(34px);
+  --glint:inset 0 1px 0 rgba(255,255,255,0.06);
+  --elev:0 1px 2px rgba(0,0,0,.55),0 20px 48px rgba(0,0,0,.55);
+  --elev-lg:0 2px 6px rgba(0,0,0,.55),0 36px 80px rgba(0,0,0,.65);
+  --blur:saturate(150%) blur(40px);
 }
 *{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
 body{margin:0;font-family:'Heebo',sans-serif;color:var(--text);
@@ -37,9 +39,9 @@ body{margin:0;font-family:'Heebo',sans-serif;color:var(--text);
 /* רקע אווירה רב-שכבתי (עומק) */
 .phone::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
   background:
-   radial-gradient(70% 50% at 78% 8%,rgba(203,165,103,.18),transparent 60%),
-   radial-gradient(80% 50% at 12% 22%,rgba(110,120,150,.10),transparent 55%),
-   radial-gradient(90% 60% at 50% 108%,rgba(160,120,70,.12),transparent 60%);}
+   radial-gradient(75% 45% at 72% 5%,rgba(90,140,230,.14),transparent 60%),
+   radial-gradient(70% 45% at 14% 30%,rgba(60,80,140,.07),transparent 60%),
+   radial-gradient(95% 55% at 50% 113%,rgba(40,60,120,.10),transparent 62%);}
 .scroll{position:relative;z-index:1;flex:1;overflow-y:auto;padding:12px 16px 30px;}
 .scroll::-webkit-scrollbar{display:none;}
 
@@ -185,7 +187,7 @@ body{margin:0;font-family:'Heebo',sans-serif;color:var(--text);
 </head>
 <body>
 <h1 class="t">GymPro · יומן תזונה — Deep Obsidian</h1>
-<p class="st">עומק רב-שכבתי · זכוכית מוקפאת · זוהר רך · טיפוגרפיה דקה · accent מטאלי מרוסן</p>
+<p class="st">שחור עמוק · זכוכית מוקפאת · טיפוגרפיה דקה · ערכים בלבן · accent כחול עמוק ומרוסן</p>
 
 <!-- מסך 1 -->
 <div>
@@ -203,7 +205,7 @@ body{margin:0;font-family:'Heebo',sans-serif;color:var(--text);
     <div class="hero">
       <div class="ringwrap">
         <svg class="ring" viewBox="0 0 120 120">
-          <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E4C588"/><stop offset="1" stop-color="#9a763e"/></linearGradient></defs>
+          <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9CC0F7"/><stop offset="1" stop-color="#2c4f9e"/></linearGradient></defs>
           <circle class="ring-track" cx="60" cy="60" r="54"/>
           <circle class="ring-prog" cx="60" cy="60" r="54" stroke-dasharray="339.3" stroke-dashoffset="96"/>
         </svg>
@@ -215,9 +217,9 @@ body{margin:0;font-family:'Heebo',sans-serif;color:var(--text);
         <div class="kcap"><span class="kcap-lbl">יעד</span><span class="kcap-val">2,835</span></div>
       </div>
       <div class="macros">
-        <div class="mstat"><span class="mstat-lbl">חלבון</span><span class="mstat-val mp">128<small>/170</small></span><span class="mline mp"><span style="width:75%"></span></span></div>
-        <div class="mstat"><span class="mstat-lbl">פחמימה</span><span class="mstat-val mc">96<small>/250</small></span><span class="mline mc"><span style="width:38%"></span></span></div>
-        <div class="mstat"><span class="mstat-lbl">שומן</span><span class="mstat-val mf">52<small>/70</small></span><span class="mline mf"><span style="width:74%"></span></span></div>
+        <div class="mstat"><span class="mstat-lbl">חלבון</span><span class="mstat-val">128<small>/170</small></span><span class="mline mp"><span style="width:75%"></span></span></div>
+        <div class="mstat"><span class="mstat-lbl">פחמימה</span><span class="mstat-val">96<small>/250</small></span><span class="mline mc"><span style="width:38%"></span></span></div>
+        <div class="mstat"><span class="mstat-lbl">שומן</span><span class="mstat-val">52<small>/70</small></span><span class="mline mf"><span style="width:74%"></span></span></div>
       </div>
     </div>
 

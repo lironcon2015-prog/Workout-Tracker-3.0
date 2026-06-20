@@ -571,7 +571,10 @@ function _fdBindKeyboardLift() {
     _fdVVHandler = () => {
         const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
         sheet.style.bottom = kb + 'px';
-        sheet.style.maxHeight = Math.round(vv.height) + 'px';
+        // משאירים רצועה לחיצה בראש המסך לסגירת השיט (overlay) ומונעים שהשיט יחרוג מעבר
+        // לאזור הנראה (top מתחת לשורת הסטטוס) — מגבילים לגובה הנראה פחות מרווח.
+        const gap = 72;
+        sheet.style.maxHeight = Math.max(220, Math.round(vv.height - gap)) + 'px';
     };
     vv.addEventListener('resize', _fdVVHandler);
     vv.addEventListener('scroll', _fdVVHandler);

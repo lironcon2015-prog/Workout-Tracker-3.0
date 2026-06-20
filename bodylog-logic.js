@@ -721,6 +721,11 @@ function _detailMealsFromEntries(entries) {
                 name: c.name || '', grams: Math.round(Number(c.grams) || 0),
                 kcal: Math.round(Number(c.kcal) || 0), protein: _nR(c.p), carbs: _nR(c.c), fat: _nR(c.f)
             }));
+            // grams מצרפי = סכום הרכיבים (ברמת הפריט המנה הוא 0 — המשקל האמיתי ברכיבים)
+            item.grams = item.components.reduce((s, c) => s + c.grams, 0);
+            // בדיקת עקביות (dev): kcal ברמת-הפריט כבר מסתכם נכון — אזהרה תתפוס חריגה עתידית
+            const sK = item.components.reduce((s, c) => s + c.kcal, 0);
+            if (Math.abs(sK - item.kcal) > 5) console.warn('[nutrition-export] kcal לא תואם לסכום הרכיבים', item.name, item.kcal, sK);
         }
         byMeal[m].push(item);
     });

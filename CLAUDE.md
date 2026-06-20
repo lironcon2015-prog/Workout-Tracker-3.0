@@ -54,7 +54,7 @@
 ### Stack
 
 - Vanilla JS (ES6+), HTML5, CSS3 — ללא Frameworks
-- מבנה קבצים: `index.html`, `style.css`, `workout-core.js`, `archive-logic.js`, `editor-logic.js`, `bodylog-logic.js`, `storage.js`, `data.js`
+- מבנה קבצים: `index.html`, `style.css`, `workout-core.js`, `archive-logic.js`, `editor-logic.js`, `bodylog-logic.js`, `food-logic.js`, `storage.js`, `data.js`, `sw.js`, `version.json`, `vendor/` (ספריות צד-שלישי)
 - Storage: LocalStorage דרך StorageManager
 - Offline First: אפס תלות בשרת, 0ms latency
 
@@ -161,6 +161,7 @@ version.json: { "version": "15.X" }
 | `data.js` | נתוני ברירת מחדל |
 | `docs/mfp-nutrition-bridge.gs` | Google Apps Script — גשר שמושך ייצוא MyFitnessPal מ-Gmail (JSONP) |
 | `docs/health-nutrition-bridge.gs` | Google Apps Script — גשר תזונה מ-Apple Health (קיצור דרך דוחף, האפליקציה מושכת) |
+| `vendor/zxing.min.js` | ספריית ZXing (UMD) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
 
@@ -178,7 +179,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-16.58
+16.59
 
 ---
 

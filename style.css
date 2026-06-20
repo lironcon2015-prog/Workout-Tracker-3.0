@@ -6169,6 +6169,17 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     font-family: inherit; text-align: right; cursor: pointer; color: var(--text); transition: background 0.12s;
 }
 .fd-food-row:active { background: rgba(255,255,255,0.05); }
+/* שורת fallback של AI — יזומה, מודגשת אך מרוסנת */
+.fd-ai-row {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: var(--accent-soft); border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+    border-radius: var(--r-md); padding: 13px 14px; margin: 4px 0 8px;
+    font-family: inherit; font-size: 0.82rem; text-align: right; cursor: pointer;
+    color: var(--accent); transition: background 0.12s;
+}
+.fd-ai-row:active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.fd-ai-row .material-symbols-outlined { font-size: 1.15rem; flex-shrink: 0; }
+.fd-ai-row b { font-weight: 800; }
 .fd-food-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .fd-food-name { font-weight: 500; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 7px; }
 .fd-food-sub { font-size: 0.66rem; color: var(--text-dim); }

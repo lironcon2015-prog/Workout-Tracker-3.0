@@ -31,7 +31,9 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 מותאמים עובדים offline (קאש ב-KEY_FOOD_DB). (3) z-index: overlay=300, ה-bottom-sheets (1000/1001) מעליו בכוונה.
 (4) פענוח ברקוד = מקומי ומיידי, לא AI — AI שמור לקריאת תווית/הערכת מנה בלבד. (5) USDA אנגלי-בלבד: `_fdTranslateForUsda`
 ממפה עברית→אנגלית (`_FD_HE_EN`) לפתיחת חומרי גלם גנריים (דורש מפתח USDA). (6) `_fdTokenMatch` — התאמת חיפוש
-מבוססת-טוקן+נרמול ניקוד, מחליפה `indexOf` נאיבי. (7) ZXing מ-`vendor/` — runtime-cache ב-SW, לא pre-cache (336KB).
+מבוססת-טוקן+נרמול ניקוד, מחליפה `indexOf` נאיבי. (7) ZXing מ-`vendor/` — runtime-cache ב-SW, לא pre-cache (336KB). (8) **Gemini כ-fallback תזונתי** (`_fdAiFood`/`fdAiLookup`):
+שורת "הערכת AI" יזומה (`_fdAppendAiAction`) קבועה מתחת לתוצאות, ואוטומטית ב-0 תוצאות. מזון גנרי = ערכים סטנדרטיים אמינים,
+נשמר ב-DB (id `ai:`) → קאש מיידי+offline. פותר מזון טריוויאלי בעברית בלי מאגר/מילון ידני.
 
 ---
 

@@ -16,6 +16,8 @@ let _fdSearchTimer = null;
 let _fdSearchSeq = 0;         // מזהה רצף — מתעלם מתוצאות של בקשות שעבר זמנן
 let _fdTab = 'recent';
 let _fdFoodCache = {};        // id → food עבור הפריטים המוצגים כרגע
+let _fdLastQuery = '';        // השאילתה האחרונה שהוצגה (עבור fallback של AI)
+let _fdLastFoods = [];        // התוצאות שהוצגו אחרונות (כדי לשרשר מעליהן הערכת AI)
 let _fdPhotoMode = 'label';   // 'label' = ברקוד/תווית | 'meal' = הערכת מנה מצילום
 let _fdMealComponents = [];   // Meal Builder — מרכיבי המנה {name, grams, per100}
 let _fdMealEditId = null;     // עריכת רשומת composite קיימת
@@ -701,11 +703,12 @@ async function fdDoSearch(q) {
     const box = document.getElementById('fd-results');
     if (!box) return;
     const seq = ++_fdSearchSeq;   // הבקשה הנוכחית; תוצאה ישנה תזוהה ותידחה
+    _fdLastQuery = q; _fdLastFoods = [];
     // חומרי גלם מובנים (offline) + תוצאות שמורות — מוצגים מיידית בראש
     const basics = _fdBasicMatches(q);
     const local = StorageManager.getFoodDb().filter(f => f.name && _fdTokenMatch(f.name, q));
     const immediate = _fdDedup(basics.concat(local));
-    if (immediate.length) _fdRenderFoodList(immediate, box);
+    if (immediate.length) { _fdLastFoods = immediate; _fdRenderFoodList(immediate, box); }
     else box.innerHTML = '<div class="fd-loading">מחפש ב-Open Food Facts…</div>';
 
     try {
@@ -714,15 +717,94 @@ async function fdDoSearch(q) {
         foods.forEach(f => StorageManager.upsertFoodToDb(f));   // קאש לשימוש עתידי
         // חומרי גלם בראש, אחריהם תוצאות OFF (ללא כפילויות)
         const merged = _fdDedup(basics.concat(foods));
-        if (merged.length) _fdRenderFoodList(merged, box);
-        else if (!immediate.length) box.innerHTML = '<div class="fd-empty">לא נמצאו תוצאות. נסה שם אחר או צור מזון מותאם.</div>';
+        _fdLastFoods = merged;
+        if (merged.length) { _fdRenderFoodList(merged, box); _fdAppendAiAction(box); }
+        else if (!immediate.length) {
+            // אין תוצאות כלל → fallback יזום ל-AI (אם זמין), אחרת הודעה
+            if (_fdAiAvailable()) { fdAiLookup(); return; }
+            box.innerHTML = '<div class="fd-empty">לא נמצאו תוצאות. נסה שם אחר או צור מזון מותאם.</div>';
+        }
     } catch (e) {
         if (seq !== _fdSearchSeq) return;   // כשל של בקשה ישנה — אל תדרוס תוצאות חדשות
         if (!immediate.length) {
             const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
             box.innerHTML = `<div class="fd-empty">${offline ? 'אין חיבור לרשת — חבר רשת ונסה שוב' : 'החיפוש נכשל — נסה שוב, או הוסף מזון מותאם'}</div>`;
-        }
-        // אם כבר מוצגות תוצאות (חומרי גלם/שמורות) — לא מציגים באנר כשל בכלל
+        } else { _fdAppendAiAction(box); }
+        // אם כבר מוצגות תוצאות (חומרי גלם/שמורות) — לא מציגים באנר כשל
+    }
+}
+
+// זמינות ה-fallback של AI: יש מפתח Gemini ואנחנו לא offline
+function _fdAiAvailable() {
+    return !!StorageManager.getAIConfig().apiKey && !(typeof navigator !== 'undefined' && navigator.onLine === false);
+}
+
+// שורת "הערכת AI" קבועה מתחת לתוצאות — יזומה: לחיצה כשהתוצאות לא מתאימות.
+// (משתמש ב-_fdLastQuery במקום inline ב-onclick כדי להימנע מבעיות escaping)
+function _fdAppendAiAction(box) {
+    if (!_fdAiAvailable() || !_fdLastQuery) return;
+    box.insertAdjacentHTML('beforeend',
+        `<button class="fd-ai-row" onclick="fdAiLookup()">
+            <span class="material-symbols-outlined">auto_awesome</span>
+            <span>לא מצאת? <b>הערכת&nbsp;AI</b> ל"${_fdEsc(_fdLastQuery)}"</span>
+        </button>`);
+}
+
+// בקשת ערכים תזונתיים סטנדרטיים מ-Gemini (מזון גנרי = ערכים ידועים ואמינים)
+async function _fdAiNutrition(q) {
+    const config = StorageManager.getAIConfig();
+    if (!config.apiKey) throw new Error('API_KEY_MISSING');
+    const prompt = 'אתה מסד נתונים תזונתי. החזר ערכים תזונתיים סטנדרטיים ל-100 גרם של המזון: "' + q + '". ' +
+        'החזר JSON בלבד: {"found": boolean, "name": string, "kcal": number, "protein": number, "carbs": number, "fat": number}. ' +
+        'name = שם תקני קצר בעברית. אם המחרוזת אינה מזון מוכר — found=false. אל תוסיף טקסט.';
+    const parts = [{ text: prompt }];
+    const generationConfig = { temperature: 0, maxOutputTokens: 150, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
+    let lastErr = '';
+    for (const modelName of config.models) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
+            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig }) });
+            if (!resp.ok) { if ([400, 404, 429, 503].includes(resp.status)) { lastErr = `${modelName}:${resp.status}`; continue; } throw new Error('API_ERROR_' + resp.status); }
+            const data = await resp.json();
+            const txt = (data.candidates?.[0]?.content?.parts || []).find(p => !p.thought)?.text || '';
+            return JSON.parse(txt);
+        } catch (e) { lastErr = e.message || String(e); }
+    }
+    throw new Error(lastErr || 'AI_FAILED');
+}
+
+// ממיר תשובת AI לאובייקט מזון ושומר ב-DB (קאש → פעם הבאה מיידי + offline)
+async function _fdAiFood(q) {
+    const res = await _fdAiNutrition(q);
+    if (!res || res.found === false || res.kcal == null) return null;
+    const food = {
+        id: 'ai:' + _fdNorm(q), name: res.name || q, brand: 'הערכת AI',
+        barcode: null, source: 'gemini',
+        per100: { kcal: Math.round(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat) },
+        servings: [{ label: '100 גרם', grams: 100 }]
+    };
+    StorageManager.upsertFoodToDb(food);
+    return food;
+}
+
+// יזום ע"י המשתמש (או אוטומטית ב-0 תוצאות) — הערכת AI לשאילתה הנוכחית
+async function fdAiLookup() {
+    const box = document.getElementById('fd-results');
+    const q = _fdLastQuery;
+    if (!box || !q) return;
+    if (!StorageManager.getAIConfig().apiKey) { showAlert('להערכת AI נדרש מפתח Gemini (הגדרות → AI Coach).'); return; }
+    const seq = _fdSearchSeq;
+    box.innerHTML = '<div class="fd-loading">🔮 מעריך תזונה עם AI…</div>';
+    try {
+        const food = await _fdAiFood(q);
+        if (seq !== _fdSearchSeq) return;   // המשתמש המשיך להקליד — התעלם
+        if (food) { _fdRenderFoodList([food].concat(_fdLastFoods), box); return; }
+        _fdRenderFoodList(_fdLastFoods, box);
+        box.insertAdjacentHTML('beforeend', '<div class="fd-empty">ה-AI לא זיהה מזון מוכר בשם זה. נסה ניסוח אחר או צור מזון מותאם.</div>');
+    } catch (e) {
+        if (seq !== _fdSearchSeq) return;
+        _fdRenderFoodList(_fdLastFoods, box);
+        box.insertAdjacentHTML('beforeend', '<div class="fd-empty">הערכת ה-AI נכשלה — נסה שוב או צור מזון מותאם.</div>');
     }
 }
 

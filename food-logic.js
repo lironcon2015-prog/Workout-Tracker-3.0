@@ -216,17 +216,46 @@ function _fdFetch(url, ms) {
 
 // חיפוש מאוחד: Open Food Facts (מוצרים ארוזים) + USDA (חומרי גלם/גנרי, אם הוגדר מפתח),
 // במקביל. מחזיר רשימה ממוזגת; זורק רק אם כל המקורות נכשלו וגם אין תוצאות.
+// חיפוש מאוחד: צמ"ת (גנרי עברי רשמי) + Open Food Facts (מוצרים ארוזים) +
+// USDA (אם הוגדר מפתח), במקביל. מחזיר רשימה ממוזגת; זורק רק אם כל המקורות נכשלו וגם אין תוצאות.
 async function searchFoods(q) {
-    const [offRes, usdaRes] = await Promise.allSettled([_searchOFF(q), searchUSDA(q)]);
+    const [tzRes, offRes, usdaRes] = await Promise.allSettled([searchTzameret(q), _searchOFF(q), searchUSDA(q)]);
+    const tz   = tzRes.status   === 'fulfilled' ? tzRes.value   : [];
     const off  = offRes.status  === 'fulfilled' ? offRes.value  : [];
     const usda = usdaRes.status === 'fulfilled' ? usdaRes.value : [];
-    const merged = _fdDedup(off.concat(usda));
+    // צמ"ת בראש (גנרי עברי מדויק), אחריו OFF (ארוזים), אחריו USDA
+    const merged = _fdDedup(tz.concat(off).concat(usda));
     if (merged.length) return merged;
-    // שניהם ריקים: אם שניהם נכשלו (לא סתם 0 תוצאות) — זרוק כדי להציג שגיאה
-    if (offRes.status === 'rejected' && (usdaRes.status === 'rejected' || !StorageManager.getUsdaKey())) {
-        throw (offRes.reason || new Error('SEARCH_FAILED'));
+    // כולם ריקים: זרוק רק אם המקורות שניסו נכשלו (לא סתם 0 תוצאות)
+    if (offRes.status === 'rejected' && tzRes.status === 'rejected' && (usdaRes.status === 'rejected' || !StorageManager.getUsdaKey())) {
+        throw (offRes.reason || tzRes.reason || new Error('SEARCH_FAILED'));
     }
     return [];
+}
+
+// ── צמ"ת (מאגר משרד הבריאות) — מקור גנרי עברי דרך CKAN data.gov.il ──
+// טבלת המזונות, ערכים per-100g. מקור רשמי פתוח; cache ל-KEY_FOOD_DB → offline בפעם הבאה.
+const _TZ_RESOURCE = 'c3cb0630-0650-46c1-a068-82d575c094b2';
+function _tzToFood(r) {
+    if (!r) return null;
+    const name = String(r.shmmitzrach || '').trim();   // שם המזון בעברית
+    const kcal = Number(r.food_energy);
+    if (!name || !isFinite(kcal)) return null;
+    return {
+        id: 'tz:' + (r.smlmitzrach || r._id || name),
+        name, brand: 'צמ"ת', barcode: null, source: 'tzameret',
+        per100: { kcal: Math.round(kcal), p: _fdR(r.protein), c: _fdR(r.carbohydrates), f: _fdR(r.total_fat) },
+        servings: [{ label: '100 גרם', grams: 100 }]
+    };
+}
+async function searchTzameret(q) {
+    const url = `https://data.gov.il/api/3/action/datastore_search?resource_id=${_TZ_RESOURCE}` +
+        `&q=${encodeURIComponent(q)}&limit=20`;
+    const resp = await _fdFetch(url);
+    if (!resp.ok) throw new Error('TZ_' + resp.status);
+    const data = await resp.json();
+    if (!data || data.success !== true || !data.result) return [];
+    return (data.result.records || []).map(_tzToFood).filter(Boolean);
 }
 
 // _searchOFF: מנסה קודם את ה-API המודרני (search.openfoodfacts.org — בנוי ל-CORS),
@@ -808,7 +837,7 @@ async function fdAiLookup() {
     }
 }
 
-const _FD_SRC_LABEL = { off: 'OFF', usda: 'USDA', basic: 'בסיסי', custom: 'מותאם', gemini: 'AI' };
+const _FD_SRC_LABEL = { off: 'OFF', usda: 'USDA', basic: 'בסיסי', custom: 'מותאם', gemini: 'AI', tzameret: 'צמ"ת' };
 function _fdSrcChip(f) {
     const s = (f.source === 'basic' || f.brand === 'חומר גלם') ? 'basic' : (f.source || 'off');
     const lbl = _FD_SRC_LABEL[s] || '';

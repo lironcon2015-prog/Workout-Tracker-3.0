@@ -219,6 +219,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 - **קובץ מאוחד (`exportUnifiedData`):** `nutrition_raw_mfp` הוחלף ב-`nutrition_detailed`. כעת = weights + nutrition_daily + nutrition_detailed + workouts.
 - **המאגר המקומי בענן בלבד:** `KEY_FOOD_DB`+`KEY_FOOD_LOG` מסונכרנים דרך מסמך `config` (saveConfigToCloud) — אין ייצוא JSON מקומי.
 - **קובץ החיבורים:** נוסף `KEY_USDA_KEY`. כלל ב-CLAUDE.md: בכל סוד/אינטגרציה חדשים — לשאול אם לכלול ב-`_connectionKeys()`.
+- **צמ"ת (v16.61):** מקור גנרי עברי רשמי דרך CKAN `data.gov.il` (`searchTzameret`, resource `c3cb0630...`, per-100g, שדות `shmmitzrach`/`food_energy`/`protein`/`total_fat`/`carbohydrates`). מקביל ל-OFF/USDA ב-`searchFoods`, **בראש התוצאות**, cache ל-`KEY_FOOD_DB` → offline+סנכרון. כשל/CORS → `[]` ללא רגרסיה. צ'יפ `tzameret`. (תלוי ב-CORS של data.gov.il — לאמת בדפדפן.)
 - **grams מצרפי (v16.59):** בפריט מנה עם `components`, ה-`grams` ברמת-הפריט הוא 0 (המשקל ברכיבים). `_detailMealsFromEntries` דורס `item.grams = sum(components.grams)`. עיקרון: כל שדה מצרפי ברמת-פריט = סכום עקבי של הרכיבים (יש console.warn אם kcal חורג).
 
 ---

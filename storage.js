@@ -713,15 +713,23 @@ const StorageManager = {
         const db = this.getFoodDb();
         const i = db.findIndex(f => f.id === food.id || (f.barcode && food.barcode && f.barcode === food.barcode));
         if (i >= 0) db[i] = Object.assign({}, db[i], food);
-        else db.push(Object.assign({ useCount: 0, lastUsed: 0, favorite: false }, food));
+        else db.push(Object.assign({ useCount: 0, lastUsed: 0, favorite: false, mealUse: {} }, food));
         this.saveData(this.KEY_FOOD_DB, db);
     },
 
-    bumpFoodUsage(id) {
+    // bumpFoodUsage — מעדכן שימוש גלובלי וגם שימוש לפי ארוחה (mealUse) לדירוג מותאם-ארוחה
+    bumpFoodUsage(id, meal) {
         const db = this.getFoodDb();
         const f = db.find(x => x.id === id); if (!f) return;
+        const now = Date.now();
         f.useCount = (f.useCount || 0) + 1;
-        f.lastUsed = Date.now();
+        f.lastUsed = now;
+        if (meal) {
+            if (!f.mealUse) f.mealUse = {};
+            const mu = f.mealUse[meal] || { count: 0, lastUsed: 0 };
+            mu.count++; mu.lastUsed = now;
+            f.mealUse[meal] = mu;
+        }
         this.saveData(this.KEY_FOOD_DB, db);
     },
 
@@ -733,17 +741,69 @@ const StorageManager = {
         return f.favorite;
     },
 
-    recentFoods(n) {
-        return this.getFoodDb().filter(f => f.lastUsed)
-            .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0)).slice(0, n || 20);
+    // דירוג מותאם-ארוחה: מזונות שנאכלו בארוחה הנתונה קודם (לפי lastUsed שלה), אחר כך הגלובלי
+    _mealSort(meal) {
+        return (a, b) => {
+            if (meal) {
+                const am = (a.mealUse && a.mealUse[meal]) ? a.mealUse[meal].lastUsed : 0;
+                const bm = (b.mealUse && b.mealUse[meal]) ? b.mealUse[meal].lastUsed : 0;
+                if (am !== bm) return bm - am;   // הארוחה הנוכחית מובילה
+            }
+            return (b.lastUsed || 0) - (a.lastUsed || 0);
+        };
     },
-    favoriteFoods() {
-        return this.getFoodDb().filter(f => f.favorite)
-            .sort((a, b) => (b.useCount || 0) - (a.useCount || 0));
+
+    recentFoods(n, meal) {
+        return this.getFoodDb().filter(f => f.lastUsed)
+            .sort(this._mealSort(meal)).slice(0, n || 20);
+    },
+    favoriteFoods(meal) {
+        return this.getFoodDb().filter(f => f.favorite).sort(this._mealSort(meal));
     },
     customFoods() {
         return this.getFoodDb().filter(f => f.source === 'custom')
             .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+    },
+
+    // applyMfpDays — ייבוא ימי MFP עם בקרת דריסה. ימים חדשים (ללא רשומה) מיובאים תמיד;
+    // ימי התנגשות (קיימת רשומה שונה) נדרסים רק אם התאריך ב-overwriteDates.
+    // overwriteDates = Set של תאריכים שאושרו לדריסה (null = דרוס הכל — תאימות לאחור).
+    applyMfpDays(days, overwriteDates) {
+        const map = {};
+        this.getNutritionDaily().forEach(d => { if (d && d.date) map[d.date] = d; });
+        (days || []).forEach(d => {
+            if (!d || !d.date) return;
+            const existing = map[d.date];
+            const isConflict = existing && (
+                Math.round(existing.calories || 0) !== Math.round(d.calories || 0) ||
+                Math.round(existing.protein || 0)  !== Math.round(d.protein || 0)  ||
+                Math.round(existing.carbs || 0)    !== Math.round(d.carbs || 0)    ||
+                Math.round(existing.fat || 0)      !== Math.round(d.fat || 0)
+            );
+            if (isConflict && overwriteDates && !overwriteDates.has(d.date)) return; // לא לדרוס
+            map[d.date] = d;   // יום חדש או דריסה מאושרת
+        });
+        const merged = Object.values(map).sort((a, b) => a.date < b.date ? -1 : 1);
+        this.saveData(this.KEY_NUTRITION_DAILY, merged);
+        return merged;
+    },
+
+    // mfpConflicts — מחזיר רשימת ימי התנגשות (קיים שונה מהנכנס) לתצוגה בדיאלוג
+    mfpConflicts(days) {
+        const map = {};
+        this.getNutritionDaily().forEach(d => { if (d && d.date) map[d.date] = d; });
+        const out = [];
+        (days || []).forEach(d => {
+            if (!d || !d.date) return;
+            const ex = map[d.date];
+            if (!ex) return;
+            const diff = Math.round(ex.calories || 0) !== Math.round(d.calories || 0) ||
+                Math.round(ex.protein || 0) !== Math.round(d.protein || 0) ||
+                Math.round(ex.carbs || 0)   !== Math.round(d.carbs || 0)   ||
+                Math.round(ex.fat || 0)     !== Math.round(d.fat || 0);
+            if (diff) out.push({ date: d.date, existing: ex, incoming: d });
+        });
+        return out.sort((a, b) => a.date < b.date ? 1 : -1);   // חדש→ישן
     },
 
     // ── פרופיל גוף (TDEE) ────────────────────────────────────────────────

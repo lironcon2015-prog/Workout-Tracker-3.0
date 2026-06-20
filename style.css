@@ -5880,9 +5880,12 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
    FOOD DIARY — יומן מזון מובנה
    ═══════════════════════════════════════════════════════════════════ */
 
-/* כפתור "יומן תזונה" בכרטיס הבית — מתחת לתגית LIVE ומיושר לשמאל כמותה */
-.home-today-diary-row { display: flex; justify-content: flex-end; margin: 6px 0 2px; }
+/* כפתור "יומן תזונה" בכרטיס הבית — absolute מתחת לתגית LIVE, ללא השפעה על זרימת התוכן
+   (כך מספר הקלוריות נשאר בדיוק בגובה המשקל בכרטיס הרכב הגוף). left:6px = הקצה השמאלי
+   הוויזואלי של LIVE (שמוסט -10px ע"י margin של #home-today-live). */
+#ui-week #home-today-nutrition { position: relative; }
 .home-today-diary {
+    position: absolute; top: 2.45rem; left: 6px; z-index: 2;
     display: inline-flex; align-items: center; gap: 4px;
     background: var(--accent-soft); color: var(--accent);
     font-size: 0.66rem; font-weight: 800;
@@ -6093,3 +6096,37 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .nutri-macro-targets input.macro-p::placeholder { color: #4a86e8; }
 .nutri-macro-targets input.macro-c::placeholder { color: #ffad47; }
 .nutri-macro-targets input.macro-f::placeholder { color: #f6c5be; }
+
+/* ── יומן מזון: תיקוני סבב v16.45 ── */
+/* שדה שעה בעורך המנה — מניעת חיתוך */
+.fd-field input[type="time"] { min-width: 0; width: 100%; box-sizing: border-box; }
+/* גלילה: מניעת "קפיצת" מסך בהורדת מקלדת */
+#fd-results, #fd-scroll { overscroll-behavior: contain; }
+
+/* מודל דריסה בייבוא MFP */
+.mfp-conf-modal { max-width: 440px; width: 92%; text-align: right; }
+.mfp-conf-title { font-size: 1.1rem; font-weight: 900; margin: 0 0 6px; }
+.mfp-conf-sub { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; margin: 0 0 12px; }
+.mfp-conf-actions-top { display: flex; gap: 8px; margin-bottom: 10px; }
+.mfp-conf-mini {
+    background: var(--surface-3); border: none; color: var(--text);
+    font-family: inherit; font-weight: 700; font-size: 0.74rem;
+    padding: 7px 14px; border-radius: 9999px; cursor: pointer;
+}
+.mfp-conf-list { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.mfp-conf-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: var(--r-md); padding: 10px 12px; cursor: pointer;
+}
+.mfp-conf-cb { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--accent); }
+.mfp-conf-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mfp-conf-date { font-weight: 800; font-size: 0.85rem; }
+.mfp-conf-vals { font-size: 0.68rem; color: var(--text-dim); }
+.mfp-conf-actions { display: flex; gap: 10px; }
+.mfp-conf-cancel, .mfp-conf-confirm {
+    flex: 1; border: none; border-radius: var(--r-pill); padding: 13px;
+    font-family: inherit; font-weight: 900; font-size: 0.9rem; cursor: pointer;
+}
+.mfp-conf-cancel { background: var(--surface-3); color: var(--text); }
+.mfp-conf-confirm { background: var(--accent-gradient); color: var(--accent-text); box-shadow: var(--accent-glow); }

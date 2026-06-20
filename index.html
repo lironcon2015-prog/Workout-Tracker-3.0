@@ -465,9 +465,7 @@
                             <span class="home-today-lbl" id="home-today-nutri-lbl">תזונה היום</span>
                             <span class="bl-live-badge" id="home-today-live" style="display:none" role="button" onclick="event.stopPropagation();refreshHomeNutrition()"><span class="bl-live-dot"></span>LIVE</span>
                         </div>
-                        <div class="home-today-diary-row">
-                            <span class="home-today-diary" role="button" onclick="event.stopPropagation();openFoodDiary()"><span class="material-symbols-outlined">menu_book</span>יומן תזונה</span>
-                        </div>
+                        <span class="home-today-diary" role="button" onclick="event.stopPropagation();openFoodDiary()"><span class="material-symbols-outlined">menu_book</span>יומן תזונה</span>
                         <div class="home-today-metric">
                             <span class="home-today-num" id="home-today-kcal">—</span>
                             <span class="home-today-unit">kcal</span>
@@ -2027,11 +2025,18 @@
             <span class="material-symbols-outlined nutri-io-icon">cloud_download</span>
             <span class="nutri-io-text">
                 <span class="nutri-io-title">ייבוא MyFitnessPal מ-Gmail</span>
-                <span class="nutri-io-desc">הייצוא המלא — כולל פירוט ארוחות. דורס ימי Health (מקור האמת)</span>
+                <span class="nutri-io-desc">הייצוא המלא — כולל פירוט ארוחות. ימים שכבר קיימים יוצגו לבחירה לפני דריסה</span>
             </span>
         </button>
 
         <div class="nutri-io-group-label">ייצוא</div>
+        <button class="nutri-io-row" onclick="_nutriIOAction(exportFoodDiaryJson)">
+            <span class="material-symbols-outlined nutri-io-icon">data_object</span>
+            <span class="nutri-io-text">
+                <span class="nutri-io-title">ייצוא יומן מזון (JSON)</span>
+                <span class="nutri-io-desc">היומן המלא — כל המזונות והרשומות לכל יום + המאגר המקומי</span>
+            </span>
+        </button>
         <button class="nutri-io-row" onclick="_nutriIOAction(() => exportNutritionCsv('all'))">
             <span class="material-symbols-outlined nutri-io-icon">table_view</span>
             <span class="nutri-io-text">
@@ -2112,6 +2117,23 @@
     <div id="fd-portion-sheet" class="bottom-sheet fd-portion-sheet">
         <div class="sheet-handle"></div>
         <div id="fd-portion-body"></div>
+    </div>
+
+    <!-- ════════ מודל דריסה בייבוא MFP ════════ -->
+    <div id="mfp-conflict-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content mfp-conf-modal">
+            <h3 class="mfp-conf-title">ימים קיימים יידרסו?</h3>
+            <p class="mfp-conf-sub">לימים הבאים כבר יש נתונים שונים. סמן אילו לדרוס בנתוני MFP. ימים חדשים יתווספו בכל מקרה.</p>
+            <div class="mfp-conf-actions-top">
+                <button class="mfp-conf-mini" onclick="mfpConflictSelectAll(true)">סמן הכל</button>
+                <button class="mfp-conf-mini" onclick="mfpConflictSelectAll(false)">נקה</button>
+            </div>
+            <div id="mfp-conflict-list" class="mfp-conf-list"></div>
+            <div class="mfp-conf-actions">
+                <button class="mfp-conf-cancel" onclick="closeMfpConflict()">בטל</button>
+                <button class="mfp-conf-confirm" onclick="confirmMfpOverwrite()">החל</button>
+            </div>
+        </div>
     </div>
 
     <!-- AI Coach Modal -->

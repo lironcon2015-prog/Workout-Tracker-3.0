@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GymPro · יומן תזונה — Deep Obsidian</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@200;300;400;500;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#040406; --s1:#0e0e11; --s2:#141418; --s3:#1c1c21; --s4:#27272e;
+  --glass:rgba(26,26,31,0.5);
+  --text:#eef0f3; --dim:#888b94; --faint:#5b5e67;
+  --hair:rgba(255,255,255,0.055); --hair-hi:rgba(255,255,255,0.11);
+  /* כחול עמוק ומעודן (לא ניאון) */
+  --accent:#5A8CE6; --accent-dim:#2c4f9e; --accent-rgb:90,140,230; --accent-soft:rgba(90,140,230,0.13); --accent-text:#ffffff;
+  /* מאקרו — מורווה ועמום, ערכים בלבן */
+  --mp:#8FB0C9; --mc:#C3A874; --mf:#C594A6;
+  --r-md:20px; --r-lg:28px; --r-xl:34px; --pill:9999px;
+  --glint:inset 0 1px 0 rgba(255,255,255,0.06);
+  --elev:0 1px 2px rgba(0,0,0,.55),0 20px 48px rgba(0,0,0,.55);
+  --elev-lg:0 2px 6px rgba(0,0,0,.55),0 36px 80px rgba(0,0,0,.65);
+  --blur:saturate(150%) blur(40px);
+}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+body{margin:0;font-family:'Heebo',sans-serif;color:var(--text);
+  display:flex;flex-wrap:wrap;gap:38px;justify-content:center;align-items:flex-start;padding:46px 20px 90px;
+  background:#000;}
+.material-symbols-outlined{font-family:'Material Symbols Outlined';font-variation-settings:'wght' 300;line-height:1;}
+.t{width:100%;text-align:center;color:#fff;font-weight:700;font-size:1.25rem;letter-spacing:-.02em;margin:0;}
+.st{width:100%;text-align:center;color:#8a847b;font-size:.84rem;font-weight:400;margin:-24px 0 12px;}
+.cap{width:336px;text-align:center;color:#9a948b;font-weight:600;font-size:.78rem;letter-spacing:.04em;margin-top:12px;}
+
+/* ── טלפון ── */
+.phone{width:336px;height:728px;border-radius:46px;overflow:hidden;position:relative;
+  border:1px solid #26232a;box-shadow:0 0 0 10px #0a090b,0 40px 80px rgba(0,0,0,.7);
+  display:flex;flex-direction:column;background:var(--bg);}
+/* רקע אווירה רב-שכבתי (עומק) */
+.phone::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+   radial-gradient(75% 45% at 72% 5%,rgba(90,140,230,.14),transparent 60%),
+   radial-gradient(70% 45% at 14% 30%,rgba(60,80,140,.07),transparent 60%),
+   radial-gradient(95% 55% at 50% 113%,rgba(40,60,120,.10),transparent 62%);}
+.scroll{position:relative;z-index:1;flex:1;overflow-y:auto;padding:12px 16px 30px;}
+.scroll::-webkit-scrollbar{display:none;}
+
+/* ── כותרת ── */
+.hd{position:relative;z-index:1;display:flex;align-items:center;gap:8px;padding:18px 10px 16px;}
+.gbtn{width:42px;height:42px;border-radius:var(--pill);background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--hair);color:var(--text);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--glint);}
+.gbtn .material-symbols-outlined{font-size:1.3rem;}
+.daynav{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;}
+.darrow{width:34px;height:34px;border-radius:var(--pill);background:none;border:none;color:var(--faint);display:flex;align-items:center;justify-content:center;}
+.darrow .material-symbols-outlined{font-size:1.4rem;}
+.date{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:120px;}
+.date-main{font-weight:600;font-size:1.18rem;letter-spacing:-.02em;}
+.date-dow{font-size:.6rem;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.16em;}
+.spacer{width:42px;}
+
+/* ── Hero glass ── */
+.hero{position:relative;border-radius:var(--r-xl);padding:26px 22px 22px;margin-bottom:20px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(40,36,44,.6),rgba(22,20,25,.5));
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--hair);border-top-color:var(--hair-hi);box-shadow:var(--glint),var(--elev-lg);}
+.hero::before{content:"";position:absolute;left:50%;top:-40%;width:240px;height:240px;transform:translateX(-50%);
+  background:radial-gradient(circle,rgba(var(--accent-rgb),.30),transparent 62%);filter:blur(10px);pointer-events:none;}
+.ringwrap{position:relative;z-index:1;display:flex;justify-content:center;}
+.ring{width:220px;height:220px;display:block;}
+.ring-track{fill:none;stroke:rgba(255,255,255,.06);stroke-width:5;}
+.ring-prog{fill:none;stroke:url(#grad);stroke-width:5;stroke-linecap:round;transform:rotate(-90deg);transform-origin:60px 60px;
+  filter:drop-shadow(0 0 6px rgba(var(--accent-rgb),.5));}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.ring-num{font-weight:200;font-size:3.6rem;line-height:.9;letter-spacing:-.04em;color:#fff;}
+.ring-lbl{font-size:.62rem;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:.22em;}
+.kcaps{position:relative;z-index:1;display:flex;align-items:stretch;justify-content:center;margin:18px 0 6px;}
+.kcap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.kcap-lbl{font-size:.56rem;text-transform:uppercase;letter-spacing:.18em;color:var(--dim);font-weight:700;}
+.kcap-val{font-size:1.4rem;font-weight:300;line-height:1;letter-spacing:-.02em;}
+.kcap-val.acc{color:var(--accent);font-weight:400;}
+.kcap-sep{width:1px;background:var(--hair-hi);margin:2px 0;}
+
+/* macros — אלגנטי, על הזכוכית, מופרד בקווים דקים */
+.macros{position:relative;z-index:1;display:flex;margin-top:20px;padding-top:18px;border-top:1px solid var(--hair);}
+.mstat{flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;}
+.mstat+.mstat{border-inline-start:1px solid var(--hair);}
+.mstat-lbl{font-size:.58rem;text-transform:uppercase;letter-spacing:.14em;color:var(--dim);font-weight:700;}
+.mstat-val{font-size:1.05rem;font-weight:400;letter-spacing:-.01em;}
+.mstat-val small{font-size:.56em;color:var(--faint);font-weight:400;margin-inline-start:2px;}
+.mline{width:42px;height:3px;border-radius:9999px;background:rgba(255,255,255,.08);overflow:hidden;}
+.mline span{display:block;height:100%;border-radius:9999px;}
+.mp{color:var(--mp);} .mc{color:var(--mc);} .mf{color:var(--mf);}
+.mline.mp span{background:var(--mp);} .mline.mc span{background:var(--mc);} .mline.mf span{background:var(--mf);}
+
+/* ── ארוחות — כרטיסי זכוכית מרחפים ── */
+.sect{font-size:.6rem;text-transform:uppercase;letter-spacing:.18em;color:var(--faint);font-weight:700;margin:6px 6px 10px;}
+.meal{position:relative;border-radius:var(--r-lg);margin-bottom:14px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(33,30,37,.5),rgba(20,18,23,.45));
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--hair);border-top-color:var(--hair-hi);box-shadow:var(--glint),var(--elev);}
+.meal-hd{display:flex;align-items:center;gap:13px;padding:16px 16px;}
+.meal-ic{width:38px;height:38px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.05);color:var(--accent);border:1px solid var(--hair);}
+.meal-ic .material-symbols-outlined{font-size:1.25rem;}
+.meal-tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.meal-nm{font-weight:600;font-size:1rem;letter-spacing:-.01em;}
+.meal-kc{font-size:.66rem;color:var(--dim);font-weight:500;text-transform:uppercase;letter-spacing:.08em;}
+.meal-add{width:36px;height:36px;border-radius:var(--pill);flex-shrink:0;border:1px solid var(--hair);
+  background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;}
+.meal-add .material-symbols-outlined{font-size:1.3rem;}
+.meal-body{border-top:1px solid var(--hair);}
+.entry{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;border-bottom:1px solid var(--hair);
+  padding:15px 16px;color:var(--text);text-align:right;font-family:inherit;}
+.entry:last-child{border-bottom:none;}
+.entry-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+.entry-nm{font-weight:500;font-size:.92rem;display:flex;align-items:center;gap:7px;}
+.badge{display:inline-flex;align-items:center;gap:3px;color:var(--accent);font-size:.58rem;font-weight:700;
+  border:1px solid var(--accent-soft);padding:1px 7px;border-radius:9999px;text-transform:uppercase;letter-spacing:.06em;}
+.badge .material-symbols-outlined{font-size:.8rem;}
+.entry-sub{font-size:.66rem;color:var(--dim);letter-spacing:.02em;}
+.entry-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;}
+.entry-kc{font-weight:400;font-size:1.15rem;letter-spacing:-.02em;}
+.entry-kc small{font-size:.48em;color:var(--faint);font-weight:500;margin-inline-start:3px;text-transform:uppercase;letter-spacing:.1em;}
+.pcf{display:flex;gap:9px;font-size:.62rem;font-weight:600;}
+.emptyrow{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;background:none;border:none;
+  color:var(--dim);padding:17px;font-weight:500;font-size:.8rem;font-family:inherit;}
+.emptyrow .material-symbols-outlined{font-size:1.1rem;color:var(--accent);}
+.addmeal{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;background:rgba(255,255,255,.02);
+  border:1px dashed var(--hair-hi);color:var(--dim);border-radius:var(--r-lg);padding:15px;font-weight:500;font-size:.82rem;font-family:inherit;}
+.addmeal .material-symbols-outlined{font-size:1.15rem;}
+
+/* ── שיט זכוכית ── */
+.sheet{position:relative;z-index:2;margin-top:auto;border-radius:30px 30px 0 0;padding:8px 18px 22px;
+  background:linear-gradient(180deg,rgba(34,31,38,.82),rgba(16,14,19,.9));
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border-top:1px solid var(--hair-hi);box-shadow:0 -16px 50px rgba(0,0,0,.6);}
+.handle{width:38px;height:4px;border-radius:9999px;background:var(--s4);margin:8px auto 16px;}
+.addhead{display:flex;gap:9px;align-items:center;margin-bottom:14px;}
+.search-wrap{position:relative;flex:1;display:flex;align-items:center;}
+.search-ic{position:absolute;inset-inline-start:15px;color:var(--dim);font-size:1.2rem;}
+.search{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--hair);border-radius:var(--pill);
+  padding:13px 46px 13px 14px;color:var(--text);font-family:inherit;font-size:.95rem;}
+.cam{width:48px;height:48px;border-radius:16px;flex-shrink:0;border:1px solid var(--hair);
+  background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;}
+.cam.alt{background:rgba(255,255,255,.04);color:var(--dim);}
+.tabs{display:flex;gap:4px;padding:4px;background:rgba(255,255,255,.04);border:1px solid var(--hair);border-radius:var(--pill);margin-bottom:14px;}
+.tab{flex:1;background:none;border:none;color:var(--dim);font-family:inherit;font-weight:600;font-size:.76rem;padding:10px;border-radius:var(--pill);}
+.tab.on{background:linear-gradient(135deg,var(--accent),var(--accent-dim));color:var(--accent-text);box-shadow:0 6px 20px rgba(var(--accent-rgb),.32);}
+.frow{display:flex;align-items:center;gap:12px;width:100%;background:rgba(255,255,255,.025);border:1px solid var(--hair);
+  border-radius:var(--r-md);padding:14px;margin-bottom:8px;color:var(--text);text-align:right;font-family:inherit;}
+.frow-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;}
+.frow-nm{font-weight:500;font-size:.9rem;display:flex;align-items:center;gap:7px;}
+.src{font-size:.54rem;font-weight:700;padding:2px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--hair);color:var(--dim);}
+.src.basic{color:var(--mp);border-color:color-mix(in srgb,var(--mp) 40%,transparent);}
+.src.ai{color:var(--accent);border-color:var(--accent-soft);}
+.frow-sub{font-size:.66rem;color:var(--dim);}
+.star{font-size:1.25rem;color:var(--faint);} .star.on{color:var(--accent);}
+
+/* ── Meal Builder ── */
+.mb-name{width:100%;background:none;border:none;color:var(--text);font-weight:600;font-size:1.3rem;padding:2px;margin-bottom:12px;font-family:inherit;letter-spacing:-.02em;}
+.mb-total{display:flex;align-items:baseline;gap:7px;border-radius:var(--r-md);padding:15px 16px;margin-bottom:16px;
+  background:linear-gradient(180deg,rgba(40,36,44,.55),rgba(22,20,25,.5));border:1px solid var(--hair);border-top-color:var(--hair-hi);box-shadow:var(--glint);}
+.mb-kc{font-weight:300;font-size:1.9rem;line-height:1;color:var(--accent);letter-spacing:-.03em;}
+.mb-u{font-size:.7rem;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.1em;}
+.mb-m{display:flex;gap:11px;margin-inline-start:auto;font-size:.64rem;font-weight:600;}
+.comp{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.025);border:1px solid var(--hair);border-radius:var(--r-md);padding:13px 14px;margin-bottom:9px;}
+.comp-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.comp-nm{font-weight:500;font-size:.88rem;}
+.comp-kc{font-size:.66rem;color:var(--dim);} .comp-kc b{color:var(--text);font-weight:600;}
+.box{width:62px;background:rgba(255,255,255,.05);border:1px solid var(--hair);border-radius:12px;padding:9px 6px;color:var(--text);font-weight:500;text-align:center;font-size:.92rem;}
+.comp-u{font-size:.6rem;color:var(--dim);margin-inline-start:4px;}
+.comp-del{width:28px;height:28px;border-radius:9999px;background:none;border:none;color:var(--faint);display:flex;align-items:center;justify-content:center;}
+.comp-add{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;background:rgba(255,255,255,.02);border:1px dashed var(--hair-hi);
+  color:var(--dim);border-radius:var(--r-md);padding:13px;font-weight:500;font-size:.8rem;margin-bottom:18px;font-family:inherit;}
+.comp-add .material-symbols-outlined{font-size:1.1rem;color:var(--accent);}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.chip{background:rgba(255,255,255,.04);border:1px solid var(--hair);color:var(--text);font-weight:500;font-size:.78rem;padding:9px 16px;border-radius:9999px;font-family:inherit;}
+.chip.on{background:linear-gradient(135deg,var(--accent),var(--accent-dim));color:var(--accent-text);border-color:transparent;}
+.field{display:flex;flex-direction:column;gap:7px;margin-bottom:18px;}
+.field span{font-size:.6rem;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:.12em;text-align:center;}
+.field .box{width:100%;height:48px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-weight:500;}
+.acts{display:flex;gap:11px;}
+.save{flex:1;background:linear-gradient(135deg,var(--accent),var(--accent-dim));color:var(--accent-text);border:none;
+  border-radius:var(--pill);padding:16px;font-weight:700;font-size:.95rem;font-family:inherit;box-shadow:0 8px 26px rgba(var(--accent-rgb),.34);}
+.del{width:54px;border-radius:var(--pill);background:rgba(255,80,70,.12);color:#ff7a70;border:1px solid rgba(255,80,70,.2);display:flex;align-items:center;justify-content:center;}
+</style>
+</head>
+<body>
+<h1 class="t">GymPro · יומן תזונה — Deep Obsidian</h1>
+<p class="st">שחור עמוק · זכוכית מוקפאת · טיפוגרפיה דקה · ערכים בלבן · accent כחול עמוק ומרוסן</p>
+
+<!-- מסך 1 -->
+<div>
+<div class="phone">
+  <div class="hd">
+    <button class="gbtn"><span class="material-symbols-outlined">close</span></button>
+    <div class="daynav">
+      <button class="darrow"><span class="material-symbols-outlined">chevron_right</span></button>
+      <div class="date"><span class="date-main">היום</span><span class="date-dow">שישי · 20.06</span></div>
+      <button class="darrow"><span class="material-symbols-outlined">chevron_left</span></button>
+    </div>
+    <div class="spacer"></div>
+  </div>
+  <div class="scroll">
+    <div class="hero">
+      <div class="ringwrap">
+        <svg class="ring" viewBox="0 0 120 120">
+          <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9CC0F7"/><stop offset="1" stop-color="#2c4f9e"/></linearGradient></defs>
+          <circle class="ring-track" cx="60" cy="60" r="54"/>
+          <circle class="ring-prog" cx="60" cy="60" r="54" stroke-dasharray="339.3" stroke-dashoffset="96"/>
+        </svg>
+        <div class="ring-center"><span class="ring-num">1,065</span><span class="ring-lbl">נותרו</span></div>
+      </div>
+      <div class="kcaps">
+        <div class="kcap"><span class="kcap-lbl">נצרכו</span><span class="kcap-val acc">1,770</span></div>
+        <div class="kcap-sep"></div>
+        <div class="kcap"><span class="kcap-lbl">יעד</span><span class="kcap-val">2,835</span></div>
+      </div>
+      <div class="macros">
+        <div class="mstat"><span class="mstat-lbl">חלבון</span><span class="mstat-val">128<small>/170</small></span><span class="mline mp"><span style="width:75%"></span></span></div>
+        <div class="mstat"><span class="mstat-lbl">פחמימה</span><span class="mstat-val">96<small>/250</small></span><span class="mline mc"><span style="width:38%"></span></span></div>
+        <div class="mstat"><span class="mstat-lbl">שומן</span><span class="mstat-val">52<small>/70</small></span><span class="mline mf"><span style="width:74%"></span></span></div>
+      </div>
+    </div>
+
+    <div class="sect">ארוחות</div>
+
+    <div class="meal">
+      <div class="meal-hd"><span class="meal-ic"><span class="material-symbols-outlined">wb_twilight</span></span>
+        <div class="meal-tt"><span class="meal-nm">בוקר</span><span class="meal-kc">620 קלוריות</span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button></div>
+      <div class="meal-body">
+        <button class="entry"><div class="entry-main"><span class="entry-nm">חביתה + טוסט</span><span class="entry-sub">2 מנות · 08:10</span></div>
+          <div class="entry-r"><span class="entry-kc">420<small>kcal</small></span><span class="pcf"><span class="mp">P 28</span><span class="mc">C 30</span><span class="mf">F 18</span></span></div></button>
+        <button class="entry"><div class="entry-main"><span class="entry-nm">קפה עם חלב</span><span class="entry-sub">240 מ"ל · 08:15</span></div>
+          <div class="entry-r"><span class="entry-kc">120<small>kcal</small></span><span class="pcf"><span class="mp">P 6</span><span class="mc">C 9</span><span class="mf">F 6</span></span></div></button>
+      </div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-hd"><span class="meal-ic"><span class="material-symbols-outlined">lunch_dining</span></span>
+        <div class="meal-tt"><span class="meal-nm">צהריים</span><span class="meal-kc">1,150 קלוריות</span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button></div>
+      <div class="meal-body">
+        <button class="entry"><div class="entry-main"><span class="entry-nm">צלחת עוף עם אורז <span class="badge"><span class="material-symbols-outlined">restaurant</span>3 מרכיבים</span></span><span class="entry-sub">14:05</span></div>
+          <div class="entry-r"><span class="entry-kc">1,150<small>kcal</small></span><span class="pcf"><span class="mp">P 74</span><span class="mc">C 112</span><span class="mf">F 34</span></span></div></button>
+      </div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-hd"><span class="meal-ic"><span class="material-symbols-outlined">dinner_dining</span></span>
+        <div class="meal-tt"><span class="meal-nm">ערב</span><span class="meal-kc">—</span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button></div>
+      <div class="meal-body"><button class="emptyrow"><span class="material-symbols-outlined">add</span>הוסף מזון</button></div>
+    </div>
+
+    <button class="addmeal"><span class="material-symbols-outlined">add_circle</span>הוסף ארוחה</button>
+  </div>
+</div>
+<div class="cap">היומן</div>
+</div>
+
+<!-- מסך 2 -->
+<div>
+<div class="phone">
+  <div class="hd">
+    <button class="gbtn"><span class="material-symbols-outlined">close</span></button>
+    <div class="daynav"><div class="date"><span class="date-main">היום</span><span class="date-dow">שישי · 20.06</span></div></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="scroll" style="opacity:.4;"></div>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="addhead">
+      <div class="search-wrap"><span class="material-symbols-outlined search-ic">search</span><input class="search" value="חזה עוף"></div>
+      <button class="cam"><span class="material-symbols-outlined">restaurant</span></button>
+      <button class="cam alt"><span class="material-symbols-outlined">barcode_scanner</span></button>
+    </div>
+    <div class="tabs"><button class="tab on">תוצאות</button><button class="tab">אחרונים</button><button class="tab">מועדפים</button><button class="tab">מותאמים</button></div>
+    <button class="frow"><div class="frow-main"><span class="frow-nm"><span class="src basic">בסיסי</span>חזה עוף</span><span class="frow-sub">חומר גלם · 120 kcal · 100 גרם</span></div><span class="star on">★</span></button>
+    <button class="frow"><div class="frow-main"><span class="frow-nm">שניצל עוף אפוי</span><span class="frow-sub">תלמה · 180 kcal · 100 גרם</span></div><span class="star">☆</span></button>
+    <button class="frow"><div class="frow-main"><span class="frow-nm"><span class="src ai">AI</span>חזה עוף בגריל</span><span class="frow-sub">הערכת AI · 165 kcal · 100 גרם</span></div><span class="star">☆</span></button>
+    <button class="frow"><div class="frow-main"><span class="frow-nm">חזה עוף מעושן</span><span class="frow-sub">עוף טוב · 110 kcal · 100 גרם</span></div><span class="star">☆</span></button>
+  </div>
+</div>
+<div class="cap">הוספת מזון</div>
+</div>
+
+<!-- מסך 3 -->
+<div>
+<div class="phone">
+  <div class="hd">
+    <button class="gbtn"><span class="material-symbols-outlined">close</span></button>
+    <div class="daynav"><div class="date"><span class="date-main">היום</span><span class="date-dow">שישי · 20.06</span></div></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="scroll" style="opacity:.4;"></div>
+  <div class="sheet">
+    <div class="handle"></div>
+    <input class="mb-name" value="צלחת עוף עם אורז">
+    <div class="mb-total"><span class="mb-kc">1,150</span><span class="mb-u">kcal</span>
+      <span class="mb-m"><span class="mp">חלבון 74</span><span class="mc">פחמ' 112</span><span class="mf">שומן 34</span></span></div>
+    <div class="comp"><div class="comp-main"><span class="comp-nm">חזה עוף</span><span class="comp-kc"><b>248</b> kcal</span></div><span class="box">180</span><span class="comp-u">גרם</span><button class="comp-del"><span class="material-symbols-outlined">close</span></button></div>
+    <div class="comp"><div class="comp-main"><span class="comp-nm">אורז לבן מבושל</span><span class="comp-kc"><b>650</b> kcal</span></div><span class="box">500</span><span class="comp-u">גרם</span><button class="comp-del"><span class="material-symbols-outlined">close</span></button></div>
+    <div class="comp"><div class="comp-main"><span class="comp-nm">שמן זית</span><span class="comp-kc"><b>252</b> kcal</span></div><span class="box">28</span><span class="comp-u">גרם</span><button class="comp-del"><span class="material-symbols-outlined">close</span></button></div>
+    <button class="comp-add"><span class="material-symbols-outlined">add</span>הוסף מרכיב</button>
+    <div class="chips"><button class="chip">בוקר</button><button class="chip on">צהריים</button><button class="chip">ערב</button><button class="chip">נשנוש</button></div>
+    <div class="field"><span>שעה</span><div class="box">14:05</div></div>
+    <div class="acts"><button class="del"><span class="material-symbols-outlined">delete</span></button><button class="save">הוסף ליומן</button></div>
+  </div>
+</div>
+<div class="cap">מנה עם מרכיבים</div>
+</div>
+
+</body>
+</html>

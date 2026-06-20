@@ -17,6 +17,8 @@ let _fdSearchSeq = 0;         // מזהה רצף — מתעלם מתוצאות �
 let _fdTab = 'recent';
 let _fdFoodCache = {};        // id → food עבור הפריטים המוצגים כרגע
 let _fdPhotoMode = 'label';   // 'label' = ברקוד/תווית | 'meal' = הערכת מנה מצילום
+let _fdMealComponents = [];   // Meal Builder — מרכיבי המנה {name, grams, per100}
+let _fdMealEditId = null;     // עריכת רשומת composite קיימת
 
 // ── Utils ────────────────────────────────────────────────────────────
 function _fdNowTime() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
@@ -24,6 +26,8 @@ function _fdNum(v) { const n = Number(v); return isFinite(n) ? n : null; }
 function _fdR(v) { const n = Number(v); return isFinite(n) ? Math.round(n * 10) / 10 : 0; }
 function _fdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 const _FD_DEFAULT_MEALS = ['בוקר', 'צהריים', 'ערב', 'נשנוש'];
+const _FD_MEAL_ICONS = { 'בוקר': 'wb_twilight', 'צהריים': 'lunch_dining', 'ערב': 'dinner_dining', 'נשנוש': 'cookie' };
+function _fdMealIcon(m) { return _FD_MEAL_ICONS[m] || 'restaurant'; }
 function _fdMealLabels() { return (getAnalyticsPrefs().mealLabels && getAnalyticsPrefs().mealLabels.length) ? getAnalyticsPrefs().mealLabels.slice() : _FD_DEFAULT_MEALS.slice(); }
 
 // שורת צ'יפים של ארוחות — לארוחות מותאמות (לא ברירת מחדל) מתווסף × למחיקה
@@ -48,8 +52,7 @@ function fdDeleteMeal(el) {
         prefs.mealLabels = (prefs.mealLabels || _FD_DEFAULT_MEALS.slice()).filter(m => m !== name);
         saveAnalyticsPrefs(prefs);
         if (_fdMeal === name) _fdMeal = _fdMealLabels()[0];
-        const wrap = document.getElementById('fd-meal-chips');
-        if (wrap) wrap.innerHTML = _fdMealChipsHTML(_fdMeal);
+        document.querySelectorAll('.fd-meal-chips').forEach(w => { w.innerHTML = _fdMealChipsHTML(_fdMeal); });
         if (typeof fdRender === 'function') fdRender();
         haptic('light');
     });
@@ -310,10 +313,11 @@ async function _callGeminiFood(base64, mimeType) {
 async function _callGeminiMeal(base64, mimeType) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
-    const prompt = 'אתה תזונאי. בתמונה יש מנת אוכל אמיתית (צלחת/מנה). זהה את המרכיבים, הערך את ' +
-        'המשקל הכולל בגרמים ואת הערכים התזונתיים של כל המנה שבתמונה (סך הכל למנה — לא ל-100 גרם). ' +
-        'החזר JSON בלבד: {"name": string, "grams": number, "kcal": number, "protein": number, "carbs": number, "fat": number, "items": [string]}. ' +
-        'name = תיאור קצר בעברית של המנה. items = רשימת המרכיבים שזוהו. אם לא בטוח — תן הערכה סבירה ביותר. אל תוסיף טקסט.';
+    const prompt = 'אתה תזונאי. בתמונה יש מנת אוכל אמיתית (צלחת/מנה). זהה כל מרכיב בנפרד והערך עבורו ' +
+        'משקל בגרמים וערכים תזונתיים (סך הכל למרכיב — לא ל-100 גרם). ' +
+        'החזר JSON בלבד: {"name": string, "items": [{"name": string, "grams": number, "kcal": number, "protein": number, "carbs": number, "fat": number}, ...]}. ' +
+        'name = תיאור קצר בעברית של המנה כולה. items = רשימת המרכיבים שזוהו (למשל חזה עוף, אורז, שמן), כל אחד עם ההערכה שלו. ' +
+        'אם לא בטוח — תן הערכה סבירה ביותר. אל תוסיף טקסט.';
     const parts = [{ text: prompt }, { inlineData: { mimeType, data: base64 } }];
     const generationConfig = { temperature: 0.2, maxOutputTokens: 400, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
     let lastErr = '';
@@ -373,9 +377,12 @@ function _fdDateLabel(d) {
 }
 
 // ── רינדור היומן ─────────────────────────────────────────────────────
+const _FD_DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 function fdRender() {
     const lbl = document.getElementById('fd-date-label');
     if (lbl) lbl.textContent = _fdDateLabel(_fdDate);
+    const dow = document.getElementById('fd-date-dow');
+    if (dow) { const p = _fdDate.split('-'); dow.textContent = `יום ${_FD_DOW[_blDTs ? new Date(_blDTs(_fdDate)).getDay() : 0]} · ${p[2]}.${p[1]}`; }
     const nextBtn = document.getElementById('fd-day-next');
     if (nextBtn) nextBtn.disabled = _fdDate >= _blTodayStr();
 
@@ -392,32 +399,62 @@ function fdRender() {
         : sum;
 
     scroll.innerHTML = _fdSummaryHTML(totals, mfpOwned) + _fdMealsHTML(entries, mfpOwned);
+    _fdAnimateRing(scroll);
+}
+
+// אנימציית מילוי הטבעת — מ-"ריק" (היקף מלא) לערך היעד, דרך transition של ה-CSS
+function _fdAnimateRing(scope) {
+    const prog = scope.querySelector('.fd-ring-prog');
+    if (!prog) return;
+    const target = prog.getAttribute('stroke-dashoffset');
+    const circ = prog.getAttribute('stroke-dasharray');
+    prog.style.strokeDashoffset = circ;       // התחל ריק
+    requestAnimationFrame(() => {
+        prog.style.transition = 'stroke-dashoffset 0.9s cubic-bezier(0.22,1,0.36,1)';
+        prog.style.strokeDashoffset = target;
+    });
+}
+
+// טבעת קלוריות (SVG) — נצרך מול יעד
+function _fdRingSVG(consumed, target) {
+    const r = 52, circ = 2 * Math.PI * r;
+    const pct = target > 0 ? Math.min(consumed / target, 1) : (consumed > 0 ? 1 : 0);
+    const over = target > 0 && consumed > target;
+    const off = circ * (1 - pct);
+    const big = target > 0 ? Math.abs(Math.round(target - consumed)) : Math.round(consumed);
+    const lbl = target > 0 ? (consumed <= target ? 'נותרו' : 'מעל היעד') : 'נצרכו';
+    return `<svg class="fd-ring" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="fd-ring-track" cx="60" cy="60" r="${r}"/>
+        <circle class="fd-ring-prog${over ? ' over' : ''}" cx="60" cy="60" r="${r}"
+            stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" stroke-linecap="round"/>
+        <text class="fd-ring-num" x="60" y="62">${big}</text>
+        <text class="fd-ring-lbl" x="60" y="80">${lbl}</text>
+    </svg>`;
+}
+
+function _fdMacroStat(lbl, val, target, cls) {
+    const pct = target > 0 ? Math.min(100, Math.round(val / target * 100)) : 0;
+    const tgt = target > 0 ? ` / ${target}` : '';
+    return `<div class="fd-mstat">
+        <div class="fd-mstat-hd"><span class="fd-mdot ${cls}"></span><span class="fd-mstat-lbl">${lbl}</span></div>
+        <div class="fd-mstat-val ${cls}">${Math.round(val)}<small>${tgt}g</small></div>
+        <div class="fd-mstat-bar"><span class="fd-mstat-fill ${cls}" style="width:${pct}%"></span></div>
+    </div>`;
 }
 
 function _fdSummaryHTML(t, mfpOwned) {
     const prefs = getAnalyticsPrefs();
     const kcalT = Number(prefs.kcalTarget) || 0;
-    const macroRow = (lbl, val, target, cls) => {
-        const pct = target > 0 ? Math.min(100, Math.round(val / target * 100)) : 0;
-        const rem = target > 0 ? Math.round(target - val) : null;
-        return `<div class="fd-macro">
-            <div class="fd-macro-top"><span class="fd-macro-lbl">${lbl}</span>
-              <span class="fd-macro-val ${cls}">${Math.round(val)}${target > 0 ? ` / ${target}` : ''}<small>g</small></span></div>
-            <div class="fd-macro-bar"><span class="fd-macro-fill ${cls}" style="width:${pct}%"></span></div>
-            ${rem != null ? `<span class="fd-macro-rem">${rem >= 0 ? rem + ' נותרו' : Math.abs(rem) + ' מעל'}</span>` : ''}
-        </div>`;
-    };
-    const kcalRem = kcalT > 0 ? Math.round(kcalT - t.kcal) : null;
+    const caption = kcalT > 0
+        ? `<span class="fd-cap-strong">${Math.round(t.kcal)}</span> נצרכו · <span class="fd-cap-dim">יעד ${kcalT}</span>`
+        : `<span class="fd-cap-strong">${Math.round(t.kcal)}</span> קלוריות`;
     return `<div class="fd-summary">
-        <div class="fd-kcal">
-            <span class="fd-kcal-num">${Math.round(t.kcal)}</span>
-            <span class="fd-kcal-unit">kcal</span>
-            ${kcalRem != null ? `<span class="fd-kcal-rem ${kcalRem >= 0 ? 'left' : 'over'}">${kcalRem >= 0 ? kcalRem + ' נותרו' : Math.abs(kcalRem) + ' מעל היעד'}</span>` : ''}
-        </div>
+        <div class="fd-ring-wrap">${_fdRingSVG(t.kcal, kcalT)}</div>
+        <div class="fd-kcal-caption">${caption}</div>
         <div class="fd-macros">
-            ${macroRow('חלבון', t.p, Number(getAnalyticsPrefs().proteinTarget) || 0, 'macro-p')}
-            ${macroRow('פחמימה', t.c, Number(getAnalyticsPrefs().carbsTarget) || 0, 'macro-c')}
-            ${macroRow('שומן', t.f, Number(getAnalyticsPrefs().fatTarget) || 0, 'macro-f')}
+            ${_fdMacroStat('חלבון', t.p, Number(prefs.proteinTarget) || 0, 'macro-p')}
+            ${_fdMacroStat('פחמימה', t.c, Number(prefs.carbsTarget) || 0, 'macro-c')}
+            ${_fdMacroStat('שומן', t.f, Number(prefs.fatTarget) || 0, 'macro-f')}
         </div>
         ${mfpOwned ? '<div class="fd-mfp-note"><span class="material-symbols-outlined">info</span>הסיכום היומי מקורו ב-MyFitnessPal וגובר על תיעוד פנימי</div>' : ''}
     </div>`;
@@ -430,40 +467,51 @@ function _fdMealsHTML(entries, mfpOwned) {
     used.forEach(m => { if (order.indexOf(m) < 0) order.push(m); });
 
     let html = '';
-    order.forEach(meal => {
+    order.forEach((meal, mi) => {
         const items = entries.filter(e => e.meal === meal);
         if (!items.length && used.indexOf(meal) < 0 && order.indexOf(meal) >= _fdMealLabels().length) return;
         const mt = items.reduce((s, e) => s + (+e.kcal || 0), 0);
+        const mealJs = _fdEsc(meal).replace(/'/g, '');
         // מחיקת ארוחה מותאמת ריקה (לא ברירת מחדל, ללא רשומות היום) ישירות מהיומן
         const delBtn = (_FD_DEFAULT_MEALS.indexOf(meal) < 0 && !items.length)
             ? `<button class="fd-meal-del" data-meal="${_fdEsc(meal)}" onclick="event.stopPropagation();fdDeleteMeal(this)" aria-label="מחק ארוחה"><span class="material-symbols-outlined">delete</span></button>`
             : '';
-        html += `<div class="fd-meal">
+        html += `<div class="fd-meal" style="animation-delay:${mi * 0.04}s">
             <div class="fd-meal-hdr">
-                <span class="fd-meal-name">${_fdEsc(meal)}</span>
-                <span class="fd-meal-kcal">${Math.round(mt)} kcal</span>
-                <button class="fd-meal-add" onclick="fdOpenAdd('${_fdEsc(meal).replace(/'/g, '')}')"><span class="material-symbols-outlined">add</span></button>
+                <span class="fd-meal-icon"><span class="material-symbols-outlined">${_fdMealIcon(meal)}</span></span>
+                <div class="fd-meal-titles">
+                    <span class="fd-meal-name">${_fdEsc(meal)}</span>
+                    <span class="fd-meal-kcal">${Math.round(mt)} kcal</span>
+                </div>
                 ${delBtn}
-            </div>`;
+                <button class="fd-meal-add" onclick="fdOpenAdd('${mealJs}')" aria-label="הוסף מזון"><span class="material-symbols-outlined">add</span></button>
+            </div>
+            <div class="fd-meal-body">`;
         if (items.length) {
-            html += items.map(e => `
-                <button class="fd-entry" onclick="fdEditEntry('${e.id}')">
+            html += items.map(e => {
+                const badge = (e.components && e.components.length)
+                    ? `<span class="fd-entry-badge"><span class="material-symbols-outlined">lunch_dining</span>${e.components.length}</span>` : '';
+                const sub = (e.components && e.components.length)
+                    ? `${e.components.length} מרכיבים${e.time ? ' · ' + _fdEsc(e.time) : ''}`
+                    : `${_fdEsc(_fdPortionLabel(e))}${e.time ? ' · ' + _fdEsc(e.time) : ''}`;
+                return `<button class="fd-entry" onclick="fdEditEntry('${e.id}')">
                     <div class="fd-entry-main">
-                        <span class="fd-entry-name">${_fdEsc(e.name)}</span>
-                        <span class="fd-entry-sub">${_fdEsc(_fdPortionLabel(e))}${e.time ? ' · ' + _fdEsc(e.time) : ''}${e.brand ? ' · ' + _fdEsc(e.brand) : ''}</span>
+                        <span class="fd-entry-name">${_fdEsc(e.name)}${badge}</span>
+                        <span class="fd-entry-sub">${sub}</span>
                     </div>
                     <div class="fd-entry-macros">
-                        <span class="fd-entry-kcal">${Math.round(e.kcal)}</span>
-                        <span class="fd-entry-pcf">P${Math.round(e.p)} C${Math.round(e.c)} F${Math.round(e.f)}</span>
+                        <span class="fd-entry-kcal">${Math.round(e.kcal)}<small>kcal</small></span>
+                        <span class="fd-entry-chips"><i class="macro-p">P${Math.round(e.p)}</i><i class="macro-c">C${Math.round(e.c)}</i><i class="macro-f">F${Math.round(e.f)}</i></span>
                     </div>
-                </button>`).join('');
+                </button>`;
+            }).join('');
         } else {
-            html += '<div class="fd-meal-empty">אין רשומות</div>';
+            html += `<button class="fd-meal-emptyrow" onclick="fdOpenAdd('${mealJs}')"><span class="material-symbols-outlined">add</span>הוסף מזון</button>`;
         }
-        html += '</div>';
+        html += '</div></div>';
     });
     // הוספת ארוחה חופשית חדשה
-    html += `<button class="fd-add-meal" onclick="fdAddCustomMeal()"><span class="material-symbols-outlined">add</span>ארוחה חדשה</button>`;
+    html += `<button class="fd-add-meal" onclick="fdAddCustomMeal()"><span class="material-symbols-outlined">add_circle</span>הוסף ארוחה חדשה</button>`;
     return html;
 }
 
@@ -578,17 +626,25 @@ async function fdDoSearch(q) {
     }
 }
 
+const _FD_SRC_LABEL = { off: 'OFF', usda: 'USDA', basic: 'בסיסי', custom: 'מותאם', gemini: 'AI' };
+function _fdSrcChip(f) {
+    const s = (f.source === 'basic' || f.brand === 'חומר גלם') ? 'basic' : (f.source || 'off');
+    const lbl = _FD_SRC_LABEL[s] || '';
+    return lbl ? `<span class="fd-src-chip src-${s}">${lbl}</span>` : '';
+}
 function _fdRenderFoodList(foods, box, append) {
     if (!append) _fdFoodCache = {};
     foods.forEach(f => { _fdFoodCache[f.id] = f; });
-    const html = foods.map(f => `
-        <button class="fd-food-row" onclick="fdSelectFoodById('${_fdEsc(f.id)}')">
+    const html = foods.map(f => {
+        const brand = (f.brand && f.brand !== 'חומר גלם') ? _fdEsc(f.brand) + ' · ' : '';
+        return `<button class="fd-food-row" onclick="fdSelectFoodById('${_fdEsc(f.id)}')">
             <div class="fd-food-main">
-                <span class="fd-food-name">${_fdEsc(f.name)}</span>
-                <span class="fd-food-sub">${f.brand ? _fdEsc(f.brand) + ' · ' : ''}${Math.round(f.per100.kcal)} kcal / 100g</span>
+                <span class="fd-food-name">${_fdSrcChip(f)}${_fdEsc(f.name)}</span>
+                <span class="fd-food-sub">${brand}${Math.round(f.per100.kcal)} kcal / 100g</span>
             </div>
             <span class="fd-food-star ${f.favorite ? 'on' : ''}" role="button" onclick="event.stopPropagation();fdToggleFav('${_fdEsc(f.id)}',this)">${f.favorite ? '★' : '☆'}</span>
-        </button>`).join('');
+        </button>`;
+    }).join('');
     box.innerHTML = (append ? box.innerHTML : '') + html;
 }
 
@@ -645,7 +701,8 @@ function _fdOpenPortion(food, entry) {
 
 function _fdPickMeal(el) {
     _fdMeal = el.dataset.meal;
-    document.querySelectorAll('#fd-meal-chips .fd-chip').forEach(c => c.classList.toggle('active', c === el));
+    const wrap = el.closest('.fd-meal-chips') || document;
+    wrap.querySelectorAll('.fd-chip').forEach(c => c.classList.toggle('active', c === el));
 }
 
 function _fdComputeGrams() {
@@ -705,6 +762,15 @@ function closeFoodPortion() {
 function fdEditEntry(id) {
     const entry = StorageManager.getFoodLogDay(_fdDate).find(e => e.id === id);
     if (!entry) return;
+    // רשומת מנה מורכבת → Meal Builder (עריכת מרכיבים)
+    if (entry.components && entry.components.length) {
+        _fdOpenMealBuilder({
+            name: entry.name,
+            components: entry.components.map(c => ({ name: c.name, grams: c.grams, per100: c.per100 })),
+            meal: entry.meal, time: entry.time, editId: entry.id
+        });
+        return;
+    }
     // שחזור אובייקט מזון מתוך הרשומה
     const servings = entry.gramsPerUnit ? [{ label: `מנה (${entry.gramsPerUnit} ג')`, grams: entry.gramsPerUnit }, { label: '100 גרם', grams: 100 }] : [{ label: '100 גרם', grams: 100 }];
     const food = { id: entry.barcode ? 'off:' + entry.barcode : 'log:' + id, name: entry.name, brand: entry.brand, barcode: entry.barcode, source: entry.source, per100: entry.per100, servings };
@@ -839,38 +905,165 @@ function fdOnPhoto(file) {
     });
 }
 
-// _fdOnMealPhoto — הערכת מנה שלמה מצילום האוכל. בונה "מנה מהתמונה" כ-serving יחיד
-// (qty=1 = ההערכה המלאה) ופותח את עורך המנה — שם המשתמש יכול לכוון כמות/שעה/ארוחה.
+// בונה מרכיב Meal Builder מערכי הערכה (totals למרכיב) → per100 + grams
+function _fdCompFromEstimate(it) {
+    const g = (Number(it.grams) > 0) ? Number(it.grams) : 100;
+    const f = 100 / g;
+    return {
+        name: it.name || 'מרכיב', grams: g,
+        per100: {
+            kcal: Math.round((Number(it.kcal) || 0) * f),
+            p: _fdR((Number(it.protein) || 0) * f),
+            c: _fdR((Number(it.carbs) || 0) * f),
+            f: _fdR((Number(it.fat) || 0) * f)
+        }
+    };
+}
+
+// _fdOnMealPhoto — הערכת מנה מצולמת → Meal Builder עם מרכיבים ניתנים לעריכה
 function _fdOnMealPhoto(file) {
     const box = document.getElementById('fd-results');
     if (box) box.innerHTML = '<div class="fd-loading">🍽️ מעריך את המנה מהתמונה…</div>';
     _fileToBase64(file).then(({ base64, mime }) => _callGeminiMeal(base64, mime)).then(res => {
-        if (!res || res.kcal == null) {
+        let comps = [];
+        if (res && Array.isArray(res.items) && res.items.length && res.items[0] && res.items[0].kcal != null) {
+            comps = res.items.filter(it => it && it.kcal != null).map(_fdCompFromEstimate);
+        } else if (res && res.kcal != null) {
+            // נפילה לאחור: הערכה מאוחדת → מרכיב יחיד
+            comps = [_fdCompFromEstimate({ name: res.name || 'מנה', grams: res.grams, kcal: res.kcal, protein: res.protein, carbs: res.carbs, fat: res.fat })];
+        }
+        if (!comps.length) {
             if (box) box.innerHTML = '<div class="fd-empty">⚠ לא הצלחתי להעריך את המנה — נסה תמונה ברורה יותר או חפש ידנית.</div>';
             return;
         }
-        const grams = (Number(res.grams) > 0) ? Number(res.grams) : 100;
-        const factor = 100 / grams;   // המרה לערכים ל-100 גרם כדי להשתלב במודל הקיים
-        const per100 = {
-            kcal: Math.round((Number(res.kcal) || 0) * factor),
-            p: _fdR((Number(res.protein) || 0) * factor),
-            c: _fdR((Number(res.carbs) || 0) * factor),
-            f: _fdR((Number(res.fat) || 0) * factor)
-        };
-        const items = Array.isArray(res.items) && res.items.length ? res.items.join(', ') : '';
-        const food = {
-            id: 'gemini:' + Date.now().toString(36),
-            name: res.name || 'מנה מהתמונה',
-            brand: 'הערכת AI' + (items ? ' · ' + items : ''),
-            barcode: null, source: 'gemini',
-            per100,
-            servings: [{ label: `מנה מהתמונה (≈${Math.round(grams)} ג')`, grams }]
-        };
-        StorageManager.upsertFoodToDb(food);
-        _fdOpenPortion(food, null);   // נפתח עם מנה=1 (ההערכה המלאה); ניתן לכוון
+        _fdOpenMealBuilder({ name: (res && res.name) || 'מנה מהתמונה', components: comps, meal: _fdMeal, time: _fdNowTime(), editId: null });
     }).catch(() => {
         if (box) box.innerHTML = '<div class="fd-empty">⚠ הערכת המנה נכשלה — נסה שוב או חפש ידנית.</div>';
     });
+}
+
+// ════════ MEAL BUILDER — מנה מורכבת עם מרכיבים ניתנים לעריכה ════════
+function _fdOpenMealBuilder(opts) {
+    _fdMealComponents = (opts.components || []).map(c => ({ name: c.name, grams: c.grams, per100: c.per100 }));
+    _fdMealEditId = opts.editId || null;
+    _fdMeal = opts.meal || _fdMealLabels()[0];
+    const sheet = document.getElementById('fd-meal-sheet');
+    const body = document.getElementById('fd-meal-body');
+    if (!sheet || !body) return;
+    const time = opts.time || _fdNowTime();
+    body.innerHTML = `
+        <input type="text" id="fd-meal-name-inp" class="fd-meal-name-inp" value="${_fdEsc(opts.name || 'מנה')}" placeholder="שם המנה">
+        <div class="fd-meal-total">
+            <span class="fd-meal-total-kcal" id="fd-meal-total-kcal">0</span><span class="fd-meal-total-unit">kcal</span>
+            <span class="fd-meal-total-macros" id="fd-meal-total-macros"></span>
+        </div>
+        <div class="fd-comp-list" id="fd-comp-list"></div>
+        <button class="fd-comp-add" onclick="fdMealAddComponent()"><span class="material-symbols-outlined">add</span>הוסף מרכיב</button>
+        <div class="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>
+        <label class="fd-field fd-field--full" style="margin-bottom:14px;"><span>שעה</span><input type="time" id="fd-meal-time" value="${time}"></label>
+        <div class="fd-portion-actions">
+            ${_fdMealEditId ? `<button class="fd-del-btn" onclick="fdMealDeleteEntry()"><span class="material-symbols-outlined">delete</span></button>` : ''}
+            <button class="fd-save-btn" onclick="fdSaveMeal()">${_fdMealEditId ? 'עדכן מנה' : 'הוסף ליומן'}</button>
+        </div>`;
+    _fdRenderComponents();
+    document.getElementById('fd-meal-overlay').style.display = 'block';
+    sheet.classList.add('open');
+    haptic('light');
+}
+
+function _fdRenderComponents() {
+    const list = document.getElementById('fd-comp-list');
+    if (!list) return;
+    list.innerHTML = _fdMealComponents.map((c, i) => {
+        const kcal = Math.round((c.per100.kcal || 0) * (c.grams / 100));
+        return `<div class="fd-comp">
+            <div class="fd-comp-main">
+                <span class="fd-comp-name">${_fdEsc(c.name)}</span>
+                <span class="fd-comp-kcal"><b id="fd-mc-k-${i}">${kcal}</b> kcal</span>
+            </div>
+            <div class="fd-comp-qty">
+                <input type="number" id="fd-mc-g-${i}" inputmode="decimal" min="0" step="any" value="${_fdR(c.grams)}" oninput="_fdMealRecalc()">
+                <span class="fd-comp-unit">גרם</span>
+            </div>
+            <button class="fd-comp-del" onclick="fdMealRemoveComp(${i})" aria-label="הסר מרכיב"><span class="material-symbols-outlined">close</span></button>
+        </div>`;
+    }).join('') || '<div class="fd-meal-empty">אין מרכיבים — הוסף מרכיב</div>';
+    _fdMealRecalc();
+}
+
+function _fdMealRecalc() {
+    let tot = { kcal: 0, p: 0, c: 0, f: 0 };
+    _fdMealComponents.forEach((c, i) => {
+        const gEl = document.getElementById('fd-mc-g-' + i);
+        const g = gEl ? (Number(gEl.value) || 0) : c.grams;
+        c.grams = g;
+        const f = g / 100;
+        const kcal = Math.round((c.per100.kcal || 0) * f);
+        tot.kcal += kcal; tot.p += (c.per100.p || 0) * f; tot.c += (c.per100.c || 0) * f; tot.f += (c.per100.f || 0) * f;
+        const kEl = document.getElementById('fd-mc-k-' + i);
+        if (kEl) kEl.textContent = kcal;
+    });
+    const tk = document.getElementById('fd-meal-total-kcal');
+    const tm = document.getElementById('fd-meal-total-macros');
+    if (tk) tk.textContent = Math.round(tot.kcal);
+    if (tm) tm.innerHTML = `<i class="macro-p">חלבון ${Math.round(tot.p)}</i><i class="macro-c">פחמ' ${Math.round(tot.c)}</i><i class="macro-f">שומן ${Math.round(tot.f)}</i>`;
+}
+
+function fdMealRemoveComp(i) {
+    _fdMealComponents.splice(i, 1);
+    _fdRenderComponents();
+    haptic('light');
+}
+
+// הוספת מרכיב ידני (שם + גרמים + קלוריות/100g בסיסי) דרך prompt קצר בתוך השיט
+function fdMealAddComponent() {
+    _fdMealComponents.push({ name: 'מרכיב חדש', grams: 100, per100: { kcal: 0, p: 0, c: 0, f: 0 } });
+    _fdRenderComponents();
+    // אפשר עריכת שם/ערכים: פותח את שורת המרכיב האחרון למיקוד
+    const last = _fdMealComponents.length - 1;
+    setTimeout(() => { const el = document.getElementById('fd-mc-g-' + last); if (el) el.focus(); }, 60);
+}
+
+function closeFoodMeal() {
+    const ov = document.getElementById('fd-meal-overlay');
+    if (ov) ov.style.display = 'none';
+    const sh = document.getElementById('fd-meal-sheet');
+    if (sh) sh.classList.remove('open');
+}
+
+function fdSaveMeal() {
+    _fdMealRecalc();
+    const comps = _fdMealComponents.filter(c => c.grams > 0).map(c => {
+        const f = c.grams / 100;
+        return {
+            name: c.name, grams: c.grams, per100: c.per100,
+            kcal: Math.round((c.per100.kcal || 0) * f), p: _fdR((c.per100.p || 0) * f),
+            c: _fdR((c.per100.c || 0) * f), f: _fdR((c.per100.f || 0) * f)
+        };
+    });
+    if (!comps.length) { showAlert('הוסף לפחות מרכיב אחד עם כמות.'); return; }
+    const sum = comps.reduce((a, x) => { a.kcal += x.kcal; a.p += x.p; a.c += x.c; a.f += x.f; return a; }, { kcal: 0, p: 0, c: 0, f: 0 });
+    const name = (document.getElementById('fd-meal-name-inp')?.value || 'מנה').trim() || 'מנה';
+    const time = document.getElementById('fd-meal-time')?.value || _fdNowTime();
+    const entry = {
+        name, brand: 'מנה', source: 'gemini', barcode: null,
+        meal: _fdMeal || _fdMealLabels()[0], time, components: comps,
+        kcal: Math.round(sum.kcal), p: _fdR(sum.p), c: _fdR(sum.c), f: _fdR(sum.f)
+    };
+    if (_fdMealEditId) StorageManager.updateFoodEntry(_fdDate, _fdMealEditId, entry);
+    else StorageManager.addFoodEntry(_fdDate, entry);
+    closeFoodMeal();
+    closeFoodAdd();
+    fdRender();
+    haptic('medium');
+}
+
+function fdMealDeleteEntry() {
+    if (!_fdMealEditId) return;
+    StorageManager.deleteFoodEntry(_fdDate, _fdMealEditId);
+    closeFoodMeal();
+    fdRender();
+    haptic('warning');
 }
 
 // ════════ ייצוא יומן מזון (JSON) ════════

@@ -1073,6 +1073,7 @@ function _initAllSheetsDrag() {
         { id: 'set-rec-sheet',              closer: () => dismissAIRecommendation() },
         { id: 'fd-add-sheet',               closer: () => (typeof closeFoodAdd === 'function') && closeFoodAdd() },
         { id: 'fd-portion-sheet',           closer: () => (typeof closeFoodPortion === 'function') && closeFoodPortion() },
+        { id: 'fd-meal-sheet',              closer: () => (typeof closeFoodMeal === 'function') && closeFoodMeal() },
     ];
     sheets.forEach(s => {
         const el = document.getElementById(s.id);

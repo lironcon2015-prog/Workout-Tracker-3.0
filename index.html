@@ -2078,10 +2078,13 @@
     <!-- ════════ FOOD DIARY — יומן מזון (overlay מסך-מלא) ════════ -->
     <div id="food-diary" class="food-diary-overlay" style="display:none">
         <div class="fd-header">
-            <button class="fd-close" onclick="closeFoodDiary()"><span class="material-symbols-outlined">close</span></button>
+            <button class="fd-close" onclick="closeFoodDiary()" aria-label="סגור"><span class="material-symbols-outlined">close</span></button>
             <div class="fd-daynav">
                 <button class="fd-day-arrow" onclick="fdShiftDay(-1)" aria-label="יום קודם"><span class="material-symbols-outlined">chevron_right</span></button>
-                <button class="fd-date" id="fd-date-label" onclick="fdOpenDatePicker()">היום</button>
+                <button class="fd-date" onclick="fdOpenDatePicker()">
+                    <span class="fd-date-main" id="fd-date-label">היום</span>
+                    <span class="fd-date-dow" id="fd-date-dow"></span>
+                </button>
                 <button class="fd-day-arrow" id="fd-day-next" onclick="fdShiftDay(1)" aria-label="יום הבא"><span class="material-symbols-outlined">chevron_left</span></button>
             </div>
             <div class="fd-header-spacer"></div>
@@ -2095,9 +2098,12 @@
     <div id="fd-add-sheet" class="bottom-sheet fd-add-sheet">
         <div class="sheet-handle"></div>
         <div class="fd-add-head">
-            <input type="search" id="fd-search" class="fd-search-input" placeholder="חיפוש מזון…" oninput="fdOnSearchInput(this.value)" autocomplete="off">
+            <div class="fd-search-wrap">
+                <span class="material-symbols-outlined fd-search-icon">search</span>
+                <input type="search" id="fd-search" class="fd-search-input" placeholder="חיפוש מזון…" oninput="fdOnSearchInput(this.value)" autocomplete="off">
+            </div>
             <button class="fd-cam-btn" onclick="fdEstimateMeal()" aria-label="הערכת מנה מתמונה"><span class="material-symbols-outlined">restaurant</span></button>
-            <button class="fd-cam-btn" onclick="fdScanPhoto()" aria-label="צילום תווית/ברקוד"><span class="material-symbols-outlined">barcode_scanner</span></button>
+            <button class="fd-cam-btn fd-cam-btn--alt" onclick="fdScanPhoto()" aria-label="צילום תווית/ברקוד"><span class="material-symbols-outlined">barcode_scanner</span></button>
         </div>
         <div class="fd-add-sub">הוספה ל: <strong id="fd-add-meal-name">בוקר</strong></div>
         <div class="fd-tabs" id="fd-tabs">
@@ -2118,6 +2124,13 @@
     <div id="fd-portion-sheet" class="bottom-sheet fd-portion-sheet">
         <div class="sheet-handle"></div>
         <div id="fd-portion-body"></div>
+    </div>
+
+    <!-- שיט מנה מורכבת (Meal Builder) — מרכיבים ניתנים לעריכה -->
+    <div id="fd-meal-overlay" class="bottom-sheet-overlay" onclick="closeFoodMeal()"></div>
+    <div id="fd-meal-sheet" class="bottom-sheet fd-meal-sheet">
+        <div class="sheet-handle"></div>
+        <div id="fd-meal-body"></div>
     </div>
 
     <!-- ════════ מודל דריסה בייבוא MFP ════════ -->

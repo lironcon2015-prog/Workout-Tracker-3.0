@@ -5922,10 +5922,12 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-day-arrow { width: 36px; height: 36px; background: transparent; }
 .fd-daynav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .fd-date {
-    background: var(--surface-3); border: none; color: var(--text);
-    font-family: inherit; font-weight: 900; font-size: 1rem;
-    padding: 8px 18px; border-radius: 9999px; cursor: pointer; min-width: 120px;
+    background: none; border: none; color: var(--text);
+    font-family: inherit; cursor: pointer; min-width: 120px;
+    display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 12px;
 }
+.fd-date-main { font-weight: 900; font-size: 1.15rem; letter-spacing: -0.01em; }
+.fd-date-dow { font-size: 0.66rem; color: var(--text-dim); font-weight: 600; }
 .fd-header-spacer { width: 40px; flex-shrink: 0; }
 .fd-date-input {
     position: absolute; opacity: 0; pointer-events: none;
@@ -5934,32 +5936,43 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 
 .fd-scroll { flex: 1; overflow-y: auto; padding: 16px 14px calc(40px + env(safe-area-inset-bottom)); }
 
-/* ── סיכום יומי ── */
+/* ── סיכום יומי — Hero טבעת קלוריות ── */
 .fd-summary {
-    background: var(--surface-2); border-radius: var(--r-lg);
-    border: 1px solid var(--hairline); box-shadow: var(--top-glint);
-    padding: 18px; margin-bottom: 16px;
+    position: relative;
+    background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+    border-radius: var(--r-lg);
+    border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
+    box-shadow: var(--top-glint), var(--elev-2);
+    padding: 22px 18px 18px; margin-bottom: 18px;
+    overflow: hidden;
 }
-.fd-kcal { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
-.fd-kcal-num { font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 2.4rem; line-height: 1; color: var(--text); }
-.fd-kcal-unit { font-size: 0.9rem; color: var(--text-dim); font-weight: 700; }
-.fd-kcal-rem { margin-inline-start: auto; font-size: 0.78rem; font-weight: 800; padding: 4px 10px; border-radius: 9999px; }
-.fd-kcal-rem.left { background: rgba(48, 209, 88, 0.14); color: #30D158; }
-.fd-kcal-rem.over { background: rgba(255, 69, 58, 0.14); color: #ff453a; }
-.fd-macros { display: flex; flex-direction: column; gap: 12px; }
-.fd-macro-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
-.fd-macro-lbl { font-size: 0.78rem; color: var(--text-dim); font-weight: 700; }
-.fd-macro-val { font-size: 0.82rem; font-weight: 800; }
-.fd-macro-val small { font-size: 0.7em; opacity: 0.7; font-weight: 600; }
-.fd-macro-val.macro-p, .fd-macro-fill.macro-p { color: #4a86e8; }
-.fd-macro-val.macro-c, .fd-macro-fill.macro-c { color: #ffad47; }
-.fd-macro-val.macro-f, .fd-macro-fill.macro-f { color: #f6c5be; }
-.fd-macro-bar { height: 6px; border-radius: 9999px; background: var(--surface-4); overflow: hidden; }
-.fd-macro-fill { display: block; height: 100%; border-radius: 9999px; }
-.fd-macro-fill.macro-p { background: #4a86e8; }
-.fd-macro-fill.macro-c { background: #ffad47; }
-.fd-macro-fill.macro-f { background: #f6c5be; }
-.fd-macro-rem { font-size: 0.66rem; color: var(--text-dim); margin-top: 3px; display: inline-block; }
+.fd-summary::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 120px; pointer-events: none;
+    background: radial-gradient(80% 90% at 50% 0%, rgba(var(--accent-rgb), 0.12), transparent 70%);
+}
+.fd-ring-wrap { display: flex; justify-content: center; position: relative; }
+.fd-ring { width: 168px; height: 168px; }
+.fd-ring-track { fill: none; stroke: var(--surface-4); stroke-width: 12; }
+.fd-ring-prog { fill: none; stroke: var(--accent); stroke-width: 12; transform: rotate(-90deg); transform-origin: 60px 60px; }
+.fd-ring-prog.over { stroke: #ff453a; }
+.fd-ring-num { fill: var(--text); font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 30px; text-anchor: middle; }
+.fd-ring-lbl { fill: var(--text-dim); font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 11px; text-anchor: middle; letter-spacing: 0.04em; }
+.fd-kcal-caption { text-align: center; font-size: 0.78rem; color: var(--text-dim); font-weight: 600; margin: 6px 0 18px; }
+.fd-cap-strong { color: var(--text); font-weight: 900; font-size: 0.92rem; }
+.fd-cap-dim { color: var(--text-dim); }
+.fd-macros { display: flex; gap: 10px; }
+.fd-mstat { flex: 1; background: var(--surface-1); border-radius: var(--r-md); padding: 10px 10px 11px; }
+.fd-mstat-hd { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.fd-mdot { width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
+.fd-mstat-lbl { font-size: 0.68rem; color: var(--text-dim); font-weight: 700; }
+.fd-mstat-val { font-size: 1rem; font-weight: 900; line-height: 1; margin-bottom: 7px; }
+.fd-mstat-val small { font-size: 0.6em; color: var(--text-dim); font-weight: 600; margin-inline-start: 1px; }
+.fd-mstat-bar { height: 5px; border-radius: 9999px; background: var(--surface-4); overflow: hidden; }
+.fd-mstat-fill { display: block; height: 100%; border-radius: 9999px; transition: width 0.6s cubic-bezier(0.22,1,0.36,1); }
+.fd-mdot.macro-p, .fd-mstat-val.macro-p, .fd-mstat-fill.macro-p { background: #4a86e8; color: #4a86e8; }
+.fd-mdot.macro-c, .fd-mstat-val.macro-c, .fd-mstat-fill.macro-c { background: #ffad47; color: #ffad47; }
+.fd-mdot.macro-f, .fd-mstat-val.macro-f, .fd-mstat-fill.macro-f { background: #f6c5be; color: #f6c5be; }
+.fd-mstat-val.macro-p, .fd-mstat-val.macro-c, .fd-mstat-val.macro-f { background: none; }
 .fd-mfp-note {
     display: flex; align-items: center; gap: 6px; margin-top: 14px;
     font-size: 0.7rem; color: var(--text-dim); line-height: 1.4;
@@ -5967,67 +5980,122 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 }
 .fd-mfp-note .material-symbols-outlined { font-size: 1rem; color: var(--accent); flex-shrink: 0; }
 
-/* ── ארוחות ── */
-.fd-meal { margin-bottom: 14px; }
-.fd-meal-hdr { display: flex; align-items: center; gap: 8px; padding: 4px 4px 8px; }
-.fd-meal-name { font-weight: 900; font-size: 0.95rem; color: var(--text); }
-.fd-meal-kcal { font-size: 0.74rem; color: var(--text-dim); font-weight: 700; }
-.fd-meal-add {
-    margin-inline-start: auto; background: var(--accent-soft); color: var(--accent);
-    border: none; width: 30px; height: 30px; border-radius: 9999px;
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
+/* ── כרטיסי ארוחה ── */
+.fd-meal {
+    background: var(--surface-2); border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
+    border-radius: var(--r-lg); box-shadow: var(--top-glint);
+    margin-bottom: 12px; overflow: hidden;
+    animation: fdItemIn 0.4s both cubic-bezier(0.22, 1, 0.36, 1);
 }
-.fd-meal-add .material-symbols-outlined { font-size: 1.2rem; }
+@keyframes fdItemIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.fd-meal-hdr { display: flex; align-items: center; gap: 11px; padding: 13px 14px; }
+.fd-meal-icon {
+    width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+}
+.fd-meal-icon .material-symbols-outlined { font-size: 1.25rem; }
+.fd-meal-titles { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.fd-meal-name { font-weight: 900; font-size: 0.95rem; color: var(--text); }
+.fd-meal-kcal { font-size: 0.72rem; color: var(--text-dim); font-weight: 700; }
+.fd-meal-add {
+    background: var(--accent-soft); color: var(--accent);
+    border: none; width: 34px; height: 34px; border-radius: 9999px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: transform 0.12s;
+}
+.fd-meal-add:active { transform: scale(0.9); }
+.fd-meal-add .material-symbols-outlined { font-size: 1.3rem; }
 .fd-meal-del {
     background: rgba(255,69,58,0.12); color: #ff453a; border: none;
-    width: 30px; height: 30px; border-radius: 9999px; flex-shrink: 0;
+    width: 34px; height: 34px; border-radius: 9999px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .fd-meal-del .material-symbols-outlined { font-size: 1.05rem; }
+.fd-meal-body { border-top: 1px solid var(--hairline); }
 .fd-entry {
     display: flex; align-items: center; gap: 10px; width: 100%;
-    background: var(--surface-2); border: 1px solid var(--hairline);
-    border-radius: var(--r-md); padding: 11px 14px; margin-bottom: 7px;
-    font-family: inherit; text-align: right; cursor: pointer; color: var(--text);
+    background: none; border: none; border-bottom: 1px solid var(--hairline);
+    padding: 11px 14px; font-family: inherit; text-align: right; cursor: pointer; color: var(--text);
+    transition: background 0.12s;
 }
-.fd-entry:active { transform: scale(0.99); }
-.fd-entry-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.fd-entry-name { font-weight: 700; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-entry:last-child { border-bottom: none; }
+.fd-entry:active { background: var(--surface-3); }
+.fd-entry-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.fd-entry-name { font-weight: 700; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.fd-entry-badge {
+    display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0;
+    background: var(--accent-soft); color: var(--accent); font-size: 0.6rem; font-weight: 800;
+    padding: 2px 7px; border-radius: 9999px;
+}
+.fd-entry-badge .material-symbols-outlined { font-size: 0.8rem; }
 .fd-entry-sub { font-size: 0.68rem; color: var(--text-dim); }
-.fd-entry-macros { text-align: left; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
-.fd-entry-kcal { font-weight: 900; font-size: 0.95rem; }
-.fd-entry-pcf { font-size: 0.62rem; color: var(--text-dim); letter-spacing: 0.02em; }
-.fd-meal-empty { font-size: 0.74rem; color: var(--text-dim); padding: 4px 8px 8px; }
+.fd-entry-macros { text-align: left; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.fd-entry-kcal { font-weight: 900; font-size: 1rem; color: var(--text); }
+.fd-entry-kcal small { font-size: 0.55em; color: var(--text-dim); font-weight: 600; margin-inline-start: 2px; }
+.fd-entry-chips { display: flex; gap: 4px; }
+.fd-entry-chips i {
+    font-style: normal; font-size: 0.58rem; font-weight: 800; padding: 1px 5px; border-radius: 6px;
+}
+.fd-entry-chips i.macro-p { color: #4a86e8; background: rgba(74,134,232,0.13); }
+.fd-entry-chips i.macro-c { color: #ffad47; background: rgba(255,173,71,0.13); }
+.fd-entry-chips i.macro-f { color: #f6c5be; background: rgba(246,197,190,0.13); }
+.fd-meal-emptyrow {
+    display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+    background: none; border: none; color: var(--text-dim);
+    padding: 14px; font-family: inherit; font-weight: 700; font-size: 0.78rem; cursor: pointer;
+}
+.fd-meal-emptyrow .material-symbols-outlined { font-size: 1.1rem; color: var(--accent); }
+.fd-meal-empty { font-size: 0.74rem; color: var(--text-dim); padding: 14px; text-align: center; }
 .fd-add-meal {
     display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
     background: transparent; border: 1.5px dashed var(--hairline-hi); color: var(--text-dim);
-    border-radius: var(--r-md); padding: 12px; margin-top: 6px;
+    border-radius: var(--r-md); padding: 13px; margin-top: 4px;
     font-family: inherit; font-weight: 700; font-size: 0.82rem; cursor: pointer;
+}
+.fd-add-meal .material-symbols-outlined { font-size: 1.15rem; }
+@media (prefers-reduced-motion: reduce) {
+    .fd-meal, .food-diary-overlay { animation: none; }
+    .fd-ring-prog, .fd-mstat-fill { transition: none; }
 }
 
 /* ── שיט הוספת מזון ── */
 .fd-add-sheet, .fd-portion-sheet { max-height: 88vh; display: flex; flex-direction: column; }
-.fd-add-head { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.fd-add-head { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.fd-search-wrap { flex: 1; position: relative; display: flex; align-items: center; min-width: 0; }
+.fd-search-icon {
+    position: absolute; inset-inline-start: 14px; font-size: 1.2rem; color: var(--text-dim);
+    pointer-events: none;
+}
 .fd-search-input {
-    flex: 1; background: var(--surface-1); border: 1px solid var(--hairline);
-    border-radius: var(--r-pill); padding: 12px 16px; color: var(--text);
+    width: 100%; box-sizing: border-box; background: var(--surface-1); border: 1px solid var(--hairline);
+    border-radius: var(--r-pill); padding: 12px 44px 12px 16px; color: var(--text);
     font-family: inherit; font-size: 0.95rem;
 }
 .fd-search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.fd-search-input:focus + .fd-search-icon, .fd-search-wrap:focus-within .fd-search-icon { color: var(--accent); }
 .fd-cam-btn {
     background: var(--accent-soft); color: var(--accent); border: none;
-    width: 46px; height: 46px; border-radius: 9999px; flex-shrink: 0;
+    width: 46px; height: 46px; border-radius: var(--r-md); flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: transform 0.12s;
 }
+.fd-cam-btn:active { transform: scale(0.92); }
+.fd-cam-btn--alt { background: var(--surface-3); color: var(--text-dim); }
 .fd-add-sub { font-size: 0.74rem; color: var(--text-dim); margin: 0 4px 10px; }
 .fd-add-sub strong { color: var(--accent); }
-.fd-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-.fd-tab {
-    flex: 1; background: var(--surface-1); border: none; color: var(--text-dim);
-    font-family: inherit; font-weight: 700; font-size: 0.78rem;
-    padding: 9px; border-radius: var(--r-sm); cursor: pointer;
+/* טאבים — segmented control */
+.fd-tabs {
+    display: flex; gap: 4px; margin-bottom: 12px; padding: 4px;
+    background: var(--surface-1); border-radius: var(--r-pill);
 }
-.fd-tab.active { background: var(--accent); color: var(--accent-text); }
+.fd-tab {
+    flex: 1; background: none; border: none; color: var(--text-dim);
+    font-family: inherit; font-weight: 700; font-size: 0.78rem;
+    padding: 9px; border-radius: var(--r-pill); cursor: pointer;
+    transition: color 0.15s, background 0.2s;
+}
+.fd-tab.active { background: var(--accent); color: var(--accent-text); box-shadow: var(--accent-glow); }
 .fd-results { flex: 1; overflow-y: auto; min-height: 120px; }
 .fd-loading, .fd-empty { text-align: center; color: var(--text-dim); font-size: 0.82rem; padding: 28px 12px; line-height: 1.5; }
 .fd-food-row {
@@ -6036,9 +6104,18 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     border-radius: var(--r-md); padding: 12px 14px; margin-bottom: 7px;
     font-family: inherit; text-align: right; cursor: pointer; color: var(--text);
 }
-.fd-food-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.fd-food-name { font-weight: 700; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-food-row:active { background: var(--surface-3); }
+.fd-food-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.fd-food-name { font-weight: 700; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
 .fd-food-sub { font-size: 0.68rem; color: var(--text-dim); }
+.fd-src-chip {
+    flex-shrink: 0; font-size: 0.56rem; font-weight: 800; letter-spacing: 0.03em;
+    padding: 1px 6px; border-radius: 5px; background: var(--surface-4); color: var(--text-dim);
+}
+.fd-src-chip.src-basic { background: rgba(48,209,88,0.14); color: #30D158; }
+.fd-src-chip.src-usda { background: rgba(255,173,71,0.14); color: #ffad47; }
+.fd-src-chip.src-custom { background: var(--accent-soft); color: var(--accent); }
+.fd-src-chip.src-gemini { background: rgba(191,90,242,0.16); color: #c77dff; }
 .fd-food-star { font-size: 1.2rem; color: var(--text-dim); flex-shrink: 0; line-height: 1; }
 .fd-food-star.on { color: #ffcf3f; }
 .fd-add-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--hairline); }
@@ -6122,6 +6199,62 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     border-radius: var(--r-pill); width: 52px; flex-shrink: 0; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
 }
+
+/* ── Meal Builder — מנה מורכבת ── */
+.fd-meal-sheet { max-height: 90vh; display: flex; flex-direction: column; }
+#fd-meal-body { overflow-y: auto; }
+.fd-meal-name-inp {
+    width: 100%; box-sizing: border-box; background: none; border: none;
+    color: var(--text); font-family: inherit; font-weight: 900; font-size: 1.2rem;
+    padding: 0 2px 2px; margin-bottom: 4px;
+}
+.fd-meal-name-inp:focus { outline: none; }
+.fd-meal-total {
+    display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+    background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+    border: 1px solid var(--hairline); border-radius: var(--r-md);
+    padding: 12px 14px; margin-bottom: 14px;
+}
+.fd-meal-total-kcal { font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 1.7rem; line-height: 1; color: var(--accent); }
+.fd-meal-total-unit { font-size: 0.75rem; color: var(--text-dim); font-weight: 700; }
+.fd-meal-total-macros { display: flex; gap: 6px; margin-inline-start: auto; }
+.fd-meal-total-macros i { font-style: normal; font-size: 0.62rem; font-weight: 800; padding: 2px 6px; border-radius: 6px; }
+.fd-meal-total-macros i.macro-p { color: #4a86e8; background: rgba(74,134,232,0.13); }
+.fd-meal-total-macros i.macro-c { color: #ffad47; background: rgba(255,173,71,0.13); }
+.fd-meal-total-macros i.macro-f { color: #f6c5be; background: rgba(246,197,190,0.13); }
+.fd-comp-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.fd-comp {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface-1); border: 1px solid var(--hairline);
+    border-radius: var(--r-md); padding: 10px 12px;
+}
+.fd-comp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fd-comp-name { font-weight: 700; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-comp-kcal { font-size: 0.68rem; color: var(--text-dim); }
+.fd-comp-kcal b { color: var(--text); font-weight: 800; }
+.fd-comp-qty { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.fd-comp-qty input {
+    width: 62px; box-sizing: border-box; background: var(--surface-3); border: 1px solid var(--hairline);
+    border-radius: var(--r-sm); padding: 8px 6px; color: var(--text);
+    font-family: inherit; font-size: 0.9rem; font-weight: 700; text-align: center;
+    -moz-appearance: textfield;
+}
+.fd-comp-qty input::-webkit-outer-spin-button, .fd-comp-qty input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fd-comp-qty input:focus { outline: none; border-color: var(--accent); }
+.fd-comp-unit { font-size: 0.64rem; color: var(--text-dim); font-weight: 600; }
+.fd-comp-del {
+    background: none; border: none; color: var(--text-dim); cursor: pointer;
+    width: 26px; height: 26px; border-radius: 9999px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+}
+.fd-comp-del .material-symbols-outlined { font-size: 1.05rem; }
+.fd-comp-add {
+    display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+    background: transparent; border: 1.5px dashed var(--hairline-hi); color: var(--text-dim);
+    border-radius: var(--r-md); padding: 11px; margin-bottom: 16px;
+    font-family: inherit; font-weight: 700; font-size: 0.8rem; cursor: pointer;
+}
+.fd-comp-add .material-symbols-outlined { font-size: 1.1rem; color: var(--accent); }
 
 /* יעדי מאקרו בהגדרות (הגדרות → מאמן) */
 .nutri-macro-targets { display: flex; gap: 6px; }

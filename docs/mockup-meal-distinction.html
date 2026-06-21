@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מוקאפ · אבחנת ארוחות — אופציה 1 מול 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&family=Material+Symbols+Outlined" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0a; --surface-3:#1e1e22;
+  --hairline:rgba(255,255,255,0.06); --hairline-hi:rgba(255,255,255,0.10);
+  --top-glint:inset 0 1px 0 rgba(255,255,255,0.05);
+  --elev-2:0 2px 8px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.35);
+  --r-md:20px; --r-lg:28px;
+  --accent:#0A84FF; --accent-soft:rgba(10,132,255,0.14);
+  --text:#e2e2e2; --text-dim:#8E8E93;
+  --macro-p:#8FB0C9; --macro-c:#C3A874; --macro-f:#C594A6;
+  --fd-glass:blur(40px) saturate(150%);
+  /* גווני ארוחה — saturation נמוך, משתלב בכהה */
+  --ma-breakfast:#E0A93A; --ma-lunch:#5CC48A; --ma-dinner:#6E84E0; --ma-snack:#B06EE0;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Heebo',system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:24px 14px 60px}
+h1{font-weight:900;font-size:1.3rem;text-align:center;margin:0 0 4px}
+.sub{text-align:center;color:var(--text-dim);font-size:.85rem;margin:0 0 26px}
+.wrap{display:flex;gap:20px;max-width:880px;margin:0 auto;flex-wrap:wrap;justify-content:center}
+.panel{flex:1;min-width:300px;max-width:420px}
+.panel-h{font-weight:900;font-size:1.05rem;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+.panel-d{color:var(--text-dim);font-size:.76rem;margin:0 0 16px;line-height:1.5}
+.tag{font-size:.62rem;font-weight:700;padding:3px 9px;border-radius:9999px;background:var(--accent-soft);color:var(--accent)}
+.material-symbols-outlined{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;font-size:1.25rem}
+
+/* בסיס משותף לשתי האופציות — זהה ל-.fd-meal באפליקציה */
+.meal{position:relative;border-radius:var(--r-lg);overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012));
+  border:1px solid var(--hairline);border-top-color:var(--hairline-hi);
+  box-shadow:var(--top-glint),var(--elev-2);}
+.meal-hdr{display:flex;align-items:center;gap:13px;padding:16px}
+.meal-icon{width:38px;height:38px;border-radius:12px;flex-shrink:0;
+  background:rgba(255,255,255,0.05);color:var(--accent);border:1px solid var(--hairline);
+  display:flex;align-items:center;justify-content:center}
+.meal-titles{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.meal-name{font-weight:600;font-size:1rem}
+.meal-kcal{font-size:.64rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.08em;display:flex;gap:8px;flex-wrap:wrap}
+.meal-kcal i{font-style:normal}
+.meal-kcal i.p{color:var(--macro-p)} .meal-kcal i.c{color:var(--macro-c)} .meal-kcal i.f{color:var(--macro-f)}
+.meal-add{margin-inline-start:auto;width:34px;height:34px;border-radius:9999px;flex-shrink:0;background:var(--accent-soft);color:var(--accent);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center}
+.meal-body{border-top:1px solid var(--hairline)}
+.entry{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--hairline)}
+.entry:last-child{border-bottom:none}
+.entry-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.entry-name{font-weight:500;font-size:.9rem}
+.entry-sub{font-size:.66rem;color:var(--text-dim)}
+.entry-k{font-weight:800;font-size:.9rem}
+.entry-k small{font-weight:600;color:var(--text-dim);font-size:.7rem}
+
+/* ===== אופציה 1 — גוון לפי ארוחה ===== */
+.opt1 .meal{margin-bottom:14px;border-inline-start:3px solid color-mix(in srgb, var(--ma,var(--accent)) 55%, transparent)}
+.opt1 .meal-icon{color:var(--ma,var(--accent));
+  background:color-mix(in srgb, var(--ma,var(--accent)) 14%, transparent);
+  border-color:color-mix(in srgb, var(--ma,var(--accent)) 32%, transparent)}
+.opt1 .meal-add{background:color-mix(in srgb, var(--ma,var(--accent)) 14%, transparent);color:var(--ma,var(--accent))}
+
+/* ===== אופציה 3 — ללא צבע, אבחנה מבנית ===== */
+.opt3 .meal{margin-bottom:22px;border-top:1.5px solid var(--hairline-hi);
+  box-shadow:var(--top-glint),0 4px 14px rgba(0,0,0,0.5),0 12px 32px rgba(0,0,0,0.4)}
+.opt3 .meal-icon{color:var(--accent)}
+</style>
+</head>
+<body>
+<h1>אבחנת ארוחות · השוואה</h1>
+<p class="sub">אותו תוכן בדיוק — שתי גישות לאבחנה ביניהן. בחר מה שמשתלב לך.</p>
+<div class="wrap">
+
+  <!-- ================= אופציה 1 ================= -->
+  <div class="panel opt1">
+    <div class="panel-h">אופציה 1 <span class="tag">גוון לפי ארוחה</span></div>
+    <p class="panel-d">לכל ארוחה גוון אקצנט עדין: אייקון + רקעו + קו דק בקצה. זיהוי מיידי במבט אחד.</p>
+
+    <div class="meal" style="--ma:var(--ma-breakfast)">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">wb_twilight</span></span>
+        <div class="meal-titles"><span class="meal-name">בוקר</span><span class="meal-kcal">320 קלוריות <i class="p">P 22</i><i class="c">C 33</i><i class="f">F 12</i></span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">ביצים</span><span class="entry-sub">2 יח' · 08:10</span></div><span class="entry-k">140<small> kcal</small></span></div>
+        <div class="entry"><div class="entry-main"><span class="entry-name">לחם מלא</span><span class="entry-sub">2 פרוסות · 08:12</span></div><span class="entry-k">180<small> kcal</small></span></div>
+      </div>
+    </div>
+
+    <div class="meal" style="--ma:var(--ma-lunch)">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">lunch_dining</span></span>
+        <div class="meal-titles"><span class="meal-name">צהריים</span><span class="meal-kcal">370 קלוריות <i class="p">P 35</i><i class="c">C 45</i><i class="f">F 4</i></span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">חזה עוף</span><span class="entry-sub">150 ג' · 13:30</span></div><span class="entry-k">165<small> kcal</small></span></div>
+        <div class="entry"><div class="entry-main"><span class="entry-name">אורז</span><span class="entry-sub">200 ג' · 13:31</span></div><span class="entry-k">205<small> kcal</small></span></div>
+      </div>
+    </div>
+
+    <div class="meal" style="--ma:var(--ma-dinner)">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">dinner_dining</span></span>
+        <div class="meal-titles"><span class="meal-name">ערב</span><span class="meal-kcal">320 קלוריות <i class="p">P 12</i><i class="c">C 58</i><i class="f">F 6</i></span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">פסטה ברוטב עגבניות</span><span class="entry-sub">250 ג' · 20:00</span></div><span class="entry-k">320<small> kcal</small></span></div>
+      </div>
+    </div>
+
+    <div class="meal" style="--ma:var(--ma-snack)">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">cookie</span></span>
+        <div class="meal-titles"><span class="meal-name">נשנוש</span><span class="meal-kcal">150 קלוריות <i class="p">P 6</i><i class="c">C 6</i><i class="f">F 13</i></span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">שקדים</span><span class="entry-sub">25 ג' · 16:40</span></div><span class="entry-k">150<small> kcal</small></span></div>
+      </div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">restaurant</span></span>
+        <div class="meal-titles"><span class="meal-name">ארוחת ביניים</span><span class="meal-kcal">ארוחה מותאמת → accent ברירת מחדל</span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">יוגורט יווני</span><span class="entry-sub">150 ג' · 11:00</span></div><span class="entry-k">90<small> kcal</small></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= אופציה 3 ================= -->
+  <div class="panel opt3">
+    <div class="panel-h">אופציה 3 <span class="tag">ללא צבע · מבני</span></div>
+    <p class="panel-d">אותו גוון לכולן; האבחנה דרך רווח גדול יותר, קו עליון בולט יותר ו-elevation. שומר על הקו המונוכרומטי.</p>
+
+    <div class="meal">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">wb_twilight</span></span>
+        <div class="meal-titles"><span class="meal-name">בוקר</span><span class="meal-kcal">320 קלוריות <i class="p">P 22</i><i class="c">C 33</i><i class="f">F 12</i></span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">ביצים</span><span class="entry-sub">2 יח' · 08:10</span></div><span class="entry-k">140<small> kcal</small></span></div>
+        <div class="entry"><div class="entry-main"><span class="entry-name">לחם מלא</span><span class="entry-sub">2 פרוסות · 08:12</span></div><span class="entry-k">180<small> kcal</small></span></div>
+      </div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">lunch_dining</span></span>
+        <div class="meal-titles"><span class="meal-name">צהריים</span><span class="meal-kcal">370 קלוריות <i class="p">P 35</i><i class="c">C 45</i><i class="f">F 4</i></span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">חזה עוף</span><span class="entry-sub">150 ג' · 13:30</span></div><span class="entry-k">165<small> kcal</small></span></div>
+        <div class="entry"><div class="entry-main"><span class="entry-name">אורז</span><span class="entry-sub">200 ג' · 13:31</span></div><span class="entry-k">205<small> kcal</small></span></div>
+      </div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">dinner_dining</span></span>
+        <div class="meal-titles"><span class="meal-name">ערב</span><span class="meal-kcal">320 קלוריות <i class="p">P 12</i><i class="c">C 58</i><i class="f">F 6</i></span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">פסטה ברוטב עגבניות</span><span class="entry-sub">250 ג' · 20:00</span></div><span class="entry-k">320<small> kcal</small></span></div>
+      </div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">cookie</span></span>
+        <div class="meal-titles"><span class="meal-name">נשנוש</span><span class="meal-kcal">150 קלוריות <i class="p">P 6</i><i class="c">C 6</i><i class="f">F 13</i></span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">שקדים</span><span class="entry-sub">25 ג' · 16:40</span></div><span class="entry-k">150<small> kcal</small></span></div>
+      </div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-hdr">
+        <span class="meal-icon"><span class="material-symbols-outlined">restaurant</span></span>
+        <div class="meal-titles"><span class="meal-name">ארוחת ביניים</span><span class="meal-kcal">ארוחה מותאמת</span></div>
+        <button class="meal-add"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      <div class="meal-body">
+        <div class="entry"><div class="entry-main"><span class="entry-name">יוגורט יווני</span><span class="entry-sub">150 ג' · 11:00</span></div><span class="entry-k">90<small> kcal</small></span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

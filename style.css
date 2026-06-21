@@ -6343,6 +6343,8 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     display: flex; align-items: center; justify-content: center;
 }
 .fd-comp-del .material-symbols-outlined { font-size: 1.05rem; }
+.fd-comp-addrow { display: flex; gap: 8px; margin-bottom: 16px; }
+.fd-comp-addrow .fd-comp-add { flex: 1; margin-bottom: 0; }
 .fd-comp-add {
     display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
     background: transparent; border: 1.5px dashed var(--hairline-hi); color: var(--text-dim);
@@ -6350,6 +6352,10 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     font-family: inherit; font-weight: 700; font-size: 0.8rem; cursor: pointer;
 }
 .fd-comp-add .material-symbols-outlined { font-size: 1.1rem; color: var(--accent); }
+.fd-comp-add--manual { flex: 0 0 auto; min-width: 92px; }
+/* מצב בחירת מרכיב — מרים את שיט החיפוש מעל ה-Meal Builder (אותו z-index, אחרי ב-DOM) */
+body.fd-comp-pick #fd-add-overlay { z-index: 1100; }
+body.fd-comp-pick #fd-add-sheet { z-index: 1101; }
 
 /* יעדי מאקרו בהגדרות (הגדרות → מאמן) */
 .nutri-macro-targets { display: flex; gap: 6px; }

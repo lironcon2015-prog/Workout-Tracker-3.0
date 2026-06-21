@@ -21,6 +21,7 @@ let _fdLastFoods = [];        // התוצאות שהוצגו אחרונות (כ�
 let _fdPhotoMode = 'label';   // 'label' = ברקוד/תווית | 'meal' = הערכת מנה מצילום
 let _fdMealComponents = [];   // Meal Builder — מרכיבי המנה {name, grams, per100}
 let _fdMealEditId = null;     // עריכת רשומת composite קיימת
+let _fdCompPickMode = false;  // מצב "בחירת מרכיב מהמאגר" — בחירה בחיפוש מוסיפה כמרכיב במקום לפתוח עורך
 
 // ── Utils ────────────────────────────────────────────────────────────
 function _fdNowTime() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
@@ -693,6 +694,8 @@ function closeFoodAdd() {
     _fdUnbindKeyboardLift();
     document.getElementById('fd-add-overlay').style.display = 'none';
     document.getElementById('fd-add-sheet').classList.remove('open');
+    _fdCompPickMode = false;
+    document.body.classList.remove('fd-comp-pick');
 }
 
 function fdSetTab(tab, el) {
@@ -872,11 +875,28 @@ function fdSelectFoodById(id) {
     const food = _fdFoodCache[id] || StorageManager.getFoodDb().find(f => f.id === id);
     if (!food) return;
     StorageManager.upsertFoodToDb(food);
+    if (_fdCompPickMode) { _fdAddComponentFromFood(food); return; }   // בחירת מרכיב למנה
     _fdOpenPortion(food, null);
+}
+
+// הוספת מזון שנבחר בחיפוש כמרכיב ב-Meal Builder (במקום פתיחת עורך הכמות)
+function _fdAddComponentFromFood(food) {
+    const per = food.per100 || { kcal: 0, p: 0, c: 0, f: 0 };
+    // ברירת מחדל גרמים: גודל מנה אם מוגדר (לא 100), אחרת 100
+    const serv = (food.servings || []).find(s => s.grams && s.grams !== 100);
+    _fdMealComponents.push({
+        name: food.name, grams: serv ? serv.grams : 100,
+        per100: { kcal: per.kcal || 0, p: per.p || 0, c: per.c || 0, f: per.f || 0 }
+    });
+    _fdCompPickMode = false;
+    closeFoodAdd();          // סוגר את שיט החיפוש — ה-Meal Builder נשאר פתוח מתחתיו
+    _fdRenderComponents();
+    haptic('medium');
 }
 
 // ════════ PORTION EDITOR ════════
 function _fdOpenPortion(food, entry) {
+    _fdCompPickMode = false;   // נתיב עורך כמות — לא מצב בחירת מרכיב
     _fdSelectedFood = food;
     _fdEditEntryId = entry ? entry.id : null;
     const sheet = document.getElementById('fd-portion-sheet');
@@ -1329,6 +1349,7 @@ function _fdOnMealPhoto(file) {
 
 // ════════ MEAL BUILDER — מנה מורכבת עם מרכיבים ניתנים לעריכה ════════
 function _fdOpenMealBuilder(opts) {
+    _fdCompPickMode = false;
     _fdMealComponents = (opts.components || []).map(c => ({ name: c.name, grams: c.grams, per100: c.per100 }));
     _fdMealEditId = opts.editId || null;
     _fdMeal = opts.meal || _fdMealLabels()[0];
@@ -1343,7 +1364,10 @@ function _fdOpenMealBuilder(opts) {
             <span class="fd-meal-total-macros" id="fd-meal-total-macros"></span>
         </div>
         <div class="fd-comp-list" id="fd-comp-list"></div>
-        <button class="fd-comp-add" onclick="fdMealAddComponent()"><span class="material-symbols-outlined">add</span>הוסף מרכיב</button>
+        <div class="fd-comp-addrow">
+            <button class="fd-comp-add" onclick="fdMealSearchComponent()"><span class="material-symbols-outlined">search</span>חפש מרכיב</button>
+            <button class="fd-comp-add fd-comp-add--manual" onclick="fdMealAddComponent()"><span class="material-symbols-outlined">edit</span>ידני</button>
+        </div>
         <div class="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>
         <label class="fd-field fd-field--full" style="margin-bottom:14px;"><span>שעה</span><input type="time" id="fd-meal-time" value="${time}"></label>
         <div class="fd-portion-actions">
@@ -1411,6 +1435,13 @@ function fdMealRemoveComp(i) {
     _fdMealComponents.splice(i, 1);
     _fdRenderComponents();
     haptic('light');
+}
+
+// חיפוש מרכיב מהמאגר — פותח את שיט החיפוש במצב בחירה, מעל ה-Meal Builder
+function fdMealSearchComponent() {
+    _fdCompPickMode = true;
+    document.body.classList.add('fd-comp-pick');   // מרים את שיט החיפוש מעל ה-Meal Builder
+    fdOpenAdd(_fdMeal);   // שומר את הארוחה הנוכחית; בחירת תוצאה → _fdAddComponentFromFood
 }
 
 // הוספת מרכיב ידני — שורה ניתנת לעריכה (שם + ערכים ל-100ג' + גרמים)

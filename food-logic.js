@@ -1070,6 +1070,23 @@ function fdConfirmMealName() {
 // פורמטים נפוצים למוצרי מזון (1D)
 const _FD_BC_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'];
 
+let _fdPendingBarcode = null;   // ברקוד שנסרק וטרם זוהה — מוצמד למזון שייבנה מתווית (OCR)
+
+// תחילית 729 = מוצר רשום ב-GS1 Israel (ברקוד ישראלי)
+function _isIsraeliBarcode(code) { return /^729/.test(String(code || '')); }
+
+// resolver מרוכז לברקוד: cache (נסרק בעבר — מיידי + offline) → OFF. מחזיר food או null.
+async function resolveBarcode(code) {
+    const c = String(code || '');
+    const cached = StorageManager.getFoodDb().find(f => f.barcode && String(f.barcode) === c);
+    if (cached) return cached;
+    try {
+        const food = await lookupBarcode(c);
+        if (food) { StorageManager.upsertFoodToDb(food); return food; }
+    } catch (e) {}
+    return null;
+}
+
 // פענוח ברקוד מקומי מתמונה — מיידי, ללא AI וללא רשת.
 // משתמש ב-BarcodeDetector המובנה (Android/Chrome). ב-iOS (חסר API) מחזיר null
 // והקריאה נופלת חזרה ל-Gemini (קריאת תווית). מחזיר מחרוזת ספרות או null.
@@ -1108,13 +1125,13 @@ function fdOnPhoto(file) {
     if (_fdPhotoMode === 'meal') { _fdOnMealPhoto(file); return; }
     const box = document.getElementById('fd-results');
     if (box) box.innerHTML = '<div class="fd-loading">📷 קורא את התווית/ברקוד…</div>';
-    // נתיב מהיר: פענוח ברקוד מקומי (ללא AI/רשת). הצליח → ישר ל-OFF.
+    // נתיב מהיר: פענוח ברקוד מקומי (ללא AI/רשת). הצליח → cache/OFF דרך resolveBarcode.
+    _fdPendingBarcode = null;
     _fdDecodeBarcode(file).then(async code => {
         if (code) {
-            try {
-                const food = await lookupBarcode(code);
-                if (food) { StorageManager.upsertFoodToDb(food); _fdOpenPortion(food, null); return true; }
-            } catch (e) {}
+            const food = await resolveBarcode(code);
+            if (food) { _fdOpenPortion(food, null); return true; }
+            _fdPendingBarcode = code;   // לא נמצא — נצמיד לתווית שתצולם (OCR)
         }
         return false;
     }).then(done => {
@@ -1132,20 +1149,17 @@ function fdOnPhoto(file) {
 function _fdLabelViaGemini(file, box) {
     if (box) box.innerHTML = '<div class="fd-loading">📷 קורא את התווית…</div>';
     _fileToBase64(file).then(({ base64, mime }) => _callGeminiFood(base64, mime)).then(async res => {
-        // אם זוהה ברקוד — חיפוש ב-OFF
+        // אם זוהה ברקוד מהתווית — חיפוש דרך resolveBarcode (cache/OFF)
         if (res && res.barcode && /^\d{6,}$/.test(String(res.barcode))) {
-            try {
-                const food = await lookupBarcode(String(res.barcode).replace(/\D/g, ''));
-                if (food) { StorageManager.upsertFoodToDb(food); _fdOpenPortion(food, null); return; }
-            } catch (e) {}
+            const food = await resolveBarcode(String(res.barcode).replace(/\D/g, ''));
+            if (food) { _fdPendingBarcode = null; _fdOpenPortion(food, null); return; }
         }
-        // אחרת — בניית מזון חד-פעמי מערכי התווית
+        // אחרת — בניית מזון חד-פעמי מערכי התווית; הצמדת הברקוד שנסרק (אם יש) → נשמר ל-cache
         if (res && res.kcal != null) {
-            const isServing = res.per === 'serving';
-            const per100 = isServing
-                ? { kcal: Math.round(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat) } // נניח מנה≈100g כברירת מחדל; המשתמש יתקן
-                : { kcal: Math.round(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat) };
-            const food = { id: 'gemini:' + Date.now().toString(36), name: res.name || 'מזון מהתמונה', brand: '', barcode: res.barcode ? String(res.barcode) : null, source: 'gemini', per100, servings: [{ label: '100 גרם', grams: 100 }] };
+            const bc = _fdPendingBarcode || (res.barcode ? String(res.barcode).replace(/\D/g, '') : null);
+            _fdPendingBarcode = null;
+            const per100 = { kcal: Math.round(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat) }; // מנה≈100g כברירת מחדל; המשתמש יתקן
+            const food = { id: bc ? 'off:' + bc : 'gemini:' + Date.now().toString(36), name: res.name || 'מזון מהתמונה', brand: '', barcode: bc, source: 'gemini', per100, servings: [{ label: '100 גרם', grams: 100 }] };
             StorageManager.upsertFoodToDb(food);
             _fdOpenPortion(food, null);
             return;
@@ -1174,6 +1188,11 @@ function _fdLoadZXing() {
 
 function _fdLiveSetMsg(txt) { const el = document.getElementById('fd-live-msg'); if (el) el.textContent = txt; }
 function _fdLiveRetry(show) { const b = document.getElementById('fd-live-retry'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
+function _fdLiveLabelBtn(show) { const b = document.getElementById('fd-live-label'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
+
+// "צלם תווית" מתוך סריקה חיה שלא מצאה מוצר — סוגר את המצלמה ופותח צילום תווית.
+// _fdPendingBarcode כבר מוגדר → המזון שייבנה מה-OCR יישמר עם הברקוד (זיהוי חד-פעמי).
+function fdLiveSnapLabel() { fdLiveScanStop(); fdScanPhoto(); }
 function _fdStopStream() {
     if (_fdLiveStream) { _fdLiveStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} }); _fdLiveStream = null; }
 }
@@ -1191,6 +1210,7 @@ async function fdLiveScanStart() {
     ov.style.display = 'flex';
     _fdLiveActive = true;
     _fdLiveRetry(false);
+    _fdLiveLabelBtn(false);
     const video = document.getElementById('fd-live-video');
     if ('BarcodeDetector' in window) {
         _fdLiveSetMsg('מפעיל מצלמה…');
@@ -1245,9 +1265,16 @@ async function _fdLiveOnHit(code) {
     _fdLiveTeardownCamera();
     _fdLiveSetMsg('נמצא ' + code + ' — טוען מוצר…');
     try {
-        const food = await lookupBarcode(code);
-        if (food) { StorageManager.upsertFoodToDb(food); fdLiveScanStop(); _fdOpenPortion(food, null); return; }
-        _fdLiveSetMsg('המוצר (' + code + ') לא נמצא ב-Open Food Facts.');
+        const food = await resolveBarcode(code);
+        if (food) { fdLiveScanStop(); _fdOpenPortion(food, null); return; }
+        // לא נמצא — אם יש מפתח Gemini, להציע צילום תווית (זיהוי חד-פעמי שיישמר ל-cache)
+        _fdPendingBarcode = code;
+        const hasAI = !!StorageManager.getAIConfig().apiKey;
+        const il = _isIsraeliBarcode(code) ? 'מוצר ישראלי ' : '';
+        _fdLiveSetMsg(hasAI
+            ? `${il}(${code}) לא נמצא — צלם תווית לזיהוי חד-פעמי, או סרוק שוב.`
+            : `${il}(${code}) לא נמצא ב-Open Food Facts.`);
+        _fdLiveLabelBtn(hasAI);
     } catch (e) {
         _fdLiveSetMsg('שגיאת רשת בחיפוש המוצר.');
     }

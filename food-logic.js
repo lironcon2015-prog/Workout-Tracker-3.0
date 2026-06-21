@@ -1094,6 +1094,8 @@ function fdConfirmMealName() {
 // ════════ BARCODE / PHOTO ════════
 // פורמטים נפוצים למוצרי מזון (1D)
 const _FD_BC_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'];
+// אילוצי מצלמה לסריקה חיה — רזולוציה גבוהה (ברקוד קטן/מזווית מתפענח טוב יותר) + מצלמה אחורית
+const _FD_CAM_CONSTRAINTS = { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } };
 
 let _fdPendingBarcode = null;   // ברקוד שנסרק וטרם זוהה — מוצמד למזון שייבנה מתווית (OCR)
 
@@ -1198,6 +1200,42 @@ function _fdLabelViaGemini(file, box) {
 // ════════ LIVE BARCODE SCAN ════════
 // מצלמה חיה + פענוח בלולאה. BarcodeDetector מועדף (קל); ZXing כ-fallback (iOS).
 let _fdLiveStream = null, _fdLiveRAF = null, _fdLiveReader = null, _fdLiveActive = false;
+let _fdLiveTimer = null, _fdTorchTrack = null, _fdTorchOn = false;
+
+// כיוון מצלמה אחרי פתיחת הסטרים — autofocus רציף + זיהוי תמיכת פנס. guarded: no-op בשקט כש-API חסר (iOS Safari).
+async function _fdTuneCamera(stream) {
+    _fdTorchTrack = null; _fdTorchOn = false;
+    _fdLiveTorchBtn(false);
+    try {
+        const track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
+        if (!track || !track.getCapabilities) return;
+        const caps = track.getCapabilities() || {};
+        if (caps.focusMode && caps.focusMode.indexOf && caps.focusMode.indexOf('continuous') >= 0) {
+            try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+        }
+        if (caps.torch) { _fdTorchTrack = track; _fdLiveTorchBtn(true); }
+    } catch (e) {}
+}
+
+function _fdLiveTorchBtn(show) { const b = document.getElementById('fd-live-torch'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
+
+// כיוון מצלמה ברגע שהסטרים מתחבר ל-<video> (נתיב ZXing — לא נסמכים על ה-promise של הסורק)
+function _fdTuneWhenReady(video, tries) {
+    tries = tries || 0;
+    const stream = video && video.srcObject;
+    if (stream && stream.getVideoTracks && stream.getVideoTracks().length) { _fdTuneCamera(stream); return; }
+    if (tries < 20 && _fdLiveActive) setTimeout(() => _fdTuneWhenReady(video, tries + 1), 100);
+}
+
+// הדלקה/כיבוי פנס המצלמה — לתאורה חלשה. נתמך בעיקר ב-Android/Chrome.
+async function fdLiveToggleTorch() {
+    if (!_fdTorchTrack) return;
+    _fdTorchOn = !_fdTorchOn;
+    try { await _fdTorchTrack.applyConstraints({ advanced: [{ torch: _fdTorchOn }] }); }
+    catch (e) { _fdTorchOn = false; return; }
+    const b = document.getElementById('fd-live-torch');
+    if (b) b.classList.toggle('on', _fdTorchOn);
+}
 
 // טעינה עצלה של ZXing — רק כשנכנסים למצב חי בפלטפורמה ללא BarcodeDetector
 function _fdLoadZXing() {
@@ -1223,6 +1261,10 @@ function _fdStopStream() {
 }
 function _fdLiveTeardownCamera() {
     if (_fdLiveRAF) { cancelAnimationFrame(_fdLiveRAF); _fdLiveRAF = null; }
+    if (_fdLiveTimer) { clearTimeout(_fdLiveTimer); _fdLiveTimer = null; }
+    // כיבוי פנס לפני עצירת ה-track (שלא יישאר דולק)
+    if (_fdTorchTrack && _fdTorchOn) { try { _fdTorchTrack.applyConstraints({ advanced: [{ torch: false }] }); } catch (e) {} }
+    _fdTorchTrack = null; _fdTorchOn = false; _fdLiveTorchBtn(false);
     if (_fdLiveReader) { try { _fdLiveReader.reset(); } catch (e) {} _fdLiveReader = null; }
     _fdStopStream();
     const v = document.getElementById('fd-live-video');
@@ -1240,13 +1282,14 @@ async function fdLiveScanStart() {
     if ('BarcodeDetector' in window) {
         _fdLiveSetMsg('מפעיל מצלמה…');
         try {
-            _fdLiveStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            _fdLiveStream = await navigator.mediaDevices.getUserMedia({ video: _FD_CAM_CONSTRAINTS });
         } catch (e) { _fdLiveSetMsg('אין גישה למצלמה — אשר הרשאה, או צלם/חפש ידנית.'); _fdLiveRetry(true); return; }
         if (!_fdLiveActive) { _fdStopStream(); return; }   // נסגר בזמן בקשת ההרשאה
         video.srcObject = _fdLiveStream;
         video.setAttribute('playsinline', '');
         await video.play().catch(() => {});
-        _fdLiveSetMsg('כוון את הברקוד למסגרת');
+        await _fdTuneCamera(_fdLiveStream);
+        _fdLiveSetMsg('כוון את הברקוד — לא חייב במרכז');
         _fdLiveDetectNative(video);
     } else {
         _fdLiveSetMsg('טוען סורק…');
@@ -1254,13 +1297,33 @@ async function fdLiveScanStart() {
         try { ZXing = await _fdLoadZXing(); } catch (e) { _fdLiveSetMsg('טעינת הסורק נכשלה — צלם או חפש ידנית.'); _fdLiveRetry(true); return; }
         if (!_fdLiveActive) return;
         try {
-            _fdLiveReader = new ZXing.BrowserMultiFormatReader();
-            _fdLiveSetMsg('כוון את הברקוד למסגרת');
-            _fdLiveReader.decodeFromVideoDevice(null, video, (result) => {
+            // hints חזקים — TRY_HARDER משפר זיהוי בזווית/סיבוב; הגבלת פורמטים מזרזת
+            const hints = new Map();
+            try {
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                    ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+                    ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E,
+                    ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.ITF
+                ]);
+            } catch (e) {}
+            _fdLiveReader = new ZXing.BrowserMultiFormatReader(hints);
+            try { _fdLiveReader.timeBetweenScansMillis = 150; } catch (e) {}
+            _fdLiveSetMsg('כוון את הברקוד — לא חייב במרכז');
+            const cb = (result) => {
                 if (!_fdLiveActive || !result) return;
                 const hit = String(result.getText() || '').replace(/\D/g, '');
                 if (hit.length >= 6) _fdLiveOnHit(hit);
-            });
+            };
+            // decodeFromConstraints → מצלמה אחורית ברזולוציה גבוהה (fallback למכשירים ישנים).
+            // ה-promise של הסורק רץ ברצף — לא ממתינים לו; כיוון המצלמה נעשה עצמאית כשהסטרים מחובר.
+            const start = (typeof _fdLiveReader.decodeFromConstraints === 'function')
+                ? _fdLiveReader.decodeFromConstraints({ video: _FD_CAM_CONSTRAINTS }, video, cb)
+                : _fdLiveReader.decodeFromVideoDevice(null, video, cb);
+            if (start && typeof start.catch === 'function') {
+                start.catch(() => { _fdLiveSetMsg('אין גישה למצלמה — אשר הרשאה, או צלם/חפש ידנית.'); _fdLiveRetry(true); });
+            }
+            _fdTuneWhenReady(video);
         } catch (e) { _fdLiveSetMsg('אין גישה למצלמה — אשר הרשאה, או צלם/חפש ידנית.'); _fdLiveRetry(true); }
     }
 }
@@ -1270,6 +1333,7 @@ function _fdLiveDetectNative(video) {
     let det;
     try { det = new BarcodeDetector({ formats: _FD_BC_FORMATS }); }
     catch (e) { _fdLiveSetMsg('הסורק לא נתמך במכשיר — צלם או חפש ידנית.'); _fdLiveRetry(false); return; }
+    // throttle ~120ms — detect ב-1080p בלי להחניק CPU, ונותן ל-autofocus זמן להתייצב
     const tick = async () => {
         if (!_fdLiveActive) return;
         try {
@@ -1277,9 +1341,9 @@ function _fdLiveDetectNative(video) {
             const hit = (codes || []).map(c => String(c.rawValue || '').replace(/\D/g, '')).find(v => v.length >= 6);
             if (hit) { _fdLiveOnHit(hit); return; }
         } catch (e) {}
-        _fdLiveRAF = requestAnimationFrame(tick);
+        if (_fdLiveActive) _fdLiveTimer = setTimeout(tick, 120);
     };
-    _fdLiveRAF = requestAnimationFrame(tick);
+    _fdLiveTimer = setTimeout(tick, 120);
 }
 
 // זוהה ברקוד → עצור מצלמה → חפש ב-OFF → פתח עורך כמות

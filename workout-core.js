@@ -4130,10 +4130,10 @@ function _buildNutritionAIContext(slim) {
     const days = all.filter(d => d.date !== todayStr);     // ימים מלאים בלבד — היום חלקי ומשטיח ממוצעים
     const avgN = (arr, k) => arr.length ? Math.round(arr.reduce((s, d) => s + (d[k] || 0), 0) / arr.length) : 0;
     const macro = arr => `${avgN(arr, 'calories')} קק"ל | חלבון ${avgN(arr, 'protein')}g | פחמימה ${avgN(arr, 'carbs')}g | שומן ${avgN(arr, 'fat')}g`;
-    let s = `\n=== תזונה בפועל (MyFitnessPal + Apple Health) ===\n`;
-    // צריכה שוטפת היום — נתון חלקי שמתעדכן במהלך היום (מסונכרן מ-Apple Health / MFP)
+    let s = `\n=== תזונה בפועל (סיכום יומי) ===\n`;
+    // צריכה שוטפת היום — נתון חלקי שמתעדכן במהלך היום (יומן פנימי / Apple Health / MFP)
     if (todayEntry) {
-        const src = todayEntry.src === 'health' ? 'Apple Health' : 'MyFitnessPal';
+        const src = todayEntry.src === 'health' ? 'Apple Health' : todayEntry.src === 'app' ? 'יומן פנימי' : 'MyFitnessPal';
         s += `צריכה שוטפת היום (${todayStr}, חלקי — מתעדכן במהלך היום, מקור ${src}): ${todayEntry.calories} קק"ל | חלבון ${todayEntry.protein || 0}g | פחמימה ${todayEntry.carbs || 0}g | שומן ${todayEntry.fat || 0}g\n`;
         // קלוריות שנותרו היום — מול יעד ידני אם הוגדר, אחרת מול ה-TDEE (תחזוקה)
         let ref = getAnalyticsPrefs().kcalTarget, refLbl = 'היעד היומי';
@@ -4151,6 +4151,53 @@ function _buildNutritionAIContext(slim) {
             const recent = days.slice(-14);
             s += `פירוט ${recent.length} ימים מלאים אחרונים (תאריך — קק"ל | חלבון/פחמימה/שומן g):\n`;
             recent.forEach(d => { s += `${d.date} — ${d.calories} | ${d.protein}/${d.carbs}/${d.fat}\n`; });
+        }
+    }
+    return s;
+}
+
+// _buildFoodDiaryAIContext — פירוט יומן המזון הפנימי ל-AI: מה נאכל היום (לפי ארוחה)
+// + יעדי מאקרו + היסטוריה קצרה. משלים את הסיכום היומי עם רזולוציית מזון/ארוחה.
+function _buildFoodDiaryAIContext(slim) {
+    const log = StorageManager.getFoodLog() || {};
+    const dates = Object.keys(log).filter(d => Array.isArray(log[d]) && log[d].length).sort();
+    if (!dates.length) return '';
+    const todayStr = StorageManager._todayStr();
+    const r = v => Math.round(Number(v) || 0);
+    const fmtItem = e => `${e.name || 'מזון'}${e.brand && e.brand !== 'חומר גלם' ? ' (' + e.brand + ')' : ''} ${r(e.kcal)} קק"ל [ח${r(e.p)}/פ${r(e.c)}/ש${r(e.f)}]`;
+
+    let s = `\n=== יומן מזון מפורט (תיעוד פנימי באפליקציה) ===\n`;
+    // יעדי מאקרו (אם הוגדרו)
+    const p = getAnalyticsPrefs();
+    if (p.kcalTarget || p.proteinTarget || p.carbsTarget || p.fatTarget) {
+        s += `יעדים יומיים: ${p.kcalTarget || '—'} קק"ל | חלבון ${p.proteinTarget || '—'}g | פחמימה ${p.carbsTarget || '—'}g | שומן ${p.fatTarget || '—'}g\n`;
+    }
+    // היום — מקובץ לפי ארוחה, עם פירוט פריטים וסכום לארוחה
+    const today = log[todayStr] || [];
+    if (today.length) {
+        s += `היום (${todayStr}):\n`;
+        const order = [];
+        const byMeal = {};
+        today.forEach(e => { const m = e.meal || 'אחר'; if (!byMeal[m]) { byMeal[m] = []; order.push(m); } byMeal[m].push(e); });
+        order.forEach(m => {
+            const items = byMeal[m];
+            const t = items.reduce((a, e) => { a.k += +e.kcal || 0; a.p += +e.p || 0; a.c += +e.c || 0; a.f += +e.f || 0; return a; }, { k: 0, p: 0, c: 0, f: 0 });
+            s += `• ${m} (${r(t.k)} קק"ל, ח${r(t.p)}/פ${r(t.c)}/ש${r(t.f)}): ${items.map(fmtItem).join('; ')}\n`;
+        });
+    } else {
+        s += `היום (${todayStr}): טרם תועד מזון ביומן הפנימי.\n`;
+    }
+    // היסטוריה — רק במצב מלא; פירוט פריטים קומפקטי, עם guard אורך
+    if (!slim) {
+        const past = dates.filter(d => d !== todayStr).slice(-7).reverse();
+        if (past.length) {
+            s += `ימים אחרונים ביומן הפנימי:\n`;
+            for (const d of past) {
+                if (s.length > 3000) { s += `…(נקטע)\n`; break; }
+                const items = log[d];
+                const tk = items.reduce((a, e) => a + (+e.kcal || 0), 0);
+                s += `${d} (${r(tk)} קק"ל): ${items.map(e => `${e.name || 'מזון'} ${r(e.kcal)}`).join('; ')}\n`;
+            }
         }
     }
     return s;
@@ -4249,8 +4296,9 @@ function buildSystemPrompt(opts = {}) {
     const nutriCtx = getNutritionalContext();
     if (nutriCtx) prompt += `\n=== מצב תזונתי ===\n${nutriCtx}\n`;
 
-    // נתוני תזונה בפועל (MyFitnessPal) + שקילות — לניתוח קלורי/מאקרו ומגמת משקל
+    // נתוני תזונה בפועל (סיכום יומי + יומן מזון מפורט) + שקילות
     prompt += _buildNutritionAIContext(slim);
+    prompt += _buildFoodDiaryAIContext(slim);
     prompt += _buildBodylogAIContext(slim);
     prompt += _buildTdeeAIContext(slim);
 

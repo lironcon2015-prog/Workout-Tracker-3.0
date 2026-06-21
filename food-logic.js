@@ -848,10 +848,12 @@ function _fdRenderFoodList(foods, box, append) {
     foods.forEach(f => { _fdFoodCache[f.id] = f; });
     const html = foods.map(f => {
         const brand = (f.brand && f.brand !== 'חומר גלם') ? _fdEsc(f.brand) + ' · ' : '';
+        const p = f.per100 || {};
         return `<button class="fd-food-row" onclick="fdSelectFoodById('${_fdEsc(f.id)}')">
             <div class="fd-food-main">
                 <span class="fd-food-name">${_fdSrcChip(f)}${_fdEsc(f.name)}</span>
-                <span class="fd-food-sub">${brand}${_fdFmt(f.per100.kcal)} kcal · 100 גרם</span>
+                <span class="fd-food-sub">${brand}${_fdFmt(p.kcal)} kcal · 100 ג'</span>
+                <span class="fd-entry-pcf"><i class="macro-p">ח ${Math.round(p.p || 0)}</i><i class="macro-c">פ ${Math.round(p.c || 0)}</i><i class="macro-f">ש ${Math.round(p.f || 0)}</i></span>
             </div>
             <span class="fd-food-star ${f.favorite ? 'on' : ''}" role="button" onclick="event.stopPropagation();fdToggleFav('${_fdEsc(f.id)}',this)">${f.favorite ? '★' : '☆'}</span>
         </button>`;
@@ -1358,11 +1360,18 @@ function _fdRenderComponents() {
     const list = document.getElementById('fd-comp-list');
     if (!list) return;
     list.innerHTML = _fdMealComponents.map((c, i) => {
-        const kcal = Math.round((c.per100.kcal || 0) * (c.grams / 100));
+        const p = c.per100 || (c.per100 = { kcal: 0, p: 0, c: 0, f: 0 });
+        const kcal = Math.round((p.kcal || 0) * (c.grams / 100));
         return `<div class="fd-comp">
             <div class="fd-comp-main">
-                <span class="fd-comp-name">${_fdEsc(c.name)}</span>
-                <span class="fd-comp-kcal"><b id="fd-mc-k-${i}">${_fdFmt(kcal)}</b> kcal</span>
+                <input class="fd-comp-name-inp" id="fd-mc-n-${i}" value="${_fdEsc(c.name)}" oninput="_fdMealRecalc()" placeholder="שם המרכיב">
+                <div class="fd-comp-per100"><span>ל-100ג':</span>
+                    <input id="fd-mc-k100-${i}" inputmode="decimal" step="any" value="${_fdR(p.kcal)}" oninput="_fdMealRecalc()"><small>קל'</small>
+                    <input id="fd-mc-p100-${i}" inputmode="decimal" step="any" value="${_fdR(p.p)}" oninput="_fdMealRecalc()"><small class="macro-p">ח</small>
+                    <input id="fd-mc-c100-${i}" inputmode="decimal" step="any" value="${_fdR(p.c)}" oninput="_fdMealRecalc()"><small class="macro-c">פ</small>
+                    <input id="fd-mc-f100-${i}" inputmode="decimal" step="any" value="${_fdR(p.f)}" oninput="_fdMealRecalc()"><small class="macro-f">ש</small>
+                </div>
+                <span class="fd-comp-kcal"><b id="fd-mc-kc-${i}">${_fdFmt(kcal)}</b> kcal למרכיב</span>
             </div>
             <div class="fd-comp-qty">
                 <input type="number" id="fd-mc-g-${i}" inputmode="decimal" min="0" step="any" value="${_fdR(c.grams)}" oninput="_fdMealRecalc()">
@@ -1378,13 +1387,19 @@ function _fdMealRecalc() {
     let tot = { kcal: 0, p: 0, c: 0, f: 0 };
     _fdMealComponents.forEach((c, i) => {
         const gEl = document.getElementById('fd-mc-g-' + i);
-        const g = gEl ? (Number(gEl.value) || 0) : c.grams;
-        c.grams = g;
-        const f = g / 100;
-        const kcal = Math.round((c.per100.kcal || 0) * f);
-        tot.kcal += kcal; tot.p += (c.per100.p || 0) * f; tot.c += (c.per100.c || 0) * f; tot.f += (c.per100.f || 0) * f;
-        const kEl = document.getElementById('fd-mc-k-' + i);
-        if (kEl) kEl.textContent = _fdFmt(kcal);
+        if (gEl) c.grams = Number(gEl.value) || 0;
+        const nEl = document.getElementById('fd-mc-n-' + i);
+        if (nEl) c.name = nEl.value;
+        const per = c.per100 || (c.per100 = { kcal: 0, p: 0, c: 0, f: 0 });
+        const kEl = document.getElementById('fd-mc-k100-' + i); if (kEl) per.kcal = Number(kEl.value) || 0;
+        const pEl = document.getElementById('fd-mc-p100-' + i); if (pEl) per.p = Number(pEl.value) || 0;
+        const cEl = document.getElementById('fd-mc-c100-' + i); if (cEl) per.c = Number(cEl.value) || 0;
+        const fEl = document.getElementById('fd-mc-f100-' + i); if (fEl) per.f = Number(fEl.value) || 0;
+        const f = c.grams / 100;
+        const kcal = Math.round((per.kcal || 0) * f);
+        tot.kcal += kcal; tot.p += (per.p || 0) * f; tot.c += (per.c || 0) * f; tot.f += (per.f || 0) * f;
+        const kcEl = document.getElementById('fd-mc-kc-' + i);
+        if (kcEl) kcEl.textContent = _fdFmt(kcal);
     });
     const tk = document.getElementById('fd-meal-total-kcal');
     const tm = document.getElementById('fd-meal-total-macros');
@@ -1398,13 +1413,12 @@ function fdMealRemoveComp(i) {
     haptic('light');
 }
 
-// הוספת מרכיב ידני (שם + גרמים + קלוריות/100g בסיסי) דרך prompt קצר בתוך השיט
+// הוספת מרכיב ידני — שורה ניתנת לעריכה (שם + ערכים ל-100ג' + גרמים)
 function fdMealAddComponent() {
-    _fdMealComponents.push({ name: 'מרכיב חדש', grams: 100, per100: { kcal: 0, p: 0, c: 0, f: 0 } });
+    _fdMealComponents.push({ name: '', grams: 100, per100: { kcal: 0, p: 0, c: 0, f: 0 } });
     _fdRenderComponents();
-    // אפשר עריכת שם/ערכים: פותח את שורת המרכיב האחרון למיקוד
     const last = _fdMealComponents.length - 1;
-    setTimeout(() => { const el = document.getElementById('fd-mc-g-' + last); if (el) el.focus(); }, 60);
+    setTimeout(() => { const el = document.getElementById('fd-mc-n-' + last); if (el) el.focus(); }, 60);
 }
 
 function closeFoodMeal() {
@@ -1419,7 +1433,7 @@ function fdSaveMeal() {
     const comps = _fdMealComponents.filter(c => c.grams > 0).map(c => {
         const f = c.grams / 100;
         return {
-            name: c.name, grams: c.grams, per100: c.per100,
+            name: (c.name || '').trim() || 'מרכיב', grams: c.grams, per100: c.per100,
             kcal: Math.round((c.per100.kcal || 0) * f), p: _fdR((c.per100.p || 0) * f),
             c: _fdR((c.per100.c || 0) * f), f: _fdR((c.per100.f || 0) * f)
         };

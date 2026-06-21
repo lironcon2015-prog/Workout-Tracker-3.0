@@ -30,6 +30,8 @@ function _fdR(v) { const n = Number(v); return isFinite(n) ? Math.round(n * 10) 
 function _fdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 const _FD_DEFAULT_MEALS = ['בוקר', 'צהריים', 'ערב', 'נשנוש'];
 const _FD_MEAL_ICONS = { 'בוקר': 'wb_twilight', 'צהריים': 'lunch_dining', 'ערב': 'dinner_dining', 'נשנוש': 'cookie' };
+// גוון אקצנט עדין (saturation נמוך) לכל ארוחת ברירת מחדל — לאבחנה ויזואלית. ארוחה מותאמת → var(--accent).
+const _FD_MEAL_ACCENT = { 'בוקר': '#E0A93A', 'צהריים': '#5CC48A', 'ערב': '#6E84E0', 'נשנוש': '#B06EE0' };
 function _fdMealIcon(m) { return _FD_MEAL_ICONS[m] || 'restaurant'; }
 function _fdMealLabels() { return (getAnalyticsPrefs().mealLabels && getAnalyticsPrefs().mealLabels.length) ? getAnalyticsPrefs().mealLabels.slice() : _FD_DEFAULT_MEALS.slice(); }
 
@@ -574,7 +576,8 @@ function _fdMealsHTML(entries, mfpOwned) {
         const delBtn = (_FD_DEFAULT_MEALS.indexOf(meal) < 0 && !items.length)
             ? `<button class="fd-meal-del" data-meal="${_fdEsc(meal)}" onclick="event.stopPropagation();fdDeleteMeal(this)" aria-label="מחק ארוחה"><span class="material-symbols-outlined">delete</span></button>`
             : '';
-        html += `<div class="fd-meal" style="animation-delay:${mi * 0.04}s">
+        const accVar = _FD_MEAL_ACCENT[meal] ? `--fd-meal-accent:${_FD_MEAL_ACCENT[meal]};` : '';
+        html += `<div class="fd-meal" style="${accVar}animation-delay:${mi * 0.04}s">
             <div class="fd-meal-hdr">
                 <span class="fd-meal-icon"><span class="material-symbols-outlined">${_fdMealIcon(meal)}</span></span>
                 <div class="fd-meal-titles">

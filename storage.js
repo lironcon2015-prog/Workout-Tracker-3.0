@@ -1450,9 +1450,26 @@ const FirebaseManager = {
             return;
         }
         try {
-            const ok = await this._loadConfigSilent();
-            if (!ok) { showAlert('לא נמצאו נתוני קונפיג בענן.'); return; }
-            showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
+            // ===== אבחון זמני (v16.72) — מציג ספירות ענן מול מקומי, לא מחיל =====
+            const doc = await this._db.collection('gympro_data').doc('config').get();
+            const d = doc.exists ? (doc.data() || {}) : {};
+            let rawMeta = '?';
+            try { const m = await this._db.collection('gympro_data').doc('nutrition_raw_meta').get(); rawMeta = m.exists ? (m.data().total || 0) : 'אין'; } catch (e) { rawMeta = 'שגיאה'; }
+            const localRaw = StorageManager.getNutritionRaw();
+            const cloud = 'ענן » bodylog=' + (Array.isArray(d.bodylog) ? d.bodylog.length : 'אין') +
+                ' nutDaily=' + (Array.isArray(d.nutritionDaily) ? d.nutritionDaily.length : 'אין') +
+                ' foodLog=' + (d.foodLog && typeof d.foodLog === 'object' ? Object.keys(d.foodLog).length : 'אין') +
+                ' foodDb=' + (Array.isArray(d.foodDb) ? d.foodDb.length : 'אין') +
+                ' rawRows=' + rawMeta +
+                ' workouts=' + (Array.isArray(d.workouts) ? d.workouts.length : (d.workouts ? 'obj' : 'אין'));
+            const local = 'מקומי » bodylog=' + StorageManager.getBodyLog().length +
+                ' nutDaily=' + StorageManager.getNutritionDaily().length +
+                ' foodLog=' + Object.keys(StorageManager.getFoodLog()).length +
+                ' foodDb=' + StorageManager.getFoodDb().length +
+                ' rawRows=' + (localRaw && Array.isArray(localRaw.rows) ? localRaw.rows.length : 'אין');
+            showAlert(cloud + '\n\n' + local + '\n\n(אבחון בלבד — לא שונה כלום)');
+            return;
+            // ===== סוף אבחון =====
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }

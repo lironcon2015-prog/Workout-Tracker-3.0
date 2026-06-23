@@ -1456,11 +1456,11 @@ function _fdRenderComponents() {
         return `<div class="fd-comp">
             <div class="fd-comp-main">
                 <input class="fd-comp-name-inp" id="fd-mc-n-${i}" value="${_fdEsc(c.name)}" oninput="_fdMealRecalc()" placeholder="שם המרכיב">
-                <div class="fd-comp-per100"><span>ל-100ג':</span>
-                    <input id="fd-mc-k100-${i}" inputmode="decimal" step="any" value="${_fdR(p.kcal)}" oninput="_fdMealRecalc()"><small>קל'</small>
-                    <input id="fd-mc-p100-${i}" inputmode="decimal" step="any" value="${_fdR(p.p)}" oninput="_fdMealRecalc()"><small class="macro-p">ח</small>
-                    <input id="fd-mc-c100-${i}" inputmode="decimal" step="any" value="${_fdR(p.c)}" oninput="_fdMealRecalc()"><small class="macro-c">פ</small>
-                    <input id="fd-mc-f100-${i}" inputmode="decimal" step="any" value="${_fdR(p.f)}" oninput="_fdMealRecalc()"><small class="macro-f">ש</small>
+                <div class="fd-comp-per100"><span class="fd-comp-per100-lbl">ל-100ג':</span>
+                    <span class="fd-comp-cell"><input id="fd-mc-k100-${i}" inputmode="decimal" step="any" value="${_fdR(p.kcal)}" oninput="_fdMealRecalc()"><small>קל'</small></span>
+                    <span class="fd-comp-cell"><input id="fd-mc-p100-${i}" inputmode="decimal" step="any" value="${_fdR(p.p)}" oninput="_fdMealRecalc()"><small class="macro-p">ח</small></span>
+                    <span class="fd-comp-cell"><input id="fd-mc-c100-${i}" inputmode="decimal" step="any" value="${_fdR(p.c)}" oninput="_fdMealRecalc()"><small class="macro-c">פ</small></span>
+                    <span class="fd-comp-cell"><input id="fd-mc-f100-${i}" inputmode="decimal" step="any" value="${_fdR(p.f)}" oninput="_fdMealRecalc()"><small class="macro-f">ש</small></span>
                 </div>
                 <span class="fd-comp-kcal"><b id="fd-mc-kc-${i}">${_fdFmt(kcal)}</b> kcal למרכיב</span>
             </div>

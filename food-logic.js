@@ -871,6 +871,7 @@ function fdToggleFav(id, el) {
     const on = StorageManager.toggleFavoriteFood(id);
     if (_fdFoodCache[id]) _fdFoodCache[id].favorite = on;
     if (el) { el.textContent = on ? '★' : '☆'; el.classList.toggle('on', on); }
+    _fdSyncCloud();
     haptic('light');
 }
 
@@ -987,7 +988,17 @@ function fdSavePortion() {
     closeFoodPortion();
     closeFoodAdd();
     fdRender();
+    _fdSyncCloud();
     haptic('medium');
+}
+
+// _fdSyncCloud — מעלה את הקונפיג (כולל יומן/מאגר המזון) לענן אחרי כל שינוי תזונה.
+// debounced לאיחוד עריכות מהירות; autoSaveConfigToCloud מדלג בשקט ללא Firebase.
+let _fdCloudTimer = null;
+function _fdSyncCloud() {
+    if (typeof autoSaveConfigToCloud !== 'function') return;
+    if (_fdCloudTimer) clearTimeout(_fdCloudTimer);
+    _fdCloudTimer = setTimeout(() => { _fdCloudTimer = null; autoSaveConfigToCloud(); }, 1200);
 }
 
 function closeFoodPortion() {
@@ -1016,6 +1027,7 @@ function fdEditEntry(id) {
 function fdDeleteCurrentEntry() {
     if (!_fdEditEntryId) return;
     StorageManager.deleteFoodEntry(_fdDate, _fdEditEntryId);
+    _fdSyncCloud();
     closeFoodPortion();
     fdRender();
     haptic('warning');
@@ -1584,6 +1596,7 @@ function fdSaveMeal() {
     closeFoodMeal();
     closeFoodAdd();
     fdRender();
+    _fdSyncCloud();
     haptic('medium');
 }
 
@@ -1592,6 +1605,7 @@ function fdMealDeleteEntry() {
     StorageManager.deleteFoodEntry(_fdDate, _fdMealEditId);
     closeFoodMeal();
     fdRender();
+    _fdSyncCloud();
     haptic('warning');
 }
 

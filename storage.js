@@ -1467,7 +1467,16 @@ const FirebaseManager = {
                 ' foodLog=' + Object.keys(StorageManager.getFoodLog()).length +
                 ' foodDb=' + StorageManager.getFoodDb().length +
                 ' rawRows=' + (localRaw && Array.isArray(localRaw.rows) ? localRaw.rows.length : 'אין');
-            showAlert(cloud + '\n\n' + local + '\n\n(אבחון בלבד — לא שונה כלום)');
+            // נפח localStorage כולל + 6 המפתחות הכבדים (לאישור חריגת מכסה)
+            let total = 0; const sizes = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i); const v = localStorage.getItem(k) || '';
+                const sz = k.length + v.length; total += sz; sizes[k] = sz;
+            }
+            const top = Object.entries(sizes).sort((a, b) => b[1] - a[1]).slice(0, 6)
+                .map(([k, s]) => k.replace('gympro_', '') + '=' + (s / 1024).toFixed(0) + 'KB').join('  ');
+            const usage = 'נפח כולל=' + (total / 1024 / 1024).toFixed(2) + 'MB\nכבדים: ' + top;
+            showAlert(cloud + '\n\n' + local + '\n\n' + usage + '\n\n(אבחון בלבד)');
             return;
             // ===== סוף אבחון =====
         } catch(e) {

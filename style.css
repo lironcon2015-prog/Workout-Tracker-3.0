@@ -6319,14 +6319,16 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 }
 .fd-comp-name-inp:focus { outline: none; border-bottom-color: var(--accent); }
 /* ערכים ל-100 גרם — עריכה קומפקטית */
-.fd-comp-per100 { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 0.6rem; color: var(--text-dim); }
-.fd-comp-per100-lbl { flex-shrink: 0; }
-/* כל זוג קלט+תווית נשאר מאוחד — מונע "אובדן" של מאקרו (במיוחד שומן) כששורה נשברת */
-.fd-comp-cell { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
+/* שורה אחת קבועה — בלי שבירה. הקלטים גמישים (flex) ומתכווצים יחד כך שכל 4 המאקרו נכנסים בשורה */
+.fd-comp-per100 { display: flex; align-items: center; flex-wrap: nowrap; gap: 5px; font-size: 0.6rem; color: var(--text-dim); }
+.fd-comp-per100-lbl { flex-shrink: 0; white-space: nowrap; }
+/* כל זוג קלט+תווית = תא גמיש; min-width:0 מאפשר התכווצות מתחת לרוחב התוכן */
+.fd-comp-cell { display: flex; align-items: center; gap: 2px; flex: 1 1 0; min-width: 0; }
+.fd-comp-cell small { flex-shrink: 0; }
 .fd-comp-per100 input {
-    width: 40px; box-sizing: border-box; background: var(--surface-3); border: 1px solid var(--hairline);
-    border-radius: var(--r-sm); padding: 3px 2px; color: var(--text);
-    font-family: inherit; font-size: 0.68rem; font-weight: 700; text-align: center; -moz-appearance: textfield;
+    flex: 1 1 0; min-width: 0; box-sizing: border-box; background: var(--surface-3); border: 1px solid var(--hairline);
+    border-radius: var(--r-sm); padding: 3px 1px; color: var(--text);
+    font-family: inherit; font-size: 0.66rem; font-weight: 700; text-align: center; -moz-appearance: textfield;
 }
 .fd-comp-per100 input::-webkit-outer-spin-button, .fd-comp-per100 input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .fd-comp-per100 input:focus { outline: none; border-color: var(--accent); }

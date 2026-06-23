@@ -237,6 +237,9 @@ document.addEventListener('visibilitychange', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     StorageManager.initDB();
+    // הגנת סנכרון: מזיינים העלאות לענן רק אם המכשיר כבר מכיל דאטה (מקור-אמת).
+    // מצב ריק (אחרי התקנה מחדש) נשאר חסום עד שחזור — מונע דריסת הגיבוי בענן.
+    try { if (typeof FirebaseManager !== 'undefined') FirebaseManager.armSyncOnBoot(); } catch (e) {}
     // החלת ערכת הצבעים השמורה (גיבוי לסקריפט ה-head) + סנכרון השבבים
     if (typeof initColorTheme === 'function') initColorTheme();
     // שחזור העדפת הצלילים (ברירת מחדל: כבוי) + סנכרון אייקון הכפתור

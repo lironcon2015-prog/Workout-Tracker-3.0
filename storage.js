@@ -1077,6 +1077,25 @@ const FirebaseManager = {
         return !!(cfg && cfg.apiKey && cfg.projectId);
     },
 
+    // ── הגנת דריסה (Sync Guard) ───────────────────────────────────────────────
+    // מונע שמכשיר במצב ריק (אחרי התקנה מחדש) ידרוס את הגיבוי בענן עם ריק.
+    // העלאות לענן חסומות עד ש-"זויין": ע"י שחזור מוצלח, העלאה מפורשת, או
+    // grandfather בעלייה (מכשיר עם דאטה קיימת = המקור, בטוח לדחוף).
+    KEY_SYNC_ARMED: 'gympro_sync_armed',
+    _isSyncArmed() { return localStorage.getItem(this.KEY_SYNC_ARMED) === '1'; },
+    _armSync() { try { localStorage.setItem(this.KEY_SYNC_ARMED, '1'); } catch (e) {} },
+
+    // נקרא פעם אחת בעליית האפליקציה: אם Firebase מוגדר ויש כבר דאטה מקומית
+    // משמעותית — המכשיר הזה הוא מקור-האמת, מזיינים. מצב ריק נשאר חסום.
+    armSyncOnBoot() {
+        if (this._isSyncArmed() || !this.isConfigured()) return;
+        const has = (StorageManager.getArchive().length > 0) ||
+                    (StorageManager.getBodyLog().length > 0) ||
+                    (StorageManager.getFoodDb().length > 0) ||
+                    (StorageManager.getNutritionDaily().length > 0);
+        if (has) this._armSync();
+    },
+
     getFirebaseConfig() {
         try { return JSON.parse(localStorage.getItem(this.KEY_FIREBASE_CONFIG)); }
         catch { return null; }
@@ -1252,6 +1271,7 @@ const FirebaseManager = {
     // הכתיבה אטומית (batch). מסמך הארכיון הישן (archive) ממוגרר אוטומטית ונמחק.
 
     async saveArchiveToCloud() {
+        if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת ארכיון (הגנת ענן)'); return false; }
         if (!await this._ensureReady()) { this._recordArchiveSync(false); return false; }
         try {
             const archive = StorageManager.getArchive();
@@ -1308,6 +1328,7 @@ const FirebaseManager = {
                 () => {
                     const ok = StorageManager.saveData(StorageManager.KEY_ARCHIVE, items);
                     if (!ok) { showAlert('שגיאה: הארכיון לא נשמר מקומית (אחסון מלא?). הנתונים המקומיים לא נדרסו.'); return; }
+                    this._armSync();
                     showAlert('הארכיון שוחזר מהענן!', () => { window.location.reload(); });
                 }
             );
@@ -1342,6 +1363,7 @@ const FirebaseManager = {
     // מפוצל ל-chunks (nutrition_raw_meta + nutrition_raw_0/1/...) — מניעה מוחלטת
     // של חריגת 1MB-למסמך, בדיוק כמו הארכיון. ה-header/dateIdx נשמרים ב-meta.
     async saveNutritionRawToCloud() {
+        if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת raw (הגנת ענן)'); return false; }
         if (!await this._ensureReady()) return false;
         try {
             const raw = StorageManager.getNutritionRaw();           // { header, rows, dateIdx } | null
@@ -1419,6 +1441,7 @@ const FirebaseManager = {
     // ── Config ───────────────────────────────────────────────────────────────
 
     async saveConfigToCloud() {
+        if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת קונפיג (הגנת ענן)'); return false; }
         if (!await this._ensureReady()) return false;
         try {
             const configData = {
@@ -1450,20 +1473,38 @@ const FirebaseManager = {
             return;
         }
         try {
-            const ok = await this._loadConfigSilent();
-            if (!ok) { showAlert('לא נמצאו נתוני קונפיג בענן.'); return; }
-            showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
+            // קוראים את הענן ומציגים מה יש בו לפני דריסת המקומי (הגנה מבלבול)
+            const doc = await this._db.collection('gympro_data').doc('config').get();
+            if (!doc.exists) { showAlert('לא נמצאו נתוני קונפיג בענן.'); return; }
+            const d = doc.data() || {};
+            const summary = 'בענן: ' +
+                (Array.isArray(d.bodylog) ? d.bodylog.length : 0) + ' שקילות, ' +
+                (Array.isArray(d.nutritionDaily) ? d.nutritionDaily.length : 0) + ' ימי תזונה, ' +
+                (d.foodLog && typeof d.foodLog === 'object' ? Object.keys(d.foodLog).length : 0) + ' ימי יומן, ' +
+                (Array.isArray(d.foodDb) ? d.foodDb.length : 0) + ' פריטי מאגר';
+            showConfirm(summary + '.\nלשחזר ולדרוס את המקומי?', async () => {
+                await this._applyConfigData(d);
+                await this._loadNutritionRawSilent();
+                this._armSync();   // שוחזר מהענן — מעכשיו בטוח לדחוף מהמכשיר הזה
+                showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
+            });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }
     },
 
-    // משיכת מסמך config ושמירת כל המפתחות (אימונים/תרגילים/תזונה/שקילה/העדפות) — ללא UI.
-    // מחזיר true אם נמצא config בענן. לא דורס מפתח שחסר בענן. מניח _db מוכן.
+    // משיכת מסמך config וכל ה-raw — ללא UI. מחזיר true אם נמצא config. מניח _db מוכן.
     async _loadConfigSilent() {
         const doc = await this._db.collection('gympro_data').doc('config').get();
         if (!doc.exists) return false;
-        const data = doc.data();
+        this._applyConfigData(doc.data());
+        await this._loadNutritionRawSilent();   // הקובץ הגולמי מסונכרן ב-chunks נפרדים
+        return true;
+    },
+
+    // _applyConfigData — כותב את שדות מסמך ה-config ל-localStorage. לא דורס מפתח שחסר בענן.
+    _applyConfigData(data) {
+        if (!data) return;
         if (data.workouts)       StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, data.workouts);
         if (data.exercises)      StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, data.exercises);
         if (data.meta)           StorageManager.saveData(StorageManager.KEY_META, data.meta);
@@ -1476,8 +1517,6 @@ const FirebaseManager = {
         if (data.bodyProfile)    StorageManager.saveData(StorageManager.KEY_BODY_PROFILE, data.bodyProfile);
         if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
         if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
-        await this._loadNutritionRawSilent();   // הקובץ הגולמי מסונכרן ב-chunks נפרדים
-        return true;
     },
 
     // ── Upload All (העלאה ראשונית) ────────────────────────────────────────────
@@ -1487,6 +1526,11 @@ const FirebaseManager = {
             showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.');
             return;
         }
+        // הגנה: אל תעלה (תדרוס את הענן) ממכשיר ריק. רק אם יש דאטה מקומית.
+        const has = (StorageManager.getArchive().length > 0) || (StorageManager.getBodyLog().length > 0) ||
+                    (StorageManager.getFoodDb().length > 0) || (StorageManager.getNutritionDaily().length > 0);
+        if (!has) { showAlert('אין נתונים מקומיים להעלאה — בוטל כדי לא לדרוס את הגיבוי בענן.'); return; }
+        this._armSync();   // העלאה מפורשת ממכשיר עם דאטה — מזיינים סנכרון
         try {
             const archiveOk = await this.saveArchiveToCloud();
             const configOk  = await this.saveConfigToCloud();
@@ -1504,6 +1548,7 @@ const FirebaseManager = {
     // ── AI History ───────────────────────────────────────────────────────────
 
     async saveAIHistoryToCloud() {
+        if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת AI (הגנת ענן)'); return false; }
         if (!await this._ensureReady()) return false;
         try {
             const history = StorageManager.getAIHistory();
@@ -1527,6 +1572,7 @@ const FirebaseManager = {
         try {
             const ok = await this._loadAIHistorySilent();
             if (!ok) { showAlert('לא נמצאה היסטוריית שיחות בענן.'); return; }
+            this._armSync();
             showAlert('היסטוריית שיחות שוחזרה!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
@@ -1555,6 +1601,7 @@ const FirebaseManager = {
         }
         result.config = await this._loadConfigSilent();
         result.ai     = await this._loadAIHistorySilent();
+        this._armSync();   // שוחזר מהענן — מעכשיו בטוח לדחוף מהמכשיר הזה
         return result;
     }
 };

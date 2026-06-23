@@ -29,10 +29,10 @@ document.addEventListener('click', (e) => {
 
 function autoSaveConfigToCloud() {
     if (typeof FirebaseManager === 'undefined' || !FirebaseManager.isConfigured()) return;
+    if (!FirebaseManager._isSyncArmed()) return;   // מצב לא-מזוין: דילוג שקט (הגנת ענן) — לא כשל
     FirebaseManager.saveConfigToCloud().then(ok => {
-        if (typeof showCloudToast === 'function') {
-            showCloudToast(ok ? '☁️ קונפיג נשמר בענן' : '⚠️ שגיאה בשמירת קונפיג לענן', ok);
-        }
+        // הצלחה = שקט (הודעת ההצלחה רק הפריעה). רק כשל אמיתי מציג טוסט.
+        if (!ok && typeof showCloudToast === 'function') showCloudToast('⚠️ שמירת קונפיג לענן נכשלה', false);
     });
 }
 

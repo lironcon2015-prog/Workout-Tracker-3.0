@@ -1115,19 +1115,28 @@ async function resolveBarcode(code) {
 }
 
 // פענוח ברקוד מקומי מתמונה — מיידי, ללא AI וללא רשת.
-// משתמש ב-BarcodeDetector המובנה (Android/Chrome). ב-iOS (חסר API) מחזיר null
-// והקריאה נופלת חזרה ל-Gemini (קריאת תווית). מחזיר מחרוזת ספרות או null.
+// BarcodeDetector המובנה (Android/Chrome) → ZBar (iOS) → null (נפילה ל-Gemini/תווית).
+// מחזיר מחרוזת ספרות או null.
 async function _fdDecodeBarcode(file) {
     try {
-        if (!('BarcodeDetector' in window)) return null;
-        const det = new BarcodeDetector({ formats: _FD_BC_FORMATS });
-        let src = file;
-        if (typeof createImageBitmap === 'function') {
-            try { src = await createImageBitmap(file); } catch (e) { src = file; }
+        if ('BarcodeDetector' in window) {
+            const det = new BarcodeDetector({ formats: _FD_BC_FORMATS });
+            let src = file;
+            if (typeof createImageBitmap === 'function') {
+                try { src = await createImageBitmap(file); } catch (e) { src = file; }
+            }
+            const codes = await det.detect(src);
+            if (src && typeof src.close === 'function') src.close();
+            const hit = (codes || []).map(c => String(c.rawValue || '').replace(/\D/g, '')).find(v => v.length >= 6);
+            return hit || null;
         }
-        const codes = await det.detect(src);
-        if (src && typeof src.close === 'function') src.close();
-        const hit = (codes || []).map(c => String(c.rawValue || '').replace(/\D/g, '')).find(v => v.length >= 6);
+        // iOS — פענוח מקומי דרך ZBar במקום נפילה מיידית ל-OCR
+        if (typeof createImageBitmap !== 'function') return null;
+        try { await _fdLoadZBar(); } catch (e) { return null; }
+        let bmp = null;
+        try { bmp = await createImageBitmap(file); } catch (e) { return null; }
+        const hit = await _fdZBarDecode(bmp, bmp.width, bmp.height);
+        if (bmp && typeof bmp.close === 'function') bmp.close();
         return hit || null;
     } catch (e) { return null; }
 }
@@ -1249,6 +1258,34 @@ function _fdLoadZXing() {
     });
 }
 
+// טעינה עצלה של ZBar (WASM, wasm מוטמע) — מנוע הפענוח החזק ל-iOS (חלופה ל-ZXing).
+// סורק את הפריים המלא בשתי צפיפויות → קורא ברקוד רחוק, לא-ממורכז, ומסובב 90°.
+function _fdLoadZBar() {
+    if (window.zbarWasm) return Promise.resolve(window.zbarWasm);
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'vendor/zbar.js';
+        s.onload = () => window.zbarWasm ? resolve(window.zbarWasm) : reject(new Error('ZBAR_LOAD'));
+        s.onerror = () => reject(new Error('ZBAR_LOAD'));
+        document.head.appendChild(s);
+    });
+}
+
+// פענוח ברקוד מ-ImageBitmapSource (video/canvas) דרך ZBar → מחזיר ספרות או null.
+async function _fdZBarDecode(source, w, h) {
+    if (!window.zbarWasm) return null;
+    try {
+        const canvas = _fdZBarDecode._cv || (_fdZBarDecode._cv = document.createElement('canvas'));
+        const ctx = _fdZBarDecode._ctx || (_fdZBarDecode._ctx = canvas.getContext('2d', { willReadFrequently: true }));
+        if (!w || !h) return null;
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(source, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        const syms = await window.zbarWasm.scanImageData(img);
+        return (syms || []).map(s => String(s.decode() || '').replace(/\D/g, '')).find(v => v.length >= 6) || null;
+    } catch (e) { return null; }
+}
+
 function _fdLiveSetMsg(txt) { const el = document.getElementById('fd-live-msg'); if (el) el.textContent = txt; }
 function _fdLiveRetry(show) { const b = document.getElementById('fd-live-retry'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
 function _fdLiveLabelBtn(show) { const b = document.getElementById('fd-live-label'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
@@ -1292,40 +1329,37 @@ async function fdLiveScanStart() {
         _fdLiveSetMsg('כוון את הברקוד — לא חייב במרכז');
         _fdLiveDetectNative(video);
     } else {
+        // iOS / ללא BarcodeDetector → ZBar (WASM). אנחנו מנהלים את המצלמה בעצמנו
+        // (אותו getUserMedia + autofocus + פנס) וסורקים פריימים מלאים בלולאה.
         _fdLiveSetMsg('טוען סורק…');
-        let ZXing;
-        try { ZXing = await _fdLoadZXing(); } catch (e) { _fdLiveSetMsg('טעינת הסורק נכשלה — צלם או חפש ידנית.'); _fdLiveRetry(true); return; }
+        try { await _fdLoadZBar(); } catch (e) { _fdLiveSetMsg('טעינת הסורק נכשלה — צלם או חפש ידנית.'); _fdLiveRetry(true); return; }
         if (!_fdLiveActive) return;
         try {
-            // hints חזקים — TRY_HARDER משפר זיהוי בזווית/סיבוב; הגבלת פורמטים מזרזת
-            const hints = new Map();
-            try {
-                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-                    ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
-                    ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E,
-                    ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.ITF
-                ]);
-            } catch (e) {}
-            _fdLiveReader = new ZXing.BrowserMultiFormatReader(hints);
-            try { _fdLiveReader.timeBetweenScansMillis = 150; } catch (e) {}
-            _fdLiveSetMsg('כוון את הברקוד — לא חייב במרכז');
-            const cb = (result) => {
-                if (!_fdLiveActive || !result) return;
-                const hit = String(result.getText() || '').replace(/\D/g, '');
-                if (hit.length >= 6) _fdLiveOnHit(hit);
-            };
-            // decodeFromConstraints → מצלמה אחורית ברזולוציה גבוהה (fallback למכשירים ישנים).
-            // ה-promise של הסורק רץ ברצף — לא ממתינים לו; כיוון המצלמה נעשה עצמאית כשהסטרים מחובר.
-            const start = (typeof _fdLiveReader.decodeFromConstraints === 'function')
-                ? _fdLiveReader.decodeFromConstraints({ video: _FD_CAM_CONSTRAINTS }, video, cb)
-                : _fdLiveReader.decodeFromVideoDevice(null, video, cb);
-            if (start && typeof start.catch === 'function') {
-                start.catch(() => { _fdLiveSetMsg('אין גישה למצלמה — אשר הרשאה, או צלם/חפש ידנית.'); _fdLiveRetry(true); });
-            }
-            _fdTuneWhenReady(video);
-        } catch (e) { _fdLiveSetMsg('אין גישה למצלמה — אשר הרשאה, או צלם/חפש ידנית.'); _fdLiveRetry(true); }
+            _fdLiveStream = await navigator.mediaDevices.getUserMedia({ video: _FD_CAM_CONSTRAINTS });
+        } catch (e) { _fdLiveSetMsg('אין גישה למצלמה — אשר הרשאה, או צלם/חפש ידנית.'); _fdLiveRetry(true); return; }
+        if (!_fdLiveActive) { _fdStopStream(); return; }   // נסגר בזמן בקשת ההרשאה
+        video.srcObject = _fdLiveStream;
+        video.setAttribute('playsinline', '');
+        await video.play().catch(() => {});
+        await _fdTuneCamera(_fdLiveStream);
+        _fdLiveSetMsg('כוון את הברקוד — לא חייב במרכז');
+        _fdLiveDetectZBar(video);
     }
+}
+
+// לולאת זיהוי ZBar (iOS) — פריים מלא ברזולוציה מקורית → scanImageData.
+// פריים מלא = אין צורך למרכז; ZBar קורא רחוק/בזווית/מסובב 90°.
+function _fdLiveDetectZBar(video) {
+    const tick = async () => {
+        if (!_fdLiveActive) return;
+        const vw = video.videoWidth, vh = video.videoHeight;
+        if (vw && vh) {
+            const hit = await _fdZBarDecode(video, vw, vh);
+            if (hit) { _fdLiveOnHit(hit); return; }
+        }
+        if (_fdLiveActive) _fdLiveTimer = setTimeout(tick, 160);
+    };
+    _fdLiveTimer = setTimeout(tick, 200);
 }
 
 // לולאת זיהוי מקומית (BarcodeDetector) על פריימים של הווידאו

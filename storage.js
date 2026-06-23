@@ -453,9 +453,26 @@ const StorageManager = {
         showConfirm(`ייבוא ${entries.length} חיבורים והגדרות ידרוס את הקיימים. להמשיך?`, () => {
             try {
                 entries.forEach(([k, v]) => localStorage.setItem(k, v));
-                showAlert('החיבורים שוחזרו בהצלחה!', () => { window.location.reload(); });
             } catch (e) {
                 showAlert('שגיאה בשמירת החיבורים.');
+                return;
+            }
+            // Firebase מוגדר כעת? → משיכה אוטומטית של כל הנתונים מהענן
+            // (ארכיון אימונים + תזונה + שקילה + יומן מזון + שיחות AI), ואז reload.
+            if (FirebaseManager.isConfigured()) {
+                if (typeof showCloudToast === 'function') showCloudToast('מסנכרן נתונים מהענן…', true);
+                FirebaseManager.restoreAllFromCloud().then(res => {
+                    const parts = [];
+                    if (res.archive) parts.push(`${res.archive} אימונים`);
+                    if (res.config)  parts.push('תזונה ושקילה');
+                    if (res.ai)      parts.push('שיחות AI');
+                    const summary = parts.length ? ' (' + parts.join(', ') + ')' : '';
+                    showAlert('החיבורים והנתונים שוחזרו מהענן' + summary + '!', () => { window.location.reload(); });
+                }).catch(() => {
+                    showAlert('החיבורים שוחזרו, אך המשיכה מהענן נכשלה (בדוק רשת). אפשר לטעון ידנית מההגדרות.', () => { window.location.reload(); });
+                });
+            } else {
+                showAlert('החיבורים שוחזרו בהצלחה!', () => { window.location.reload(); });
             }
         });
     },
@@ -1279,24 +1296,7 @@ const FirebaseManager = {
             return;
         }
         try {
-            const col = this._db.collection('gympro_data');
-            const metaDoc = await col.doc('archive_meta').get();
-
-            let items = null;
-            if (metaDoc.exists && metaDoc.data().chunkCount) {
-                // מבנה chunks חדש — איחוד לפי הסדר (chunk 0 = החדשים ביותר)
-                const chunkCount = metaDoc.data().chunkCount;
-                const docs = await Promise.all(
-                    Array.from({ length: chunkCount }, (_, i) => col.doc(`archive_${i}`).get())
-                );
-                items = [];
-                docs.forEach(d => { if (d.exists && Array.isArray(d.data().items)) items.push(...d.data().items); });
-            } else {
-                // Fallback — מבנה ישן (מסמך archive בודד) לפני מיגרציה
-                const legacy = await col.doc('archive').get();
-                if (legacy.exists && legacy.data().items) items = legacy.data().items;
-            }
-
+            const items = await this._fetchArchiveItems();
             if (!items) {
                 showAlert('לא נמצאו נתוני ארכיון בענן.');
                 return;
@@ -1314,6 +1314,28 @@ const FirebaseManager = {
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }
+    },
+
+    // קריאת פריטי הארכיון מהענן (chunks חדש או legacy) — ללא שמירה/UI. מניח _db מוכן.
+    // מחזיר מערך פריטים, או null אם אין ארכיון בענן (כדי לא לדרוס מקומי).
+    async _fetchArchiveItems() {
+        const col = this._db.collection('gympro_data');
+        const metaDoc = await col.doc('archive_meta').get();
+        let items = null;
+        if (metaDoc.exists && metaDoc.data().chunkCount) {
+            // מבנה chunks חדש — איחוד לפי הסדר (chunk 0 = החדשים ביותר)
+            const chunkCount = metaDoc.data().chunkCount;
+            const docs = await Promise.all(
+                Array.from({ length: chunkCount }, (_, i) => col.doc(`archive_${i}`).get())
+            );
+            items = [];
+            docs.forEach(d => { if (d.exists && Array.isArray(d.data().items)) items.push(...d.data().items); });
+        } else {
+            // Fallback — מבנה ישן (מסמך archive בודד) לפני מיגרציה
+            const legacy = await col.doc('archive').get();
+            if (legacy.exists && legacy.data().items) items = legacy.data().items;
+        }
+        return items;
     },
 
     // ── Nutrition Raw (קובץ MFP גולמי) ────────────────────────────────────────
@@ -1428,29 +1450,34 @@ const FirebaseManager = {
             return;
         }
         try {
-            const doc = await this._db.collection('gympro_data').doc('config').get();
-            if (!doc.exists) {
-                showAlert('לא נמצאו נתוני קונפיג בענן.');
-                return;
-            }
-            const data = doc.data();
-            if (data.workouts)       StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, data.workouts);
-            if (data.exercises)      StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, data.exercises);
-            if (data.meta)           StorageManager.saveData(StorageManager.KEY_META, data.meta);
-            if (data.analyticsPrefs) StorageManager.saveAnalyticsPrefs(data.analyticsPrefs);
-            if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
-            if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
-            if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
-            if (data.foodLog)        StorageManager.saveData(StorageManager.KEY_FOOD_LOG, data.foodLog);
-            if (data.foodDb)         StorageManager.saveData(StorageManager.KEY_FOOD_DB, data.foodDb);
-            if (data.bodyProfile)    StorageManager.saveData(StorageManager.KEY_BODY_PROFILE, data.bodyProfile);
-            if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
-            if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
-            await this._loadNutritionRawSilent();   // הקובץ הגולמי מסונכרן ב-chunks נפרדים
+            const ok = await this._loadConfigSilent();
+            if (!ok) { showAlert('לא נמצאו נתוני קונפיג בענן.'); return; }
             showAlert('הקונפיג שוחזר מהענן!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }
+    },
+
+    // משיכת מסמך config ושמירת כל המפתחות (אימונים/תרגילים/תזונה/שקילה/העדפות) — ללא UI.
+    // מחזיר true אם נמצא config בענן. לא דורס מפתח שחסר בענן. מניח _db מוכן.
+    async _loadConfigSilent() {
+        const doc = await this._db.collection('gympro_data').doc('config').get();
+        if (!doc.exists) return false;
+        const data = doc.data();
+        if (data.workouts)       StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, data.workouts);
+        if (data.exercises)      StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, data.exercises);
+        if (data.meta)           StorageManager.saveData(StorageManager.KEY_META, data.meta);
+        if (data.analyticsPrefs) StorageManager.saveAnalyticsPrefs(data.analyticsPrefs);
+        if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
+        if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
+        if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
+        if (data.foodLog)        StorageManager.saveData(StorageManager.KEY_FOOD_LOG, data.foodLog);
+        if (data.foodDb)         StorageManager.saveData(StorageManager.KEY_FOOD_DB, data.foodDb);
+        if (data.bodyProfile)    StorageManager.saveData(StorageManager.KEY_BODY_PROFILE, data.bodyProfile);
+        if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
+        if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
+        await this._loadNutritionRawSilent();   // הקובץ הגולמי מסונכרן ב-chunks נפרדים
+        return true;
     },
 
     // ── Upload All (העלאה ראשונית) ────────────────────────────────────────────
@@ -1498,16 +1525,36 @@ const FirebaseManager = {
             return;
         }
         try {
-            const doc = await this._db.collection('gympro_data').doc('ai_history').get();
-            if (!doc.exists || !doc.data().messages) {
-                showAlert('לא נמצאה היסטוריית שיחות בענן.');
-                return;
-            }
-            StorageManager.saveAIHistory(doc.data().messages);
-            if (doc.data().coachMemory) StorageManager.setCoachMemory(doc.data().coachMemory);
+            const ok = await this._loadAIHistorySilent();
+            if (!ok) { showAlert('לא נמצאה היסטוריית שיחות בענן.'); return; }
             showAlert('היסטוריית שיחות שוחזרה!', () => { window.location.reload(); });
         } catch(e) {
             showAlert('שגיאה בטעינה מהענן: ' + e.message);
         }
+    },
+
+    // משיכת היסטוריית AI + זיכרון מאמן — ללא UI. מחזיר true אם נמצאה בענן. מניח _db מוכן.
+    async _loadAIHistorySilent() {
+        const doc = await this._db.collection('gympro_data').doc('ai_history').get();
+        if (!doc.exists || !doc.data().messages) return false;
+        StorageManager.saveAIHistory(doc.data().messages);
+        if (doc.data().coachMemory) StorageManager.setCoachMemory(doc.data().coachMemory);
+        return true;
+    },
+
+    // ── Restore All (משיכה אוטומטית אחרי ייבוא קובץ חיבורים) ───────────────────
+    // משיכה מלאה שקטה: ארכיון + קונפיג (תזונה/שקילה/יומן מזון/העדפות) + היסטוריית AI.
+    // ללא pop-ups ביניים; מחזיר סיכום { archive, config, ai }. זורק אם Firebase לא מוכן.
+    async restoreAllFromCloud() {
+        if (!await this._ensureReady()) throw new Error('FIREBASE_NOT_READY');
+        const result = { archive: 0, config: false, ai: false };
+        const items = await this._fetchArchiveItems();
+        if (items) {   // null = אין ארכיון בענן → לא דורסים מקומי
+            const ok = StorageManager.saveData(StorageManager.KEY_ARCHIVE, items);
+            result.archive = ok ? items.length : 0;
+        }
+        result.config = await this._loadConfigSilent();
+        result.ai     = await this._loadAIHistorySilent();
+        return result;
     }
 };

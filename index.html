@@ -673,7 +673,10 @@
                                 <button class="nutri-pill" data-state="surplus" onclick="selectNutritionalState('surplus')">Surplus</button>
                             </div>
                             <div class="nutri-target-row">
-                                <span class="nutri-target-lbl">יעד קלורי יומי</span>
+                                <span class="nutri-target-lblwrap">
+                                    <span class="nutri-target-lbl">יעד קלורי יומי</span>
+                                    <span class="nutri-target-mode" id="nutri-target-mode"></span>
+                                </span>
                                 <span class="nutri-target-input">
                                     <input type="number" id="nutri-target-input" inputmode="numeric" min="0" max="9999" placeholder="—" onchange="saveKcalTarget(this.value)">
                                     <span class="nutri-target-unit">kcal</span>
@@ -687,6 +690,7 @@
                                     <input type="number" id="macro-target-f" class="macro-f" inputmode="numeric" min="0" max="999" placeholder="שומן" onchange="saveMacroTarget('fatTarget',this.value)">
                                 </span>
                             </div>
+                            <div class="nutri-target-hint">הקלוריות מחושבות אוטומטית מהמאקרו (P×4 + C×4 + F×9). ערוך את שדה הקלוריות לדריסה ידנית, או מחק אותו לחזרה לחישוב.</div>
                             <div class="stg-toggle-row stg-toggle-row--last">
                                 <div class="stg-toggle-info">
                                     <div class="stg-row-title">הפחת תרגילי מיין ל-4 סטים ב-Cut</div>

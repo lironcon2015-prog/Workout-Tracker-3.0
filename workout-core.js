@@ -1121,33 +1121,67 @@ function _renderNutritionalToggle() {
     if (metaEl) metaEl.textContent = nutri.startDate
         ? `במצב מאז ${nutri.startDate} (${_daysInState(nutri.startDate)} ימים)`
         : 'קבע תאריך תחילת מצב';
-    const targetEl = document.getElementById('nutri-target-input');
-    if (targetEl) targetEl.value = getAnalyticsPrefs().kcalTarget || '';
     const _ap = getAnalyticsPrefs();
     [['macro-target-p', 'proteinTarget'], ['macro-target-c', 'carbsTarget'], ['macro-target-f', 'fatTarget']].forEach(([id, key]) => {
         const el = document.getElementById(id); if (el) el.value = _ap[key] || '';
     });
+    _syncKcalTargetUI(_ap);
     const capEl = document.getElementById('cut-cap-main-toggle');
     if (capEl) capEl.checked = getAnalyticsPrefs().cutCapMainSets !== false;   // ברירת מחדל: דלוק
 }
 
-// saveKcalTarget — שמירת היעד הקלורי היומי (הגדרות → מאמן → Nutritional State).
-// ערך ריק/אפס מבטל את היעד ומסתיר את מספר ה"נותרו" בכרטיס הבית.
+// _macroTargetKcal — קלוריות נגזרות מיעדי המאקרו: חלבון×4 + פחמימה×4 + שומן×9.
+function _macroTargetKcal(p) {
+    return Math.round((Number(p.proteinTarget) || 0) * 4 + (Number(p.carbsTarget) || 0) * 4 + (Number(p.fatTarget) || 0) * 9);
+}
+
+// _syncKcalTargetUI — מסנכרן את שדה הקלוריות ואת תווית המצב (מחושב/ידני).
+function _syncKcalTargetUI(p) {
+    p = p || getAnalyticsPrefs();
+    const inp = document.getElementById('nutri-target-input');
+    if (inp && document.activeElement !== inp) inp.value = p.kcalTarget || '';
+    const tag = document.getElementById('nutri-target-mode');
+    if (tag) {
+        const hasMacro = ((Number(p.proteinTarget) || 0) + (Number(p.carbsTarget) || 0) + (Number(p.fatTarget) || 0)) > 0;
+        if (p.kcalTargetManual && p.kcalTarget) { tag.textContent = 'ידני'; tag.className = 'nutri-target-mode manual'; }
+        else if (hasMacro && p.kcalTarget) { tag.textContent = 'מחושב'; tag.className = 'nutri-target-mode auto'; }
+        else { tag.textContent = ''; tag.className = 'nutri-target-mode'; }
+    }
+}
+
+// saveKcalTarget — היעד הקלורי היומי. ערך מפורש = דריסה ידנית (גם אם לא תואם למאקרו).
+// ריק = ביטול הדריסה וחזרה לחישוב אוטומטי מהמאקרו (אם הוגדר).
 function saveKcalTarget(val) {
     const p = getAnalyticsPrefs();
-    const n = parseInt(val, 10);
-    p.kcalTarget = n > 0 ? n : null;
+    const trimmed = String(val == null ? '' : val).trim();
+    if (trimmed === '') {
+        p.kcalTargetManual = false;
+        const kc = _macroTargetKcal(p);
+        p.kcalTarget = kc > 0 ? kc : null;
+    } else {
+        const n = parseInt(trimmed, 10);
+        if (n > 0) { p.kcalTarget = n; p.kcalTargetManual = true; }
+        else { p.kcalTarget = null; p.kcalTargetManual = false; }
+    }
     saveAnalyticsPrefs(p);
+    _syncKcalTargetUI(p);
     if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
     haptic('light');
 }
 
 // saveMacroTarget — יעד מאקרו יומי (גרם) ליומן המזון. ריק/0 = ללא יעד.
+// כל עוד אין דריסה ידנית — הקלוריות מחושבות אוטומטית מהמאקרו.
 function saveMacroTarget(key, val) {
     const p = getAnalyticsPrefs();
     const n = parseInt(val, 10);
     p[key] = n > 0 ? n : null;
+    if (!p.kcalTargetManual) {
+        const kc = _macroTargetKcal(p);
+        p.kcalTarget = kc > 0 ? kc : null;
+    }
     saveAnalyticsPrefs(p);
+    _syncKcalTargetUI(p);
+    if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
     haptic('light');
 }
 

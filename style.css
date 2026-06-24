@@ -3305,6 +3305,12 @@ body::before {
     border-radius: 16px;
 }
 .nutri-target-lbl { font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.75); }
+.nutri-target-lblwrap { display: flex; align-items: center; gap: 7px; }
+.nutri-target-mode { font-size: 0.6rem; font-weight: 800; padding: 2px 7px; border-radius: 9999px; letter-spacing: 0.02em; }
+.nutri-target-mode.auto { color: #8fe3a6; background: rgba(80,200,120,0.14); }
+.nutri-target-mode.manual { color: #ffd27a; background: rgba(255,190,80,0.14); }
+.nutri-target-mode:empty { display: none; }
+.nutri-target-hint { font-size: 0.66rem; line-height: 1.5; color: var(--text-dim); margin-top: 8px; padding: 0 4px; }
 .nutri-target-input { display: flex; align-items: baseline; gap: 5px; direction: ltr; }
 .nutri-target-input input {
     width: 76px; padding: 3px 8px;

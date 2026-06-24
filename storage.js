@@ -200,6 +200,8 @@ const StorageManager = {
             homeCard: 'today',
             // יעד קלורי יומי (null = לא הוגדר, מספר ה"נותרו" בבית מוסתר)
             kcalTarget: null,
+            // האם היעד הקלורי נדרס ידנית. false = מחושב אוטומטית מהמאקרו (P×4+C×4+F×9)
+            kcalTargetManual: false,
             // נקודת פתיחה ידנית לחישוב ה-TDEE (null = אוטומטי: 28 ימים אחרונים)
             tdeeStartDate: null,
             // ערכת צבעים: obsidian (ברירת מחדל) | bronze | midnight | crimson | emerald | purple
@@ -512,6 +514,8 @@ const StorageManager = {
                 name:               prefs.name,
                 homePRRange:        prefs.homePRRange,
                 workoutAliasColors: prefs.workoutAliasColors || {},
+                kcalTarget:         prefs.kcalTarget,
+                kcalTargetManual:   prefs.kcalTargetManual,
                 proteinTarget:      prefs.proteinTarget,
                 carbsTarget:        prefs.carbsTarget,
                 fatTarget:          prefs.fatTarget,
@@ -538,7 +542,7 @@ const StorageManager = {
             if (data.aliases)        prefs.workoutAliases    = data.aliases;
             if (data.analyticsPrefs) {
                 const ap = data.analyticsPrefs;
-                ['heroMetrics','volumeRange','muscleRange','consistencyRange','consistencyGreen','consistencyOrange','microPoints','microAxis','microOrder','formula','units','name','homePRRange','workoutAliasColors','proteinTarget','carbsTarget','fatTarget','mealLabels'].forEach(k => {
+                ['heroMetrics','volumeRange','muscleRange','consistencyRange','consistencyGreen','consistencyOrange','microPoints','microAxis','microOrder','formula','units','name','homePRRange','workoutAliasColors','kcalTarget','kcalTargetManual','proteinTarget','carbsTarget','fatTarget','mealLabels'].forEach(k => {
                     if (ap[k] !== undefined) prefs[k] = ap[k];
                 });
             }

@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.81
+## גרסה נוכחית: 16.82
 
 ## TM קבוע לתרגילי MAIN (v16.78)
 
@@ -39,8 +39,12 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 (`vendor/zxing.min.js`, טעינה עצלה) ב-iOS. ל-OFF דרך `lookupBarcode`. מנת אוכל/תווית עדיין דרך Gemini.
 
 **לקחים:** (1) ids של מוצרי OFF ללא ברקוד מנוקים לתווים בטוחים ל-onclick. (2) חיפוש תלוי-רשת; אחרונים/מועדפים/
-מותאמים עובדים offline (קאש ב-KEY_FOOD_DB). (3) z-index: overlay=300, ה-bottom-sheets (1000/1001) מעליו בכוונה.
-(4) פענוח ברקוד = מקומי ומיידי, לא AI — AI שמור לקריאת תווית/הערכת מנה בלבד. (5) USDA אנגלי-בלבד: `_fdTranslateForUsda`
+מותאמים עובדים offline (קאש ב-KEY_FOOD_DB). (2.5) **אחרונים/מועדפים — עדיפות לארוחה הנוכחית (v16.45):** `getFoodDb()`
+שומר `mealUse: {meal: {count, lastUsed}}` שמתעדכן ב-`bumpFoodUsage(id, meal)` בכל שמירת מנה בפועל (`fdSavePortion`).
+`StorageManager._mealSort(meal)` ממיין כל רשימת מזון כך שמוצרים שתועדו בארוחה מהסוג הנוכחי מובילים (לפי `lastUsed` שלהם
+בארוחה הזו), ואחריהם השאר לפי `lastUsed` גלובלי. `recentFoods(n,meal)`/`favoriteFoods(meal)` משתמשים בזה ישירות —
+`fdRenderTab` מעביר את `_fdMeal` הנוכחי. (3) z-index: overlay=300, ה-bottom-sheets (1000/1001) מעליו בכוונה.
+(4) פענוח ברקוד = מקומי ומיידי, לא AI — AI שמור לקריאת תווית/הערכת מנה בלבד. (4.5) **חיפוש — עדיפות למתועד (v16.82):** `fdDoSearch` מפריד את התוצאות המקומיות התואמות ל-`used` (יש `lastUsed` — נמיין ב-`StorageManager.sortFoodsByMealUse(list, meal)`, עוטף את `_mealSort` הקיים) ו-`unusedLocal` (נמצא בעבר בחיפוש, מעולם לא תועד בפועל). הסדר הקבוע, גם לפני וגם אחרי תשובת הרשת: `used → basics → (foods מהרשת) → unusedLocal`. **לקח:** לפני התיקון, ה-`merged` הסופי (אחרי שהרשת עונה) נבנה מ-`basics+foods` בלבד — כל התאמה מקומית (כולל מתועדת) שלא חזרה גם מהרשת **נעלמה** מהתוצאות אחרי שתשובת הרשת הגיעה; זו הייתה הסיבה שמוצרים מוכרים "ברחו" מהראש. (5) USDA אנגלי-בלבד: `_fdTranslateForUsda`
 ממפה עברית→אנגלית (`_FD_HE_EN`) לפתיחת חומרי גלם גנריים (דורש מפתח USDA). (6) `_fdTokenMatch` — התאמת חיפוש
 מבוססת-טוקן+נרמול ניקוד, מחליפה `indexOf` נאיבי. (7) ZXing מ-`vendor/` — runtime-cache ב-SW, לא pre-cache (336KB). (8) **Gemini כ-fallback תזונתי** (`_fdAiFood`/`fdAiLookup`):
 שורת "הערכת AI" יזומה (`_fdAppendAiAction`) קבועה מתחת לתוצאות, ואוטומטית ב-0 תוצאות. מזון גנרי = ערכים סטנדרטיים אמינים,

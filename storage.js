@@ -799,6 +799,11 @@ const StorageManager = {
         };
     },
 
+    // עוטף לשימוש חוץ-קובץ (food-logic.js — חיפוש: דירוג תוצאות שתועדו בעבר)
+    sortFoodsByMealUse(list, meal) {
+        return list.slice().sort(this._mealSort(meal));
+    },
+
     recentFoods(n, meal) {
         return this.getFoodDb().filter(f => f.lastUsed)
             .sort(this._mealSort(meal)).slice(0, n || 20);

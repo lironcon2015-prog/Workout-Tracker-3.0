@@ -739,10 +739,15 @@ async function fdDoSearch(q) {
     if (!box) return;
     const seq = ++_fdSearchSeq;   // הבקשה הנוכחית; תוצאה ישנה תזוהה ותידחה
     _fdLastQuery = q; _fdLastFoods = [];
-    // חומרי גלם מובנים (offline) + תוצאות שמורות — מוצגים מיידית בראש
+    // מוצרים שתועדו בעבר (lastUsed) — תמיד בראש, ממוינים לפי עדיפות-ארוחה כמו אחרונים/מועדפים
+    // (90% מהחיפושים הם חזרה על מוצר מוכר). חומרי גלם מובנים (offline) אחריהם, ואז שאר
+    // המאגר המקומי (נמצא בעבר בחיפוש אך לא תועד) — fallback ל-offline, לא בעדיפות גבוהה.
+    const localMatches = StorageManager.getFoodDb().filter(f => f.name && _fdTokenMatch(f.name, q));
+    const used = StorageManager.sortFoodsByMealUse(localMatches.filter(f => f.lastUsed), _fdMeal);
+    const unusedLocal = localMatches.filter(f => !f.lastUsed);
     const basics = _fdBasicMatches(q);
-    const local = StorageManager.getFoodDb().filter(f => f.name && _fdTokenMatch(f.name, q));
-    const immediate = _fdDedup(basics.concat(local));
+    // שניהם מוצגים מיידית, לפני תשובת הרשת, ונשארים בראש גם אחריה (לא נדרסים ע"י תוצאות חדשות).
+    const immediate = _fdDedup(used.concat(basics).concat(unusedLocal));
     if (immediate.length) { _fdLastFoods = immediate; _fdRenderFoodList(immediate, box); }
     else box.innerHTML = '<div class="fd-loading">מחפש ב-Open Food Facts…</div>';
 
@@ -750,8 +755,8 @@ async function fdDoSearch(q) {
         const foods = await searchFoods(q);
         if (seq !== _fdSearchSeq) return;   // בקשה חדשה יותר כבר רצה — התעלם
         foods.forEach(f => StorageManager.upsertFoodToDb(f));   // קאש לשימוש עתידי
-        // חומרי גלם בראש, אחריהם תוצאות OFF (ללא כפילויות)
-        const merged = _fdDedup(basics.concat(foods));
+        // מתועדים בראש, חומרי גלם אחריהם, תוצאות הרשת, ואז שאר המאגר המקומי (ללא כפילויות)
+        const merged = _fdDedup(used.concat(basics).concat(foods).concat(unusedLocal));
         _fdLastFoods = merged;
         if (merged.length) { _fdRenderFoodList(merged, box); _fdAppendAiAction(box); }
         else if (!immediate.length) {

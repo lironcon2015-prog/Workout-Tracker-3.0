@@ -5180,6 +5180,7 @@ body.live-mode-active { overflow: hidden; }
 .live-target-val small {
     font-size: 0.5em; font-weight: 700;
     opacity: 0.55; margin: 0 3px;
+    unicode-bidi: isolate; /* מבודד את המילה העברית מהספרות השכנות — מונע שיבוש bidi (UAX#9) */
 }
 
 .live-swipe-card {

@@ -4,7 +4,18 @@
 
 ---
 
-## גרסה נוכחית: 16.40
+## גרסה נוכחית: 16.78
+
+## TM קבוע לתרגילי MAIN (v16.78)
+
+מטרה: לחסוך הזנת 1RM ידנית בתחילת כל תרגיל-מיין — TM נקבע פעם אחת בהגדרות (סמנטיקת 5/3/1: קבוע, לא מחושב מחדש כל אימון).
+
+- **מודל:** `KEY_EXERCISE_TM` ב-storage.js — מפה `{exName: tmVal}`, `getExerciseTM`/`saveExerciseTM`/`getAllExerciseTMs`. ערך ריק = מחיקת מפתח (חוזר לזרימת 1RM הידנית). **לא** ב-`_connectionKeys()` (דאטה, לא סוד) ו**לא** בסנכרון Firebase config — תואם RM/weights הקיימים שגם לא מסונכרנים.
+- **UI הגדרות:** `_renderMainTMSettings()` (workout-core.js) מרנדר שדה לכל שם תרגיל-מיין שנאסף מ-**כל** התוכניות (`_getAllMainExerciseNames`, לא רק התוכנית הנוכחית) ב-`#main-tm-settings-list` (הגדרות → מאמן). נקרא מ-`openSettings()`.
+- **דילוג אוטומטי:** `confirmExercise()` — אם `getExerciseTM(exName) != null`, קורא ל-`applyRMAndStart(tm)` במקום `setupCalculatedEx()` (שפותח את `ui-1rm`). `applyRMAndStart` הוא ה-refactor המשותף שחולץ מ-`save1RM()` — שתי הזרימות (TM מוגדר / הזנה ידנית) מובילות לאותו חישוב סטים מאחוזי RM.
+- **תצוגה — עדיפות session over settings:** `_displayTM(exName)` = `state.rmUsed[exName]` (אם בוצע בסשן הנוכחי) אחרת `getExerciseTM`. כך אם המשתמש משנה TM בהגדרות אחרי שכבר רשם סטים, הסיכום/הלוג ממשיכים להציג את הערך שבו **בפועל** בוצע התרגיל, לא את הערך העדכני בהגדרות.
+- **נקודות תצוגה (חובה synchronized — באג עתידי אם רק חלק יתעדכן):** סיכום אימון (`buildSummaryUI`, badge בכרטיס), תג Main בארכיון (`_saveToArchive`, `(Main, TM: Xkg)`), ושלושת חלונות ה-Quick Menu — תרגילים (`openCurrentPlanSheet`), יומן (`openSessionLog`), היסטוריה (`openHistoryDrawer`). שלושתם משתמשים ב-`_isMainExInCurrentWorkout(exName)` (לא `item.isMain` ישיר — `openSessionLog`/`openHistoryDrawer` לא מחזיקים את ה-plan item, רק שם).
+- **CSS:** `.plan-tm-badge`/`.card-tm-badge`/`.slog-tm-badge` — pill עקבי (`#353535`, `border-radius:9999px`), נפרד מ-`.plan-main-badge` (accent) כדי לא להתחרות חזותית. RTL: `margin-inline-start` (לא `margin-right`) — הבדג' מגיע אחרי הטקסט במקור ה-HTML ומוצג משמאלו.
 
 ## יומן מזון מובנה (Food Diary) — v16.40
 

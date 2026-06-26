@@ -1093,6 +1093,7 @@ function openSettings() {
     if (typeof updateWatchBridgeStatus === 'function') updateWatchBridgeStatus();
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
+    _renderMainTMSettings();
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
     if (typeof syncHomeCardToggle === 'function') syncHomeCardToggle();
     if (typeof syncThemePicker === 'function') syncThemePicker();
@@ -1128,6 +1129,64 @@ function _renderNutritionalToggle() {
     _syncKcalTargetUI(_ap);
     const capEl = document.getElementById('cut-cap-main-toggle');
     if (capEl) capEl.checked = getAnalyticsPrefs().cutCapMainSets !== false;   // ברירת מחדל: דלוק
+}
+
+// ─── TM — תרגילי MAIN ──────────────────────────────────────────────────────
+// _displayTM — TM להצגה לתרגיל: עדיפות לערך שבו בוצע בפועל בסשן הנוכחי,
+// נפילה לערך המוגדר בהגדרות (לתרגילים שעדיין לא בוצעו בסשן). null = אין TM כלל.
+function _displayTM(exName) {
+    if (state.rmUsed && state.rmUsed[exName] != null) return state.rmUsed[exName];
+    return StorageManager.getExerciseTM(exName);
+}
+
+// בודק אם תרגיל מתוייג MAIN בתוכנית הפעילה כרגע (לתצוגת TM בחלונות יומן/היסטוריה).
+function _isMainExInCurrentWorkout(exName) {
+    if (!state.type || !state.workouts || !state.workouts[state.type]) return false;
+    return state.workouts[state.type].some(item => item.isMain && item.type !== 'cluster' && item.name === exName);
+}
+
+// אוסף את שמות כל תרגילי ה-MAIN הייחודיים מכל התוכניות הקיימות (state.workouts).
+function _getAllMainExerciseNames() {
+    const names = [];
+    if (state.workouts) {
+        Object.keys(state.workouts).forEach(wName => {
+            (state.workouts[wName] || []).forEach(item => {
+                if (item.isMain && item.type !== 'cluster' && !names.includes(item.name)) names.push(item.name);
+            });
+        });
+    }
+    return names;
+}
+
+// _renderMainTMSettings — מציג שדה TM לכל תרגיל-מיין בהגדרות. TM מוגדר = דילוג
+// אוטומטי על מסך הזנת 1RM בתחילת התרגיל (confirmExercise).
+function _renderMainTMSettings() {
+    const container = document.getElementById('main-tm-settings-list');
+    if (!container) return;
+    const names = _getAllMainExerciseNames();
+    if (!names.length) {
+        container.innerHTML = '<div class="stg-nutri-hint">אין תרגילים מתויגים MAIN באף תוכנית.</div>';
+        return;
+    }
+    const tms = StorageManager.getAllExerciseTMs();
+    container.innerHTML = names.map(name => `
+        <div class="stg-ai-field">
+            <label class="stg-ai-label">${escapeHtml(name)}</label>
+            <input type="number" inputmode="decimal" step="2.5" min="0" class="stg-ai-input main-tm-input"
+                data-ex-name="${escapeHtml(name)}"
+                placeholder="ללא TM — הזנת 1RM ידנית"
+                value="${tms[name] != null ? tms[name] : ''}">
+        </div>`).join('');
+    container.querySelectorAll('.main-tm-input').forEach(inp => {
+        inp.addEventListener('change', () => saveMainExerciseTM(inp.dataset.exName, inp.value));
+    });
+}
+
+function saveMainExerciseTM(exName, val) {
+    const trimmed = String(val == null ? '' : val).trim();
+    const num = trimmed === '' ? null : parseFloat(trimmed);
+    StorageManager.saveExerciseTM(exName, (num != null && !isNaN(num) && num > 0) ? num : null);
+    if (typeof haptic === 'function') haptic('light');
 }
 
 // _macroTargetKcal — קלוריות נגזרות מיעדי המאקרו: חלבון×4 + פחמימה×4 + שומן×9.
@@ -1413,6 +1472,8 @@ function openCurrentPlanSheet() {
             if (isMain && totalSets > CUT_MAIN_SET_CAP && _cutCapMainActive()) totalSets = CUT_MAIN_SET_CAP;
             const doneSets = setsCountMap[exName] || 0;
             const muscles = exData ? (exData.muscles || []).join(', ') : '';
+            const exTM = isMain ? _displayTM(exName) : null;
+            const tmBadgeHtml = exTM != null ? `<span class="plan-tm-badge">TM ${exTM}kg</span>` : '';
 
             if (isDone && num === 1) html += `<div class="plan-section-label">הושלמו</div>`;
             if (isCurrent && !shownCurrent) { html += `<div class="plan-section-label">עכשיו</div>`; shownCurrent = true; }
@@ -1446,7 +1507,7 @@ function openCurrentPlanSheet() {
                         ${muscles ? `<div class="plan-ex-meta">${muscles}</div>` : ''}
                     </div>
                     <div class="plan-ex-right">
-                        ${isMain && !isDone ? '<span class="plan-main-badge">MAIN</span>' : ''}
+                        ${isMain && !isDone ? `<span class="plan-main-badge">MAIN</span>${tmBadgeHtml}` : ''}
                         ${rightHtml}
                     </div>
                 </div>`;
@@ -1610,7 +1671,10 @@ function showConfirmScreen(forceExName = null) {
         configDiv.innerHTML = `חלק מסבב (${state.clusterRound}/${state.activeCluster.rounds})`;
         configDiv.style.display = 'block';
     } else if (currentPlanItem) {
-        if (currentPlanItem.isMain) configDiv.innerHTML = "MAIN (מחושב 1RM)";
+        if (currentPlanItem.isMain) {
+            const tm = _displayTM(exName);
+            configDiv.innerHTML = tm != null ? `MAIN · TM ${tm}kg` : "MAIN (מחושב 1RM)";
+        }
         else configDiv.innerHTML = `תוכנית: ${currentPlanItem.sets} סטים`;
         configDiv.style.display = 'block';
     } else {
@@ -1692,7 +1756,12 @@ function confirmExercise(doEx) {
 
     if (isMain) {
         state.currentEx.isCalc = true;
-        setupCalculatedEx();
+        const configuredTM = StorageManager.getExerciseTM(state.currentExName);
+        if (configuredTM != null) {
+            applyRMAndStart(configuredTM);   // TM מוגדר בהגדרות — דילוג על מסך הזנת 1RM
+        } else {
+            setupCalculatedEx();
+        }
     } else {
         state.currentEx.isCalc = false; // תרגיל isCalc שלא סומן כ-Main — חייב לכבות כדי ש-initPickers ישתמש ביעדים
         if (targetSets && targetSets > 0) resizeSets(targetSets);
@@ -1792,8 +1861,10 @@ function stepRM(dir) {
     haptic && haptic('light');
 }
 
-function save1RM() {
-    state.rm = parseFloat(document.getElementById('rm-picker').value);
+// applyRMAndStart — מחשב את סטי התרגיל מאחוזי ה-RM/TM לפי השבוע הנוכחי, ומתחיל הקלטה.
+// משותף לזרימת ה-1RM הידנית (save1RM) ולזרימת ה-TM האוטומטית (TM מוגדר בהגדרות).
+function applyRMAndStart(rmValue) {
+    state.rm = rmValue;
     StorageManager.saveRM(state.currentExName, state.rm);
     state.rmUsed[state.currentExName] = state.rm;
     let percentages = []; let reps = [];
@@ -1807,6 +1878,10 @@ function save1RM() {
     if (_cutCapMainActive() && state.currentEx.sets.length > CUT_MAIN_SET_CAP)
         state.currentEx.sets = state.currentEx.sets.slice(0, CUT_MAIN_SET_CAP);
     startRecording();
+}
+
+function save1RM() {
+    applyRMAndStart(parseFloat(document.getElementById('rm-picker').value));
 }
 
 function startRecording() {
@@ -3216,6 +3291,11 @@ function buildSummaryUI() {
     let totalVol = 0;
     let cardsHtml = '';
 
+    const mainExNames = new Set();
+    if (state.workouts && state.workouts[state.type]) {
+        state.workouts[state.type].forEach(item => { if (item.isMain && item.type !== 'cluster') mainExNames.add(item.name); });
+    }
+
     segments.forEach(seg => {
         if (seg.type === 'normal') {
             let exVol = 0, setRows = '';
@@ -3233,11 +3313,13 @@ function buildSummaryUI() {
             });
             totalVol += exVol;
             const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
-            
+            const exTM = mainExNames.has(seg.exName) ? _displayTM(seg.exName) : null;
+            const tmBadgeHtml = exTM != null ? `<span class="card-tm-badge">TM ${exTM}kg</span>` : '';
+
             cardsHtml += `
             <div class="obsidian-card">
                 <div class="card-header">
-                    <h3 class="card-title">${seg.exName}</h3>
+                    <h3 class="card-title">${seg.exName}${tmBadgeHtml}</h3>
                     <span class="card-vol">${volStr}</span>
                 </div>
                 ${setRows}
@@ -3482,7 +3564,8 @@ function _saveToArchive(note) {
             const exName = seg.exName;
             const exVol = details[exName] ? details[exName].vol : 0;
             const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
-            const mainTag = exMap[exName] && exMap[exName].isMain ? ' (Main)' : '';
+            const exTM = exMap[exName] && exMap[exName].isMain ? _displayTM(exName) : null;
+            const mainTag = exMap[exName] && exMap[exName].isMain ? (exTM != null ? ` (Main, TM: ${exTM}kg)` : ' (Main)') : '';
             const uniTag = isUnilateral(exName) ? ' (צד אחד)' : '';
             summaryLines.push(`${exName}${mainTag}${uniTag} (Vol: ${volStr}):`);
             seg.sets.forEach(entry => {
@@ -3772,11 +3855,14 @@ function openSessionLog() {
             const card = document.createElement('article');
             card.className = 'slog-ex-card';
 
+            const exTM = _isMainExInCurrentWorkout(exName) ? _displayTM(exName) : null;
+            const tmBadgeHtml = exTM != null ? `<span class="slog-tm-badge">TM ${exTM}kg</span>` : '';
+
             // כותרת כרטיס
             card.innerHTML = `
                 <div class="slog-ex-header">
                     <div class="slog-ex-info">
-                        <h3 class="slog-ex-name">${exName}</h3>
+                        <h3 class="slog-ex-name">${exName}${tmBadgeHtml}</h3>
                     </div>
                     <div class="slog-ex-vol-wrap">
                         <p class="slog-vol-lbl">VOLUME</p>
@@ -3913,7 +3999,9 @@ function openHistoryDrawer() {
     const overlay = document.getElementById('sheet-overlay');
     const drawer  = document.getElementById('sheet-modal');
 
-    content.innerHTML = `<h3 style="margin:0 0 10px;">${state.currentExName}</h3><div id="history-pager-host"></div>`;
+    const histExTM = _isMainExInCurrentWorkout(state.currentExName) ? _displayTM(state.currentExName) : null;
+    const histTmBadgeHtml = histExTM != null ? `<span class="slog-tm-badge">TM ${histExTM}kg</span>` : '';
+    content.innerHTML = `<h3 style="margin:0 0 10px;">${state.currentExName}${histTmBadgeHtml}</h3><div id="history-pager-host"></div>`;
     _renderHistoryPager(document.getElementById('history-pager-host'), performances);
 
     overlay.style.display = 'block';

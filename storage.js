@@ -7,6 +7,7 @@
 const StorageManager = {
     KEY_WEIGHTS:      'gympro_weights',
     KEY_RM:           'gympro_rm',
+    KEY_EXERCISE_TM:  'gympro_exercise_tm',   // TM קבוע לתרגילי מיין (מוגדר בהגדרות) — חוסך הזנת 1RM כל אימון
     KEY_ARCHIVE:      'gympro_archive',
     KEY_DB_EXERCISES: 'gympro_db_exercises',
     KEY_DB_WORKOUTS:  'gympro_db_workouts',
@@ -143,6 +144,23 @@ const StorageManager = {
         const data = this.getData(this.KEY_RM) || {};
         data[exName] = rmVal;
         this.saveData(this.KEY_RM, data);
+    },
+
+    // TM קבוע לתרגיל-מיין (מוגדר ידנית בהגדרות) — null = לא מוגדר, חוזר לזרימת ה-1RM הידנית
+    getExerciseTM(exName) {
+        const data = this.getData(this.KEY_EXERCISE_TM) || {};
+        return (data[exName] != null && data[exName] !== '') ? data[exName] : null;
+    },
+
+    getAllExerciseTMs() {
+        return this.getData(this.KEY_EXERCISE_TM) || {};
+    },
+
+    saveExerciseTM(exName, tmVal) {
+        const data = this.getData(this.KEY_EXERCISE_TM) || {};
+        if (tmVal == null || tmVal === '') delete data[exName];
+        else data[exName] = tmVal;
+        this.saveData(this.KEY_EXERCISE_TM, data);
     },
 
     // ── Archive ──────────────────────────────────────────────────────────
@@ -364,6 +382,7 @@ const StorageManager = {
         return {
             weights: this.getData(this.KEY_WEIGHTS),
             rms: this.getData(this.KEY_RM),
+            exerciseTMs: this.getData(this.KEY_EXERCISE_TM),
             archive: this.getArchive()
         };
     },
@@ -371,6 +390,7 @@ const StorageManager = {
     restoreData(dataObj) {
         if (dataObj.weights) this.saveData(this.KEY_WEIGHTS, dataObj.weights);
         if (dataObj.rms) this.saveData(this.KEY_RM, dataObj.rms);
+        if (dataObj.exerciseTMs) this.saveData(this.KEY_EXERCISE_TM, dataObj.exerciseTMs);
         if (dataObj.archive) this.saveData(this.KEY_ARCHIVE, dataObj.archive);
     },
 

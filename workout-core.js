@@ -2549,7 +2549,7 @@ function editPickerValue(field) {
     const startVal = current === 'Fail' ? '0' : current.replace(/[^\d.]/g, '');
 
     const input = document.createElement('input');
-    input.type = 'number';
+    input.type = 'text';
     input.inputMode = 'decimal';
     input.className = 'stepper-edit-input';
     input.value = startVal;
@@ -5674,7 +5674,7 @@ function editLivePickerValue(field) {
     const startVal = current === 'Fail' ? '0' : current.replace(/[^\d.]/g, '');
 
     const input = document.createElement('input');
-    input.type = 'number';
+    input.type = 'text';
     input.inputMode = 'decimal';
     input.className = 'stepper-edit-input live-edit-input';
     input.value = startVal;

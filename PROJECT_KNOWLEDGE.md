@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.78
+## גרסה נוכחית: 16.81
 
 ## TM קבוע לתרגילי MAIN (v16.78)
 
@@ -168,7 +168,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 | 4 | ✅ נפתר — הארכיון מפוצל ל-chunks (`ARCHIVE_CHUNK_SIZE=20`, `archive_meta`+`archive_N`). הקובץ הגולמי של MFP מפוצל גם הוא (`nutrition_raw_meta`+`nutrition_raw_N`, 1000 שורות/מסמך). מסמך `config` נשאר קל (נתונים קטנים) | — |
 | 5 | עריכת סט במסך הסיכום אחרי שנוצר `aiSummary` לא מרעננת אותו — הסיכום עלול להפוך לא-מסונכרן | נמוכה |
 | 6 | המלצת AI לסט (set-rec) מציגה תמיד יחידת kg — גם בתרגילי פלטות/משקל גוף | נמוכה |
-| 7 | עריכת סט בארכיון ברשומות ישנות ללא `log` (details-only) בונה מחדש את הסטרינג כ-kg — רלוונטי רק אם יערכו שם סט פלטות/BW עתידי | נמוכה |
+| 7 | ✅ נפתר (v16.81) — עריכת סט details-only כעת בונה מחדש את הסטרינג לפי mode (kg/פלטות/BW), לא קשיח kg | — |
 
 ---
 
@@ -180,6 +180,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 - **פורמט סטרינג סט בארכיון self-describing:** `"80kg x 5"` / `"5 פלטות x 10"` / `"BW x 12"`. כל הפרסרים (`_setStrVol`, `_parseSetString`, `parseSetsFromStrings`) מטפלים בשלושת הפורמטים. **אין לשנות פורמט בלי לעדכן את כולם.**
 - **prefill:** `saveWeight` נשמר רק כשהשיטה תואמת את ברירת המחדל של התרגיל — override זמני לא מזהם אימונים הבאים.
 - **אחידות פיקרים (v16.01):** ההחלפה זמינה גם ב-Live (`live-edit-sheet`) — תווית כרטיס המשקל לחיצה, `_syncLiveWeightModeUI` מסנכרן תווית/יחידה/+-. **לקח:** ה-Live הוא חזית שנייה לאותם pickers — כל פיצ'ר בפיקרים חייב לחול גם שם (כלל ב-CLAUDE.md).
+- **מנוע פיקרים עצמאי למודאל עריכת סט — יומן+ארכיון (v16.81):** `edit-set-modal` (נפתח מהיומן הפעיל ומהארכיון, כולל רשומות details-only ישנות בלי `log`) קיבל ממשק stepper-card זהה ויזואלית לפיקרים הראשיים (משקל⇄/+-/הזנה ידנית, אותו CSS גלובלי בלי שינוי), אבל **לא** מחובר ל-`<select>`-ים הגלובליים/ל-`state.currentExName` — כי הוא עלול לערוך סט מתרגיל לא-פעיל או מאימון ארכיון בלי session בכלל. מנוע נפרד ומקומי: `_editModalMode`/`_editModalVals` + `_editModalInit/_editModalRenderModeUI/_editModalRenderValue/_editModalCycleMode/_editModalStep/_editModalEditValue` (workout-core.js). מצב ההתחלה נקרא מ-`entry.wm||'kg'` (log) או מ-`_parseSetString` המורחב (details-only — מזהה `BW`/`פלטות`/`kg` מהסטרינג ומחזיר `mode`). שמירה: `saveSetEdit`/`saveArchiveSetEdit` כותבים את ה-mode בחזרה ל-`entry.wm` (log) או בונים מחדש את הסטרינג בפורמט הנכון לפי מצב (details-only) — **פותר את חוב #7 למטה** (עריכת סט details-only הייתה תמיד נכתבת מחדש כ-kg).
 
 ---
 

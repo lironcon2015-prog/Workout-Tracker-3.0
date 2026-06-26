@@ -764,10 +764,7 @@ function openArchiveSetEditor(nonSkipIdx) {
     _archiveEditSetExName = null;
     _editFromArchive = true;
 
-    document.getElementById('edit-weight').value = entry.w;
-    document.getElementById('edit-reps').value = entry.r;
-    document.getElementById('edit-rir').value = entry.rir !== undefined ? entry.rir : '';
-    document.getElementById('edit-note').value = entry.note || '';
+    _editModalInit(entry.w, entry.r, entry.rir !== undefined ? entry.rir : 0, entry.note, entry.wm || 'kg');
     document.getElementById('edit-set-modal').style.display = 'flex';
 }
 
@@ -785,16 +782,13 @@ function openArchiveDetailSetEditor(exName, setIdx) {
     _archiveEditSetLogIdx = -1;
     _editFromArchive = true;
 
-    document.getElementById('edit-weight').value = parsed.w;
-    document.getElementById('edit-reps').value = parsed.r;
-    document.getElementById('edit-rir').value = parsed.rir;
-    document.getElementById('edit-note').value = parsed.note;
+    _editModalInit(parsed.w, parsed.r, parsed.rir, parsed.note, parsed.mode);
     document.getElementById('edit-set-modal').style.display = 'flex';
 }
 
 // פרסור סטרינג סט: "80kg x 5 (RIR 2) | Note: xxx"
 function _parseSetString(setStr) {
-    let w = 0, r = 0, rir = '', note = '';
+    let w = 0, r = 0, rir = '', note = '', mode = 'kg';
 
     // הפרדת הערה
     if (setStr.includes('| Note:')) {
@@ -810,7 +804,10 @@ function _parseSetString(setStr) {
     // פרסור משקל וחזרות — תומך גם ב"5 פלטות x 10" ו-"BW x 12" (w=0)
     const xParts = setStr.split('x');
     if (xParts.length >= 2) {
-        w = parseFloat(xParts[0].replace('kg', '').replace('פלטות', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim()) || 0;
+        const wRaw = xParts[0].trim();
+        if (/^BW\b/i.test(wRaw)) mode = 'bw';
+        else if (wRaw.includes('פלטות')) mode = 'plates';
+        w = parseFloat(wRaw.replace('kg', '').replace('פלטות', '').replace('(צד אחד)', '').replace('(יד אחת)', '').trim()) || 0;
         const afterX = xParts.slice(1).join('x').trim();
         const rMatch = afterX.match(/(\d+)/);
         r = rMatch ? parseInt(rMatch[1]) : 0;
@@ -820,13 +817,13 @@ function _parseSetString(setStr) {
         rir = rirMatch ? rirMatch[1] : '';
     }
 
-    return { w, r, rir, note };
+    return { w, r, rir, note, mode };
 }
 
 function saveArchiveSetEdit() {
-    const w = parseFloat(document.getElementById('edit-weight').value);
-    const r = parseInt(document.getElementById('edit-reps').value);
-    const rir = document.getElementById('edit-rir').value;
+    const w = _editModalMode === 'bw' ? 0 : _editModalVals.weight;
+    const r = _editModalVals.reps;
+    const rir = _editModalVals.rir;
     const note = document.getElementById('edit-note').value.trim();
     if (isNaN(w) || w < 0 || isNaN(r) || r < 1) {
         showAlert('ערכים לא תקינים — משקל חייב להיות 0 ומעלה וחזרות לפחות 1.');
@@ -842,6 +839,8 @@ function saveArchiveSetEdit() {
             entry.r = r;
             entry.rir = rir;
             entry.note = note;
+            if (_editModalMode === 'kg') delete entry.wm;
+            else entry.wm = _editModalMode;
         }
         // חישוב מחדש של details מתוך log
         _recalcArchiveDetails();
@@ -850,7 +849,8 @@ function saveArchiveSetEdit() {
         const exData = _archiveEditItem.details[_archiveEditSetExName];
         if (exData && exData.sets && exData.sets[_archiveEditSetExIdx] !== undefined) {
             const noteStr = note ? ` | Note: ${note}` : '';
-            exData.sets[_archiveEditSetExIdx] = `${w}kg x ${r} (RIR ${rir})${noteStr}`;
+            const wPart = _editModalMode === 'bw' ? 'BW' : _editModalMode === 'plates' ? `${w} פלטות` : `${w}kg`;
+            exData.sets[_archiveEditSetExIdx] = `${wPart} x ${r} (RIR ${rir})${noteStr}`;
             // חישוב מחדש של volume לתרגיל
             _recalcExVolume(_archiveEditSetExName);
         }

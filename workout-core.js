@@ -1937,7 +1937,7 @@ function isUnilateral(exName) {
 // ברירת המחדל נקבעת בעורך התרגיל (weightMode); דגל isBW ישן ממופה ל-bw.
 // החלפה תוך כדי אימון נשמרת ב-state.sessionWeightModes — חד-פעמית לאותו אימון.
 
-const PLATE_KG = 4; // משקל פלטה משוער לחישוב ווליום
+const PLATE_KG = 2.5; // משקל פלטה משוער לחישוב ווליום
 
 const WEIGHT_MODE_LABELS = { kg: 'Weight (kg)', plates: 'פלטות', bw: 'משקל גוף' };
 
@@ -5586,7 +5586,7 @@ function _syncLiveWeightModeUI() {
     const lbl = document.getElementById('live-weight-mode-lbl');
     if (lbl) lbl.textContent = (mode === 'bw' ? 'משקל גוף' : mode === 'plates' ? 'פלטות' : 'משקל') + ' ⇄';
     const unit = document.getElementById('live-edit-weight-unit');
-    if (unit) unit.textContent = mode === 'bw' ? ' ' : mode === 'plates' ? 'יח׳ (×4 ק"ג)' : 'ק"ג';
+    if (unit) unit.textContent = mode === 'bw' ? ' ' : mode === 'plates' ? 'יח׳ (×2.5 ק"ג)' : 'ק"ג';
     const pmRow = document.getElementById('live-weight-pm-row');
     if (pmRow) pmRow.style.visibility = mode === 'bw' ? 'hidden' : 'visible';
 }

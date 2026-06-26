@@ -4015,6 +4015,91 @@ let _editSetRealIdx = -1;
 let _editFromLog = false;
 let _editFromSummary = false;
 
+// מנוע סטפר עצמאי למודאל עריכת סט (יומן + ארכיון) — לא תלוי ב-state של האימון
+// החי (selects/currentExName), כי המודאל יכול לערוך סט של תרגיל לא-פעיל או
+// סט מארכיון בלי session פעיל בכלל. מצב המשקל נשמר/נקרא מ-entry.wm עצמו.
+let _editModalMode = 'kg';
+let _editModalVals = { weight: 0, reps: 1, rir: 0 };
+
+function _editModalInit(w, r, rir, note, mode) {
+    _editModalMode = mode || 'kg';
+    _editModalVals.weight = parseFloat(w) || 0;
+    _editModalVals.reps = parseInt(r) || 1;
+    _editModalVals.rir = parseFloat(rir) || 0;
+    document.getElementById('edit-note').value = note || '';
+    _editModalRenderModeUI();
+    _editModalRenderValue('weight');
+    _editModalRenderValue('reps');
+    _editModalRenderValue('rir');
+}
+
+function _editModalRenderModeUI() {
+    const lbl = document.getElementById('edit-weight-mode-lbl');
+    if (lbl) lbl.textContent = (_editModalMode === 'bw' ? 'משקל גוף' : _editModalMode === 'plates' ? 'פלטות' : 'Weight (kg)') + ' ⇄';
+    const row = document.getElementById('edit-weight-stepper-row');
+    if (row) row.style.visibility = _editModalMode === 'bw' ? 'hidden' : 'visible';
+}
+
+function _editModalRenderValue(field) {
+    const disp = document.getElementById('edit-' + field + '-display');
+    if (!disp) return;
+    if (field === 'weight' && _editModalMode === 'bw') { disp.textContent = 'BW'; return; }
+    const val = _editModalVals[field];
+    disp.textContent = (field === 'rir' && val === 0) ? 'Fail' : String(val);
+}
+
+function _editModalCycleMode() {
+    const order = ['kg', 'plates', 'bw'];
+    _editModalMode = order[(order.indexOf(_editModalMode) + 1) % order.length];
+    haptic('light');
+    _editModalRenderModeUI();
+    _editModalRenderValue('weight');
+}
+
+function _editModalStep(field, dir) {
+    if (field === 'weight' && _editModalMode === 'bw') return;
+    const stepSize = field === 'weight' ? (_editModalMode === 'plates' ? 1 : 2.5) : 1;
+    const minVal = field === 'reps' ? 1 : 0;
+    const val = Math.max(minVal, parseFloat((_editModalVals[field] + dir * stepSize).toFixed(2)));
+    _editModalVals[field] = val;
+    haptic('light');
+    _editModalRenderValue(field);
+}
+
+function _editModalEditValue(field) {
+    if (field === 'weight' && _editModalMode === 'bw') return;
+    const disp = document.getElementById('edit-' + field + '-display');
+    if (!disp || disp.querySelector('input')) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'decimal';
+    input.className = 'stepper-edit-input';
+    input.value = String(_editModalVals[field]);
+    disp.textContent = '';
+    disp.appendChild(input);
+    input.focus();
+    input.select();
+
+    const finish = (commit) => {
+        if (input._done) return;
+        input._done = true;
+        if (commit && input.value !== '') {
+            let num = parseFloat(input.value);
+            if (!isNaN(num)) {
+                num = field === 'reps' ? Math.max(1, Math.round(num)) : Math.max(0, num);
+                _editModalVals[field] = num;
+            }
+        }
+        _editModalRenderValue(field);
+    };
+    input.addEventListener('blur', () => finish(true));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+}
+
 function openEditSetModal(realIdx) {
     _editSetRealIdx = realIdx;
     _editFromLog = true;
@@ -4024,10 +4109,7 @@ function openEditSetModal(realIdx) {
     if (!entry) return;
 
     document.getElementById('session-log-modal').style.display = 'none';
-    document.getElementById('edit-weight').value = entry.w;
-    document.getElementById('edit-reps').value = entry.r;
-    document.getElementById('edit-rir').value = entry.rir;
-    document.getElementById('edit-note').value = entry.note || '';
+    _editModalInit(entry.w, entry.r, entry.rir, entry.note, entry.wm || 'kg');
     document.getElementById('edit-set-modal').style.display = 'flex';
 }
 
@@ -4039,10 +4121,7 @@ function openSummaryEditSetModal(realIdx) {
     const entry = realSets[realIdx];
     if (!entry) return;
 
-    document.getElementById('edit-weight').value = entry.w;
-    document.getElementById('edit-reps').value = entry.r;
-    document.getElementById('edit-rir').value = entry.rir;
-    document.getElementById('edit-note').value = entry.note || '';
+    _editModalInit(entry.w, entry.r, entry.rir, entry.note, entry.wm || 'kg');
     document.getElementById('edit-set-modal').style.display = 'flex';
 }
 
@@ -4055,15 +4134,17 @@ function saveSetEdit() {
     const realSets = state.log.filter(l => !l.skip);
     const entry = realSets[_editSetRealIdx];
     if (!entry) return;
-    const newW = parseFloat(document.getElementById('edit-weight').value);
-    const newR = parseInt(document.getElementById('edit-reps').value);
+    const newW = _editModalMode === 'bw' ? 0 : _editModalVals.weight;
+    const newR = _editModalVals.reps;
     if (isNaN(newW) || newW < 0 || isNaN(newR) || newR < 1) {
         showAlert('ערכים לא תקינים — משקל חייב להיות 0 ומעלה וחזרות לפחות 1.');
         return;
     }
     entry.w = newW;
     entry.r = newR;
-    entry.rir = document.getElementById('edit-rir').value;
+    entry.rir = _editModalVals.rir;
+    if (_editModalMode === 'kg') delete entry.wm;
+    else entry.wm = _editModalMode;
     entry.note = document.getElementById('edit-note').value.trim();
     const fromLog = _editFromLog, fromSummary = _editFromSummary;
     closeEditModal();

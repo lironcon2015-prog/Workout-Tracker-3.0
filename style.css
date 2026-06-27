@@ -6034,7 +6034,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-mfp-note .material-symbols-outlined { font-size: 1rem; color: var(--accent); flex-shrink: 0; }
 
 .fd-note-row {
-    display: flex; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; margin: 12px 0 18px; cursor: pointer;
     font-size: 0.78rem; color: var(--text); line-height: 1.4;
     background: rgba(255,255,255,0.03); border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 10px 12px;
     transition: background 0.15s;

@@ -763,6 +763,11 @@ const StorageManager = {
         this.saveData(this.KEY_FOOD_DB, db);
     },
 
+    deleteFoodFromDb(id) {
+        const db = this.getFoodDb().filter(f => f.id !== id);
+        this.saveData(this.KEY_FOOD_DB, db);
+    },
+
     // bumpFoodUsage — מעדכן שימוש גלובלי וגם שימוש לפי ארוחה (mealUse) לדירוג מותאם-ארוחה
     bumpFoodUsage(id, meal) {
         const db = this.getFoodDb();

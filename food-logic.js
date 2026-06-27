@@ -482,7 +482,8 @@ function fdRender() {
         ? { kcal: daily.calories || 0, p: daily.protein || 0, c: daily.carbs || 0, f: daily.fat || 0 }
         : sum;
 
-    scroll.innerHTML = _fdSummaryHTML(totals, mfpOwned) + _fdMealsHTML(entries, mfpOwned);
+    const note = StorageManager.getNutritionNote(_fdDate);
+    scroll.innerHTML = _fdSummaryHTML(totals, mfpOwned) + _fdNoteHTML(note) + _fdMealsHTML(entries, mfpOwned);
     _fdAnimateRing(scroll);
 }
 
@@ -555,6 +556,21 @@ function _fdSummaryHTML(t, mfpOwned) {
             ${_fdMacroStat('שומן', t.f, Number(prefs.fatTarget) || 0, 'macro-f')}
         </div>
         ${mfpOwned ? '<div class="fd-mfp-note"><span class="material-symbols-outlined">info</span>הסיכום היומי מקורו ב-MyFitnessPal וגובר על תיעוד פנימי</div>' : ''}
+    </div>`;
+}
+
+// שורת הערה יומית — עצמאית מ-NUTRITION_DAILY, קיימת גם ביום בלי שום רשומת תזונה
+function _fdNoteHTML(note) {
+    if (note) {
+        return `<div class="fd-note-row" onclick="_fdShowNoteForm()">
+            <span class="material-symbols-outlined">sticky_note_2</span>
+            <span class="fd-note-text">${_fdEsc(note)}</span>
+            <span class="material-symbols-outlined fd-note-edit">edit</span>
+        </div>`;
+    }
+    return `<div class="fd-note-row fd-note-row--empty" onclick="_fdShowNoteForm()">
+        <span class="material-symbols-outlined">add_circle</span>
+        <span class="fd-note-text">הוסף הערה יומית</span>
     </div>`;
 }
 
@@ -1212,6 +1228,32 @@ function fdConfirmMealName() {
     if (labels.indexOf(name) < 0) { labels.push(name); prefs.mealLabels = labels; saveAnalyticsPrefs(prefs); }
     closeFoodPortion();
     fdOpenAdd(name);
+}
+
+// ── הערה יומית ───────────────────────────────────────────────────────
+function _fdShowNoteForm() {
+    const sheet = document.getElementById('fd-portion-sheet');
+    const body = document.getElementById('fd-portion-body');
+    if (!sheet || !body) return;
+    const note = StorageManager.getNutritionNote(_fdDate);
+    body.innerHTML = `
+        <div class="fd-portion-title">הערה יומית</div>
+        <label class="fd-field fd-field--full"><span>הערה</span><textarea id="fd-note-input" placeholder="לדוגמה: יום חג, ארוחה בחוץ, תחושה כללית...">${_fdEsc(note)}</textarea></label>
+        <div class="fd-portion-actions">
+            <button class="fd-save-btn" onclick="fdSaveNote()">שמור</button>
+        </div>`;
+    document.getElementById('fd-portion-overlay').style.display = 'block';
+    sheet.classList.add('open');
+    setTimeout(() => { const i = document.getElementById('fd-note-input'); if (i) i.focus(); }, 100);
+}
+
+function fdSaveNote() {
+    const input = document.getElementById('fd-note-input');
+    if (!input) return;
+    StorageManager.setNutritionNote(_fdDate, input.value);
+    closeFoodPortion();
+    fdRender();
+    _fdSyncCloud();
 }
 
 // ════════ BARCODE / PHOTO ════════

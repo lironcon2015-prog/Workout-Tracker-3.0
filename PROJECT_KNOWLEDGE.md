@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.84
+## גרסה נוכחית: 16.85
 
 ## TM קבוע לתרגילי MAIN (v16.78)
 
@@ -63,6 +63,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 **מחיקת מזון מותאם (v16.84):** `StorageManager.deleteFoodFromDb(id)` (לצד `upsertFoodToDb`) מסנן מ-`KEY_FOOD_DB`; אין צורך בניקוי הפניות — רשומות יומן עצמאיות (snapshot קפוא).
 כפתור מחיקה (`fdDeleteCustomFood`, `.fd-del-btn`) מופיע רק במצב עריכה בתוך `_fdShowCustomFoodForm`, עם אישור דרך `showConfirm` (בלתי-הפיך, בשונה ממחיקת רשומת יומן בודדת).
 **קיצור דרך לטאב מותאמים (v16.84):** כפתור `.fd-manage-btn` בכותרת יומן המזון (מקום `.fd-header-spacer` הישן) → `fdOpenCustomFoodsManager()` פותח את שיט ההוספה ישר על טאב "מותאמים".
+**הערה יומית (v16.85):** `KEY_NUTRITION_NOTES` (מפה `{date: text}`) **בכוונה עצמאי** מ-`KEY_NUTRITION_DAILY` — לא שדה על רשומת היום. סיבה: `recomputeNutritionDay`/`mergeHealthNutritionDays`/`applyMfpDays` עושות דריסה מלאה של רשומת היום (לא מיזוג שדות), ושדה `note` היה נמחק בשקט בכל לוג/מחיקת מזון או ייבוא MFP/Health עתידי; וביום בלי שום רשומת תזונה אין רשומה להצמיד אליה הערה בלי ליצור רשומת-דמה שמזהמת ממוצעים/streaks/heatmap שצורכים `getNutritionDaily()`. `getNutritionNote`/`setNutritionNote` ב-storage.js; UI דרך שיט משותף `#fd-portion-sheet` (`_fdShowNoteForm`/`fdSaveNote`, אותה תבנית כמו `_fdShowMealNamePrompt`) ושורת `.fd-note-row` ב-`fdRender` בין הסיכום לארוחות. ריק = מחיקת ההערה. מסונכרן לגיבוי/ענן כדאטה רגיל (לא ב-`_connectionKeys()`, תואם תקדים `KEY_EXERCISE_TM`).
 
 ---
 

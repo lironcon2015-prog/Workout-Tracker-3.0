@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.83
+## גרסה נוכחית: 16.84
 
 ## TM קבוע לתרגילי MAIN (v16.78)
 
@@ -56,10 +56,13 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 חיצוני/ישן — שומר תאימות מלאה). **טריק יחידה בודדת (×100):** המודל הפנימי מחושב כולו כ-`per100 * grams/100`; כדי לבטא "ערך ליחידה אחת" (לדוגמה ביצה) בלי
 לשנות את הנוסחה הזו, הערך המוזן מוכפל ×100 לפני האחסון ב-`per100`, וה-`servings` מוגדר ל-`[{label:'1 יחידה', grams:1}]` — כך `grams=qty` ו-`macros=realValue*qty`
 מתקבלים נכון ללא כל שינוי בלוגיקת `_fdComputeGrams`/`_fdMacrosFor`. כל מקום שמציג `per100` גולמי ישירות למשתמש חויב בחילוץ ÷100 מפורש: `_fdRenderFoodList`
-(שורת תוצאה), `_fdShowCustomFoodForm` (prefill בעריכה), `_fdUpdatePreview`/`_fdQtyDisplayLabel` (תצוגת כמות חיה). **מלכודת ידועה ומקובלת (לא תוקנה בכוונה):** ל-Meal
-Builder (`_fdMealComponents`/`_fdRenderComponents`) יש רשת "ל-100ג'" עצמאית עם תווית "גרם" קבועה (`fd-comp-unit`) — מזון מסוג `'unit'` שמתווסף שם יציג את הערכים
-המוכפלים ×100 ואת התווית השגויה; החשבון הסופי (קלוריות) נכון בפועל (ה-×100 וה-÷100 מתבטלים), אך התצוגה מטעה אם מנסים לערוך ישירות שם — הוחלט במפורש (אישור משתמש)
-להשאיר כך ולא להרחיב את התיקון לתת-המערכת הזו.
+(שורת תוצאה), `_fdShowCustomFoodForm` (prefill בעריכה), `_fdUpdatePreview`/`_fdQtyDisplayLabel` (תצוגת כמות חיה). **Meal Builder — תוקן (v16.84):** רכיבי
+ה-Meal Builder (`_fdMealComponents`) נושאים כיום `baseUnit` (מועבר מ-`_fdAddComponentFromFood`, משוכפל ב-`_fdOpenMealBuilder`/`fdEditEntry`, ונשמר בסנאפשוט
+הקפוא ב-`fdSaveMeal`). מזון מסוג `'unit'` מנורמל ל"ערך אמיתי ליחידה" (÷100) כבר בכניסה לרכיב — לא נשמר טריק ×100 בתוך ה-Meal Builder. `_fdRenderComponents`/
+`_fdMealRecalc` מציגים תווית "ליחידה:"/"יחידות" ומחשבים `kcal = perUnit * qty` (לא `/100`) עבור `baseUnit==='unit'`; שאר היחידות (`g`/`ml`) ללא שינוי.
+**מחיקת מזון מותאם (v16.84):** `StorageManager.deleteFoodFromDb(id)` (לצד `upsertFoodToDb`) מסנן מ-`KEY_FOOD_DB`; אין צורך בניקוי הפניות — רשומות יומן עצמאיות (snapshot קפוא).
+כפתור מחיקה (`fdDeleteCustomFood`, `.fd-del-btn`) מופיע רק במצב עריכה בתוך `_fdShowCustomFoodForm`, עם אישור דרך `showConfirm` (בלתי-הפיך, בשונה ממחיקת רשומת יומן בודדת).
+**קיצור דרך לטאב מותאמים (v16.84):** כפתור `.fd-manage-btn` בכותרת יומן המזון (מקום `.fd-header-spacer` הישן) → `fdOpenCustomFoodsManager()` פותח את שיט ההוספה ישר על טאב "מותאמים".
 
 ---
 

@@ -646,6 +646,12 @@ function fdOpenAdd(meal) {
     haptic('light');
 }
 
+// קיצור דרך לניהול מזונות מותאמים — פותח את שיט ההוספה ישר על טאב "מותאמים"
+function fdOpenCustomFoodsManager() {
+    fdOpenAdd(_fdMeal);
+    fdSetTab('custom', document.querySelector('#fd-tabs [data-fdtab="custom"]'));
+}
+
 // הרמת שיט החיפוש מעל המקלדת ב-iOS — visualViewport מצמצם את הגובה הנראה כשהמקלדת עולה.
 // מרימים את השיט בגובה המקלדת ומגבילים את גובהו לאזור הנראה, כך שהתוצאות תמיד מעליה.
 let _fdVVHandler = null;
@@ -902,11 +908,14 @@ function fdSelectFoodById(id) {
 // הוספת מזון שנבחר בחיפוש כמרכיב ב-Meal Builder (במקום פתיחת עורך הכמות)
 function _fdAddComponentFromFood(food) {
     const per = food.per100 || { kcal: 0, p: 0, c: 0, f: 0 };
+    // מזון "יחידה" מאוחסן ×100 פנימית (טריק per100) — מנרמלים לערך אמיתי ליחידה לפני הכנסה לרכיב המנה
+    const isUnit = food.baseUnit === 'unit';
+    const scale = isUnit ? 100 : 1;
     // ברירת מחדל גרמים: גודל מנה אם מוגדר (לא 100), אחרת 100
     const serv = (food.servings || []).find(s => s.grams && s.grams !== 100);
     _fdMealComponents.push({
-        name: food.name, grams: serv ? serv.grams : 100,
-        per100: { kcal: per.kcal || 0, p: per.p || 0, c: per.c || 0, f: per.f || 0 }
+        name: food.name, grams: serv ? serv.grams : 100, baseUnit: food.baseUnit || 'g',
+        per100: { kcal: (per.kcal || 0) / scale, p: (per.p || 0) / scale, c: (per.c || 0) / scale, f: (per.f || 0) / scale }
     });
     _fdCompPickMode = false;
     closeFoodAdd();          // סוגר את שיט החיפוש — ה-Meal Builder נשאר פתוח מתחתיו
@@ -1043,7 +1052,7 @@ function fdEditEntry(id) {
     if (entry.components && entry.components.length) {
         _fdOpenMealBuilder({
             name: entry.name,
-            components: entry.components.map(c => ({ name: c.name, grams: c.grams, per100: c.per100 })),
+            components: entry.components.map(c => ({ name: c.name, grams: c.grams, per100: c.per100, baseUnit: c.baseUnit || 'g' })),
             meal: entry.meal, time: entry.time, editId: entry.id
         });
         return;
@@ -1114,6 +1123,7 @@ function _fdShowCustomFoodForm(food) {
         </div>
         ${editMode ? '' : `<div class="fd-meal-chips" id="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>`}
         <div class="fd-portion-actions">
+            ${editMode ? `<button class="fd-del-btn" onclick="fdDeleteCustomFood()"><span class="material-symbols-outlined">delete</span></button>` : ''}
             <button class="fd-save-btn" onclick="fdSaveCustomFood()">${editMode ? 'שמור' : 'המשך'}</button>
         </div>`;
     document.getElementById('fd-portion-overlay').style.display = 'block';
@@ -1162,6 +1172,19 @@ function fdSaveCustomFood() {
     };
     StorageManager.upsertFoodToDb(food);
     _fdOpenPortion(food, null);  // פותח את עורך המנה עבור המזון החדש
+}
+
+function fdDeleteCustomFood() {
+    if (!_fdEditCustomFoodId) return;
+    const id = _fdEditCustomFoodId;
+    showConfirm('למחוק את המזון המותאם? הפעולה אינה הפיכה.', () => {
+        StorageManager.deleteFoodFromDb(id);
+        _fdEditCustomFoodId = null;
+        closeFoodPortion();
+        fdRenderTab();
+        _fdSyncCloud();
+        haptic('warning');
+    });
 }
 
 // ── שם ארוחה חופשי (ארוחת ביניים) ───────────────────────────────────
@@ -1551,7 +1574,7 @@ function _fdOnMealPhoto(file) {
 // ════════ MEAL BUILDER — מנה מורכבת עם מרכיבים ניתנים לעריכה ════════
 function _fdOpenMealBuilder(opts) {
     _fdCompPickMode = false;
-    _fdMealComponents = (opts.components || []).map(c => ({ name: c.name, grams: c.grams, per100: c.per100 }));
+    _fdMealComponents = (opts.components || []).map(c => ({ name: c.name, grams: c.grams, per100: c.per100, baseUnit: c.baseUnit || 'g' }));
     _fdMealEditId = opts.editId || null;
     _fdMeal = opts.meal || _fdMealLabels()[0];
     const sheet = document.getElementById('fd-meal-sheet');
@@ -1586,11 +1609,12 @@ function _fdRenderComponents() {
     if (!list) return;
     list.innerHTML = _fdMealComponents.map((c, i) => {
         const p = c.per100 || (c.per100 = { kcal: 0, p: 0, c: 0, f: 0 });
-        const kcal = Math.round((p.kcal || 0) * (c.grams / 100));
+        const isUnit = c.baseUnit === 'unit';
+        const kcal = Math.round((p.kcal || 0) * (isUnit ? c.grams : c.grams / 100));
         return `<div class="fd-comp">
             <div class="fd-comp-main">
                 <input class="fd-comp-name-inp" id="fd-mc-n-${i}" value="${_fdEsc(c.name)}" oninput="_fdMealRecalc()" placeholder="שם המרכיב">
-                <div class="fd-comp-per100"><span class="fd-comp-per100-lbl">ל-100ג':</span>
+                <div class="fd-comp-per100"><span class="fd-comp-per100-lbl">${isUnit ? 'ליחידה:' : "ל-100ג':"}</span>
                     <span class="fd-comp-cell"><input id="fd-mc-k100-${i}" inputmode="decimal" step="any" value="${_fdR(p.kcal)}" oninput="_fdMealRecalc()"><small>קל'</small></span>
                     <span class="fd-comp-cell"><input id="fd-mc-p100-${i}" inputmode="decimal" step="any" value="${_fdR(p.p)}" oninput="_fdMealRecalc()"><small class="macro-p">ח</small></span>
                     <span class="fd-comp-cell"><input id="fd-mc-c100-${i}" inputmode="decimal" step="any" value="${_fdR(p.c)}" oninput="_fdMealRecalc()"><small class="macro-c">פ</small></span>
@@ -1600,7 +1624,7 @@ function _fdRenderComponents() {
             </div>
             <div class="fd-comp-qty">
                 <input type="number" id="fd-mc-g-${i}" inputmode="decimal" min="0" step="any" value="${_fdR(c.grams)}" oninput="_fdMealRecalc()">
-                <span class="fd-comp-unit">גרם</span>
+                <span class="fd-comp-unit">${isUnit ? 'יחידות' : 'גרם'}</span>
             </div>
             <button class="fd-comp-del" onclick="fdMealRemoveComp(${i})" aria-label="הסר מרכיב"><span class="material-symbols-outlined">close</span></button>
         </div>`;
@@ -1620,7 +1644,7 @@ function _fdMealRecalc() {
         const pEl = document.getElementById('fd-mc-p100-' + i); if (pEl) per.p = Number(pEl.value) || 0;
         const cEl = document.getElementById('fd-mc-c100-' + i); if (cEl) per.c = Number(cEl.value) || 0;
         const fEl = document.getElementById('fd-mc-f100-' + i); if (fEl) per.f = Number(fEl.value) || 0;
-        const f = c.grams / 100;
+        const f = c.baseUnit === 'unit' ? c.grams : c.grams / 100;
         const kcal = Math.round((per.kcal || 0) * f);
         tot.kcal += kcal; tot.p += (per.p || 0) * f; tot.c += (per.c || 0) * f; tot.f += (per.f || 0) * f;
         const kcEl = document.getElementById('fd-mc-kc-' + i);
@@ -1663,9 +1687,9 @@ function closeFoodMeal() {
 function fdSaveMeal() {
     _fdMealRecalc();
     const comps = _fdMealComponents.filter(c => c.grams > 0).map(c => {
-        const f = c.grams / 100;
+        const f = c.baseUnit === 'unit' ? c.grams : c.grams / 100;
         return {
-            name: (c.name || '').trim() || 'מרכיב', grams: c.grams, per100: c.per100,
+            name: (c.name || '').trim() || 'מרכיב', grams: c.grams, per100: c.per100, baseUnit: c.baseUnit || 'g',
             kcal: Math.round((c.per100.kcal || 0) * f), p: _fdR((c.per100.p || 0) * f),
             c: _fdR((c.per100.c || 0) * f), f: _fdR((c.per100.f || 0) * f)
         };

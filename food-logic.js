@@ -22,6 +22,7 @@ let _fdPhotoMode = 'label';   // 'label' = ברקוד/תווית | 'meal' = הע
 let _fdMealComponents = [];   // Meal Builder — מרכיבי המנה {name, grams, per100}
 let _fdMealEditId = null;     // עריכת רשומת composite קיימת
 let _fdCompPickMode = false;  // מצב "בחירת מרכיב מהמאגר" — בחירה בחיפוש מוסיפה כמרכיב במקום לפתוח עורך
+let _fdEditCustomFoodId = null;  // עריכת מזון מותאם קיים (null = יצירת מזון מותאם חדש)
 
 // ── Utils ────────────────────────────────────────────────────────────
 function _fdNowTime() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
@@ -619,7 +620,7 @@ function _fdMealsHTML(entries, mfpOwned) {
 }
 
 function _fdPortionLabel(e) {
-    if (e.unit === 'serving') return `${_fdR(e.qty)} מנות`;
+    if (e.unit === 'serving') return `${_fdR(e.qty)} ${e.baseUnit === 'unit' ? 'יחידות' : 'מנות'}`;
     return `${_fdR(e.qty)} ${e.unit === 'ml' ? 'מ"ל' : 'ג\''}`;
 }
 
@@ -860,12 +861,22 @@ function _fdRenderFoodList(foods, box, append) {
     const html = foods.map(f => {
         const brand = (f.brand && f.brand !== 'חומר גלם') ? _fdEsc(f.brand) + ' · ' : '';
         const p = f.per100 || {};
+        // מזון "יחידה" מאוחסן ב-per100 מוכפל ×100 (טריק התאמה למודל הפנימי) — לתצוגה יש לחלק חזרה
+        const isUnit = f.baseUnit === 'unit';
+        const dKcal = isUnit ? (p.kcal || 0) / 100 : (p.kcal || 0);
+        const dP = isUnit ? (p.p || 0) / 100 : (p.p || 0);
+        const dC = isUnit ? (p.c || 0) / 100 : (p.c || 0);
+        const dF = isUnit ? (p.f || 0) / 100 : (p.f || 0);
+        const per100Lbl = isUnit ? 'יחידה' : f.baseUnit === 'ml' ? '100 מ"ל' : '100 ג\'';
+        const editBtn = f.source === 'custom'
+            ? `<span class="fd-food-edit" role="button" aria-label="ערוך מזון מותאם" onclick="event.stopPropagation();fdEditCustomFood('${_fdEsc(f.id)}')"><span class="material-symbols-outlined">edit</span></span>` : '';
         return `<button class="fd-food-row" onclick="fdSelectFoodById('${_fdEsc(f.id)}')">
             <div class="fd-food-main">
                 <span class="fd-food-name">${_fdSrcChip(f)}${_fdEsc(f.name)}</span>
-                <span class="fd-food-sub">${brand}${_fdFmt(p.kcal)} kcal · 100 ג'</span>
-                <span class="fd-entry-pcf"><i class="macro-p">ח ${Math.round(p.p || 0)}</i><i class="macro-c">פ ${Math.round(p.c || 0)}</i><i class="macro-f">ש ${Math.round(p.f || 0)}</i></span>
+                <span class="fd-food-sub">${brand}${_fdFmt(dKcal)} kcal · ${per100Lbl}</span>
+                <span class="fd-entry-pcf"><i class="macro-p">ח ${Math.round(dP)}</i><i class="macro-c">פ ${Math.round(dC)}</i><i class="macro-f">ש ${Math.round(dF)}</i></span>
             </div>
+            ${editBtn}
             <span class="fd-food-star ${f.favorite ? 'on' : ''}" role="button" onclick="event.stopPropagation();fdToggleFav('${_fdEsc(f.id)}',this)">${f.favorite ? '★' : '☆'}</span>
         </button>`;
     }).join('');
@@ -913,10 +924,15 @@ function _fdOpenPortion(food, entry) {
     if (!sheet || !body) return;
 
     const servings = (food.servings && food.servings.length) ? food.servings : [{ label: '100 גרם', grams: 100 }];
-    const unitOpts = servings.map((s, i) => `<option value="s${i}">${_fdEsc(s.label)}</option>`).join('')
-        + '<option value="g">גרם</option>';
+    // יחידת הבסיס קובעת את אפשרות ה-fallback (כמות גולמית בלי "מנה"): גרם/מ"ל מאפשרים הזנה חופשית,
+    // "יחידה" (מזון מותאם נפרד-ספירה, למשל ביצה) לא — כי הזנת "גרם" גולמי על מזון כזה תיתן ערך שגוי.
+    const baseUnit = (entry ? entry.baseUnit : food.baseUnit) || 'g';
+    const fallbackUnit = baseUnit === 'unit' ? null : (baseUnit === 'ml' ? 'ml' : 'g');
+    const fallbackOpt = fallbackUnit ? `<option value="${fallbackUnit}">${fallbackUnit === 'ml' ? 'מ"ל' : 'גרם'}</option>` : '';
+    const unitOpts = servings.map((s, i) => `<option value="s${i}">${_fdEsc(s.label)}</option>`).join('') + fallbackOpt;
     const qty = entry ? entry.qty : (servings[0].grams && servings[0].grams !== 100 ? 1 : 100);
-    const unit = entry ? (entry.unit === 'serving' ? 's0' : 'g') : (servings[0].grams && servings[0].grams !== 100 ? 's0' : 'g');
+    const unit = entry ? (entry.unit === 'serving' ? 's0' : (entry.unit || fallbackUnit || 's0'))
+        : (servings[0].grams && servings[0].grams !== 100 ? 's0' : (fallbackUnit || 's0'));
     const time = entry ? entry.time : _fdNowTime();
     const curMeal = entry ? entry.meal : _fdMeal;
 
@@ -950,7 +966,7 @@ function _fdPickMeal(el) {
 function _fdComputeGrams() {
     const qty = Number(document.getElementById('fd-qty').value) || 0;
     const unitSel = document.getElementById('fd-unit').value;
-    if (unitSel === 'g') return { grams: qty, unit: 'g', qtyVal: qty };
+    if (unitSel === 'g' || unitSel === 'ml') return { grams: qty, unit: unitSel, qtyVal: qty };
     const idx = parseInt(unitSel.slice(1), 10);
     const serv = (_fdSelectedFood.servings || [])[idx] || { grams: 100 };
     return { grams: (serv.grams || 100) * qty, unit: 'serving', qtyVal: qty, gramsPerUnit: serv.grams };
@@ -962,6 +978,15 @@ function _fdMacrosFor(grams) {
     return { kcal: Math.round(p100.kcal * f), p: _fdR(p100.p * f), c: _fdR(p100.c * f), f: _fdR(p100.f * f) };
 }
 
+// תווית סיכום הכמות בעורך המנה — מציגה משקל/נפח כולל למזון רגיל, אך לא ל"יחידה"
+// (מזון נספר, כמו ביצה) — כי gramsPerUnit=1 שם הוא טריק פנימי בלבד ולא משקל אמיתי.
+function _fdQtyDisplayLabel(g) {
+    const baseUnit = (_fdSelectedFood && _fdSelectedFood.baseUnit) || 'g';
+    if (g.unit === 'serving' && baseUnit === 'unit') return `${_fdR(g.qtyVal)} יחידות`;
+    if (g.unit === 'ml') return `${Math.round(g.grams)} מ"ל`;
+    return `${Math.round(g.grams)} ${baseUnit === 'ml' ? 'מ"ל' : 'גרם'}`;
+}
+
 function _fdUpdatePreview() {
     const prev = document.getElementById('fd-preview');
     if (!prev || !_fdSelectedFood) return;
@@ -969,7 +994,7 @@ function _fdUpdatePreview() {
     const m = _fdMacrosFor(g.grams);
     prev.innerHTML = `<span class="fd-preview-kcal">${m.kcal}<small>kcal</small></span>
         <span class="fd-preview-pcf">חלבון ${m.p}g · פחמימה ${m.c}g · שומן ${m.f}g</span>
-        <span class="fd-preview-g">${Math.round(g.grams)} גרם</span>`;
+        <span class="fd-preview-g">${_fdQtyDisplayLabel(g)}</span>`;
 }
 
 function fdSavePortion() {
@@ -981,7 +1006,7 @@ function fdSavePortion() {
     const entry = {
         name: food.name, brand: food.brand || '', source: food.source || 'off', barcode: food.barcode || null,
         meal: _fdMeal || _fdMealLabels()[0], time,
-        qty: g.qtyVal, unit: g.unit, gramsPerUnit: g.gramsPerUnit || null,
+        qty: g.qtyVal, unit: g.unit, gramsPerUnit: g.gramsPerUnit || null, baseUnit: food.baseUnit || 'g',
         per100: food.per100, kcal: m.kcal, p: m.p, c: m.c, f: m.f
     };
     if (_fdEditEntryId) {
@@ -1023,9 +1048,12 @@ function fdEditEntry(id) {
         });
         return;
     }
-    // שחזור אובייקט מזון מתוך הרשומה
-    const servings = entry.gramsPerUnit ? [{ label: `מנה (${entry.gramsPerUnit} ג')`, grams: entry.gramsPerUnit }, { label: '100 גרם', grams: 100 }] : [{ label: '100 גרם', grams: 100 }];
-    const food = { id: entry.barcode ? 'off:' + entry.barcode : 'log:' + id, name: entry.name, brand: entry.brand, barcode: entry.barcode, source: entry.source, per100: entry.per100, servings };
+    // שחזור אובייקט מזון מתוך הרשומה — baseUnit נשמר על הרשומה עצמה (ברירת מחדל 'g' לרשומות ישנות)
+    const baseUnit = entry.baseUnit || 'g';
+    const servings = entry.gramsPerUnit
+        ? [{ label: baseUnit === 'unit' ? '1 יחידה' : `מנה (${entry.gramsPerUnit} ג')`, grams: entry.gramsPerUnit }, { label: '100 גרם', grams: 100 }]
+        : [{ label: baseUnit === 'ml' ? '100 מ"ל' : '100 גרם', grams: 100 }];
+    const food = { id: entry.barcode ? 'off:' + entry.barcode : 'log:' + id, name: entry.name, brand: entry.brand, barcode: entry.barcode, source: entry.source, per100: entry.per100, servings, baseUnit };
     _fdOpenPortion(food, entry);
 }
 
@@ -1039,43 +1067,98 @@ function fdDeleteCurrentEntry() {
 }
 
 // ── מזון מותאם (custom) ──────────────────────────────────────────────
-function fdNewCustomFood() {
+// תווית שדה הקלוריות לפי יחידת הבסיס שנבחרה
+function _fdCustomKcalLabel(unit) {
+    return unit === 'ml' ? 'קלוריות / 100 מ"ל' : unit === 'unit' ? 'קלוריות ליחידה' : 'קלוריות / 100 גרם';
+}
+function _fdCustomUnitChanged() {
+    const sel = document.getElementById('fd-c-unit');
+    const lbl = document.getElementById('fd-c-kcal-label');
+    if (sel && lbl) lbl.textContent = _fdCustomKcalLabel(sel.value);
+}
+
+// food=null → יצירת מזון מותאם חדש; food קיים → עריכה במקום (אותו id, משמר היסטוריית שימוש/מועדפים)
+function _fdShowCustomFoodForm(food) {
     const sheet = document.getElementById('fd-portion-sheet');
     const body = document.getElementById('fd-portion-body');
     if (!sheet || !body) return;
     _fdEditEntryId = null;
     _fdSelectedFood = null;
-    const meals = _fdMealLabels();
-    _fdMeal = meals[0];
+    _fdEditCustomFoodId = food ? food.id : null;
+    const editMode = !!food;
+    const baseUnit = editMode ? (food.baseUnit || 'g') : 'g';
+    const p = editMode ? (food.per100 || {}) : {};
+    const scale = (editMode && baseUnit === 'unit') ? 100 : 1;   // הצגה: ערך "ליחידה" מאוחסן ×100 פנימית
+    const vKcal = editMode ? _fdR((p.kcal || 0) / scale) : '';
+    const vP = editMode ? _fdR((p.p || 0) / scale) : '';
+    const vC = editMode ? _fdR((p.c || 0) / scale) : '';
+    const vF = editMode ? _fdR((p.f || 0) / scale) : '';
+    if (!editMode) { const meals = _fdMealLabels(); _fdMeal = meals[0]; }
     body.innerHTML = `
-        <div class="fd-portion-title">מזון מותאם</div>
-        <label class="fd-field fd-field--full"><span>שם</span><input type="text" id="fd-c-name" placeholder="לדוגמה: חביתה ביתית"></label>
+        <div class="fd-portion-title">${editMode ? 'עריכת מזון מותאם' : 'מזון מותאם'}</div>
+        <label class="fd-field fd-field--full"><span>שם</span><input type="text" id="fd-c-name" value="${_fdEsc(editMode ? food.name : '')}" placeholder="לדוגמה: חביתה ביתית"></label>
+        <label class="fd-field fd-field--full"><span>יחידת מידה</span>
+            <select id="fd-c-unit" onchange="_fdCustomUnitChanged()">
+                <option value="g" ${baseUnit === 'g' ? 'selected' : ''}>גרם</option>
+                <option value="ml" ${baseUnit === 'ml' ? 'selected' : ''}>מ"ל</option>
+                <option value="unit" ${baseUnit === 'unit' ? 'selected' : ''}>יחידה (לדוגמה: ביצה אחת)</option>
+            </select>
+        </label>
         <div class="fd-portion-row">
-            <label class="fd-field"><span>קלוריות / 100g</span><input type="number" id="fd-c-kcal" inputmode="decimal" min="0"></label>
-            <label class="fd-field"><span>חלבון</span><input type="number" id="fd-c-p" inputmode="decimal" min="0"></label>
+            <label class="fd-field"><span id="fd-c-kcal-label">${_fdCustomKcalLabel(baseUnit)}</span><input type="number" id="fd-c-kcal" inputmode="decimal" min="0" value="${vKcal}"></label>
+            <label class="fd-field"><span>חלבון</span><input type="number" id="fd-c-p" inputmode="decimal" min="0" value="${vP}"></label>
         </div>
         <div class="fd-portion-row">
-            <label class="fd-field"><span>פחמימה</span><input type="number" id="fd-c-c" inputmode="decimal" min="0"></label>
-            <label class="fd-field"><span>שומן</span><input type="number" id="fd-c-f" inputmode="decimal" min="0"></label>
+            <label class="fd-field"><span>פחמימה</span><input type="number" id="fd-c-c" inputmode="decimal" min="0" value="${vC}"></label>
+            <label class="fd-field"><span>שומן</span><input type="number" id="fd-c-f" inputmode="decimal" min="0" value="${vF}"></label>
         </div>
-        <div class="fd-meal-chips" id="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>
+        ${editMode ? '' : `<div class="fd-meal-chips" id="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>`}
         <div class="fd-portion-actions">
-            <button class="fd-save-btn" onclick="fdSaveCustomFood()">המשך</button>
+            <button class="fd-save-btn" onclick="fdSaveCustomFood()">${editMode ? 'שמור' : 'המשך'}</button>
         </div>`;
     document.getElementById('fd-portion-overlay').style.display = 'block';
     sheet.classList.add('open');
 }
 
+function fdNewCustomFood() { _fdShowCustomFoodForm(null); }
+
+function fdEditCustomFood(id) {
+    const food = _fdFoodCache[id] || StorageManager.getFoodDb().find(f => f.id === id);
+    if (!food) return;
+    _fdShowCustomFoodForm(food);
+}
+
 function fdSaveCustomFood() {
     const name = (document.getElementById('fd-c-name').value || '').trim();
+    const unit = document.getElementById('fd-c-unit').value;
     const kcal = _fdNum(document.getElementById('fd-c-kcal').value);
     if (!name) { showAlert('הזן שם למזון.'); return; }
-    if (kcal == null) { showAlert('הזן לפחות קלוריות ל-100 גרם.'); return; }
+    if (kcal == null) { showAlert('הזן ערך קלוריות.'); return; }
+    // "יחידה": הערך שהוזן הוא לאחת — מוכפל ×100 כדי להתאים למודל ה-per100 הפנימי (הכל מחושב לפי /100)
+    const scale = unit === 'unit' ? 100 : 1;
+    const per100 = {
+        kcal: Math.round(kcal * scale),
+        p: _fdR((Number(document.getElementById('fd-c-p').value) || 0) * scale),
+        c: _fdR((Number(document.getElementById('fd-c-c').value) || 0) * scale),
+        f: _fdR((Number(document.getElementById('fd-c-f').value) || 0) * scale)
+    };
+    const servings = unit === 'unit' ? [{ label: '1 יחידה', grams: 1 }]
+        : [{ label: unit === 'ml' ? '100 מ"ל' : '100 גרם', grams: 100 }];
+
+    if (_fdEditCustomFoodId) {
+        const food = { id: _fdEditCustomFoodId, name, source: 'custom', per100, servings, baseUnit: unit };
+        StorageManager.upsertFoodToDb(food);
+        _fdEditCustomFoodId = null;
+        closeFoodPortion();
+        fdRenderTab();
+        _fdSyncCloud();
+        haptic('medium');
+        return;
+    }
     const food = {
         id: 'custom:' + Date.now().toString(36),
         name, brand: '', barcode: null, source: 'custom',
-        per100: { kcal: Math.round(kcal), p: _fdR(document.getElementById('fd-c-p').value), c: _fdR(document.getElementById('fd-c-c').value), f: _fdR(document.getElementById('fd-c-f').value) },
-        servings: [{ label: '100 גרם', grams: 100 }]
+        per100, servings, baseUnit: unit
     };
     StorageManager.upsertFoodToDb(food);
     _fdOpenPortion(food, null);  // פותח את עורך המנה עבור המזון החדש

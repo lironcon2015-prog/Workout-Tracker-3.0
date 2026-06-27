@@ -6033,6 +6033,19 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 }
 .fd-mfp-note .material-symbols-outlined { font-size: 1rem; color: var(--accent); flex-shrink: 0; }
 
+.fd-note-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer;
+    font-size: 0.78rem; color: var(--text); line-height: 1.4;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 10px 12px;
+    transition: background 0.15s;
+}
+.fd-note-row:active { background: rgba(255,255,255,0.06); }
+.fd-note-row .material-symbols-outlined { font-size: 1.1rem; color: var(--accent); flex-shrink: 0; }
+.fd-note-row--empty { color: var(--text-dim); }
+.fd-note-row--empty .material-symbols-outlined { color: var(--text-dim); }
+.fd-note-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-note-edit { font-size: 0.95rem !important; color: var(--text-dim) !important; }
+
 /* ── כרטיסי ארוחה — זכוכית מרחפת ── */
 .fd-meal {
     position: relative; border-radius: var(--r-lg); margin-bottom: 14px; overflow: hidden;
@@ -6265,6 +6278,15 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 /* רק ל-select מסירים את החץ הנייטיב (השעה/מספר שומרים על ה-picker הנייטיב) */
 .fd-field select { -webkit-appearance: none; appearance: none; }
 .fd-field input:focus, .fd-field select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.fd-field textarea {
+    background: var(--surface-1); border: 1px solid var(--hairline); border-radius: var(--r-md);
+    padding: 10px 12px; color: var(--text); font-family: inherit; font-size: 0.9rem;
+    width: 100%; box-sizing: border-box; text-align: right; resize: vertical; min-height: 80px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.fd-field textarea:focus {
     outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft);
 }
 /* שדה השעה — ערך מלא, ממורכז, ללא חיתוך/spinner מיותר */

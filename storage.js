@@ -23,6 +23,7 @@ const StorageManager = {
     KEY_NUTRITION:    'gympro_nutrition',
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
     KEY_NUTRITION_DAILY: 'gympro_nutrition_daily',   // ייבוא MFP — קלוריות/מאקרו לפי יום
+    KEY_NUTRITION_NOTES: 'gympro_nutrition_notes',   // הערה חופשית לפי יום — עצמאי מ-NUTRITION_DAILY
     KEY_NUTRITION_RAW:   'gympro_nutrition_raw',      // הקובץ הגולמי המקורי (שורה לכל ארוחה)
     KEY_BODY_PROFILE:    'gympro_body_profile',        // מין/גיל/גובה/רמת פעילות — לחישוב TDEE
     KEY_MFP_BRIDGE_URL:   'gympro_mfp_bridge_url',    // Apps Script Web App URL
@@ -514,6 +515,7 @@ const StorageManager = {
             nutrition: this.getNutritionalState(),
             nutritionLog: this.getNutritionLog(),
             nutritionDaily: this.getNutritionDaily(),
+            nutritionNotes: this.getNutritionNotes(),
             nutritionRaw: this.getNutritionRaw(),
             foodLog: this.getFoodLog(),
             foodDb: this.getFoodDb(),
@@ -570,6 +572,7 @@ const StorageManager = {
             if (data.nutrition)      this.saveData(this.KEY_NUTRITION, data.nutrition);
             if (data.nutritionLog)   this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) this.saveData(this.KEY_NUTRITION_DAILY, data.nutritionDaily);
+            if (data.nutritionNotes) this.saveData(this.KEY_NUTRITION_NOTES, data.nutritionNotes);
             if (data.nutritionRaw)   this.saveData(this.KEY_NUTRITION_RAW, data.nutritionRaw);
             if (data.foodLog)        this.saveData(this.KEY_FOOD_LOG, data.foodLog);
             if (data.foodDb)         this.saveData(this.KEY_FOOD_DB, data.foodDb);
@@ -615,6 +618,21 @@ const StorageManager = {
     clearNutrition() {
         localStorage.removeItem(this.KEY_NUTRITION_DAILY);
         localStorage.removeItem(this.KEY_NUTRITION_RAW);
+    },
+
+    // הערה יומית — מפתח עצמאי מ-NUTRITION_DAILY כדי לא להידרס ע"י recompute/ייבוא MFP/Health,
+    // ולאפשר הערה גם ביום בלי שום רשומת תזונה.
+    getNutritionNotes() {
+        return this.getData(this.KEY_NUTRITION_NOTES) || {};
+    },
+    getNutritionNote(date) {
+        return this.getNutritionNotes()[date] || '';
+    },
+    setNutritionNote(date, note) {
+        const notes = this.getNutritionNotes();
+        const trimmed = (note || '').trim();
+        if (trimmed) notes[date] = trimmed; else delete notes[date];
+        this.saveData(this.KEY_NUTRITION_NOTES, notes);
     },
 
     // saveNutritionDaily — upsert לפי תאריך (ייבוא חדש דורס יום קיים), ממוין מהישן לחדש.
@@ -1486,6 +1504,7 @@ const FirebaseManager = {
                 nutrition:      StorageManager.getNutritionalState(),
                 nutritionLog:   StorageManager.getNutritionLog(),
                 nutritionDaily: StorageManager.getNutritionDaily(),
+                nutritionNotes: StorageManager.getNutritionNotes(),
                 foodLog:        StorageManager.getFoodLog(),
                 foodDb:         StorageManager.getFoodDb(),
                 bodyProfile:    StorageManager.getBodyProfile(),
@@ -1546,6 +1565,7 @@ const FirebaseManager = {
         if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
         if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
         if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
+        if (data.nutritionNotes) StorageManager.saveData(StorageManager.KEY_NUTRITION_NOTES, data.nutritionNotes);
         if (data.foodLog)        StorageManager.saveData(StorageManager.KEY_FOOD_LOG, data.foodLog);
         if (data.foodDb)         StorageManager.saveData(StorageManager.KEY_FOOD_DB, data.foodDb);
         if (data.bodyProfile)    StorageManager.saveData(StorageManager.KEY_BODY_PROFILE, data.bodyProfile);

@@ -6323,6 +6323,8 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-preview-kcal small { font-size: 0.5em; color: var(--text-dim); margin-inline-start: 4px; }
 .fd-preview-pcf { font-size: 0.76rem; color: var(--text); }
 .fd-preview-g { font-size: 0.68rem; color: var(--text-dim); }
+.fd-kcal-warn { margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: var(--danger, #ff453a); text-align: center; }
+#fd-c-warn:not(:empty) { margin: -4px 0 14px; text-align: start; }
 .fd-portion-actions { display: flex; gap: 10px; }
 .fd-save-btn {
     flex: 1; background: var(--accent-gradient); color: var(--accent-text); border: none;
@@ -6391,6 +6393,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-comp-per100 small.macro-f { color: var(--macro-f); }
 .fd-comp-kcal { font-size: 0.68rem; color: var(--text-dim); }
 .fd-comp-kcal b { color: var(--text); font-weight: 800; }
+.fd-comp-warn { color: var(--danger, #ff453a); font-size: 0.72rem; cursor: help; }
 .fd-comp-qty { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .fd-comp-qty input {
     width: 62px; box-sizing: border-box; background: var(--surface-3); border: 1px solid var(--hairline);

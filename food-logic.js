@@ -28,6 +28,14 @@ let _fdEditCustomFoodId = null;  // עריכת מזון מותאם קיים (nul
 function _fdNowTime() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
 function _fdNum(v) { const n = Number(v); return isFinite(n) ? n : null; }
 function _fdR(v) { const n = Number(v); return isFinite(n) ? Math.round(n * 10) / 10 : 0; }
+// בדיקת התאמה בין קלוריות מוצהרות לחישוב מאקרו (Atwater: חלבון/פחמימה=4, שומן=9)
+// מחזיר null אם אין סטייה משמעותית, או יחס הסטייה (0–1+) אם יש
+function _fdKcalMismatch(kcal, p, c, f) {
+    const calc = p * 4 + c * 4 + f * 9;
+    if (kcal < 30 || calc < 30) return null;   // רף מוחלט — מונע רעש מעיגול בכמויות/ערכים זעירים
+    const ratio = Math.abs(kcal - calc) / Math.max(kcal, calc);
+    return ratio > 0.15 ? ratio : null;
+}
 function _fdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 const _FD_DEFAULT_MEALS = ['בוקר', 'צהריים', 'ערב', 'נשנוש'];
 const _FD_MEAL_ICONS = { 'בוקר': 'wb_twilight', 'צהריים': 'lunch_dining', 'ערב': 'dinner_dining', 'נשנוש': 'cookie' };
@@ -1017,9 +1025,11 @@ function _fdUpdatePreview() {
     if (!prev || !_fdSelectedFood) return;
     const g = _fdComputeGrams();
     const m = _fdMacrosFor(g.grams);
+    const mismatch = _fdKcalMismatch(m.kcal, m.p, m.c, m.f);
     prev.innerHTML = `<span class="fd-preview-kcal">${m.kcal}<small>kcal</small></span>
         <span class="fd-preview-pcf">חלבון ${m.p}g · פחמימה ${m.c}g · שומן ${m.f}g</span>
-        <span class="fd-preview-g">${_fdQtyDisplayLabel(g)}</span>`;
+        <span class="fd-preview-g">${_fdQtyDisplayLabel(g)}</span>
+        ${mismatch ? `<div class="fd-kcal-warn">⚠ הקלוריות לא תואמות את פירוט המאקרו (סטייה ${Math.round(mismatch * 100)}%) — ייתכן נתון מקור שגוי</div>` : ''}`;
 }
 
 function fdSavePortion() {
@@ -1101,6 +1111,16 @@ function _fdCustomUnitChanged() {
     const lbl = document.getElementById('fd-c-kcal-label');
     if (sel && lbl) lbl.textContent = _fdCustomKcalLabel(sel.value);
 }
+function _fdCustomCheckMismatch() {
+    const warnEl = document.getElementById('fd-c-warn');
+    if (!warnEl) return;
+    const kcal = Number(document.getElementById('fd-c-kcal').value) || 0;
+    const p = Number(document.getElementById('fd-c-p').value) || 0;
+    const c = Number(document.getElementById('fd-c-c').value) || 0;
+    const f = Number(document.getElementById('fd-c-f').value) || 0;
+    const mismatch = _fdKcalMismatch(kcal, p, c, f);
+    warnEl.innerHTML = mismatch ? `⚠ הקלוריות שהוזנו לא תואמות את חלבון/פחמימה/שומן (סטייה ${Math.round(mismatch * 100)}%) — בדוק את הערכים` : '';
+}
 
 // food=null → יצירת מזון מותאם חדש; food קיים → עריכה במקום (אותו id, משמר היסטוריית שימוש/מועדפים)
 function _fdShowCustomFoodForm(food) {
@@ -1130,13 +1150,14 @@ function _fdShowCustomFoodForm(food) {
             </select>
         </label>
         <div class="fd-portion-row">
-            <label class="fd-field"><span id="fd-c-kcal-label">${_fdCustomKcalLabel(baseUnit)}</span><input type="number" id="fd-c-kcal" inputmode="decimal" min="0" value="${vKcal}"></label>
-            <label class="fd-field"><span>חלבון</span><input type="number" id="fd-c-p" inputmode="decimal" min="0" value="${vP}"></label>
+            <label class="fd-field"><span id="fd-c-kcal-label">${_fdCustomKcalLabel(baseUnit)}</span><input type="number" id="fd-c-kcal" inputmode="decimal" min="0" value="${vKcal}" oninput="_fdCustomCheckMismatch()"></label>
+            <label class="fd-field"><span>חלבון</span><input type="number" id="fd-c-p" inputmode="decimal" min="0" value="${vP}" oninput="_fdCustomCheckMismatch()"></label>
         </div>
         <div class="fd-portion-row">
-            <label class="fd-field"><span>פחמימה</span><input type="number" id="fd-c-c" inputmode="decimal" min="0" value="${vC}"></label>
-            <label class="fd-field"><span>שומן</span><input type="number" id="fd-c-f" inputmode="decimal" min="0" value="${vF}"></label>
+            <label class="fd-field"><span>פחמימה</span><input type="number" id="fd-c-c" inputmode="decimal" min="0" value="${vC}" oninput="_fdCustomCheckMismatch()"></label>
+            <label class="fd-field"><span>שומן</span><input type="number" id="fd-c-f" inputmode="decimal" min="0" value="${vF}" oninput="_fdCustomCheckMismatch()"></label>
         </div>
+        <div class="fd-kcal-warn" id="fd-c-warn"></div>
         ${editMode ? '' : `<div class="fd-meal-chips" id="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>`}
         <div class="fd-portion-actions">
             ${editMode ? `<button class="fd-del-btn" onclick="fdDeleteCustomFood()"><span class="material-symbols-outlined">delete</span></button>` : ''}
@@ -1144,6 +1165,7 @@ function _fdShowCustomFoodForm(food) {
         </div>`;
     document.getElementById('fd-portion-overlay').style.display = 'block';
     sheet.classList.add('open');
+    _fdCustomCheckMismatch();
 }
 
 function fdNewCustomFood() { _fdShowCustomFoodForm(null); }
@@ -1662,7 +1684,7 @@ function _fdRenderComponents() {
                     <span class="fd-comp-cell"><input id="fd-mc-c100-${i}" inputmode="decimal" step="any" value="${_fdR(p.c)}" oninput="_fdMealRecalc()"><small class="macro-c">פ</small></span>
                     <span class="fd-comp-cell"><input id="fd-mc-f100-${i}" inputmode="decimal" step="any" value="${_fdR(p.f)}" oninput="_fdMealRecalc()"><small class="macro-f">ש</small></span>
                 </div>
-                <span class="fd-comp-kcal"><b id="fd-mc-kc-${i}">${_fdFmt(kcal)}</b> kcal למרכיב</span>
+                <span class="fd-comp-kcal"><b id="fd-mc-kc-${i}">${_fdFmt(kcal)}</b> kcal למרכיב<span class="fd-comp-warn" id="fd-mc-warn-${i}" style="display:none" title=""> ⚠</span></span>
             </div>
             <div class="fd-comp-qty">
                 <input type="number" id="fd-mc-g-${i}" inputmode="decimal" min="0" step="any" value="${_fdR(c.grams)}" oninput="_fdMealRecalc()">
@@ -1691,6 +1713,12 @@ function _fdMealRecalc() {
         tot.kcal += kcal; tot.p += (per.p || 0) * f; tot.c += (per.c || 0) * f; tot.f += (per.f || 0) * f;
         const kcEl = document.getElementById('fd-mc-kc-' + i);
         if (kcEl) kcEl.textContent = _fdFmt(kcal);
+        const warnEl = document.getElementById('fd-mc-warn-' + i);
+        if (warnEl) {
+            const mismatch = _fdKcalMismatch(kcal, per.p * f, per.c * f, per.f * f);
+            warnEl.style.display = mismatch ? '' : 'none';
+            warnEl.title = mismatch ? `קלוריות (${_fdR(per.kcal)} ל-${c.baseUnit === 'unit' ? 'יחידה' : "100ג'"}) לא תואמות מאקרו (סטייה ${Math.round(mismatch * 100)}%)` : '';
+        }
     });
     const tk = document.getElementById('fd-meal-total-kcal');
     const tm = document.getElementById('fd-meal-total-macros');

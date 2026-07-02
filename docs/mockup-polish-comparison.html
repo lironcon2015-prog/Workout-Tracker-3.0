@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מוקאפ · Polish Pass — לפני / אחרי</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined" rel="stylesheet">
+<style>
+/* ═══════════ בסיס משותף (זהה לאפליקציה) ═══════════ */
+:root{
+  --bg:#070708;
+  --surface-1:#101013; --surface-2:#161619; --surface-3:#1e1e22; --surface-4:#26262c;
+  --hairline:rgba(255,255,255,0.06); --hairline-hi:rgba(255,255,255,0.10);
+  --top-glint:inset 0 1px 0 rgba(255,255,255,0.05);
+  --elev-2:0 2px 8px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.35);
+  --accent:#0A84FF; --accent-rgb:10,132,255; --accent-soft:rgba(10,132,255,0.14);
+  --text:#e2e2e2; --text-dim:#A6A6AD;
+  --macro-p:#8FB0C9; --macro-c:#C3A874; --macro-f:#C594A6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Heebo',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;padding:24px 14px 70px}
+h1{font-weight:900;font-size:1.3rem;text-align:center;margin:0 0 4px}
+.sub{text-align:center;color:var(--text-dim);font-size:.85rem;margin:0 0 8px}
+.legend{max-width:880px;margin:0 auto 26px;color:var(--text-dim);font-size:.72rem;line-height:1.7;
+  background:var(--surface-1);border:1px solid var(--hairline);border-radius:16px;padding:12px 16px}
+.legend b{color:var(--text)}
+.wrap{display:flex;gap:20px;max-width:920px;margin:0 auto;flex-wrap:wrap;justify-content:center}
+.panel{flex:1;min-width:300px;max-width:430px}
+.panel-h{font-weight:900;font-size:1.05rem;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+.panel-d{color:var(--text-dim);font-size:.74rem;margin:0 0 16px;line-height:1.5}
+.tag{font-size:.62rem;font-weight:700;padding:3px 9px;border-radius:9999px}
+.tag-before{background:rgba(255,69,58,.14);color:#ff6b6b}
+.tag-after{background:var(--accent-soft);color:var(--accent)}
+.material-symbols-outlined{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;font-size:1.2rem}
+.note{font-size:.64rem;color:var(--text-dim);margin:14px 2px 6px;display:flex;gap:6px;align-items:flex-start;line-height:1.5}
+.note .material-symbols-outlined{font-size:.9rem;margin-top:1px;flex-shrink:0}
+
+/* ═══════════ לפני — ערכים אמיתיים מה-CSS היום ═══════════
+   רדיוסים מעורבים (2rem/16/12/10/8/6), משקל 800 בכל מקום, גדלי פונט
+   רציפים (0.6/0.62/0.66/0.72/0.85), שלושה ירוקים, רווחים 5/7/9/13,
+   שורות רשימה "בקופסאות", ספרות פרופורציונליות (טיימר מרצד).       */
+.before .card{background:#1b1b1b;border:1px solid var(--hairline);border-top-color:var(--hairline-hi);
+  box-shadow:var(--top-glint),var(--elev-2);margin-bottom:13px}
+.before .card-a{border-radius:2rem;padding:15px 17px}
+.before .card-b{border-radius:16px;padding:13px}
+.before .card-c{border-radius:12px;padding:13px 15px}
+.before .row2{display:flex;gap:9px}
+.before .row2 .card{flex:1;margin-bottom:13px}
+.before .lbl{font-size:.62rem;color:var(--text-dim);font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.before .hero{font-size:1.9rem;font-weight:800;line-height:1.15;font-variant-numeric:proportional-nums}
+.before .hero small{font-size:.66rem;color:var(--text-dim);font-weight:700}
+.before .live{display:inline-flex;align-items:center;gap:4px;font-size:.56rem;font-weight:800;color:#47e266;
+  border:1px solid rgba(71,226,102,.35);border-radius:6px;padding:2px 6px;margin-inline-start:7px}
+.before .live i{width:5px;height:5px;border-radius:50%;background:#32D74B;font-style:normal}
+.before .delta{font-size:.72rem;font-weight:800;color:#30D158}
+.before .delta.bad{color:#ff6b6b}
+.before .kpis{display:flex;gap:7px}
+.before .kpi{flex:1;background:#2a2a2a;border-radius:10px;padding:9px 5px;text-align:center}
+.before .kpi .v{font-size:.95rem;font-weight:800;font-variant-numeric:proportional-nums}
+.before .kpi .l{font-size:.6rem;color:var(--text-dim);font-weight:700;margin-top:3px}
+.before .mealrows .mrow{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.025);
+  border:1px solid var(--hairline);border-radius:8px;padding:11px 12px;margin-bottom:7px}
+.before .mrow .nm{flex:1;font-size:.85rem;font-weight:600}
+.before .mrow .nm small{display:block;font-size:.6rem;color:var(--text-dim);font-weight:400;margin-top:2px}
+.before .mrow .kc{font-size:.85rem;font-weight:800;font-variant-numeric:proportional-nums}
+.before .mrow .kc small{font-size:.62rem;color:var(--text-dim);font-weight:600}
+.before .pills{display:flex;gap:7px;margin-top:11px}
+.before .pill{background:#353535;color:var(--text);border:none;border-radius:9999px;padding:8px 15px;
+  font-family:inherit;font-size:.72rem;font-weight:800;cursor:pointer;transition:opacity .25s ease}
+.before .pill:active{opacity:.7}
+.before .cta{background:var(--accent);color:#fff;border:none;border-radius:14px;padding:11px 18px;
+  font-family:inherit;font-size:.82rem;font-weight:800;cursor:pointer;transition:opacity .4s}
+.before .cta:active{opacity:.8}
+.before .timer{display:flex;align-items:baseline;justify-content:center;gap:7px;padding:12px 0 3px}
+.before .timer .t{font-size:2.1rem;font-weight:800;font-variant-numeric:proportional-nums;letter-spacing:0}
+.before .timer .u{font-size:.6rem;color:var(--text-dim);font-weight:700}
+
+/* ═══════════ אחרי — מערכת הטוקנים המוצעת ═══════════ */
+.after{
+  /* P1 — סולם טיפוגרפי (7 מדרגות) + 4 משקלים */
+  --fs-xs:.65rem; --fs-sm:.72rem; --fs-md:.8rem; --fs-lg:.9rem;
+  --fs-xl:1.05rem; --fs-2xl:1.3rem; --fs-hero:1.9rem;
+  /* P2 — סמנטיקה אחת */
+  --success:#30D158; --success-rgb:48,209,88; --danger:#FF453A;
+  /* P3 — radius + ריווח על רשת 4 */
+  --r-xs:8px; --r-sm:14px; --r-md:20px; --r-lg:28px;
+  /* P4 — מושן חתום */
+  --dur-1:120ms; --dur-2:200ms; --ease:cubic-bezier(.2,0,0,1);
+}
+.after .card{background:var(--surface-2);border:1px solid var(--hairline);border-top-color:var(--hairline-hi);
+  box-shadow:var(--top-glint),var(--elev-2);border-radius:var(--r-lg);padding:16px;margin-bottom:12px}
+.after .row2{display:flex;gap:12px}
+.after .row2 .card{flex:1;margin-bottom:12px}
+.after .lbl{font-size:var(--fs-xs);color:var(--text-dim);font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.after .num{font-variant-numeric:tabular-nums}
+.after .hero{font-size:var(--fs-hero);font-weight:900;line-height:1.15}
+.after .hero small{font-size:var(--fs-xs);color:var(--text-dim);font-weight:600}
+.after .live{display:inline-flex;align-items:center;gap:4px;font-size:.56rem;font-weight:700;color:var(--success);
+  border:1px solid rgba(var(--success-rgb),.35);border-radius:9999px;padding:2px 8px;margin-inline-start:8px}
+.after .live i{width:5px;height:5px;border-radius:50%;background:var(--success);font-style:normal}
+.after .delta{font-size:var(--fs-sm);font-weight:700;color:var(--success)}
+.after .delta.bad{color:var(--danger)}
+.after .kpis{display:flex;gap:8px}
+.after .kpi{flex:1;background:var(--surface-3);border-radius:var(--r-sm);padding:10px 4px;text-align:center}
+.after .kpi .v{font-size:var(--fs-lg);font-weight:900}
+.after .kpi .l{font-size:var(--fs-xs);color:var(--text-dim);font-weight:500;margin-top:4px}
+/* P5 — שורות רשימה: hairline במקום קופסה-לכל-שורה */
+.after .mealrows{border:1px solid var(--hairline);border-radius:var(--r-md);overflow:hidden;background:rgba(255,255,255,.015)}
+.after .mrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--hairline)}
+.after .mrow:last-child{border-bottom:none}
+.after .mrow .nm{flex:1;font-size:var(--fs-md);font-weight:600}
+.after .mrow .nm small{display:block;font-size:var(--fs-xs);color:var(--text-dim);font-weight:400;margin-top:2px}
+.after .mrow .kc{font-size:var(--fs-md);font-weight:900}
+.after .mrow .kc small{font-size:var(--fs-xs);color:var(--text-dim);font-weight:500}
+.after .pills{display:flex;gap:8px;margin-top:12px}
+.after .pill{background:var(--surface-4);color:var(--text);border:none;border-radius:9999px;padding:8px 16px;
+  font-family:inherit;font-size:var(--fs-sm);font-weight:700;cursor:pointer;
+  transition:transform var(--dur-1) var(--ease),opacity var(--dur-1) var(--ease)}
+.after .pill:active{transform:scale(.96);opacity:.85}
+.after .cta{background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);padding:12px 20px;
+  font-family:inherit;font-size:var(--fs-md);font-weight:700;cursor:pointer;
+  transition:transform var(--dur-1) var(--ease),opacity var(--dur-1) var(--ease)}
+.after .cta:active{transform:scale(.96);opacity:.85}
+.after .timer{display:flex;align-items:baseline;justify-content:center;gap:8px;padding:12px 0 4px}
+.after .timer .t{font-size:2.1rem;font-weight:900;font-variant-numeric:tabular-nums}
+.after .timer .u{font-size:var(--fs-xs);color:var(--text-dim);font-weight:600}
+
+/* טבלת המספרים (הדגמת tabular-nums) */
+.numcol{display:flex;flex-direction:column;gap:2px;margin-top:8px}
+.numcol span{font-size:.85rem;font-weight:700}
+.before .numcol span{font-variant-numeric:proportional-nums}
+.after .numcol span{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<h1>Polish Pass — לפני / אחרי</h1>
+<p class="sub">אותו תוכן, אותו layout. ההבדל: עקביות טוקנים בלבד.</p>
+<div class="legend">
+  <b>מה להשוות:</b> ① רדיוסים — משמאל כל כרטיס בעיגול אחר (2rem/16/12/10/8), מימין סולם אחיד ·
+  ② משקלי פונט — משמאל הכל 800 "שמן בינוני", מימין 900 למספרים / 700 לכותרות / 500-400 לטקסט ·
+  ③ ירוק אחד במקום שלושה (LIVE, דלתא, נקודה) ·
+  ④ שורות המזון — hairline במקום קופסה סביב כל שורה ·
+  ⑤ הטיימר רץ — משמאל הרוחב "מרצד" עם החלפת ספרות, מימין יציב (tabular-nums), וכך גם טור המשקלים ·
+  ⑥ לחצו על הכפתורים — מימין תגובת לחיצה אחידה ומהירה (120ms + scale).
+</div>
+
+<div class="wrap">
+
+  <!-- ═════════ לפני ═════════ -->
+  <div class="panel before">
+    <div class="panel-h">לפני <span class="tag tag-before">המצב היום</span></div>
+    <p class="panel-d">ערכים אמיתיים מ-style.css: רדיוסים 2rem/16/12/10/8, משקל 800 גורף, 3 ירוקים, רווחים 5/7/9/13.</p>
+
+    <div class="row2">
+      <div class="card card-a">
+        <div class="lbl">תזונה היום <span class="live"><i></i>LIVE</span></div>
+        <div class="hero" id="kcal-b">1,847<small> קק"ל</small></div>
+        <div class="delta">נותרו 353</div>
+      </div>
+      <div class="card card-a">
+        <div class="lbl">הרכב גוף</div>
+        <div class="hero">82.4<small> ק"ג</small></div>
+        <div class="delta bad">1.2+ החודש</div>
+      </div>
+    </div>
+
+    <div class="card card-b">
+      <div class="lbl" style="margin-bottom:9px">מדדים</div>
+      <div class="kpis">
+        <div class="kpi"><div class="v">82.4</div><div class="l">משקל</div></div>
+        <div class="kpi"><div class="v">17.8%</div><div class="l">שומן</div></div>
+        <div class="kpi"><div class="v">-0.42</div><div class="l">קצב שבועי</div></div>
+      </div>
+      <div class="numcol">
+        <span>111.4 ק"ג</span><span>84.1 ק"ג</span><span>71.9 ק"ג</span>
+      </div>
+    </div>
+
+    <div class="card card-c">
+      <div class="lbl" style="margin-bottom:9px">בוקר · 545 קק"ל</div>
+      <div class="mealrows">
+        <div class="mrow"><div class="nm">שיבולת שועל<small>80 גרם · 07:45</small></div><div class="kc">311<small> kcal</small></div></div>
+        <div class="mrow"><div class="nm">קוטג' 5%<small>150 גרם · 07:50</small></div><div class="kc">147<small> kcal</small></div></div>
+        <div class="mrow"><div class="nm">בננה<small>יחידה · 08:05</small></div><div class="kc">87<small> kcal</small></div></div>
+      </div>
+      <div class="pills">
+        <button class="pill">7 ימים</button>
+        <button class="pill">30 ימים</button>
+        <button class="cta">הוסף מזון</button>
+      </div>
+      <div class="timer"><span class="t" id="timer-b">0:00.0</span><span class="u">מנוחה</span></div>
+    </div>
+  </div>
+
+  <!-- ═════════ אחרי ═════════ -->
+  <div class="panel after">
+    <div class="panel-h">אחרי <span class="tag tag-after">Polish Pass</span></div>
+    <p class="panel-d">טוקנים: 7 גדלי פונט, 4 משקלים, 4 רדיוסים, רשת ריווח 4px, ירוק/אדום סמנטי אחד, מושן 120ms אחיד.</p>
+
+    <div class="row2">
+      <div class="card">
+        <div class="lbl">תזונה היום <span class="live"><i></i>LIVE</span></div>
+        <div class="hero num" id="kcal-a">1,847<small> קק"ל</small></div>
+        <div class="delta num">נותרו 353</div>
+      </div>
+      <div class="card">
+        <div class="lbl">הרכב גוף</div>
+        <div class="hero num">82.4<small> ק"ג</small></div>
+        <div class="delta bad num">1.2+ החודש</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="lbl" style="margin-bottom:12px">מדדים</div>
+      <div class="kpis">
+        <div class="kpi"><div class="v num">82.4</div><div class="l">משקל</div></div>
+        <div class="kpi"><div class="v num">17.8%</div><div class="l">שומן</div></div>
+        <div class="kpi"><div class="v num">-0.42</div><div class="l">קצב שבועי</div></div>
+      </div>
+      <div class="numcol">
+        <span>111.4 ק"ג</span><span>84.1 ק"ג</span><span>71.9 ק"ג</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="lbl" style="margin-bottom:12px">בוקר · <span class="num">545</span> קק"ל</div>
+      <div class="mealrows">
+        <div class="mrow"><div class="nm">שיבולת שועל<small>80 גרם · 07:45</small></div><div class="kc num">311<small> kcal</small></div></div>
+        <div class="mrow"><div class="nm">קוטג' 5%<small>150 גרם · 07:50</small></div><div class="kc num">147<small> kcal</small></div></div>
+        <div class="mrow"><div class="nm">בננה<small>יחידה · 08:05</small></div><div class="kc num">87<small> kcal</small></div></div>
+      </div>
+      <div class="pills">
+        <button class="pill">7 ימים</button>
+        <button class="pill">30 ימים</button>
+        <button class="cta">הוסף מזון</button>
+      </div>
+      <div class="timer"><span class="t" id="timer-a">0:00.0</span><span class="u">מנוחה</span></div>
+    </div>
+  </div>
+
+</div>
+
+<p class="note"><span class="material-symbols-outlined">info</span>
+המוקאפ מדגים את שכבת P1-P5 של docs/POLISH_ROADMAP.md. "לפני" משחזר ערכים אמיתיים מ-style.css הנוכחי;
+"אחרי" בנוי אך ורק מהטוקנים המוצעים — אפס שינויי layout. אם ההבדל בטיימר לא נראה בדפדפן שלך,
+הפונט טוען ספרות tabular כברירת מחדל — האפקט האמיתי נבדק על Heebo מלא באפליקציה.</p>
+
+<script>
+// טיימר רץ — מדגים ריצוד רוחב (proportional) מול יציבות (tabular)
+let t0 = Date.now();
+setInterval(() => {
+  const el = (Date.now() - t0) / 1000;
+  const m = Math.floor(el / 60), s = Math.floor(el % 60), d = Math.floor((el % 1) * 10);
+  const str = m + ':' + String(s).padStart(2, '0') + '.' + d;
+  document.getElementById('timer-b').textContent = str;
+  document.getElementById('timer-a').textContent = str;
+}, 100);
+// מספר קלוריות "חי" — מדגים קפיצת רוחב בהחלפת ספרות
+let kc = 1847, dir = 1;
+setInterval(() => {
+  kc += dir * (Math.floor(Math.random() * 90) + 30);
+  if (kc > 2300) dir = -1; if (kc < 1200) dir = 1;
+  const str = kc.toLocaleString('en-US');
+  document.getElementById('kcal-b').innerHTML = str + '<small> קק"ל</small>';
+  document.getElementById('kcal-a').innerHTML = str + '<small> קק"ל</small>';
+}, 1600);
+</script>
+</body>
+</html>

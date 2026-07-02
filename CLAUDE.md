@@ -73,10 +73,11 @@
 
 | מאפיין | ערך |
 |--------|-----|
-| רקע אפליקציה | `#0a0a0a` (שחור טהור כמעט) |
-| כרטיסיות אימון | `#1b1b1b` solid, `border-radius: 2rem` |
+| רקע אפליקציה | `var(--bg)` (#070708, שחור כמעט טהור) |
+| כרטיסיות אימון | `var(--surface-2)` solid, `border-radius: 2rem` |
 | פונט | Heebo (Hebrew-first), `font-weight: 900` לכותרות |
-| כפתורי "pill" | `background: #353535`, `border-radius: 9999px`, `align-self: flex-start` |
+| כפתורי "pill" | `background: var(--surface-4)`, `border-radius: 9999px`, `align-self: flex-start` |
+| ירוק/אדום סמנטי | `var(--success)` / `var(--danger)` / `var(--danger-soft)` בלבד — אין hex קשיח (P2) |
 | תמונות תרגיל | 96×96px, `border-radius: 18px`, מ-Google LH3 |
 | Freestyle card | `border: 2px dashed rgba(255,255,255,0.2)` |
 | Timer strip | 50px height, `justify-content: space-between`, dot פולסינג ירוק |
@@ -188,7 +189,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-16.89
+16.90
 
 ---
 

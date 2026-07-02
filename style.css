@@ -6228,6 +6228,16 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-ai-row:active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .fd-ai-row .material-symbols-outlined { font-size: 1.15rem; flex-shrink: 0; }
 .fd-ai-row b { font-weight: 800; }
+/* "הצג עוד תוצאות" — חושף התאמות מעבר לקאפ + התאמות חלקיות (v16.88) */
+.fd-more-row {
+    display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+    background: transparent; border: 1px solid var(--hairline);
+    border-radius: var(--r-md); padding: 11px 14px; margin: 2px 0 8px;
+    font-family: inherit; font-size: 0.78rem; cursor: pointer;
+    color: var(--text-dim); transition: background 0.12s;
+}
+.fd-more-row:active { background: rgba(255,255,255,0.05); }
+.fd-more-row .material-symbols-outlined { font-size: 1.1rem; flex-shrink: 0; }
 .fd-food-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .fd-food-name { font-weight: 500; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 7px; }
 .fd-food-sub { font-size: 0.66rem; color: var(--text-dim); }

@@ -18,6 +18,7 @@ let _fdTab = 'recent';
 let _fdFoodCache = {};        // id → food עבור הפריטים המוצגים כרגע
 let _fdLastQuery = '';        // השאילתה האחרונה שהוצגה (עבור fallback של AI)
 let _fdLastFoods = [];        // התוצאות שהוצגו אחרונות (כדי לשרשר מעליהן הערכת AI)
+let _fdMoreFoods = [];        // תוצאות מעבר לקאפ התצוגה — נחשפות ב"הצג עוד" (v16.88)
 let _fdPhotoMode = 'label';   // 'label' = ברקוד/תווית | 'meal' = הערכת מנה מצילום
 let _fdMealComponents = [];   // Meal Builder — מרכיבי המנה {name, grams, per100}
 let _fdMealEditId = null;     // עריכת רשומת composite קיימת
@@ -209,6 +210,40 @@ function _fdBasicMatches(q) {
     return BASIC_FOODS.filter(f => _fdTokenMatch(f.name, q));
 }
 
+// ─── דירוג רלוונטיות (v16.88) ────────────────────────────────────────
+// פירוק שם למילים — לזיהוי התאמת מילה-שלמה מול substring ("חלב" ≠ "חלבון")
+function _fdWords(s) { return _fdNorm(s).toLowerCase().split(/[^\w֐-׿%.]+/).filter(Boolean); }
+
+// ציון התאמה בין טקסט (שם+מותג) לשאילתה. 0 = לא רלוונטי (מוסתר).
+// סמנטיקת AND: ריבוי מילים דורש את כולן. ≥50 = התאמה מלאה ("חזקה"),
+// 0<ציון<50 = התאמה חלקית ("חלשה") שמוצגת רק מאחורי "הצג עוד".
+function _fdScore(text, q) {
+    const n = _fdNorm(text).toLowerCase();
+    const s = _fdNorm(q).toLowerCase();
+    if (!n || !s) return 0;
+    if (n === s) return 100;                                   // זהות מלאה
+    const qToks = s.split(/\s+/).filter(t => t.length >= 2);
+    if (!qToks.length) return n.indexOf(s) >= 0 ? 50 : 0;      // שאילתת תו-בודד
+    const nWords = _fdWords(n);
+    const wordHits   = qToks.filter(t => nWords.some(w => w === t)).length;
+    const prefixHits = qToks.filter(t => nWords.some(w => w.indexOf(t) === 0)).length;
+    const subHits    = qToks.filter(t => n.indexOf(t) >= 0).length;
+    let score = 0;
+    // מילים שלמות גוברות תמיד על תחיליות — "חלב" חייב להעדיף "חלב 3%" על "חלבון ביצה"
+    if (wordHits === qToks.length) score = 85 + (n.indexOf(s) === 0 ? 5 : 0); // כל הטוקנים כמילים שלמות
+    else if (n.indexOf(s) === 0) score = 75;                   // הטקסט מתחיל בשאילתה (הקלדה הדרגתית)
+    else if (prefixHits === qToks.length) score = 70;          // כל הטוקנים כתחיליות מילים
+    else if (n.indexOf(s) >= 0) score = 60;                    // השאילתה המלאה כרצף בטקסט
+    else if (subHits === qToks.length) score = 50;             // כל הטוקנים כ-substring
+    else if (subHits > 0) score = Math.round(10 * subHits / qToks.length); // חלקי — חלש
+    if (!score) return 0;
+    // בונוס קטן לשם קצר (התאמה ממוקדת) — שובר שוויון בתוך אותה דרגה
+    return score + Math.max(0, 5 - Math.min(5, Math.floor(n.length / 12)));
+}
+
+// ציון לאובייקט מזון — שם + מותג (מותג נכלל כדי ש"קוטג' תנובה" ימצא לפי המותג)
+function _fdFoodScore(f, q) { return _fdScore((f.name || '') + ' ' + (f.brand || ''), q); }
+
 function _fdDedup(list) {
     const seen = {}, out = [];
     list.forEach(f => { if (f && !seen[f.id]) { seen[f.id] = 1; out.push(f); } });
@@ -270,13 +305,28 @@ async function searchTzameret(q) {
     return (data.result.records || []).map(_tzToFood).filter(Boolean);
 }
 
-// _searchOFF: מנסה קודם את ה-API המודרני (search.openfoodfacts.org — בנוי ל-CORS),
-// ובכשל נופל ל-search.pl הישן. זורק רק אם שניהם נכשלו.
+// _searchOFF (v16.88): שני שלבים — קודם מוצרים המתויגים לישראל (ממוינים לפי
+// פופולריות סריקות), ואם חזרו מעט (<5) — השלמה גלובלית (מוצרים שנמכרים בארץ
+// אך לא תויגו). זורק רק אם שני השלבים נכשלו לגמרי.
 async function _searchOFF(q) {
+    let il = [];
+    try { il = await _offQuery(q, true); } catch (e) { /* ממשיכים לשלב הגלובלי */ }
+    if (il.length >= 5) return il;
+    let global = [];
+    try { global = await _offQuery(q, false); }
+    catch (e) { if (!il.length) throw e; }
+    return _fdDedup(il.concat(global));
+}
+
+// בקשה אחת ל-OFF: ה-API המודרני (search-a-licious, בנוי ל-CORS) → legacy search.pl.
+// israelOnly: המודרני מסנן בתחביר Lucene בתוך q; ה-legacy בפרמטרי tagtype.
+async function _offQuery(q, israelOnly) {
     const enc = encodeURIComponent(q);
-    // 1) Search-a-licious (CORS-first). תגובה: { hits: [...] }
+    // 1) Search-a-licious. תגובה: { hits: [...] }. סינון מדינה כביטוי בשאילתה —
+    //    אם התחביר לא ייתמך יחזרו 0 תוצאות וניפול ל-legacy שנתמך בוודאות.
     try {
-        const url = `https://search.openfoodfacts.org/search?q=${enc}&page_size=25&` +
+        const qq = israelOnly ? enc + encodeURIComponent(' countries_tags:"en:israel"') : enc;
+        const url = `https://search.openfoodfacts.org/search?q=${qq}&page_size=25&` +
             `fields=${_OFF_FIELDS}&lang=he`;
         const resp = await _fdFetch(url);
         if (resp.ok) {
@@ -286,9 +336,11 @@ async function _searchOFF(q) {
             if (foods.length) return foods;
         }
     } catch (e) { /* נופל ל-legacy */ }
-    // 2) Legacy search.pl. תגובה: { products: [...] }
+    // 2) Legacy search.pl. תגובה: { products: [...] }. sort_by=unique_scans_n = פופולריות.
+    const ilParams = israelOnly ? '&tagtype_0=countries&tag_contains_0=contains&tag_0=israel' : '';
     const url2 = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${enc}` +
-        `&search_simple=1&action=process&json=1&page_size=25&fields=${_OFF_FIELDS}&lc=he`;
+        `&search_simple=1&action=process&json=1&page_size=25&fields=${_OFF_FIELDS}&lc=he` +
+        `&sort_by=unique_scans_n${ilParams}`;
     const resp2 = await _fdFetch(url2);
     if (!resp2.ok) throw new Error('OFF_' + resp2.status);
     const data2 = await resp2.json();
@@ -427,7 +479,19 @@ async function _callGeminiMeal(base64, mimeType) {
 }
 
 // ════════ DIARY OVERLAY ════════
+// ניקוי חד-פעמי (v16.88) של רשומות cache שנשמרו אוטומטית מחיפושי עבר ומעולם לא שימשו.
+// דגל ב-localStorage מונע ריצה חוזרת; מותאמים/מועדפים/מתועדים לא נמחקים (ראה storage.js).
+function _fdPruneCacheOnce() {
+    try {
+        if (localStorage.getItem('gympro_fd_cache_pruned')) return;
+        const n = StorageManager.pruneUnusedFoodCache();
+        localStorage.setItem('gympro_fd_cache_pruned', '1');
+        if (n > 0) _fdSyncCloud();
+    } catch (e) {}
+}
+
 function openFoodDiary(date) {
+    _fdPruneCacheOnce();
     _fdDate = date || _blTodayStr();
     const ov = document.getElementById('food-diary');
     if (!ov) return;
@@ -765,44 +829,93 @@ function fdOnSearchInput(q) {
     _fdSearchTimer = setTimeout(() => fdDoSearch(q), 350);
 }
 
+// fdDoSearch (v16.88) — כל המקורות עוברים סינון+דירוג (_fdScore), והתואמים מסודרים
+// בשכבות (החלטת משתמש): תועדו-בארוחה-הנוכחית → מועדפים → תועדו-אי-פעם → חומרי גלם
+// → רשת מדורגת (צמ"ת>OFF>USDA) → cache לא-מתועד. התאמות חלקיות — רק מאחורי "הצג עוד".
 async function fdDoSearch(q) {
     const box = document.getElementById('fd-results');
     if (!box) return;
     const seq = ++_fdSearchSeq;   // הבקשה הנוכחית; תוצאה ישנה תזוהה ותידחה
-    _fdLastQuery = q; _fdLastFoods = [];
-    // מוצרים שתועדו בעבר (lastUsed) — תמיד בראש, ממוינים לפי עדיפות-ארוחה כמו אחרונים/מועדפים
-    // (90% מהחיפושים הם חזרה על מוצר מוכר). חומרי גלם מובנים (offline) אחריהם, ואז שאר
-    // המאגר המקומי (נמצא בעבר בחיפוש אך לא תועד) — fallback ל-offline, לא בעדיפות גבוהה.
-    const localMatches = StorageManager.getFoodDb().filter(f => f.name && _fdTokenMatch(f.name, q));
-    const used = StorageManager.sortFoodsByMealUse(localMatches.filter(f => f.lastUsed), _fdMeal);
-    const unusedLocal = localMatches.filter(f => !f.lastUsed);
-    const basics = _fdBasicMatches(q);
-    // שניהם מוצגים מיידית, לפני תשובת הרשת, ונשארים בראש גם אחריה (לא נדרסים ע"י תוצאות חדשות).
-    const immediate = _fdDedup(used.concat(basics).concat(unusedLocal));
-    if (immediate.length) { _fdLastFoods = immediate; _fdRenderFoodList(immediate, box); }
-    else box.innerHTML = '<div class="fd-loading">מחפש ב-Open Food Facts…</div>';
+    _fdLastQuery = q; _fdLastFoods = []; _fdMoreFoods = [];
+
+    // ── שלב מקומי (מיידי, offline) ──
+    // "המזונות שלך" = תועדו אי-פעם או מועדפים, בהתאמה מלאה בלבד (≥50).
+    const localScored = StorageManager.getFoodDb()
+        .map(f => ({ f, sc: f.name ? _fdFoodScore(f, q) : 0 })).filter(x => x.sc > 0);
+    const mine = StorageManager.sortUsedForSearch(
+        localScored.filter(x => x.sc >= 50 && (x.f.lastUsed || x.f.favorite)).map(x => x.f), _fdMeal);
+    const cacheStrong = localScored.filter(x => x.sc >= 50 && !(x.f.lastUsed || x.f.favorite))
+        .sort((a, b) => b.sc - a.sc).map(x => x.f);
+    const weakLocal = localScored.filter(x => x.sc < 50).sort((a, b) => b.sc - a.sc).map(x => x.f);
+    const basics = BASIC_FOODS.map(f => ({ f, sc: _fdScore(f.name, q) })).filter(x => x.sc >= 50)
+        .sort((a, b) => b.sc - a.sc).map(x => x.f);
+
+    const strongNow = _fdDedup(mine.concat(basics).concat(cacheStrong));
+    if (strongNow.length) _fdRenderSearchResults(strongNow, weakLocal, box);
+    else box.innerHTML = '<div class="fd-loading">מחפש…</div>';
 
     try {
         const foods = await searchFoods(q);
         if (seq !== _fdSearchSeq) return;   // בקשה חדשה יותר כבר רצה — התעלם
-        foods.forEach(f => StorageManager.upsertFoodToDb(f));   // קאש לשימוש עתידי
-        // מתועדים בראש, חומרי גלם אחריהם, תוצאות הרשת, ואז שאר המאגר המקומי (ללא כפילויות)
-        const merged = _fdDedup(used.concat(basics).concat(foods).concat(unusedLocal));
-        _fdLastFoods = merged;
-        if (merged.length) { _fdRenderFoodList(merged, box); _fdAppendAiAction(box); }
-        else if (!immediate.length) {
+        // דירוג תוצאות רשת: ציון רלוונטיות; שוברי שוויון — עדיפות מקור ואורך שם.
+        // ציון 0 (התאמה על שדה צדדי בלבד, למשל רעש full-text של צמ"ת) — מוסתר לגמרי.
+        // הערה: תוצאות רשת כבר לא נשמרות ל-DB כאן — קאש רק בבחירה בפועל (fdSelectFoodById).
+        const srcPri = { tzameret: 0, off: 1, usda: 2 };
+        const netScored = foods.map(f => ({ f, sc: _fdFoodScore(f, q) })).filter(x => x.sc > 0)
+            .sort((a, b) => (b.sc - a.sc)
+                || ((srcPri[a.f.source] != null ? srcPri[a.f.source] : 1) - (srcPri[b.f.source] != null ? srcPri[b.f.source] : 1))
+                || ((a.f.name || '').length - (b.f.name || '').length));
+        const netStrong = netScored.filter(x => x.sc >= 50).map(x => x.f);
+        const netWeak = netScored.filter(x => x.sc < 50).map(x => x.f);
+
+        const strong = _fdDedup(mine.concat(basics).concat(netStrong).concat(cacheStrong));
+        const weak = _fdDedup(netWeak.concat(weakLocal));
+        if (strong.length || weak.length) _fdRenderSearchResults(strong, weak, box);
+        else if (!strongNow.length) {
             // אין תוצאות כלל → fallback יזום ל-AI (אם זמין), אחרת הודעה
             if (_fdAiAvailable()) { fdAiLookup(); return; }
             box.innerHTML = '<div class="fd-empty">לא נמצאו תוצאות. נסה שם אחר או צור מזון מותאם.</div>';
         }
     } catch (e) {
         if (seq !== _fdSearchSeq) return;   // כשל של בקשה ישנה — אל תדרוס תוצאות חדשות
-        if (!immediate.length) {
+        if (!strongNow.length) {
             const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
             box.innerHTML = `<div class="fd-empty">${offline ? 'אין חיבור לרשת — חבר רשת ונסה שוב' : 'החיפוש נכשל — נסה שוב, או הוסף מזון מותאם'}</div>`;
-        } else { _fdAppendAiAction(box); }
-        // אם כבר מוצגות תוצאות (חומרי גלם/שמורות) — לא מציגים באנר כשל
+        }
+        // אם כבר מוצגות תוצאות מקומיות — הן נשארות כמות שהן (כולל שורת ה-AI)
     }
+}
+
+// ── רינדור תוצאות עם קאפ + "הצג עוד" ─────────────────────────────────
+const _FD_SHOW_LIMIT = 12;
+function _fdRenderSearchResults(strong, weak, box) {
+    const head = strong.slice(0, _FD_SHOW_LIMIT);
+    const shown = {};
+    head.forEach(f => { shown[f.id] = 1; });
+    const rest = strong.slice(_FD_SHOW_LIMIT).concat(weak).filter(f => !shown[f.id]);
+    _fdLastFoods = head;
+    _fdMoreFoods = rest;
+    _fdRenderFoodList(head, box);
+    if (rest.length) {
+        box.insertAdjacentHTML('beforeend',
+            `<button class="fd-more-row" onclick="fdShowMoreResults()">
+                <span class="material-symbols-outlined">expand_more</span>
+                <span>הצג עוד תוצאות (${rest.length})</span>
+            </button>`);
+    }
+    _fdAppendAiAction(box);
+}
+
+function fdShowMoreResults() {
+    const box = document.getElementById('fd-results');
+    if (!box || !_fdMoreFoods.length) return;
+    const btn = box.querySelector('.fd-more-row'); if (btn) btn.remove();
+    const ai = box.querySelector('.fd-ai-row'); if (ai) ai.remove();
+    _fdRenderFoodList(_fdMoreFoods, box, true);   // append — לא מאפס את _fdFoodCache
+    _fdLastFoods = _fdLastFoods.concat(_fdMoreFoods);
+    _fdMoreFoods = [];
+    _fdAppendAiAction(box);
+    haptic('light');
 }
 
 // זמינות ה-fallback של AI: יש מפתח Gemini ואנחנו לא offline

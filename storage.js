@@ -827,6 +827,38 @@ const StorageManager = {
         return list.slice().sort(this._mealSort(meal));
     },
 
+    // מיון שכבות לתוצאות חיפוש של "המזונות שלך" (החלטת משתמש, v16.88):
+    // (1) תועדו בארוחה הנוכחית — לפי שימוש אחרון בארוחה זו,
+    // (2) מועדפים שלא תועדו בארוחה זו — לפי שימוש גלובלי,
+    // (3) השאר (תועדו אי-פעם) — לפי שימוש גלובלי.
+    sortUsedForSearch(list, meal) {
+        const tier = f => {
+            if (meal && f.mealUse && f.mealUse[meal] && f.mealUse[meal].lastUsed) return 0;
+            if (f.favorite) return 1;
+            return 2;
+        };
+        return list.slice().sort((a, b) => {
+            const ta = tier(a), tb = tier(b);
+            if (ta !== tb) return ta - tb;
+            if (ta === 0) return b.mealUse[meal].lastUsed - a.mealUse[meal].lastUsed;
+            return (b.lastUsed || 0) - (a.lastUsed || 0);
+        });
+    },
+
+    // ניקוי חד-פעמי של זיהום cache חיפוש: עד v16.87 כל תוצאת חיפוש מהרשת נשמרה ל-DB
+    // לצמיתות. מוחק רק רשומות רשת (off/usda/tzameret) ללא שום אות שימוש —
+    // מותאמים / מועדפים / מתועדים / בעלי היסטוריית ארוחות לא נמחקים לעולם.
+    pruneUnusedFoodCache() {
+        const db = this.getFoodDb();
+        const junk = f => ['off', 'usda', 'tzameret'].includes(f.source) &&
+            !f.favorite && !(f.lastUsed > 0) && !((f.useCount || 0) > 0) &&
+            !(f.mealUse && Object.keys(f.mealUse).length);
+        const keep = db.filter(f => !junk(f));
+        const removed = db.length - keep.length;
+        if (removed > 0) this.saveData(this.KEY_FOOD_DB, keep);
+        return removed;
+    },
+
     recentFoods(n, meal) {
         return this.getFoodDb().filter(f => f.lastUsed)
             .sort(this._mealSort(meal)).slice(0, n || 20);

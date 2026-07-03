@@ -1287,8 +1287,10 @@ function _fdShowCustomFoodForm(food) {
         <div class="fd-kcal-warn" id="fd-c-warn"></div>
         ${editMode ? '' : `<div class="fd-meal-chips" id="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>`}
         <div class="fd-portion-actions">
-            ${editMode ? `<button class="fd-del-btn" onclick="fdDeleteCustomFood()"><span class="material-symbols-outlined">delete</span></button>` : ''}
-            <button class="fd-save-btn" onclick="fdSaveCustomFood()">${editMode ? 'שמור' : 'המשך'}</button>
+            ${editMode ? `<button class="fd-del-btn" onclick="fdDeleteCustomFood()"><span class="material-symbols-outlined">delete</span></button>
+            <button class="fd-save-btn" onclick="fdSaveCustomFood()">שמור</button>`
+            : `<button class="fd-save-btn" onclick="fdSaveCustomFood(true)">שמור ותעד</button>
+            <button class="fd-save-btn fd-save-btn--quiet" onclick="fdSaveCustomFood(false)">שמור בלבד</button>`}
         </div>`;
     document.getElementById('fd-portion-overlay').style.display = 'block';
     sheet.classList.add('open');
@@ -1430,7 +1432,8 @@ function _fdApplyParsedNutrition(r) {
     haptic('light');
 }
 
-function fdSaveCustomFood() {
+// logAfter=true → "שמור ותעד" (עורך מנה); false → "שמור בלבד"; undefined → עריכת מזון קיים
+function fdSaveCustomFood(logAfter) {
     const name = (document.getElementById('fd-c-name').value || '').trim();
     const unit = document.getElementById('fd-c-unit').value;
     const kcal = _fdNum(document.getElementById('fd-c-kcal').value);
@@ -1463,7 +1466,12 @@ function fdSaveCustomFood() {
         per100, servings, baseUnit: unit
     };
     StorageManager.upsertFoodToDb(food);
-    _fdOpenPortion(food, null);  // פותח את עורך המנה עבור המזון החדש
+    _fdSyncCloud();   // המזון נשמר ל-DB כבר כאן — סנכרון מיידי גם ללא תיעוד ביומן
+    if (logAfter) { _fdOpenPortion(food, null); return; }   // "שמור ותעד" — עורך המנה
+    // "שמור בלבד" — סגירה ומעבר לטאב המותאמים כדי שהמזון החדש ייראה מיד
+    closeFoodPortion();
+    fdSetTab('custom', document.querySelector('#fd-tabs [data-fdtab="custom"]'));
+    haptic('medium');
 }
 
 function fdDeleteCustomFood() {

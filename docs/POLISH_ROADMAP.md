@@ -26,7 +26,7 @@
 | P1 | טיפוגרפיה: סולם + משקלים + tabular-nums | ✅ Done | v16.89 | ראה "P1 — כפי שבוצע" |
 | P2 | צבע: surfaces + סמנטיקת success/danger | ✅ Done | v16.90 | ראה "P2 — כפי שבוצע" |
 | P3 | radius לטוקנים + ריווח רשת 4px | ✅ Done | v16.95 | ראה "P3 — כפי שבוצע" |
-| P4 | מושן: טוקני משך/easing + מצבי לחיצה | ⬜ Pending | — | |
+| P4 | מושן: טוקני משך/easing + מצבי לחיצה | ✅ Done | v16.96 | ראה "P4 — כפי שבוצע" |
 | P5 | ליטושים: hairline רשימות, גרבר, empty states | ⬜ Pending | — | |
 
 > סטטוסים: ⬜ Pending · 🟡 In Progress · ✅ Done · ❌ Blocked
@@ -194,6 +194,27 @@ kcal ביומן (טבעת, שורות, preview), רשימת שקילות, ציר
 
 **סיכון:** scale על אלמנט עם overflow/scroll עלול ליצור ריצוד ב-iOS — לבדוק על שורות רשימה ארוכות.
 
+### P4 — כפי שבוצע (v16.96) + סטיות
+
+- **טוקנים נוספו ל-`:root`** כמתוכנן (`--dur-1/2/3`, `--ease`, `--ease-spring`).
+- **169 משכי transition מופו לטוקנים** (0.1/0.12/0.15→dur-1 · 0.18/0.2/0.22/0.25→dur-2 ·
+  0.28/0.3→dur-3) + `var(--ease)` הוסף/החליף easing בכולם (160 הוספות, 9 החלפות).
+- **אנימציות דאטה נשארו בכוונה מחוץ לסולם (8):** מילוי בארים/גרפים (`width 0.4–0.7s`),
+  טבעות התקדמות (`stroke-dashoffset 0.9–1s`), `.bar all 0.5s` — האטה מכוונת לקריאת דאטה.
+- **spring:** שני ה-bottom-sheets הראשיים (translateY(100%)) → `var(--dur-3) var(--ease-spring)`;
+  `fdSlideUp` keyframe → spring גם כן.
+- **10 אנימציות one-shot יושרו לסולם** (screenEnter ×2, fadeIn ×2, wqm-pop ×2, slideIn,
+  stgPanelFade, fdSlideUp, fdItemIn). אנימציות infinite (פולסים, שימר, ספינר) — לא נגעו.
+- **מצב לחיצה אחיד:** בלוק P4 בסוף הקובץ — `scale(0.98)` + transition מאוחד ב-dur-1 ל-28
+  סלקטורים שהיה להם :active של background/opacity בלבד. **הוחרגו 6** שהבסיס שלהם משתמש
+  ב-transform (range-card, archive-month-hd, km-select-card-pill, km-add-btn,
+  km-add-to-cluster-btn, fd-entry) — מניעת התנגשות. כפתורי-אייקון עם opacity-press נשארו כמות שהם.
+- **prefers-reduced-motion:** כיסוי גלובלי `*` כבר קיים (שורה ~1837) — לא נדרש שינוי.
+- **לא טופל (חוב):** transitions שנכתבים מ-JS (סנאפ-בק של sheet ב-`workout-core.js`,
+  טבעת ב-`food-logic.js`) — מחוץ לתחולת CSS-only.
+- **לבדוק במכשיר:** ריצוד scale על שורות רשימה ארוכות ב-iOS (fd-food-row, archive-list-card, bl-row).
+- ווריפיקציה: צילומי headless על 7 מסכים — 6 זהים ביט-לביט, ארכיון נבדל רק בפריים אנימציית כניסה.
+
 ---
 
 ## P5 — ליטושי פרימיום
@@ -233,3 +254,4 @@ safe-area באייפון (standalone) · `prefers-reduced-motion`.
 | 2026-07-02 | P1 בוצע (v16.89): 363 החלפות טוקן, משקלים 900/700/600/400, tabular-nums גלובלי, תיקון קישור פונטים (700 לא היה נטען!). em נדחה ל-P1b (ראה סטיות) |
 | 2026-07-02 | P2 בוצע (v16.90): 149 החלפות — surfaces (#1b1b1b/#353535/#2a2a2a/#1a1a1a→טוקנים), success/danger/danger-soft סמנטיים, rgb-triplets לכל הסמנטיים. הגדרות ערכות נושא לא נגעו (emerald=ירוק כ-accent!) |
 | 2026-07-03 | P3 בוצע (v16.95): 701 החלפות — radius כולו לטוקנים (+`--r-xs`), gap מרוכז ב-8, padding מרוכז ב-12/16/20. inline styles ב-HTML ו-margins נותרו כחוב (ראה סטיות) |
+| 2026-07-03 | P4 בוצע (v16.96): 169 transitions לטוקני dur/ease, spring ל-sheets, 10 keyframes יושרו, מצב לחיצה scale(0.98) ל-28 סלקטורים (6 הוחרגו). אנימציות דאטה ו-JS-transitions נשארו (ראה סטיות) |

@@ -605,6 +605,15 @@ function haptic(type = 'light') {
     } catch (e) {}
 }
 
+// P5: תבנית אחידה למסכים ריקים — אייקון + כותרת + הסבר (בשימוש ארכיון/שקילות/תזונה/חיפוש מזון)
+function emptyStateHtml(icon, title, sub = '') {
+    return `<div class="empty-state">
+        <span class="material-symbols-outlined">${icon}</span>
+        <div class="empty-state-title">${title}</div>
+        ${sub ? `<div class="empty-state-sub">${sub}</div>` : ''}
+    </div>`;
+}
+
 function playBeep(times = 1) {
     if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
     if (audioContext.state === 'suspended') audioContext.resume();

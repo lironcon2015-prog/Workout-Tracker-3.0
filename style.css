@@ -549,7 +549,7 @@ body::before {
     flex-shrink: 0;
     min-height: 100%;
     overflow-x: hidden;
-    padding-bottom: 90px;
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
     position: relative;
 }
 .screen.active { display: flex; animation: slideIn var(--dur-3) var(--ease); }
@@ -733,7 +733,7 @@ body::before {
     max-height: 60vh; overflow-y: auto;
 }
 .bottom-sheet.open { transform: translateY(0); }
-.sheet-handle { width: 40px; height: 5px; background: #48484a; border-radius: 3px; margin: 0 auto 20px; }
+.sheet-handle { width: 36px; height: 4px; background: var(--surface-4); border-radius: var(--r-pill); margin: 0 auto 20px; }
 .sheet-content h3 { margin-top: 0; margin-bottom: 5px; }
 .sheet-content p { color: var(--text-dim); font-size: 0.9em; margin-bottom: 15px; }
 .mini-workout-item { 
@@ -1160,7 +1160,7 @@ body::before {
 /* ── Freestyle Finish Float ── */
 .freestyle-finish-float {
     position: fixed;
-    bottom: calc(66px + env(safe-area-inset-bottom, 0px) + env(safe-area-inset-bottom, 0px));
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
     left: 20px;
     right: 20px;
     z-index: 201;
@@ -2786,9 +2786,9 @@ body::before {
 .slog-sheet.open { transform: translateY(0); }
 
 .slog-handle {
-    width: 44px; height: 5px;
-    background: rgba(255,255,255,0.18);
-    border-radius: 3px;
+    width: 36px; height: 4px;
+    background: var(--surface-4);
+    border-radius: var(--r-pill);
     margin: 12px auto 0;
     flex-shrink: 0;
 }
@@ -3160,7 +3160,7 @@ body::before {
 }
 .ai-sheet-handle::after {
     content: ''; display: block; width: 36px; height: 4px;
-    background: rgba(255,255,255,0.18); border-radius: 2px;
+    background: var(--surface-4); border-radius: var(--r-pill);
 }
 .ai-coach-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -3362,7 +3362,7 @@ body::before {
 .th-row-vals { font-size: var(--fs-sm); color: var(--text-dim); }
 .th-row-vals i { font-style: normal; font-weight: 600; }
 .th-row-btn { background: none; border: none; color: var(--text-dim); padding: 8px; cursor: pointer; display: inline-flex; }
-.th-row-btn .material-symbols-outlined { font-size: 1.1rem; }
+.th-row-btn .material-symbols-outlined { font-size: var(--fs-xl); }
 .th-row-btn--del { color: var(--danger-soft); }
 .th-form { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .th-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
@@ -6546,3 +6546,46 @@ body.fd-comp-pick #fd-add-sheet { z-index: 1101; }
 .bl-list-toggle:active, .fd-note-row:active, .fd-food-row:active, .fd-ai-row:active, .fd-more-row:active {
     transform: scale(0.98);
 }
+
+/* ═══ P5: רשימות hairline — קונטיינר אחד עם מפרידים במקום קופסה-לכל-שורה ═══ */
+/* שקילות + היסטוריית תזונה (Composition) */
+.bodylog-list {
+    gap: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
+    border-radius: var(--r-md); overflow: hidden;
+    box-shadow: var(--top-glint), var(--elev-1);
+}
+.bodylog-list:empty { display: none; }
+.bl-row { background: transparent; border: none; border-radius: 0; }
+.bl-list-toggle { margin-top: 0; background: transparent; border: none; border-radius: 0; }
+.bodylog-list > * { border-bottom: 1px solid var(--hairline); }
+.bodylog-list > :last-child { border-bottom: none; }
+
+/* ארכיון — קבוצת חודש = כרטיס אחד, אימונים כשורות */
+.archive-month-items {
+    background: var(--surface-2);
+    border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
+    border-radius: var(--r-lg); overflow: hidden;
+    box-shadow: var(--top-glint), var(--elev-2);
+    margin-bottom: 20px;
+}
+.archive-month-items.collapsed { display: none; }
+.archive-list-card {
+    background: transparent; border: none; box-shadow: none;
+    border-radius: 0; margin-bottom: 0;
+    border-bottom: 1px solid var(--hairline);
+}
+.archive-list-card:last-child { border-bottom: none; }
+
+/* ═══ P5: תבנית empty-state אחידה (emptyStateHtml) ═══ */
+.empty-state {
+    grid-column: 1 / -1;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 8px; padding: 32px 16px; text-align: center;
+}
+.empty-state .material-symbols-outlined {
+    font-size: 2rem; color: var(--text-dim); opacity: 0.7;
+}
+.empty-state-title { font-size: var(--fs-lg); font-weight: 700; color: var(--text); }
+.empty-state-sub { font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.5; max-width: 36ch; }

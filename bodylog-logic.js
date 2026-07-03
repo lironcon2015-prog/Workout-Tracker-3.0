@@ -472,7 +472,7 @@ function _renderNutritionDaily(allDays) {
     if (!all.length) {
         card.classList.remove('bl-daily-live');
         card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">תזונה היום</div><div class="bl-nutri-head-btns">${diaryBtn}${ioBtn}</div></div>
-            <p class="bl-nutri-hint">אין עדיין נתוני תזונה — חבר את גשר ה-Health (הגדרות) או ייבא ייצוא MFP דרך "ייבוא · ייצוא".</p>`;
+            ${emptyStateHtml('restaurant', 'אין עדיין נתוני תזונה', 'חבר את גשר ה-Health (הגדרות) או ייבא ייצוא MFP דרך "ייבוא · ייצוא".')}`;
         return;
     }
     const today = _blTodayStr();
@@ -779,7 +779,7 @@ function _renderBodyKpis(log) {
     const el = document.getElementById('bodylog-kpis');
     if (!el) return;
     if (!log.length) {
-        el.innerHTML = '<div class="bl-empty">אין עדיין שקילות. צלם שקילה או הזן ידנית כדי להתחיל.</div>';
+        el.innerHTML = emptyStateHtml('monitor_weight', 'אין עדיין שקילות', 'צלם שקילה או הזן ידנית כדי להתחיל.');
         return;
     }
     const sorted = log.slice().sort((a, b) => a.date < b.date ? -1 : 1);

@@ -184,7 +184,7 @@ function renderArchiveList() {
     const history = StorageManager.getArchive();
 
     if (!history.length) {
-        list.innerHTML = `<p class="text-center color-dim mt-lg">טרם נשמרו אימונים</p>`;
+        list.innerHTML = emptyStateHtml('fitness_center', 'טרם נשמרו אימונים', 'סיים אימון ראשון והוא יופיע כאן');
         return;
     }
 

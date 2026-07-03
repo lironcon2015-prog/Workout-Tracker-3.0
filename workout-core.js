@@ -4018,7 +4018,9 @@ function openSessionLog() {
                     <span class="slog-set-num">${setNum + 1}</span>
                     <span class="slog-set-data">${_fmtW(entry)} <span class="slog-x">×</span> ${entry.r}</span>
                     <span class="slog-rir-badge">${rirStr}</span>
-                    <button class="slog-edit-btn" onclick="openEditSetModal(${realIdx})">ערוך</button>`;
+                    <span class="material-symbols-outlined slog-row-chevron">chevron_left</span>`;
+                // כל השורה פותחת עריכה — לא רק כפתור ייעודי
+                row.onclick = () => openEditSetModal(realIdx);
                 setsList.appendChild(row);
             });
         });

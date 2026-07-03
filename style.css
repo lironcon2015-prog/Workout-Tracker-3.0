@@ -2835,9 +2835,11 @@ body::before {
 
 /* כרטיס תרגיל */
 .slog-ex-card {
-    background: #262626;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
+    box-shadow: var(--top-glint), var(--elev-1);
     border-radius: var(--r-md);
-    padding: 12px 12px;
+    padding: 12px 12px 2px;
     margin-bottom: 10px;
     position: relative;
     overflow: hidden;
@@ -2855,7 +2857,8 @@ body::before {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--hairline);
 }
 .slog-ex-name {
     font-family: 'Heebo', sans-serif;
@@ -2887,16 +2890,17 @@ body::before {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #131313;
-    border-radius: var(--r-pill);
-    padding: 8px 12px;
-    margin-bottom: 5px;
+    padding: 12px 2px;
+    border-bottom: 1px solid var(--hairline);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease);
 }
-.slog-set-row--last { margin-bottom: 0; }
+.slog-set-row--last { border-bottom: none; }
+.slog-set-row:active { background: rgba(255,255,255,0.04); }
 
 .slog-set-num {
     font-family: 'Heebo', sans-serif;
-    font-weight: 900; font-style: italic;
+    font-weight: 900;
     font-size: var(--fs-lg); color: var(--accent);
     width: 18px; flex-shrink: 0; text-align: center;
 }
@@ -2907,20 +2911,16 @@ body::before {
 .slog-x { color: rgba(255,255,255,0.4); font-weight: 400; }
 .slog-rir-badge {
     font-size: var(--fs-xs); font-weight: 700;
-    background: rgba(100,253,125,0.1);
-    border: 1px solid rgba(100,253,125,0.18);
-    color: #54ee70;
+    background: rgba(var(--success-rgb),0.1);
+    border: 1px solid rgba(var(--success-rgb),0.2);
+    color: var(--success);
     border-radius: var(--r-pill);
     padding: 4px 8px;
     flex-shrink: 0;
 }
-.slog-edit-btn {
-    font-size: var(--fs-sm); font-weight: 700;
-    color: var(--accent); background: none; border: none;
-    cursor: pointer; font-family: inherit;
-    padding: 2px 4px; flex-shrink: 0;
+.slog-row-chevron {
+    font-size: var(--fs-xl); color: var(--text-dim); flex-shrink: 0;
 }
-.slog-edit-btn:active { opacity: 0.6; }
 
 /* ─── 1RM SCREEN ─────────────────────────────────────────────────────────── */
 

@@ -677,6 +677,18 @@ const StorageManager = {
         this.saveData(this.KEY_TARGET_HISTORY, hist);
     },
 
+    // עריכה ידנית של הלוג — עורך "יעדים לפי תאריך" בהגדרות (תיקוני עבר, v16.92)
+    upsertTargetEntry(entry) {
+        if (!entry || !entry.date) return false;
+        const hist = this.getTargetHistory().filter(h => h.date !== entry.date);
+        hist.push({ date: entry.date, kcal: entry.kcal || null, p: entry.p || null, c: entry.c || null, f: entry.f || null });
+        hist.sort((a, b) => a.date < b.date ? -1 : 1);
+        return this.saveData(this.KEY_TARGET_HISTORY, hist);
+    },
+    deleteTargetEntry(date) {
+        this.saveData(this.KEY_TARGET_HISTORY, this.getTargetHistory().filter(h => h.date !== date));
+    },
+
     // saveNutritionDaily — upsert לפי תאריך (ייבוא חדש דורס יום קיים), ממוין מהישן לחדש.
     // נתיב הייבוא של MFP — דורס הכל, כולל ימים שמקורם ב-Health (MFP = מקור האמת).
     saveNutritionDaily(days) {

@@ -3343,6 +3343,24 @@ body::before {
 .nutri-target-mode.manual { color: #ffd27a; background: rgba(255,190,80,0.14); }
 .nutri-target-mode:empty { display: none; }
 .nutri-target-hint { font-size: var(--fs-xs); line-height: 1.5; color: var(--text-dim); margin-top: 8px; padding: 0 4px; }
+/* כניסה דיסקרטית לעורך "יעדים לפי תאריך" (v16.92) */
+.nutri-th-btn { background: none; border: none; color: var(--text-dim); opacity: 0.55; padding: 2px; cursor: pointer; display: inline-flex; align-items: center; }
+.nutri-th-btn .material-symbols-outlined { font-size: 1rem; }
+.nutri-th-btn:active { opacity: 1; }
+/* עורך יעדים לפי תאריך — רשימה + טופס */
+.th-row { display: flex; align-items: center; gap: 8px; padding: 10px 4px; border-bottom: 1px solid var(--hairline); }
+.th-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.th-row-date { font-size: var(--fs-md); font-weight: 700; }
+.th-row-vals { font-size: var(--fs-sm); color: var(--text-dim); }
+.th-row-vals i { font-style: normal; font-weight: 600; }
+.th-row-btn { background: none; border: none; color: var(--text-dim); padding: 6px; cursor: pointer; display: inline-flex; }
+.th-row-btn .material-symbols-outlined { font-size: 1.1rem; }
+.th-row-btn--del { color: var(--danger-soft); }
+.th-form { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.th-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.th-field span { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; }
+.th-field input { background: var(--surface-3); border: 1px solid var(--hairline); border-radius: 10px; color: var(--text); padding: 9px 10px; font-family: inherit; font-size: var(--fs-lg); width: 100%; box-sizing: border-box; }
+.th-vals { display: flex; gap: 8px; }
 .nutri-target-input { display: flex; align-items: baseline; gap: 5px; direction: ltr; }
 .nutri-target-input input {
     width: 76px; padding: 3px 8px;

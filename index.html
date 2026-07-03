@@ -697,6 +697,7 @@
                                 <span class="nutri-target-lblwrap">
                                     <span class="nutri-target-lbl">יעד קלורי יומי</span>
                                     <span class="nutri-target-mode" id="nutri-target-mode"></span>
+                                    <button class="nutri-th-btn" onclick="openTargetHistorySheet()" aria-label="יעדים לפי תאריך (תיקוני עבר)"><span class="material-symbols-outlined">history</span></button>
                                 </span>
                                 <span class="nutri-target-input">
                                     <input type="number" id="nutri-target-input" inputmode="numeric" min="0" max="9999" placeholder="—" onchange="saveKcalTarget(this.value)">
@@ -2299,6 +2300,26 @@
         <button class="btn-main primary-gradient" onclick="saveCoachPrompts()">שמור פרומפטים</button>
         <button class="btn-text" onclick="resetCoachPrompts()">שחזר ברירת מחדל</button>
         <button class="btn-text" onclick="closeCoachPromptsSheet()">ביטול</button>
+    </div>
+
+    <!-- Target History Sheet — יעדים לפי תאריך (תיקוני עבר ללוג היעדים) -->
+    <div id="target-history-overlay" class="bottom-sheet-overlay" onclick="closeTargetHistorySheet()"></div>
+    <div id="target-history-sheet" class="bottom-sheet" style="max-height:85vh;overflow-y:auto;">
+        <div class="sheet-handle"></div>
+        <h3>יעדים לפי תאריך</h3>
+        <p class="sub-text">כל רשומה תקפה מהתאריך שנבחר ועד הרשומה הבאה. עריכת עבר בלבד — היעד מהיום והלאה נקבע בשדות הרגילים.</p>
+        <div id="th-list"></div>
+        <div class="th-form">
+            <label class="th-field th-field--date"><span>החל מ-</span><input type="date" id="th-date"></label>
+            <div class="th-vals">
+                <label class="th-field"><span>קק"ל</span><input type="number" id="th-kcal" inputmode="numeric" min="0" max="9999" placeholder="—"></label>
+                <label class="th-field"><span>חלבון</span><input type="number" id="th-p" inputmode="numeric" min="0" max="999" placeholder="—"></label>
+                <label class="th-field"><span>פחמ'</span><input type="number" id="th-c" inputmode="numeric" min="0" max="999" placeholder="—"></label>
+                <label class="th-field"><span>שומן</span><input type="number" id="th-f" inputmode="numeric" min="0" max="999" placeholder="—"></label>
+            </div>
+        </div>
+        <button class="btn-main primary-gradient" onclick="thSaveEntry()">שמור רשומה</button>
+        <button class="btn-text" onclick="closeTargetHistorySheet()">סגור</button>
     </div>
 
     <!-- Thumb Manage Sheet -->

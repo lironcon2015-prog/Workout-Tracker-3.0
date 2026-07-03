@@ -934,6 +934,10 @@ body::before {
 .stepper-card label {
     font-size: var(--fs-xs); font-weight: 700; color: rgba(255,255,255,0.4);
     text-transform: uppercase; letter-spacing: 0.18em; margin-bottom: 4px;
+    /* משבצת בגובה קבוע (2 שורות) — תווית המשקל הארוכה ("Weight (kg) ⇄") נשברת
+       לשתי שורות ודוחפת את הערך למטה; גובה אחיד = ערך וכפתורים מיושרים בכל הפיקרים */
+    min-height: 2.6em; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center; text-align: center;
 }
 /* תווית שיטת המשקל — לחיצה מחליפה ק"ג ⇄ פלטות ⇄ משקל גוף (מסך מפורט + Live) */
 .live-edit-card-lbl.wmode-toggle {
@@ -5484,6 +5488,9 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     font-weight: 700; font-size: var(--fs-xs);
     color: rgba(255,255,255,0.5);
     text-transform: uppercase; letter-spacing: 0.6px;
+    /* משבצת בגובה קבוע — יישור ערכי הפיקרים גם ב-Live (ראה .stepper-card label) */
+    min-height: 2.6em; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center; text-align: center;
 }
 .live-edit-card-val {
     font-family: 'Heebo', sans-serif;

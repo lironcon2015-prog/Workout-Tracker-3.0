@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 16.94
+## גרסה נוכחית: 16.97
 
 ## TM קבוע לתרגילי MAIN (v16.78)
 
@@ -170,7 +170,13 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 | `--hairline` / `--hairline-hi` | `rgba(255,255,255,.06)` / `.10` | border + border-top ("אור מלמעלה") |
 | `--top-glint` | `inset 0 1px 0 rgba(255,255,255,.05)` | תפיסת אור עליונה |
 | `--elev-1..3` | צל ambient+key מדורג | elevation אחיד |
-| `--r-sm/md/lg/pill` | `14 / 20 / 28px / 9999px` | סולם radius אחיד |
+| `--r-xs/sm/md/lg/pill` | `8 / 14 / 20 / 28px / 9999px` | סולם radius אחיד (P3) |
+| `--dur-1/2/3` + `--ease(-spring)` | `120/200/320ms` | סולם מושן אחיד (P4) |
+
+**Polish Pass P1–P5 הושלם (v16.89–16.97, `docs/POLISH_ROADMAP.md`):** טיפוגרפיה על טוקני
+`--fs-*` + tabular-nums; צבע על surfaces + `--success/--danger(-soft)`; radius/gap/padding על
+רשת; מושן על `--dur/--ease` + מצב לחיצה `scale(0.98)` אחיד; רשימות hairline (שקילות/תזונה/
+ארכיון), גרבר 36×4 אחיד, `emptyStateHtml()` גלובלי (workout-core.js). פרטי סטיות — במסמך ה-roadmap.
 
 **עקרונות:**
 - עומק נבנה מ-**surface hierarchy + hairline + צל**, לא מ-blur. כרטיסיות תוכן הן **solid** (אין `backdrop-filter`).
@@ -208,6 +214,8 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 | 4 | ✅ נפתר — הארכיון מפוצל ל-chunks (`ARCHIVE_CHUNK_SIZE=20`, `archive_meta`+`archive_N`). הקובץ הגולמי של MFP מפוצל גם הוא (`nutrition_raw_meta`+`nutrition_raw_N`, 1000 שורות/מסמך). מסמך `config` נשאר קל (נתונים קטנים) | — |
 | 5 | עריכת סט במסך הסיכום אחרי שנוצר `aiSummary` לא מרעננת אותו — הסיכום עלול להפוך לא-מסונכרן | נמוכה |
 | 6 | המלצת AI לסט (set-rec) מציגה תמיד יחידת kg — גם בתרגילי פלטות/משקל גוף | נמוכה |
+| 8 | inline styles ב-`index.html` עם radius/spacing קשיחים — מחוץ לתחולת Polish (P3) | נמוכה |
+| 9 | transitions מ-JS לא על טוקני מושן: sheet snap-back (`workout-core.js`), טבעת (`food-logic.js`) | נמוכה |
 | 7 | ✅ נפתר (v16.81) — עריכת סט details-only כעת בונה מחדש את הסטרינג לפי mode (kg/פלטות/BW), לא קשיח kg | — |
 
 ---

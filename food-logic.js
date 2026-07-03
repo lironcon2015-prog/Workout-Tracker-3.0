@@ -815,7 +815,9 @@ function fdRenderTab() {
     else if (_fdTab === 'fav') foods = StorageManager.favoriteFoods(_fdMeal);
     else if (_fdTab === 'custom') foods = StorageManager.customFoods();
     if (!foods.length) {
-        box.innerHTML = `<div class="fd-empty">${_fdTab === 'recent' ? 'אין עדיין מזונות אחרונים — חפש מוצר למעלה' : _fdTab === 'fav' ? 'אין מועדפים. סמן ⭐ על מזון' : 'אין מזונות מותאמים. צור באמצעות הכפתור למטה'}</div>`;
+        box.innerHTML = _fdTab === 'recent' ? emptyStateHtml('history', 'אין עדיין מזונות אחרונים', 'חפש מוצר למעלה')
+            : _fdTab === 'fav' ? emptyStateHtml('star', 'אין מועדפים', 'סמן ⭐ על מזון כדי שיופיע כאן')
+            : emptyStateHtml('edit_note', 'אין מזונות מותאמים', 'צור באמצעות הכפתור למטה');
         return;
     }
     _fdRenderFoodList(foods, box);
@@ -878,7 +880,7 @@ async function fdDoSearch(q) {
         else if (!strongNow.length) {
             // אין תוצאות כלל → fallback יזום ל-AI (אם זמין), אחרת הודעה
             if (_fdAiAvailable()) { fdAiLookup(); return; }
-            box.innerHTML = '<div class="fd-empty">לא נמצאו תוצאות. נסה שם אחר או צור מזון מותאם.</div>';
+            box.innerHTML = emptyStateHtml('search_off', 'לא נמצאו תוצאות', 'נסה שם אחר או צור מזון מותאם.');
         }
     } catch (e) {
         if (seq !== _fdSearchSeq) return;   // כשל של בקשה ישנה — אל תדרוס תוצאות חדשות

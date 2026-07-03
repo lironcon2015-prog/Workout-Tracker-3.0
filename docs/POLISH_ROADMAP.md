@@ -27,7 +27,7 @@
 | P2 | צבע: surfaces + סמנטיקת success/danger | ✅ Done | v16.90 | ראה "P2 — כפי שבוצע" |
 | P3 | radius לטוקנים + ריווח רשת 4px | ✅ Done | v16.95 | ראה "P3 — כפי שבוצע" |
 | P4 | מושן: טוקני משך/easing + מצבי לחיצה | ✅ Done | v16.96 | ראה "P4 — כפי שבוצע" |
-| P5 | ליטושים: hairline רשימות, גרבר, empty states | ⬜ Pending | — | |
+| P5 | ליטושים: hairline רשימות, גרבר, empty states | ✅ Done | v16.97 | ראה "P5 — כפי שבוצע" |
 
 > סטטוסים: ⬜ Pending · 🟡 In Progress · ✅ Done · ❌ Blocked
 
@@ -230,6 +230,30 @@ kcal ביומן (טבעת, שורות, preview), רשימת שקילות, ציר
 5. **אופטיקה של אייקונים:** `Material Symbols` — לוודא `font-size` מסולם קבוע (1rem/1.2rem/1.5rem)
    ויישור אנכי אחיד (flex align-center) בכל שורות האייקון+טקסט.
 
+### P5 — כפי שבוצע (v16.97) + סטיות
+
+1. **רשימות hairline:** ➊ שקילות + היסטוריית תזונה — `.bodylog-list` הפך לקונטיינר אחד
+   (surface-2, border, r-md, overflow hidden); `.bl-row` שקוף עם מפריד; טוגל "הצג הכל" = שורה
+   אחרונה בכרטיס; `.bodylog-list:empty{display:none}`. ➋ ארכיון — `.archive-month-items` = כרטיס
+   חודש אחד (r-lg), `.archive-list-card` שקוף עם מפרידים. ➌ **שורות יומן המזון (`.fd-entry`) כבר
+   היו hairline** — לא נדרש שינוי. **סטייה:** שורות תוצאות חיפוש (`fd-food-row`) נשארו boxed —
+   רשימה מעורבת (ai-row מקווקו, more-row) שאיחודה מסוכן; לא היו ברשימת הסעיף.
+2. **גרבר:** כל ה-sheets כבר כללו ידית — בוצע איחוד סגנון בלבד: `.sheet-handle`/`.slog-handle`/
+   `.ai-sheet-handle::after` → 36×4px, `var(--surface-4)`, radius pill.
+3. **Empty states:** ההנחה במסמך הייתה ש-`emptyStateHtml()` קיים — **לא היה קיים; נוצר** גלובלי
+   ב-`workout-core.js` + CSS `.empty-state` (עם `grid-column:1/-1` לתאימות גריד). הוחל ב-5 מוקדים:
+   ארכיון ריק, שקילות ריק, תזונה-היום ריק, טאבי חיפוש מזון ריקים, אין-תוצאות-חיפוש.
+   **סטייה:** בלי כפתורי פעולה (הפעולות ממילא צמודות למסך: capture-bar, חיפוש) — תת-כותרת מנחה
+   במקום. טקסטים בתוך SVG של גרפים ("אין מספיק נתונים") נשארו — placeholder פנימי, לא מסך ריק.
+4. **Safe-area:** נמצא ותוקן **באג env כפול** ב-`.freestyle-finish-float` (bottom חושב פעמיים);
+   `.screen{padding-bottom:90px}` → `calc(90px + env(safe-area-inset-bottom,0px))` — כיסוי גורף
+   לכל המסכים הגלילים. יתר 12 המופעים נבדקו — תקינים.
+5. **אייקונים:** כבר מאוחדים על סולם הטיפוגרפיה מ-P1 (`--fs-xl`×22, `--fs-2xl`×8, גלובלי
+   `line-height:1`) — תוקן מופע יחיד `1.1rem`→`--fs-xl`. הסולם בפועל הוא טוקני fs, לא
+   1rem/1.2rem/1.5rem המילוליים מהתכנון — עקביות עדיפה על הערכים המדויקים.
+- ווריפיקציה: צילומי headless כולל **הזרעת דאטה** (ארכיון 4 אימונים, 9 שקילות) — רשימות
+  hairline + empty states אומתו ויזואלית; מסכים ללא שינוי נשארו זהים.
+
 ---
 
 ## רשימת ווריפיקציה (אחרי כל שלב, לפני merge)
@@ -255,3 +279,4 @@ safe-area באייפון (standalone) · `prefers-reduced-motion`.
 | 2026-07-02 | P2 בוצע (v16.90): 149 החלפות — surfaces (#1b1b1b/#353535/#2a2a2a/#1a1a1a→טוקנים), success/danger/danger-soft סמנטיים, rgb-triplets לכל הסמנטיים. הגדרות ערכות נושא לא נגעו (emerald=ירוק כ-accent!) |
 | 2026-07-03 | P3 בוצע (v16.95): 701 החלפות — radius כולו לטוקנים (+`--r-xs`), gap מרוכז ב-8, padding מרוכז ב-12/16/20. inline styles ב-HTML ו-margins נותרו כחוב (ראה סטיות) |
 | 2026-07-03 | P4 בוצע (v16.96): 169 transitions לטוקני dur/ease, spring ל-sheets, 10 keyframes יושרו, מצב לחיצה scale(0.98) ל-28 סלקטורים (6 הוחרגו). אנימציות דאטה ו-JS-transitions נשארו (ראה סטיות) |
+| 2026-07-03 | P5 בוצע (v16.97): רשימות hairline (שקילות/תזונה/ארכיון), גרבר אחיד 36×4, emptyStateHtml() נוצר והוחל ב-5 מוקדים, תיקון באג env כפול + safe-area גורף ל-.screen. **Polish Pass הושלם — P1–P5 ✅** |

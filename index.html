@@ -303,30 +303,47 @@
 
     <!-- Body Log — entry (manual / OCR confirm) -->
     <div id="bl-entry-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 id="bl-entry-title">שקילה חדשה</h3>
+        <div class="modal-content bl-entry-card">
+            <h3 id="bl-entry-title" class="bl-entry-title">שקילה חדשה</h3>
             <div id="bl-entry-ocr-hint" class="bl-ocr-hint" style="display:none;"></div>
-            <div class="glass-card compact m-0" style="text-align:right;margin-bottom:12px;">
-                <label>תאריך</label>
-                <input type="date" id="bl-entry-date" class="minimal-input m-0">
+
+            <!-- Hero — משקל -->
+            <div class="bl-entry-hero">
+                <input type="number" inputmode="decimal" step="0.05" id="bl-entry-weight" class="bl-entry-weight num" placeholder="0.0">
+                <span class="bl-entry-hero-unit">ק"ג</span>
             </div>
-            <div class="input-grid" style="margin-bottom:12px;">
-                <div class="glass-card compact m-0"><label>משקל (ק"ג)</label><input type="number" inputmode="decimal" step="0.05" id="bl-entry-weight" class="minimal-input m-0" placeholder="0.0"></div>
-                <div class="glass-card compact m-0"><label>אחוז שומן</label><input type="number" inputmode="decimal" step="0.1" id="bl-entry-fat" class="minimal-input m-0" placeholder="—"></div>
+
+            <!-- שדות משניים — קבוצת שורות hairline -->
+            <div class="bl-entry-form">
+                <label class="bl-entry-row">
+                    <span class="bl-entry-row-label">תאריך</span>
+                    <input type="date" id="bl-entry-date" class="bl-entry-row-input num">
+                </label>
+                <label class="bl-entry-row">
+                    <span class="bl-entry-row-label">אחוז שומן</span>
+                    <input type="number" inputmode="decimal" step="0.1" id="bl-entry-fat" class="bl-entry-row-input num" placeholder="—">
+                </label>
+                <label class="bl-entry-row">
+                    <span class="bl-entry-row-label">הערה</span>
+                    <input type="text" id="bl-entry-note" class="bl-entry-row-input" placeholder="אופציונלי">
+                </label>
             </div>
-            <div class="glass-card compact m-0" style="text-align:right;margin-bottom:12px;">
-                <label>מצב תזונתי</label>
-                <select id="bl-entry-nutri" class="minimal-input m-0 bg-card">
-                    <option value="">אוטומטי (מהלוג)</option>
-                    <option value="cut">Cut</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="surplus">Surplus</option>
-                </select>
+
+            <!-- מצב תזונתי — סגמנט צ'יפים -->
+            <div class="bl-entry-label">מצב תזונתי</div>
+            <div class="bl-entry-nutri-chips" id="bl-entry-nutri-chips">
+                <button type="button" class="bl-chip active" data-v="" onclick="setBlEntryNutri('')">אוטומטי</button>
+                <button type="button" class="bl-chip" data-v="cut" onclick="setBlEntryNutri('cut')">Cut</button>
+                <button type="button" class="bl-chip" data-v="maintenance" onclick="setBlEntryNutri('maintenance')">Maint</button>
+                <button type="button" class="bl-chip" data-v="surplus" onclick="setBlEntryNutri('surplus')">Surplus</button>
             </div>
-            <input type="text" id="bl-entry-note" class="minimal-input m-0" placeholder="הערה..." style="margin-bottom:16px;">
+            <input type="hidden" id="bl-entry-nutri" value="">
+
             <button class="btn-main primary-gradient" onclick="saveBodyEntry()">שמור</button>
-            <button id="bl-entry-delete" class="btn-text color-danger" style="display:none;" onclick="deleteBodyEntryUI()">מחק שקילה</button>
-            <button class="btn-text" onclick="closeBodyEntryModal()">ביטול</button>
+            <div class="bl-entry-foot">
+                <button class="btn-text" onclick="closeBodyEntryModal()">ביטול</button>
+                <button id="bl-entry-delete" class="btn-text color-danger" style="display:none;" onclick="deleteBodyEntryUI()">מחק שקילה</button>
+            </div>
         </div>
     </div>
 

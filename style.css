@@ -6641,10 +6641,10 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
 }
 .bl-entry-nutri-chips { display: flex; gap: 8px; margin-bottom: 20px; }
 .bl-entry-nutri-chips .bl-chip { padding: 8px 0; font-size: var(--fs-sm); }
-.bl-entry-nutri-chips .bl-chip.active[data-v=""] { background: var(--surface-4); border-color: var(--hairline-hi); color: var(--text); }
-.bl-entry-nutri-chips .bl-chip.active[data-v="cut"] { background: rgba(var(--accent-rgb),0.16); border-color: transparent; color: #79bbff; }
-.bl-entry-nutri-chips .bl-chip.active[data-v="maintenance"] { background: rgba(142,142,147,0.18); border-color: transparent; color: #c7c7cc; }
-.bl-entry-nutri-chips .bl-chip.active[data-v="surplus"] { background: rgba(var(--success-rgb),0.16); border-color: transparent; color: #5be584; }
+/* נבחר — סגנון אחיד לכל המצבים (טינט accent כהה, קריא מיד מול הלא-נבחרים) */
+.bl-entry-nutri-chips .bl-chip.active {
+    background: rgba(var(--accent-rgb),0.16); border-color: rgba(var(--accent-rgb),0.35); color: #79bbff;
+}
 
 /* פוטר — ביטול/מחיקה בשורה אחת */
 .bl-entry-foot { display: flex; justify-content: center; gap: 24px; margin-top: 4px; }

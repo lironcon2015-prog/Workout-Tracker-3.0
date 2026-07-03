@@ -1265,6 +1265,8 @@ function openTargetHistorySheet() {
         d.value = '';
     }
     ['th-kcal', 'th-p', 'th-c', 'th-f'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    _thKcalManual = false;
+    _thSyncKcalMode();
     document.getElementById('target-history-overlay').style.display = 'block';
     document.getElementById('target-history-sheet').classList.add('open');
     haptic('light');
@@ -1298,12 +1300,46 @@ function _renderTargetHistoryList() {
     }).join('');
 }
 
+// ── מחשבון מאקרו→קלוריות בעורך (v16.94) — אותה סמנטיקה כמו השדות הראשיים ─────
+// הקלוריות מחושבות אוטומטית (P×4+C×4+F×9) אלא אם הוזנו ידנית; מחיקה = חזרה לחישוב.
+let _thKcalManual = false;
+function _thMacroKcalCalc() {
+    const g = id => Number((document.getElementById(id) || {}).value) || 0;
+    return Math.round(g('th-p') * 4 + g('th-c') * 4 + g('th-f') * 9);
+}
+function _thSyncKcalMode() {
+    const tag = document.getElementById('th-kcal-mode');
+    if (!tag) return;
+    const el = document.getElementById('th-kcal');
+    const hasKcal = el && String(el.value).trim() !== '';
+    if (!hasKcal) { tag.textContent = ''; tag.className = 'nutri-target-mode'; return; }
+    tag.textContent = _thKcalManual ? 'ידני' : 'מחושב';
+    tag.className = 'nutri-target-mode ' + (_thKcalManual ? 'manual' : 'auto');
+}
+function _thMacroInput() {
+    if (!_thKcalManual) {
+        const kc = _thMacroKcalCalc();
+        const el = document.getElementById('th-kcal');
+        if (el) el.value = kc > 0 ? kc : '';
+    }
+    _thSyncKcalMode();
+}
+function _thKcalInput(v) {
+    if (String(v == null ? '' : v).trim() === '') { _thKcalManual = false; _thMacroInput(); return; }   // ריק = אוטומטי
+    _thKcalManual = true;
+    _thSyncKcalMode();
+}
+
 // מילוי הטופס מרשומה קיימת לעריכה (שמירה = upsert על אותו תאריך)
 function thEditEntry(date) {
     const h = StorageManager.getTargetHistory().find(x => x.date === date);
     if (!h) return;
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
     set('th-date', h.date); set('th-kcal', h.kcal); set('th-p', h.p); set('th-c', h.c); set('th-f', h.f);
+    // מצב המחשבון לפי הרשומה: קלוריות ≠ מחושב-מהמאקרו ⇒ הן היו ידניות
+    const calc = Math.round((h.p || 0) * 4 + (h.c || 0) * 4 + (h.f || 0) * 9);
+    _thKcalManual = !!(h.kcal && h.kcal !== calc);
+    _thSyncKcalMode();
     haptic('light');
 }
 
@@ -1317,6 +1353,8 @@ function thSaveEntry() {
     StorageManager.upsertTargetEntry(entry);
     _renderTargetHistoryList();
     ['th-date', 'th-kcal', 'th-p', 'th-c', 'th-f'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    _thKcalManual = false;
+    _thSyncKcalMode();
     if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
     if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
     haptic('success');

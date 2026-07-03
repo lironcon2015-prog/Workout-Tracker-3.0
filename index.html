@@ -2312,11 +2312,12 @@
         <div class="th-form">
             <label class="th-field th-field--date"><span>החל מ-</span><input type="date" id="th-date"></label>
             <div class="th-vals">
-                <label class="th-field"><span>קק"ל</span><input type="number" id="th-kcal" inputmode="numeric" min="0" max="9999" placeholder="—"></label>
-                <label class="th-field"><span>חלבון</span><input type="number" id="th-p" inputmode="numeric" min="0" max="999" placeholder="—"></label>
-                <label class="th-field"><span>פחמ'</span><input type="number" id="th-c" inputmode="numeric" min="0" max="999" placeholder="—"></label>
-                <label class="th-field"><span>שומן</span><input type="number" id="th-f" inputmode="numeric" min="0" max="999" placeholder="—"></label>
+                <label class="th-field"><span>קק"ל <span class="nutri-target-mode" id="th-kcal-mode"></span></span><input type="number" id="th-kcal" inputmode="numeric" min="0" max="9999" placeholder="—" oninput="_thKcalInput(this.value)"></label>
+                <label class="th-field"><span>חלבון</span><input type="number" id="th-p" inputmode="numeric" min="0" max="999" placeholder="—" oninput="_thMacroInput()"></label>
+                <label class="th-field"><span>פחמ'</span><input type="number" id="th-c" inputmode="numeric" min="0" max="999" placeholder="—" oninput="_thMacroInput()"></label>
+                <label class="th-field"><span>שומן</span><input type="number" id="th-f" inputmode="numeric" min="0" max="999" placeholder="—" oninput="_thMacroInput()"></label>
             </div>
+            <div class="nutri-target-hint">הקלוריות מחושבות אוטומטית מהמאקרו (P×4 + C×4 + F×9). הזנה ידנית בשדה הקלוריות דורסת; מחיקתו מחזירה לחישוב.</div>
         </div>
         <button class="btn-main primary-gradient" onclick="thSaveEntry()">שמור רשומה</button>
         <button class="btn-text" onclick="closeTargetHistorySheet()">סגור</button>

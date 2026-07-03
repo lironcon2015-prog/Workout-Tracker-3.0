@@ -660,19 +660,41 @@ const StorageManager = {
         return best || { kcal: null, p: null, c: null, f: null };
     },
 
+    TARGET_GRACE_MS: 10 * 60 * 1000,   // כמו NUTRITION_GRACE_MS — "משחק בכפתורים" לא מזהם את הלוג
+
     // נקרא אחרי כל שמירת יעד (saveKcalTarget/saveMacroTarget), עם snapshot מ-לפני השינוי.
     // בפעם הראשונה מקבע את הערך הישן כ"מאז ומתמיד" — כדי שימי העבר לא יידרסו רטרואקטיבית.
+    // חלון חסד (v16.94, כמו מצב התזונה): שינוי בתוך 10 דק' מרשומת-היום דורס אותה במקום
+    // להצטבר, וחזרה לערכים שלפניה מקפלת אותה לגמרי — שינוי שגוי/בדיקה לא משאיר עקבות.
     recordTargetChange(prev) {
         const p = this.getAnalyticsPrefs();
         const now = { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null };
-        if (prev && ['kcal', 'p', 'c', 'f'].every(k => (prev[k] || null) === now[k])) return;   // אין שינוי אפקטיבי
+        const same = (a, b) => !!a && !!b && ['kcal', 'p', 'c', 'f'].every(k => (a[k] || null) === (b[k] || null));
+        if (same(prev, now)) return;   // אין שינוי אפקטיבי
         const today = this._todayStr();
+        const nowTs = Date.now();
         let hist = this.getTargetHistory();
+
+        // חסד — רק על רשומת "היום" מהזרימה הראשית (לא על תיקוני עבר מהעורך הידני)
+        const last = hist[hist.length - 1];
+        if (last && last.date === today && (nowTs - (last.ts || 0)) < this.TARGET_GRACE_MS) {
+            hist.pop();
+            const tail = hist[hist.length - 1] || null;
+            const emptyNow = !(now.kcal || now.p || now.c || now.f);
+            if (!(tail ? same(tail, now) : emptyNow)) {
+                hist.push(Object.assign({ date: today, ts: last.ts || nowTs }, now));   // דריסה, שמירת ts המקורי
+            }
+            // ניקוי seed מיותם: נשאר רק "מאז ומתמיד" עם ערכים זהים לנוכחיים — הלוג מיותר
+            if (hist.length === 1 && hist[0].date === '2000-01-01' && same(hist[0], now)) hist = [];
+            this.saveData(this.KEY_TARGET_HISTORY, hist);
+            return;
+        }
+
         if (!hist.length && prev && (prev.kcal || prev.p || prev.c || prev.f)) {
             hist.push(Object.assign({ date: '2000-01-01' }, prev));
         }
-        hist = hist.filter(h => h.date !== today);   // כמה שינויים באותו יום — האחרון קובע
-        hist.push(Object.assign({ date: today }, now));
+        hist = hist.filter(h => h.date !== today);   // כמה שינויים אמיתיים באותו יום — האחרון קובע
+        hist.push(Object.assign({ date: today, ts: nowTs }, now));
         hist.sort((a, b) => a.date < b.date ? -1 : 1);
         this.saveData(this.KEY_TARGET_HISTORY, hist);
     },

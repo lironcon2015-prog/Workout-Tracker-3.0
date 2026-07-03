@@ -1260,6 +1260,14 @@ function _fdShowCustomFoodForm(food) {
     if (!editMode) { const meals = _fdMealLabels(); _fdMeal = meals[0]; }
     body.innerHTML = `
         <div class="fd-portion-title">${editMode ? 'עריכת מזון מותאם' : 'מזון מותאם'}</div>
+        ${editMode ? '' : `<button type="button" class="fd-paste-toggle" onclick="_fdTogglePasteBox()">
+            <span class="material-symbols-outlined">content_paste</span>הדבקת ערכים תזונתיים מטקסט
+        </button>
+        <div class="fd-paste-box" id="fd-paste-box" style="display:none">
+            <textarea id="fd-paste-text" rows="4" placeholder="הדבק טקסט תווית תזונתית — המערכת תזהה קלוריות, חלבון, פחמימה ושומן"></textarea>
+            <button type="button" class="fd-paste-parse" onclick="fdParsePastedNutrition()"><span class="material-symbols-outlined">auto_fix_high</span>זהה ומלא</button>
+            <div class="fd-paste-msg" id="fd-paste-msg"></div>
+        </div>`}
         <label class="fd-field fd-field--full"><span>שם</span><input type="text" id="fd-c-name" value="${_fdEsc(editMode ? food.name : '')}" placeholder="לדוגמה: חביתה ביתית"></label>
         <label class="fd-field fd-field--full"><span>יחידת מידה</span>
             <select id="fd-c-unit" onchange="_fdCustomUnitChanged()">
@@ -1293,6 +1301,133 @@ function fdEditCustomFood(id) {
     const food = _fdFoodCache[id] || StorageManager.getFoodDb().find(f => f.id === id);
     if (!food) return;
     _fdShowCustomFoodForm(food);
+}
+
+// ── יצירת מוצר מטקסט ערכים תזונתיים (הדבקה) ─────────────────────────
+function _fdTogglePasteBox() {
+    const box = document.getElementById('fd-paste-box');
+    if (!box) return;
+    const open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : 'block';
+    if (!open) { const ta = document.getElementById('fd-paste-text'); if (ta) setTimeout(() => ta.focus(), 60); }
+}
+
+// פרסר מקומי (offline) לטקסט תווית: מזהה קלוריות/חלבון/פחמימה/שומן + בסיס הערכים
+// (100 גרם / 100 מ"ל / מנה בגודל ידוע — מנורמל ל-100). עמיד לשני הפורמטים:
+// "חלבון 10 גרם" וגם "10 גרם חלבון" (מספר אחרי המילה עדיף, אחרת האחרון שלפניה).
+function _fdParseNutritionText(text) {
+    const t = String(text || '');
+    const lines = t.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+    const num = s => { const n = Number(String(s).replace(',', '.')); return isFinite(n) ? n : null; };
+    const numNear = (line, kw) => {
+        const m = line.match(kw);
+        if (!m) return null;
+        const after = line.slice(m.index + m[0].length).match(/\d+(?:[.,]\d+)?/);
+        if (after) return num(after[0]);
+        const before = line.slice(0, m.index).match(/\d+(?:[.,]\d+)?(?!.*\d)/);
+        return before ? num(before[0]) : null;
+    };
+    const firstMatch = (kw, skip) => {
+        for (const l of lines) {
+            if (skip && skip.test(l)) continue;
+            const v = numNear(l, kw);
+            if (v != null) return v;
+        }
+        return null;
+    };
+    // קלוריות: עדיפות למספר צמוד ליחידה (מבדיל kcal מ-kJ באותה שורה), אחרת שורת אנרגיה ללא kJ
+    let kcal = null;
+    for (const l of lines) {
+        const m = l.match(/(\d+(?:[.,]\d+)?)\s*(?:קק["״׳']?ל|kcal|קלוריות)/i);
+        if (m) { kcal = num(m[1]); break; }
+    }
+    if (kcal == null) kcal = firstMatch(/קלוריות|אנרגיה|calories?|energy/i, /ג['׳]?אול|kj/i);
+    // נו"ן סופית: "חלבונים"/"שומנים" נכתבים עם נ' רגילה — חייבים את שתי הצורות
+    const p = firstMatch(/חלבו[נן]|protein/i);
+    const c = firstMatch(/פחמימ|carb/i);
+    // שומן: קודם שורה ללא רווי/טראנס; אם אין (הכל בשורה אחת) — המספר הצמוד ל"שומן" הוא הכללי
+    let f = firstMatch(/שומ[נן]|fat/i, /רווי|טראנס|בלתי|כולסטרול|saturat|trans|unsaturat/i);
+    if (f == null) f = firstMatch(/שומ[נן]|fat/i);
+    // בסיס הערכים
+    let unit = 'g', basis = 100;
+    if (/100\s*(?:מ["״]?['׳]?ל|ml)/i.test(t)) unit = 'ml';
+    else if (!/100\s*(?:גרם|ג['׳]|g\b)/i.test(t)) {
+        const m = t.match(/(?:מנה|יחידה|serving|portion)[^\d]{0,20}(\d+(?:[.,]\d+)?)\s*(?:גרם|ג['׳]|g\b|מ["״]?['׳]?ל|ml)/i);
+        if (m) { basis = num(m[1]) || 100; if (/מ["״]?['׳]?ל|ml/i.test(m[0])) unit = 'ml'; }
+    }
+    // שם מוצר: שורה פותחת ללא ספרות שאינה שורת ערכים/כותרת תווית
+    let name = null;
+    for (const l of lines.slice(0, 3)) {
+        if (/\d/.test(l)) continue;
+        if (/ערכים|תזונת|סימון|תווית|רכיבים|nutrition|facts|ingredients/i.test(l)) continue;
+        if (/קלוריות|אנרגיה|חלבון|פחמימ|שומן|סוכר|נתרן|calor|protein|carb|fat|sodium/i.test(l)) continue;
+        if (l.length >= 2 && l.length <= 40) { name = l; break; }
+    }
+    const scale = basis > 0 && basis !== 100 ? 100 / basis : 1;
+    const sc = v => v == null ? null : _fdR(v * scale);
+    return { name, kcal: sc(kcal), p: sc(p), c: sc(c), f: sc(f), unit, basis };
+}
+
+// Gemini: ניתוח טקסט תווית חופשי — fallback כשהפרסר המקומי לא זיהה קלוריות
+async function _fdAiParseLabelText(text) {
+    const config = StorageManager.getAIConfig();
+    if (!config.apiKey) throw new Error('API_KEY_MISSING');
+    const prompt = 'הטקסט הבא הוא ערכים תזונתיים של מוצר מזון (הועתק מתווית או מאתר). נרמל את הערכים ל-100 גרם או 100 מ"ל. ' +
+        'החזר JSON בלבד: {"found": boolean, "name": string|null, "kcal": number, "protein": number, "carbs": number, "fat": number, "per": "100g"|"100ml"}. ' +
+        'name = שם המוצר אם מופיע בטקסט, אחרת null. אם אין בטקסט ערכים תזונתיים — found=false. אל תוסיף טקסט.\n---\n' + String(text).slice(0, 2000);
+    const parts = [{ text: prompt }];
+    const generationConfig = { temperature: 0, maxOutputTokens: 200, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
+    let lastErr = '';
+    for (const modelName of config.models) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
+            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig }) });
+            if (!resp.ok) { if ([400, 404, 429, 503].includes(resp.status)) { lastErr = `${modelName}:${resp.status}`; continue; } throw new Error('API_ERROR_' + resp.status); }
+            const data = await resp.json();
+            const txt = (data.candidates?.[0]?.content?.parts || []).find(p => !p.thought)?.text || '';
+            const res = JSON.parse(txt);
+            if (!res || res.found === false || res.kcal == null) return null;
+            return { name: res.name || null, kcal: _fdR(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat), unit: res.per === '100ml' ? 'ml' : 'g', basis: 100, ai: true };
+        } catch (e) { lastErr = e.message || String(e); }
+    }
+    throw new Error(lastErr || 'AI_FAILED');
+}
+
+async function fdParsePastedNutrition() {
+    const ta = document.getElementById('fd-paste-text');
+    const msg = document.getElementById('fd-paste-msg');
+    const text = ((ta && ta.value) || '').trim();
+    const setMsg = h => { if (msg) msg.innerHTML = h; };
+    if (!text) { setMsg('הדבק טקסט של ערכים תזונתיים ואז לחץ "זהה ומלא".'); return; }
+    let r = _fdParseNutritionText(text);
+    if (r.kcal == null && _fdAiAvailable()) {
+        setMsg('🔮 מנתח את הטקסט עם AI…');
+        try { r = await _fdAiParseLabelText(text); } catch (e) { r = null; }
+    }
+    if (!r || r.kcal == null) {
+        setMsg('לא זוהו ערכים תזונתיים בטקסט.' + (_fdAiAvailable() ? ' נסה לכלול שורות כמו "אנרגיה 250 קק״ל, חלבון 10".' : ' (זיהוי חכם יותר זמין עם מפתח Gemini — הגדרות ← AI Coach.)'));
+        return;
+    }
+    _fdApplyParsedNutrition(r);
+}
+
+// מילוי טופס המזון המותאם מתוצאת הניתוח (מקומי או AI) + חיווי מה זוהה
+function _fdApplyParsedNutrition(r) {
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+    const nameEl = document.getElementById('fd-c-name');
+    if (nameEl && !nameEl.value.trim() && r.name) nameEl.value = r.name;
+    const unitSel = document.getElementById('fd-c-unit');
+    if (unitSel && (r.unit === 'g' || r.unit === 'ml')) { unitSel.value = r.unit; _fdCustomUnitChanged(); }
+    set('fd-c-kcal', Math.round(r.kcal));
+    set('fd-c-p', r.p); set('fd-c-c', r.c); set('fd-c-f', r.f);
+    _fdCustomCheckMismatch();
+    const msg = document.getElementById('fd-paste-msg');
+    if (msg) {
+        const basisLbl = r.unit === 'ml' ? '100 מ״ל' : '100 גרם';
+        const from = (r.basis && r.basis !== 100) ? ` (הומר ממנה של ${r.basis} ${r.unit === 'ml' ? 'מ״ל' : 'גרם'})` : (r.ai ? ' (ניתוח AI)' : '');
+        msg.innerHTML = `✓ זוהה ל-${basisLbl}${from}: <b>${Math.round(r.kcal)}</b> קק״ל · ח ${r.p ?? 0} · פ ${r.c ?? 0} · ש ${r.f ?? 0} — בדוק ותקן במידת הצורך`;
+    }
+    haptic('light');
 }
 
 function fdSaveCustomFood() {

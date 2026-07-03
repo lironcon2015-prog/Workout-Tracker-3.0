@@ -725,8 +725,8 @@ body::before {
 .bottom-sheet {
     position: fixed; bottom: 0; left: 0; width: 100%;
     background: color-mix(in srgb, var(--surface-3) 92%, transparent); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-top-left-radius: var(--r-md); border-top-right-radius: var(--r-md);
-    padding: 20px; box-sizing: border-box;
+    border-top-left-radius: var(--r-lg); border-top-right-radius: var(--r-lg);
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box;
     transform: translateY(100%); transition: transform var(--dur-3) var(--ease-spring);
     z-index: 1001; border-top: 1px solid var(--hairline-hi);
     box-shadow: var(--top-glint), 0 -8px 48px rgba(0,0,0,0.55);
@@ -815,7 +815,7 @@ body::before {
     box-sizing: border-box;
 }
 .range-card:hover { background: #333; }
-.range-card:active { background: #222; }
+.range-card:active { background: var(--surface-3); }
 
 .range-card.active {
     background: rgba(var(--accent-rgb),0.10);
@@ -1124,10 +1124,10 @@ body::before {
 .ex-card-tag {
     font-size: var(--fs-xs);
     letter-spacing: 0.05em;
-    color: #64fd7d;
+    color: var(--success);
     font-weight: 700;
-    border: 1px solid rgba(100, 253, 125, 0.2);
-    background: rgba(100, 253, 125, 0.05);
+    border: 1px solid rgba(var(--success-rgb), 0.2);
+    background: rgba(var(--success-rgb), 0.05);
     padding: 2px 8px;
     border-radius: var(--r-pill);
     align-self: flex-start;
@@ -1349,7 +1349,7 @@ body::before {
 .timer-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2.2em; font-weight: 900; font-variant-numeric: tabular-nums; font-family: 'Heebo', sans-serif; }
 .timer-inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; }
 .timer-inner .timer-text { position: static; display: block; font-size: 3.5em; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -2px; font-family: 'Heebo', sans-serif; }
-.timer-resting-lbl { font-size: 0.55em; color: #71717a; font-weight: 900; letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: 2px; }
+.timer-resting-lbl { font-size: 0.55em; color: var(--text-dim); font-weight: 900; letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: 2px; }
 
 /* Badges & History Pill */
 .history-pill {
@@ -1506,8 +1506,10 @@ body::before {
 
 .summary-set-row { 
     display: flex; align-items: center; justify-content: flex-start; 
-    padding: 4px 0; font-size: 0.95em; color: var(--text); 
+    padding: 8px 0; font-size: 0.95em; color: var(--text); 
+    border-bottom: 1px solid var(--hairline);
 }
+.summary-set-row:last-child { border-bottom: none; }
 .summary-set-num { width: 25px; color: var(--text-dim); font-size: 0.9em; }
 .summary-set-details { flex-grow: 1; }
 
@@ -2804,7 +2806,6 @@ body::before {
     font-family: 'Heebo', sans-serif;
     font-size: 2rem;
     font-weight: 900;
-    font-style: italic;
     color: #fff;
     margin: 0;
     letter-spacing: -0.02em;
@@ -2812,7 +2813,7 @@ body::before {
 .slog-close-btn {
     display: flex; align-items: center; gap: 4px;
     background: none; border: none;
-    color: rgba(255,255,255,0.45);
+    color: var(--text-dim);
     font-size: var(--fs-md); font-weight: 600;
     cursor: pointer; font-family: inherit;
     padding: 8px 8px;
@@ -2873,8 +2874,8 @@ body::before {
 }
 .slog-vol-val {
     font-family: 'Heebo', sans-serif;
-    font-size: var(--fs-2xl); font-weight: 900; font-style: italic;
-    color: #64fd7d; margin: 0; text-align: left; line-height: 1;
+    font-size: var(--fs-2xl); font-weight: 900;
+    color: var(--success); margin: 0; text-align: left; line-height: 1;
 }
 
 /* שורת סט */
@@ -2928,7 +2929,7 @@ body::before {
 
 .rm-card {
     width: 100%;
-    background: #1e1e1e;
+    background: var(--surface-3);
     border-radius: 3rem;
     padding: 28px 20px 24px;
     display: flex;
@@ -3367,7 +3368,7 @@ body::before {
 .th-form { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .th-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .th-field span { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; }
-.th-field input { background: var(--surface-3); border: 1px solid var(--hairline); border-radius: var(--r-sm); color: var(--text); padding: 8px 12px; font-family: inherit; font-size: var(--fs-lg); width: 100%; box-sizing: border-box; }
+.th-field input { color-scheme: dark; background: rgba(255,255,255,0.06); border: 1px solid var(--hairline); border-radius: var(--r-sm); color: var(--text); padding: 8px 12px; font-family: inherit; font-size: var(--fs-lg); width: 100%; box-sizing: border-box; }
 .th-vals { display: flex; gap: 8px; }
 .nutri-target-input { display: flex; align-items: baseline; gap: 4px; direction: ltr; }
 .nutri-target-input input {
@@ -4023,7 +4024,7 @@ body::before {
     box-sizing: border-box;
 }
 .obsidian-menu-card:hover { background: var(--surface-3); }
-.obsidian-menu-card:active { transform: scale(0.98); background: #222; }
+.obsidian-menu-card:active { transform: scale(0.98); background: var(--surface-3); }
 
 .obsidian-menu-card.card-featured::before {
     content: '';
@@ -4321,7 +4322,7 @@ body::before {
     text-transform: uppercase; padding: 8px 12px;
     cursor: pointer; transition: background var(--dur-1) var(--ease);
 }
-.km-pill-btn:active { background: #3a3a3a; transform: scale(0.96); }
+.km-pill-btn:active { background: rgba(255,255,255,0.14); transform: scale(0.96); }
 .km-pill-btn--danger { background: rgba(var(--danger-rgb),0.12); color: var(--danger-soft); }
 .km-pill-btn--danger:active { background: rgba(var(--danger-rgb),0.22); }
 
@@ -4354,7 +4355,7 @@ body::before {
     cursor: pointer; align-self: flex-start;
     margin-top: auto;
 }
-.km-select-card-pill:active { background: #3a3a3a; }
+.km-select-card-pill:active { background: rgba(255,255,255,0.14); }
 
 /* ════════════════════════════════
    WORKOUT EDITOR SCREEN
@@ -5904,7 +5905,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm);
     padding: 12px 12px; cursor: pointer; transition: background var(--dur-1) var(--ease);
 }
-.bl-row:active { background: #242424; }
+.bl-row:active { background: var(--surface-3); }
 .bl-row-main { display: flex; align-items: baseline; gap: 8px; }
 .bl-row-date { font-size: var(--fs-md); color: var(--text-dim); font-weight: 700; min-width: 64px; direction: ltr; text-align: right; }
 .bl-row-weight { font-family: 'Heebo', sans-serif; font-weight: 900; font-size: var(--fs-xl); color: #fff; }
@@ -6648,3 +6649,31 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
 
 /* פוטר — ביטול/מחיקה בשורה אחת */
 .bl-entry-foot { display: flex; justify-content: center; gap: 24px; margin-top: 4px; }
+
+/* ═══ ליטוש מגירות ופלואו אימון (v17.00) ═══ */
+/* כותרת אחידה למגירות */
+.bottom-sheet > h3 { font-size: var(--fs-xl); font-weight: 700; margin: 4px 0 12px; }
+
+/* עורך סט — הערה נראית + פוטר בשורה אחת (הפיקרים עצמם זהים למסך המפורט — בכוונה) */
+#edit-set-modal h3 { font-size: var(--fs-xl); font-weight: 700; margin: 0 0 16px; }
+#edit-set-modal #edit-note {
+    box-sizing: border-box;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--hairline);
+    border-radius: var(--r-sm); padding: 12px 14px; text-align: right;
+    margin: 4px 0 16px; font-size: var(--fs-md);
+}
+#edit-set-modal #edit-note:focus { outline: none; border-color: rgba(var(--accent-rgb),0.5); }
+
+/* פרטי אימון — כפתור משני שקט */
+.btn-quiet {
+    background: var(--surface-3) !important; color: var(--text) !important;
+    border: 1px solid var(--hairline) !important; box-shadow: none !important;
+}
+
+/* מגירת תוכנית מלאה — שורות hairline במקום קופסה-לכל-תרגיל */
+.plan-sheet-body .plan-ex-item {
+    background: transparent; border: none; border-radius: 0; margin-bottom: 0;
+    padding: 12px 8px; border-bottom: 1px solid var(--hairline);
+}
+.plan-sheet-body .plan-ex-item:last-of-type { border-bottom: none; }
+.plan-sheet-body .plan-ex-item.plan-main { background: rgba(var(--accent-rgb),0.07); border-radius: var(--r-sm); }

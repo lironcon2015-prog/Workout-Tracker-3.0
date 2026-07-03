@@ -3968,7 +3968,7 @@ function openSessionLog() {
     const realSets = state.log.filter(l => !l.skip);
 
     if (realSets.length === 0) {
-        list.innerHTML = '<p style="text-align:center;color:#71717a;padding:24px 0;">טרם נרשמו סטים</p>';
+        list.innerHTML = emptyStateHtml('assignment', 'טרם נרשמו סטים', 'סטים שתרשום יופיעו כאן');
     } else {
         // קיבוץ לפי תרגיל — שמירה על סדר כניסה
         const exOrder = [];

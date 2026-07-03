@@ -112,8 +112,10 @@
             </div>
             <input type="text" id="edit-note" class="minimal-input m-0" placeholder="הערה...">
             <button class="btn-main primary-gradient" onclick="saveSetEdit()">שמור שינויים</button>
-            <button id="btn-delete-set" class="btn-text color-danger" onclick="deleteSetFromLog()">מחק סט זה</button>
-            <button class="btn-text" onclick="closeEditModal()">ביטול</button>
+            <div class="bl-entry-foot">
+                <button class="btn-text" onclick="closeEditModal()">ביטול</button>
+                <button id="btn-delete-set" class="btn-text color-danger" onclick="deleteSetFromLog()">מחק סט זה</button>
+            </div>
         </div>
     </div>
 
@@ -1398,7 +1400,7 @@
                 </div>
                 <div id="archive-detail-actions" class="vertical-stack mt-lg">
                     <button class="btn-main primary-gradient" id="btn-archive-edit">ערוך אימון</button>
-                    <button class="btn-main primary-gradient" id="btn-archive-copy">העתק סיכום</button>
+                    <button class="btn-main btn-quiet" id="btn-archive-copy">העתק סיכום</button>
                     <button class="btn-text color-danger" id="btn-archive-delete">מחק אימון מהארכיון</button>
                 </div>
                 <div id="archive-edit-actions" class="vertical-stack mt-lg" style="display:none;">

@@ -936,7 +936,7 @@ body::before {
     text-transform: uppercase; letter-spacing: 0.18em; margin-bottom: 4px;
     /* משבצת בגובה קבוע (2 שורות) — תווית המשקל הארוכה ("Weight (kg) ⇄") נשברת
        לשתי שורות ודוחפת את הערך למטה; גובה אחיד = ערך וכפתורים מיושרים בכל הפיקרים */
-    min-height: 2.6em; box-sizing: border-box;
+    line-height: 1.2; min-height: 2.8em; box-sizing: border-box;
     display: flex; align-items: center; justify-content: center; text-align: center;
 }
 /* תווית שיטת המשקל — לחיצה מחליפה ק"ג ⇄ פלטות ⇄ משקל גוף (מסך מפורט + Live) */
@@ -5489,7 +5489,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     color: rgba(255,255,255,0.5);
     text-transform: uppercase; letter-spacing: 0.6px;
     /* משבצת בגובה קבוע — יישור ערכי הפיקרים גם ב-Live (ראה .stepper-card label) */
-    min-height: 2.6em; box-sizing: border-box;
+    line-height: 1.2; min-height: 2.8em; box-sizing: border-box;
     display: flex; align-items: center; justify-content: center; text-align: center;
 }
 .live-edit-card-val {

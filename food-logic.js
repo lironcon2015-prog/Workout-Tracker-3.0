@@ -555,7 +555,9 @@ function fdRender() {
         : sum;
 
     const note = StorageManager.getNutritionNote(_fdDate);
-    scroll.innerHTML = _fdSummaryHTML(totals, mfpOwned) + _fdNoteHTML(note) + _fdMealsHTML(entries, mfpOwned);
+    // יעדי היום המוצג — לפי הלוג האפקטיבי-מתאריך: יום עבר מציג את היעד שהיה בתוקף בו (v16.91)
+    const targets = StorageManager.getTargetsForDate(_fdDate);
+    scroll.innerHTML = _fdSummaryHTML(totals, mfpOwned, targets) + _fdNoteHTML(note) + _fdMealsHTML(entries, mfpOwned);
     _fdAnimateRing(scroll);
 }
 
@@ -601,9 +603,11 @@ function _fdMacroStat(lbl, val, target, cls) {
     </div>`;
 }
 
-function _fdSummaryHTML(t, mfpOwned) {
-    const prefs = getAnalyticsPrefs();
-    const kcalT = Number(prefs.kcalTarget) || 0;
+// tg = יעדי היום המוצג ({kcal,p,c,f} מ-getTargetsForDate) — לא ההגדרות החיות,
+// כדי ששינוי יעד לא יחול רטרואקטיבית על ימי עבר
+function _fdSummaryHTML(t, mfpOwned, tg) {
+    tg = tg || StorageManager.getTargetsForDate(_fdDate);
+    const kcalT = Number(tg.kcal) || 0;
     const consumed = Math.round(t.kcal);
     const over = kcalT > 0 && t.kcal > kcalT;
     const big = kcalT > 0 ? Math.abs(Math.round(kcalT - t.kcal)) : consumed;
@@ -623,9 +627,9 @@ function _fdSummaryHTML(t, mfpOwned) {
         </div>
         <div class="fd-kcal-caption">${caption}</div>
         <div class="fd-macros">
-            ${_fdMacroStat('חלבון', t.p, Number(prefs.proteinTarget) || 0, 'macro-p')}
-            ${_fdMacroStat('פחמימה', t.c, Number(prefs.carbsTarget) || 0, 'macro-c')}
-            ${_fdMacroStat('שומן', t.f, Number(prefs.fatTarget) || 0, 'macro-f')}
+            ${_fdMacroStat('חלבון', t.p, Number(tg.p) || 0, 'macro-p')}
+            ${_fdMacroStat('פחמימה', t.c, Number(tg.c) || 0, 'macro-c')}
+            ${_fdMacroStat('שומן', t.f, Number(tg.f) || 0, 'macro-f')}
         </div>
         ${mfpOwned ? '<div class="fd-mfp-note"><span class="material-symbols-outlined">info</span>הסיכום היומי מקורו ב-MyFitnessPal וגובר על תיעוד פנימי</div>' : ''}
     </div>`;

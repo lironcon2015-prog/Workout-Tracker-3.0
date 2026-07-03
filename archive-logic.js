@@ -3003,9 +3003,10 @@ function _homeTodayRenderNutrition() {
     lblEl.textContent = isToday ? 'תזונה היום' : 'יום אחרון · ' + _blShortDate(latest.date);
     liveEl.style.display = isToday ? '' : 'none';
     numEl.textContent = (Math.round(latest.calories || 0)).toLocaleString('en-US');
-    // קלוריות שנותרו מול היעד היומי (הגדרות → מאמן) — מספר בלבד, ירוק/אדום
+    // קלוריות שנותרו מול היעד היומי — לפי היעד שהיה בתוקף ביום המוצג (כשהיום
+    // האחרון עם נתונים אינו היום, מציגים את היעד של אותו יום — לא הרטרואקטיבי) (v16.91)
     if (remEl) {
-        const target = Number(getAnalyticsPrefs().kcalTarget);
+        const target = Number(StorageManager.getTargetsForDate(latest.date).kcal);
         if (target > 0) {
             const rem = Math.round(target - (latest.calories || 0));
             remEl.textContent = rem.toLocaleString('en-US');

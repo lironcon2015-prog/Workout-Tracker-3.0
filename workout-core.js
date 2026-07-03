@@ -1208,10 +1208,16 @@ function _syncKcalTargetUI(p) {
     }
 }
 
+// snapshot היעדים הנוכחיים — נלכד לפני המוטציה ומוזן ל-recordTargetChange (לוג אפקטיבי-מתאריך)
+function _targetsOf(p) {
+    return { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null };
+}
+
 // saveKcalTarget — היעד הקלורי היומי. ערך מפורש = דריסה ידנית (גם אם לא תואם למאקרו).
 // ריק = ביטול הדריסה וחזרה לחישוב אוטומטי מהמאקרו (אם הוגדר).
 function saveKcalTarget(val) {
     const p = getAnalyticsPrefs();
+    const prev = _targetsOf(p);
     const trimmed = String(val == null ? '' : val).trim();
     if (trimmed === '') {
         p.kcalTargetManual = false;
@@ -1223,6 +1229,7 @@ function saveKcalTarget(val) {
         else { p.kcalTarget = null; p.kcalTargetManual = false; }
     }
     saveAnalyticsPrefs(p);
+    StorageManager.recordTargetChange(prev);   // v16.91: שינוי יעד חל מהיום והלאה — העבר מקובע
     _syncKcalTargetUI(p);
     if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
     haptic('light');
@@ -1232,6 +1239,7 @@ function saveKcalTarget(val) {
 // כל עוד אין דריסה ידנית — הקלוריות מחושבות אוטומטית מהמאקרו.
 function saveMacroTarget(key, val) {
     const p = getAnalyticsPrefs();
+    const prev = _targetsOf(p);
     const n = parseInt(val, 10);
     p[key] = n > 0 ? n : null;
     if (!p.kcalTargetManual) {
@@ -1239,6 +1247,7 @@ function saveMacroTarget(key, val) {
         p.kcalTarget = kc > 0 ? kc : null;
     }
     saveAnalyticsPrefs(p);
+    StorageManager.recordTargetChange(prev);   // v16.91: שינוי יעד חל מהיום והלאה — העבר מקובע
     _syncKcalTargetUI(p);
     if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
     haptic('light');

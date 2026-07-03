@@ -24,6 +24,7 @@ const StorageManager = {
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
     KEY_NUTRITION_DAILY: 'gympro_nutrition_daily',   // ייבוא MFP — קלוריות/מאקרו לפי יום
     KEY_NUTRITION_NOTES: 'gympro_nutrition_notes',   // הערה חופשית לפי יום — עצמאי מ-NUTRITION_DAILY
+    KEY_TARGET_HISTORY:  'gympro_target_history',     // לוג יעדי קלוריות/מאקרו אפקטיבי-מתאריך (v16.91)
     KEY_NUTRITION_RAW:   'gympro_nutrition_raw',      // הקובץ הגולמי המקורי (שורה לכל ארוחה)
     KEY_BODY_PROFILE:    'gympro_body_profile',        // מין/גיל/גובה/רמת פעילות — לחישוב TDEE
     KEY_MFP_BRIDGE_URL:   'gympro_mfp_bridge_url',    // Apps Script Web App URL
@@ -516,6 +517,7 @@ const StorageManager = {
             nutritionLog: this.getNutritionLog(),
             nutritionDaily: this.getNutritionDaily(),
             nutritionNotes: this.getNutritionNotes(),
+            targetHistory: this.getTargetHistory(),
             nutritionRaw: this.getNutritionRaw(),
             foodLog: this.getFoodLog(),
             foodDb: this.getFoodDb(),
@@ -573,6 +575,7 @@ const StorageManager = {
             if (data.nutritionLog)   this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) this.saveData(this.KEY_NUTRITION_DAILY, data.nutritionDaily);
             if (data.nutritionNotes) this.saveData(this.KEY_NUTRITION_NOTES, data.nutritionNotes);
+            if (data.targetHistory)  this.saveData(this.KEY_TARGET_HISTORY, data.targetHistory);
             if (data.nutritionRaw)   this.saveData(this.KEY_NUTRITION_RAW, data.nutritionRaw);
             if (data.foodLog)        this.saveData(this.KEY_FOOD_LOG, data.foodLog);
             if (data.foodDb)         this.saveData(this.KEY_FOOD_DB, data.foodDb);
@@ -633,6 +636,45 @@ const StorageManager = {
         const trimmed = (note || '').trim();
         if (trimmed) notes[date] = trimmed; else delete notes[date];
         this.saveData(this.KEY_NUTRITION_NOTES, notes);
+    },
+
+    // ── לוג יעדים אפקטיבי-מתאריך (v16.91) ────────────────────────────────
+    // שינוי יעד קלוריות/מאקרו חל מהיום והלאה בלבד; ימי עבר מציגים את היעד
+    // שהיה בתוקף בהם. מבנה: [{date:'YYYY-MM-DD', kcal, p, c, f}] ממוין עולה.
+    getTargetHistory() { return this.getData(this.KEY_TARGET_HISTORY) || []; },
+
+    // היעדים שהיו בתוקף בתאריך נתון.
+    // היום ואילך → תמיד ההגדרות החיות (גם אחרי ייבוא/שחזור שעקף את הלוג).
+    // עבר: הרשומה האחרונה שתאריכה ≤ התאריך; לוג ריק (טרם שונה יעד מאז v16.91) →
+    // ההגדרות הנוכחיות (התנהגות עבר); לפני שהיו יעדים בכלל → ללא יעד.
+    getTargetsForDate(date) {
+        const live = () => {
+            const p = this.getAnalyticsPrefs();
+            return { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null };
+        };
+        if (!date || date >= this._todayStr()) return live();
+        const hist = this.getTargetHistory();
+        if (!hist.length) return live();
+        let best = null;
+        hist.forEach(h => { if (h.date <= date && (!best || h.date > best.date)) best = h; });
+        return best || { kcal: null, p: null, c: null, f: null };
+    },
+
+    // נקרא אחרי כל שמירת יעד (saveKcalTarget/saveMacroTarget), עם snapshot מ-לפני השינוי.
+    // בפעם הראשונה מקבע את הערך הישן כ"מאז ומתמיד" — כדי שימי העבר לא יידרסו רטרואקטיבית.
+    recordTargetChange(prev) {
+        const p = this.getAnalyticsPrefs();
+        const now = { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null };
+        if (prev && ['kcal', 'p', 'c', 'f'].every(k => (prev[k] || null) === now[k])) return;   // אין שינוי אפקטיבי
+        const today = this._todayStr();
+        let hist = this.getTargetHistory();
+        if (!hist.length && prev && (prev.kcal || prev.p || prev.c || prev.f)) {
+            hist.push(Object.assign({ date: '2000-01-01' }, prev));
+        }
+        hist = hist.filter(h => h.date !== today);   // כמה שינויים באותו יום — האחרון קובע
+        hist.push(Object.assign({ date: today }, now));
+        hist.sort((a, b) => a.date < b.date ? -1 : 1);
+        this.saveData(this.KEY_TARGET_HISTORY, hist);
     },
 
     // saveNutritionDaily — upsert לפי תאריך (ייבוא חדש דורס יום קיים), ממוין מהישן לחדש.
@@ -1537,6 +1579,7 @@ const FirebaseManager = {
                 nutritionLog:   StorageManager.getNutritionLog(),
                 nutritionDaily: StorageManager.getNutritionDaily(),
                 nutritionNotes: StorageManager.getNutritionNotes(),
+                targetHistory:  StorageManager.getTargetHistory(),
                 foodLog:        StorageManager.getFoodLog(),
                 foodDb:         StorageManager.getFoodDb(),
                 bodyProfile:    StorageManager.getBodyProfile(),
@@ -1598,6 +1641,7 @@ const FirebaseManager = {
         if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
         if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
         if (data.nutritionNotes) StorageManager.saveData(StorageManager.KEY_NUTRITION_NOTES, data.nutritionNotes);
+        if (data.targetHistory)  StorageManager.saveData(StorageManager.KEY_TARGET_HISTORY, data.targetHistory);
         if (data.foodLog)        StorageManager.saveData(StorageManager.KEY_FOOD_LOG, data.foodLog);
         if (data.foodDb)         StorageManager.saveData(StorageManager.KEY_FOOD_DB, data.foodDb);
         if (data.bodyProfile)    StorageManager.saveData(StorageManager.KEY_BODY_PROFILE, data.bodyProfile);

@@ -1020,6 +1020,14 @@ function _renderBodyList(log) {
 }
 
 // ─── הזנה ידנית / עריכה ─────────────────────────────────────────────────────
+// סגמנט "מצב תזונתי" — input נסתר (#bl-entry-nutri, נקרא ב-saveBodyEntry) + צ'יפ פעיל
+function setBlEntryNutri(v) {
+    const inp = document.getElementById('bl-entry-nutri');
+    if (inp) inp.value = v;
+    document.querySelectorAll('#bl-entry-nutri-chips .bl-chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.v === v));
+}
+
 function openBodyEntryModal(date) {
     _blEditDate = date || null;
     const today = _blTodayStr();
@@ -1036,7 +1044,7 @@ function openBodyEntryModal(date) {
         dateInput.value = e.date;
         weightInp.value = e.weight != null ? e.weight : '';
         document.getElementById('bl-entry-fat').value = e.bodyFat != null ? e.bodyFat : '';
-        document.getElementById('bl-entry-nutri').value = e.nutritionState || '';
+        setBlEntryNutri(e.nutritionState || '');
         document.getElementById('bl-entry-note').value = e.note || '';
         document.getElementById('bl-entry-delete').style.display = 'block';
     } else {
@@ -1044,7 +1052,7 @@ function openBodyEntryModal(date) {
         dateInput.value = today;
         weightInp.value = '';
         document.getElementById('bl-entry-fat').value = '';
-        document.getElementById('bl-entry-nutri').value = '';
+        setBlEntryNutri('');
         document.getElementById('bl-entry-note').value = '';
         document.getElementById('bl-entry-delete').style.display = 'none';
     }

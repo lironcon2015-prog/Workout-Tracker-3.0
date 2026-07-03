@@ -6589,3 +6589,62 @@ body.fd-comp-pick #fd-add-sheet { z-index: 1101; }
 }
 .empty-state-title { font-size: var(--fs-lg); font-weight: 700; color: var(--text); }
 .empty-state-sub { font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.5; max-width: 36ch; }
+
+/* ═══ מודאל שקילה — עיצוב מחדש בקו Deep Obsidian (v16.98) ═══ */
+.bl-entry-card { text-align: right; }
+.bl-entry-title { margin: 0 0 4px; text-align: center; font-size: var(--fs-xl); font-weight: 700; }
+
+/* Hero — משקל בספרות thin (בקו fd-ring-num) */
+.bl-entry-hero {
+    display: flex; align-items: baseline; justify-content: center; gap: 8px;
+    padding: 4px 0 12px;
+}
+.bl-entry-weight {
+    background: transparent; border: none; outline: none;
+    font-family: 'Heebo', sans-serif; font-weight: 200; font-size: 3.2rem; line-height: 1.1;
+    color: var(--text); width: 8rem; max-width: 60%; text-align: center; direction: ltr;
+    padding: 0; -moz-appearance: textfield;
+}
+.bl-entry-weight::-webkit-inner-spin-button,
+.bl-entry-weight::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.bl-entry-weight::placeholder { color: var(--text-dim); opacity: 0.35; }
+.bl-entry-hero-unit { font-size: var(--fs-lg); font-weight: 600; color: var(--text-dim); }
+
+/* קבוצת שדות — שורות hairline (תבנית P5) */
+.bl-entry-form {
+    background: var(--surface-2);
+    border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
+    border-radius: var(--r-md); overflow: hidden; margin-bottom: 16px;
+    box-shadow: var(--top-glint), var(--elev-1);
+}
+.bl-entry-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--hairline);
+}
+.bl-entry-row:last-child { border-bottom: none; }
+.bl-entry-row-label { font-size: var(--fs-md); font-weight: 600; color: var(--text-dim); flex-shrink: 0; }
+.bl-entry-row-input {
+    background: transparent; border: none; outline: none; color: var(--text);
+    font-family: inherit; font-size: var(--fs-lg); font-weight: 600; text-align: left;
+    flex: 1; min-width: 0; padding: 0; -moz-appearance: textfield;
+}
+.bl-entry-row-input::-webkit-inner-spin-button,
+.bl-entry-row-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.bl-entry-row-input::placeholder { color: var(--text-dim); opacity: 0.6; }
+input[type="date"].bl-entry-row-input { direction: ltr; color-scheme: dark; }
+input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opacity: 0.5; }
+
+/* סגמנט מצב תזונתי — צבעי מצב כמו bl-state-chip */
+.bl-entry-label {
+    font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-dim); margin: 0 4px 8px;
+}
+.bl-entry-nutri-chips { display: flex; gap: 8px; margin-bottom: 20px; }
+.bl-entry-nutri-chips .bl-chip { padding: 8px 0; font-size: var(--fs-sm); }
+.bl-entry-nutri-chips .bl-chip.active[data-v=""] { background: var(--surface-4); border-color: var(--hairline-hi); color: var(--text); }
+.bl-entry-nutri-chips .bl-chip.active[data-v="cut"] { background: rgba(var(--accent-rgb),0.16); border-color: transparent; color: #79bbff; }
+.bl-entry-nutri-chips .bl-chip.active[data-v="maintenance"] { background: rgba(142,142,147,0.18); border-color: transparent; color: #c7c7cc; }
+.bl-entry-nutri-chips .bl-chip.active[data-v="surplus"] { background: rgba(var(--success-rgb),0.16); border-color: transparent; color: #5be584; }
+
+/* פוטר — ביטול/מחיקה בשורה אחת */
+.bl-entry-foot { display: flex; justify-content: center; gap: 24px; margin-top: 4px; }

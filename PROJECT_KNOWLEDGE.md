@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 17.03
+## גרסה נוכחית: 17.05
 
 ## TM קבוע לתרגילי MAIN (v16.78)
 
@@ -217,6 +217,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 | 8 | inline styles ב-`index.html` עם radius/spacing קשיחים — מחוץ לתחולת Polish (P3) | נמוכה |
 | 9 | transitions מ-JS לא על טוקני מושן: sheet snap-back (`workout-core.js`), טבעת (`food-logic.js`) | נמוכה |
 | 7 | ✅ נפתר (v16.81) — עריכת סט details-only כעת בונה מחדש את הסטרינג לפי mode (kg/פלטות/BW), לא קשיח kg | — |
+| 10 | **Audit v17.05** (`docs/BUG_AUDIT_v17.05.md`) — 23 ממצאים + קוד מת. עיקריים: תיקון thinking של Gemini 3 קיים רק ב-`_callGeminiOneShot` ולא ב-6 קריאות ה-API האחרות; `_editAliasGroup` מוחק קבוצה לפני אישור (אובדן בביטול); wakeLock לא משוחרר/לא נרכש מחדש אחרי רקע; TM/weights/RM לא בסנכרון הענן; `openExerciseSettings` תוך-אימון בלתי נגיש (קוד מת/רגרסיה) | גבוהה |
 
 ---
 

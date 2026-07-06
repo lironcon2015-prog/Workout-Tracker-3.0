@@ -23,7 +23,8 @@ let _fdPhotoMode = 'label';   // 'label' = ברקוד/תווית | 'meal' = הע
 let _fdMealComponents = [];   // Meal Builder — מרכיבי המנה {name, grams, per100}
 let _fdMealEditId = null;     // עריכת רשומת composite קיימת
 let _fdCompPickMode = false;  // מצב "בחירת מרכיב מהמאגר" — בחירה בחיפוש מוסיפה כמרכיב במקום לפתוח עורך
-let _fdEditCustomFoodId = null;  // עריכת מזון מותאם קיים (null = יצירת מזון מותאם חדש)
+let _fdEditCustomFoodId = null;  // עריכת מזון קיים במאגר (null = יצירת מזון מותאם חדש)
+let _fdEditCustomFoodSrc = null; // המקור המקורי של המזון הנערך ('custom'/'gemini') — נשמר בעריכה
 
 // ── Utils ────────────────────────────────────────────────────────────
 function _fdNowTime() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
@@ -1007,6 +1008,7 @@ function _fdSrcChip(f) {
 function _fdRenderFoodList(foods, box, append) {
     if (!append) _fdFoodCache = {};
     foods.forEach(f => { _fdFoodCache[f.id] = f; });
+    const dbIds = new Set(StorageManager.getFoodDb().map(x => x.id));
     const html = foods.map(f => {
         const brand = (f.brand && f.brand !== 'חומר גלם') ? _fdEsc(f.brand) + ' · ' : '';
         const p = f.per100 || {};
@@ -1017,8 +1019,10 @@ function _fdRenderFoodList(foods, box, append) {
         const dC = isUnit ? (p.c || 0) / 100 : (p.c || 0);
         const dF = isUnit ? (p.f || 0) / 100 : (p.f || 0);
         const per100Lbl = isUnit ? 'יחידה' : f.baseUnit === 'ml' ? '100 מ"ל' : '100 ג\'';
-        const editBtn = f.source === 'custom'
-            ? `<span class="fd-food-edit" role="button" aria-label="ערוך מזון מותאם" onclick="event.stopPropagation();fdEditCustomFood('${_fdEsc(f.id)}')"><span class="material-symbols-outlined">edit</span></span>` : '';
+        // עריכה: מזון מותאם, וגם מוצר סרוק (gemini) שכבר שמור במאגר — תיקון שם/ערכים או מחיקה
+        const editable = f.source === 'custom' || (f.source === 'gemini' && dbIds.has(f.id));
+        const editBtn = editable
+            ? `<span class="fd-food-edit" role="button" aria-label="ערוך מזון" onclick="event.stopPropagation();fdEditCustomFood('${_fdEsc(f.id)}')"><span class="material-symbols-outlined">edit</span></span>` : '';
         return `<button class="fd-food-row" onclick="fdSelectFoodById('${_fdEsc(f.id)}')">
             <div class="fd-food-main">
                 <span class="fd-food-name">${_fdSrcChip(f)}${_fdEsc(f.name)}</span>
@@ -1264,7 +1268,9 @@ function _fdShowCustomFoodForm(food) {
     _fdEditEntryId = null;
     _fdSelectedFood = null;
     _fdEditCustomFoodId = food ? food.id : null;
+    _fdEditCustomFoodSrc = food ? (food.source || 'custom') : null;
     const editMode = !!food;
+    const isScanned = editMode && food.source === 'gemini';
     const baseUnit = editMode ? (food.baseUnit || 'g') : 'g';
     const p = editMode ? (food.per100 || {}) : {};
     const scale = (editMode && baseUnit === 'unit') ? 100 : 1;   // הצגה: ערך "ליחידה" מאוחסן ×100 פנימית
@@ -1274,7 +1280,7 @@ function _fdShowCustomFoodForm(food) {
     const vF = editMode ? _fdR((p.f || 0) / scale) : '';
     if (!editMode) { const meals = _fdMealLabels(); _fdMeal = meals[0]; }
     body.innerHTML = `
-        <div class="fd-portion-title">${editMode ? 'עריכת מזון מותאם' : 'מזון מותאם'}</div>
+        <div class="fd-portion-title">${isScanned ? 'עריכת מוצר סרוק' : editMode ? 'עריכת מזון מותאם' : 'מזון מותאם'}${isScanned && food.barcode ? `<small>ברקוד: ${_fdEsc(food.barcode)}</small>` : ''}</div>
         ${editMode ? '' : `<button type="button" class="fd-paste-toggle" onclick="_fdTogglePasteBox()">
             <span class="material-symbols-outlined">content_paste</span>הדבקת ערכים תזונתיים מטקסט
         </button>
@@ -1466,9 +1472,11 @@ function fdSaveCustomFood(logAfter) {
         : [{ label: unit === 'ml' ? '100 מ"ל' : '100 גרם', grams: 100 }];
 
     if (_fdEditCustomFoodId) {
-        const food = { id: _fdEditCustomFoodId, name, source: 'custom', per100, servings, baseUnit: unit };
+        // upsert ממזג לפי id — ברקוד/מותג/מועדפים/היסטוריית שימוש נשמרים; המקור המקורי לא נדרס
+        const food = { id: _fdEditCustomFoodId, name, source: _fdEditCustomFoodSrc || 'custom', per100, servings, baseUnit: unit };
         StorageManager.upsertFoodToDb(food);
         _fdEditCustomFoodId = null;
+        _fdEditCustomFoodSrc = null;
         closeFoodPortion();
         fdRenderTab();
         _fdSyncCloud();
@@ -1492,9 +1500,10 @@ function fdSaveCustomFood(logAfter) {
 function fdDeleteCustomFood() {
     if (!_fdEditCustomFoodId) return;
     const id = _fdEditCustomFoodId;
-    showConfirm('למחוק את המזון המותאם? הפעולה אינה הפיכה.', () => {
+    showConfirm('למחוק את המזון מהמאגר? רשומות יומן קיימות לא יימחקו. הפעולה אינה הפיכה.', () => {
         StorageManager.deleteFoodFromDb(id);
         _fdEditCustomFoodId = null;
+        _fdEditCustomFoodSrc = null;
         closeFoodPortion();
         fdRenderTab();
         _fdSyncCloud();

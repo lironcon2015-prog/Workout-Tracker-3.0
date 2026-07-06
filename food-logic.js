@@ -1088,8 +1088,12 @@ function _fdOpenPortion(food, entry) {
     const time = entry ? entry.time : _fdNowTime();
     const curMeal = entry ? entry.meal : _fdMeal;
 
+    // מזון שנוצר מ-AI (סריקת תווית/ברקוד לא מזוהה) — השם ניתן לעריכה ונשמר גם למאגר
+    const nameEditable = food.source === 'gemini';
     body.innerHTML = `
-        <div class="fd-portion-title">${_fdEsc(food.name)}${food.brand ? `<small>${_fdEsc(food.brand)}</small>` : ''}</div>
+        <div class="fd-portion-title">${nameEditable
+            ? `<input type="text" id="fd-portion-name" class="fd-portion-name-input" value="${_fdEsc(food.name)}" maxlength="80" placeholder="שם המוצר" aria-label="שם המוצר"><small class="fd-portion-name-hint"><span class="material-symbols-outlined">edit</span> ניתן לערוך את השם</small>`
+            : _fdEsc(food.name)}${food.brand ? `<small>${_fdEsc(food.brand)}</small>` : ''}</div>
         <div class="fd-portion-row">
             <label class="fd-field fd-field--qty"><span>כמות</span><input type="number" id="fd-qty" inputmode="decimal" min="0" step="any" value="${qty}" oninput="_fdUpdatePreview()"></label>
             <label class="fd-field fd-field--unit"><span>יחידה</span><select id="fd-unit" onchange="_fdUpdatePreview()">${unitOpts}</select></label>
@@ -1157,6 +1161,17 @@ function fdSavePortion() {
     const m = _fdMacrosFor(g.grams);
     const time = document.getElementById('fd-time').value || _fdNowTime();
     const food = _fdSelectedFood;
+    // שם ערוך (מזון מסריקת תווית/AI) — עדכון האובייקט וגם רשומת המאגר (לפי id/ברקוד),
+    // כך שסריקת ברקוד עתידית תחזיר את השם המתוקן
+    const nameInput = document.getElementById('fd-portion-name');
+    if (nameInput) {
+        const newName = nameInput.value.trim();
+        if (newName && newName !== food.name) {
+            food.name = newName;
+            const inDb = StorageManager.getFoodDb().some(f => f.id === food.id || (f.barcode && food.barcode && f.barcode === food.barcode));
+            if (inDb) StorageManager.upsertFoodToDb({ id: food.id, barcode: food.barcode || null, name: newName });
+        }
+    }
     const entry = {
         name: food.name, brand: food.brand || '', source: food.source || 'off', barcode: food.barcode || null,
         meal: _fdMeal || _fdMealLabels()[0], time,

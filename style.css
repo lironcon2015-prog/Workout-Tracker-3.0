@@ -6322,6 +6322,19 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 /* ── עורך מנה ── */
 .fd-portion-title { font-weight: 900; font-size: var(--fs-xl); margin-bottom: 16px; }
 .fd-portion-title small { display: block; font-size: var(--fs-sm); color: var(--text-dim); font-weight: 600; margin-top: 2px; }
+/* שם מוצר ניתן לעריכה (מזון מסריקת תווית/AI) — נראה ככותרת, מסומן כבר-עריכה */
+.fd-portion-name-input {
+    background: transparent; border: none; border-bottom: 1px dashed var(--hairline-hi);
+    border-radius: 0; padding: 0 0 4px; width: 100%; box-sizing: border-box;
+    color: var(--text); font-family: inherit; font-weight: 900; font-size: var(--fs-xl);
+    text-align: right; transition: border-color var(--dur-1) var(--ease);
+}
+.fd-portion-name-input:focus { outline: none; border-bottom-color: var(--accent); }
+.fd-portion-name-hint {
+    display: flex !important; align-items: center; gap: 4px; margin-top: 4px;
+    font-size: var(--fs-xs) !important; color: var(--text-dim); font-weight: 600 !important;
+}
+.fd-portion-name-hint .material-symbols-outlined { font-size: 13px; }
 .fd-portion-row { display: flex; gap: 8px; margin-bottom: 14px; }
 .fd-field { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .fd-field--full { flex-basis: 100%; }

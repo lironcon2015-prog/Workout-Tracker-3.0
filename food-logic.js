@@ -517,12 +517,65 @@ function fdShiftDay(n) {
     _fdDate = next; fdRender(); haptic('light');
 }
 function fdSetDate(v) { if (v && v <= _blTodayStr()) { _fdDate = v; fdRender(); } }
+
+// ── לוח שנה לבחירת יום (bottom sheet, ראשון–שבת) ────────────────────
+let _fdCalYM = null;   // {y, m} — החודש המוצג בלוח (m: 0-11)
 function fdOpenDatePicker() {
-    const i = document.getElementById('fd-date-input');
-    if (!i) return;
-    i.value = _fdDate; i.max = _blTodayStr();
-    if (i.showPicker) { try { i.showPicker(); return; } catch (e) {} }
-    i.click();
+    const p = _fdDate.split('-');
+    _fdCalYM = { y: +p[0], m: +p[1] - 1 };
+    _fdCalRender();
+    const ov = document.getElementById('fd-cal-overlay');
+    const sheet = document.getElementById('fd-cal-sheet');
+    if (!ov || !sheet) return;
+    ov.style.display = 'block';
+    sheet.classList.add('open');
+    haptic('light');
+}
+function fdCloseCal() {
+    const ov = document.getElementById('fd-cal-overlay');
+    const sheet = document.getElementById('fd-cal-sheet');
+    if (ov) ov.style.display = 'none';
+    if (sheet) sheet.classList.remove('open');
+}
+function fdCalShiftMonth(n) {
+    let m = _fdCalYM.m + n, y = _fdCalYM.y;
+    if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+    _fdCalYM = { y, m };
+    _fdCalRender();
+    haptic('light');
+}
+function fdCalPick(ds) {
+    fdSetDate(ds);
+    fdCloseCal();
+    haptic('light');
+}
+function _fdCalRender() {
+    const grid = document.getElementById('fd-cal-days');
+    const title = document.getElementById('fd-cal-title');
+    if (!grid || !title || !_fdCalYM) return;
+    const { y, m } = _fdCalYM;
+    title.textContent = `‏${MONTH_NAMES_HE[m]} ${y}`;
+    const today = _blTodayStr();
+    // חסימת ניווט לחודש עתידי
+    const nextBtn = document.getElementById('fd-cal-next');
+    const tp = today.split('-');
+    if (nextBtn) nextBtn.disabled = y > +tp[0] || (y === +tp[0] && m >= +tp[1] - 1);
+    // ימים עם תיעוד תזונה — נקודה ירוקה (שאילתה אחת לרינדור)
+    const logged = new Set((StorageManager.getNutritionDaily() || []).map(d => d.date));
+    const firstDow = new Date(y, m, 1).getDay();   // 0=ראשון — תואם לשבוע הישראלי
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const mm = String(m + 1).padStart(2, '0');
+    let html = '';
+    for (let i = 0; i < firstDow; i++) html += '<span class="fd-cal-ph"></span>';
+    for (let d = 1; d <= daysInMonth; d++) {
+        const ds = `${y}-${mm}-${String(d).padStart(2, '0')}`;
+        const cls = ['fd-cal-day'];
+        if (ds === today) cls.push('fd-cal-today');
+        if (ds === _fdDate) cls.push('fd-cal-sel');
+        const dot = logged.has(ds) ? '<span class="fd-cal-dot"></span>' : '<span class="fd-cal-dot fd-cal-dot--ph"></span>';
+        html += `<button class="${cls.join(' ')}" ${ds > today ? 'disabled' : `onclick="fdCalPick('${ds}')"`}><span class="fd-cal-num">${d}</span>${dot}</button>`;
+    }
+    grid.innerHTML = html;
 }
 
 function _fdDateLabel(d) {

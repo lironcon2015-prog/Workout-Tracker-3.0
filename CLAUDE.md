@@ -128,9 +128,8 @@
 > push לבדו **אינו** מספיק. המשתמש רואה את האפליקציה מ-`main` בלבד — אם לא מיזגת, השינוי לא הגיע אליו.
 > אל תחכה לבקשה "מזג". בכל פעם שאתה דוחף קוד — מזג מיד אחריו, אלא אם המשתמש ביקש מפורשות לא למזג.
 
-קיים workflow ב-`.github/workflows/auto-merge-to-main.yml`, **אך אסור להסתמך עליו**:
-ה-workflow מתרסק על push שני+ לאותו branch (branch כבר קיים), ולכן לרוב המיזוג לא יקרה אוטומטית.
-**המיזוג הידני הוא ברירת המחדל, לא חריג.**
+**אין workflow אוטומטי** — תיקיית `.github` אינה קיימת בריפו (ה-workflow הישן הוסר).
+**המיזוג הידני הוא הדרך היחידה.**
 
 **הרצף המלא בסיום כל שינוי קוד (חובה לבצע את כל הצעדים):**
 
@@ -171,7 +170,7 @@ version.json: { "version": "15.X" }
 | `data.js` | נתוני ברירת מחדל |
 | `docs/mfp-nutrition-bridge.gs` | Google Apps Script — גשר שמושך ייצוא MyFitnessPal מ-Gmail (JSONP) |
 | `docs/health-nutrition-bridge.gs` | Google Apps Script — גשר תזונה מ-Apple Health (קיצור דרך דוחף, האפליקציה מושכת) |
-| `vendor/zxing.min.js` | ספריית ZXing (UMD) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |
+| `vendor/zbar.js` | ספריית ZBar (WASM) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
 
@@ -189,7 +188,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-17.11
+17.12
 
 ---
 

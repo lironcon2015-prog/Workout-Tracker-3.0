@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - EDITOR & MANAGER LOGIC
- * Version: 15.8
+ * (הגרסה הנוכחית: ראה version.json)
  * שדרוג 1: Toggle פעילים/מוסתרים בניהול תוכניות.
  */
 
@@ -644,7 +644,7 @@ function renderRegularItem(item, idx, list) {
                 </button>
             </div>
         </div>
-        <div class="km-block-name" onclick="openRestTimerModal(${idx})">${item.name}</div>
+        <div class="km-block-name" onclick="openRestTimerModal(${idx})">${escapeHtml(item.name)}</div>
         <div class="km-block-footer">
             <div class="km-block-footer-meta">
                 ${setsHtml}
@@ -682,8 +682,8 @@ function renderClusterItem(cluster, idx, list) {
         exRows += `
         <div class="km-cluster-ex-row">
             <span class="km-cluster-ex-label">${label}${internalIdx + 1}</span>
-            <span class="km-cluster-ex-name" onclick="openRestTimerModal(${idx}, ${internalIdx})">${ex.name}</span>
-            <span class="km-cluster-ex-reps">${ex.sets ? ex.sets + ' חז׳' : ''}</span>
+            <span class="km-cluster-ex-name" onclick="openRestTimerModal(${idx}, ${internalIdx})">${escapeHtml(ex.name)}</span>
+            <span class="km-cluster-ex-reps">${ex.sets ? ex.sets + ' סטים' : ''}</span>
             <button class="km-icon-btn-sm" onclick="removeExFromCluster(${idx}, ${internalIdx})">
                 <span class="material-symbols-outlined" style="font-size:0.95rem;">close</span>
             </button>
@@ -882,8 +882,9 @@ function prepareSelector() {
 function setSelectorFilter(filter, btn) { managerState.selectorFilter = filter; updateSelectorChips(); renderSelectorList(); }
 
 function updateSelectorChips() {
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    // scope לבורר בלבד — querySelectorAll('.chip') גלובלי כיבה צ'יפים בכל האפליקציה
     const btns = document.querySelectorAll('#ui-exercise-selector .chip');
+    btns.forEach(c => c.classList.remove('active'));
     btns.forEach(b => { if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${managerState.selectorFilter}'`)) b.classList.add('active'); });
 }
 
@@ -1171,7 +1172,7 @@ function updateFirebaseStatus() {
             const when = new Date(sync.archiveAt).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
             html += sync.archiveOk
                 ? `<br><span style="color:var(--text-dim);font-size:0.85em;">&#10003; סונכרן: ${when}</span>`
-                : `<br><span style="color:#FF453A;font-weight:700;font-size:0.85em;">&#9888; הסנכרון האחרון נכשל (${when}) — גבה ידנית</span>`;
+                : `<br><span style="color:var(--danger);font-weight:700;font-size:0.85em;">&#9888; הסנכרון האחרון נכשל (${when}) — גבה ידנית</span>`;
         }
         el.innerHTML = html;
     } else {

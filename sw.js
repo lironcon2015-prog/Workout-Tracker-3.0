@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 17.11
+ * Version: 17.12
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v17.11';
+const CACHE_VERSION = 'gympro-v17.12';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -69,8 +69,9 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const url = event.request.url;
 
-    // תמונות חיצוניות מ-LH3 — cache-first, שומר לאחר fetch ראשון
-    if (url.includes('lh3.googleusercontent.com')) {
+    // תמונות חיצוניות (LH3 של תרגילים, Unsplash של מסך הבית/סיום/בורר רקעים) —
+    // cache-first, נשמר לאחר ה-fetch הראשון. בלי זה מסך הבית עומד ריק ב-offline.
+    if (url.includes('lh3.googleusercontent.com') || url.includes('images.unsplash.com')) {
         event.respondWith(
             caches.open(IMG_CACHE).then(cache =>
                 cache.match(event.request).then(cached => {
@@ -85,8 +86,8 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // ספריות vendor (ZXing) — cache-first עם שמירה בזמן ריצה. נטענות עצלה רק
-    // ב-fallback של iOS, ולכן לא ב-pre-cache (כדי לא להוריד 336KB לכל המשתמשים).
+    // ספריות vendor (ZBar) — cache-first עם שמירה בזמן ריצה. נטענות עצלה רק
+    // ב-fallback של iOS, ולכן לא ב-pre-cache (כדי לא להוריד ~330KB לכל המשתמשים).
     if (url.includes('/vendor/')) {
         event.respondWith(
             caches.open(CACHE_VERSION).then(cache =>

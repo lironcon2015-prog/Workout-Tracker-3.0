@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 15.8
+ * (הגרסה הנוכחית: ראה version.json)
  * שדרוגים: החלפת תרגיל חופשית, חזרה מבחר אימון, פידבק סיום, כפתור רענון, תיקוני חוב.
  */
 
@@ -50,17 +50,18 @@ function escapeJsAttr(s) {
 
 // ─── CUSTOM MODAL SYSTEM ───────────────────────────────────────────────────
 
+// השמה ל-onclick (ולא addEventListener) — קריאה חופפת בזמן שהמודאל פתוח מחליפה
+// את ה-handler במקום לערום אותו; לחיצת OK אחת לא תריץ callbacks ישנים שנערמו.
 function showAlert(msg, onOk) {
     const modal = document.getElementById('custom-alert-modal');
     document.getElementById('custom-alert-msg').textContent = msg;
     modal.style.display = 'flex';
     const okBtn = document.getElementById('custom-alert-ok');
-    const handler = () => {
+    okBtn.onclick = () => {
         modal.style.display = 'none';
-        okBtn.removeEventListener('click', handler);
+        okBtn.onclick = null;
         if (typeof onOk === 'function') onOk();
     };
-    okBtn.addEventListener('click', handler);
 }
 
 function showConfirm(msg, onOk, onCancel) {
@@ -72,14 +73,11 @@ function showConfirm(msg, onOk, onCancel) {
 
     const cleanup = () => {
         modal.style.display = 'none';
-        okBtn.removeEventListener('click', okHandler);
-        cancelBtn.removeEventListener('click', cancelHandler);
+        okBtn.onclick = null;
+        cancelBtn.onclick = null;
     };
-    const okHandler = () => { cleanup(); if (typeof onOk === 'function') onOk(); };
-    const cancelHandler = () => { cleanup(); if (typeof onCancel === 'function') onCancel(); };
-
-    okBtn.addEventListener('click', okHandler);
-    cancelBtn.addEventListener('click', cancelHandler);
+    okBtn.onclick = () => { cleanup(); if (typeof onOk === 'function') onOk(); };
+    cancelBtn.onclick = () => { cleanup(); if (typeof onCancel === 'function') onCancel(); };
 }
 
 // ─── HELPER: Substitute groups ─────────────────────────────────────────────
@@ -183,6 +181,26 @@ let audioContext;
 let wakeLock = null;
 // צלילים כבויים כברירת מחדל — מתנגנים רק אם המשתמש הדליק ידנית את כפתור הצלילים
 let soundEnabled = false;
+
+// ─── Wake Lock (v17.12) ─────────────────────────────────────────────────────
+// המערכת משחררת את ה-lock אוטומטית במעבר לרקע; בלי מאזין release המשתנה נשאר
+// מצביע לאובייקט משוחרר וה-guard חוסם רכישה חוזרת. שחרור ביציאה חוסך סוללה.
+async function _acquireWakeLock() {
+    try {
+        if (!('wakeLock' in navigator) || wakeLock) return;
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch (e) {}
+}
+function _releaseWakeLock() {
+    try { if (wakeLock) { wakeLock.release(); } } catch (e) {}
+    wakeLock = null;
+}
+// רכישה מחדש בחזרה מהרקע — רק כשיש סיבה פעילה (Live פעיל או צלילים דולקים)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (document.body.classList.contains('live-mode-active') || soundEnabled) _acquireWakeLock();
+});
 
 // ─── SESSION TIMER ─────────────────────────────────────────────────────────
 
@@ -641,7 +659,9 @@ async function toggleSound(force) {
     if (tgl) tgl.checked = soundEnabled;
     if (soundEnabled) {
         playBeep(1);  // צפצוף אישור — וגם פותח את ה-AudioContext על gesture המשתמש
-        try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+        await _acquireWakeLock();
+    } else if (!document.body.classList.contains('live-mode-active')) {
+        _releaseWakeLock();   // כיבוי צלילים מחוץ ל-Live — אין סיבה להשאיר מסך נעול-דולק
     }
 }
 
@@ -1679,6 +1699,7 @@ function openCurrentPlanSheet() {
         </div>`;
 
     let num = 0;
+    let shownDone = false;
     let shownCurrent = false;
     let shownUpcoming = false;
 
@@ -1702,7 +1723,7 @@ function openCurrentPlanSheet() {
             const exTM = isMain ? _displayTM(exName) : null;
             const tmBadgeHtml = exTM != null ? `<span class="plan-tm-badge">TM ${exTM}kg</span>` : '';
 
-            if (isDone && num === 1) html += `<div class="plan-section-label">הושלמו</div>`;
+            if (isDone && !shownDone) { html += `<div class="plan-section-label">הושלמו</div>`; shownDone = true; }
             if (isCurrent && !shownCurrent) { html += `<div class="plan-section-label">עכשיו</div>`; shownCurrent = true; }
             if (!isDone && !isCurrent && !shownUpcoming) { html += `<div class="plan-section-label">הבאים</div>`; shownUpcoming = true; }
 
@@ -1999,7 +2020,8 @@ function confirmExercise(doEx) {
 function resizeSets(count) {
     const defaultReps = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].r : 10;
     const defaultWeight = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].w : 10;
-    state.currentEx.sets = Array(count).fill({ w: defaultWeight, r: defaultReps });
+    // אובייקט חדש לכל סט — fill() משכפל reference אחד וכל mutation עתידי היה מדליף בין סטים
+    state.currentEx.sets = Array.from({ length: count }, () => ({ w: defaultWeight, r: defaultReps }));
 }
 
 function setupCalculatedEx() {
@@ -2390,6 +2412,9 @@ function initPickers() {
         for (let i = minW; i <= maxW; i = parseFloat((i + step).toFixed(2))) {
             let o = new Option(i + " kg", i); if (i === defaultW) o.selected = true; wPick.add(o);
         }
+        // משקל שמור שהוזן ידנית ולא יושב על רשת ה-step (למשל 47.3 בקפיצות 2.5) —
+        // בלי זה אף option לא נבחר וה-select נופל למשקל המינימלי
+        if (wPick.selectedIndex <= 0 && defaultW > minW) _setPickerValue(wPick, defaultW);
     }
 
     const rPick = document.getElementById('reps-picker'); rPick.innerHTML = "";
@@ -2509,25 +2534,101 @@ Respond with ONLY valid JSON (no markdown, no commentary, no code fences):
 { "w": <number kg>, "r": <number reps>, "rir": <number>, "reason": "<short Hebrew explanation up to 80 chars>" }`;
 }
 
+// ─── שכבת תחבורה משותפת ל-Gemini (v17.12) ───────────────────────────────────
+// כל קריאות ה-API באפליקציה (צ'אט, one-shot, Vision, מזון, תוויות) חולקות את
+// אותם מנגנונים: סדר מודלים לפי "האחרון שהצליח", thinkingConfig מותאם-מודל,
+// timeout לניסיון, ו-fallback בין מודלים. אין לשכפל לולאת fetch — להשתמש כאן.
+
+const GEMINI_PREF_MODEL_KEY = 'gympro_ai_pref_model';
+
+// Gemini 3 אינו תומך ב-thinkingBudget:0 לכיבוי חשיבה — שם הפרמטר הוא thinkingLevel.
+// בלעדיו המודל "חושב" בברירת מחדל (medium), מבזבז את תקרת הטוקנים על מחשבות
+// ומחזיר טקסט גלוי ריק (finishReason=MAX_TOKENS) → תשובה ריקה/איטית מאוד.
+function _geminiThinkingConfig(modelName) {
+    return /gemini-3/i.test(modelName) ? { thinkingLevel: 'low' } : { thinkingBudget: 0 };
+}
+
+// מודל מועדף — האחרון שהצליח נשמר ונבדק ראשון בקריאות הבאות.
+// בלי זה, מפתח שחוטף 404/429 במודל הראשון משלם סיבוב מבוזבז בכל קריאה (איטיות כרונית).
+function _geminiOrderedModels(config) {
+    const pref = localStorage.getItem(GEMINI_PREF_MODEL_KEY);
+    return (pref && config.models.includes(pref))
+        ? [pref, ...config.models.filter(m => m !== pref)]
+        : config.models;
+}
+
+function _geminiMarkModelOk(m) { try { localStorage.setItem(GEMINI_PREF_MODEL_KEY, m); } catch (e) {} }
+
+/**
+ * _geminiRequest — בקשת generateContent אחת עם fallback על כל המודלים.
+ * payload: { systemInstruction?, contents, generationConfig } — בלי thinkingConfig (מוזרק פר-מודל).
+ * opts: { timeoutMs=30000, json=false, fallbackStatuses=[400,404,429,503] }
+ *   json=true → מפרסר JSON ומנסה מודל הבא גם על תשובה לא-תקינה (שימור התנהגות ה-Vision/מזון).
+ * מחזיר { text, parts, finishReason, model } או את ה-JSON המפורסר כש-json=true.
+ */
+async function _geminiRequest(payload, opts = {}) {
+    const config = StorageManager.getAIConfig();
+    if (!config.apiKey) throw new Error('API_KEY_MISSING');
+    const timeoutMs = opts.timeoutMs || 30000;
+    const fallbackStatuses = opts.fallbackStatuses || [400, 404, 429, 503];
+    let lastErr = '';
+    for (const modelName of _geminiOrderedModels(config)) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
+            const body = {
+                contents: payload.contents,
+                generationConfig: Object.assign({}, payload.generationConfig, { thinkingConfig: _geminiThinkingConfig(modelName) })
+            };
+            if (payload.systemInstruction) body.system_instruction = payload.systemInstruction;
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+            let response;
+            try {
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                    signal: ctrl.signal
+                });
+            } finally { clearTimeout(timer); }
+            if (!response.ok) {
+                if (fallbackStatuses.includes(response.status)) { lastErr = `${modelName}: ${response.status}`; continue; }
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(`API_ERROR_${response.status}: ${errData.error?.message || ''}`);
+            }
+            const data = await response.json();
+            const candidate = data.candidates?.[0];
+            const parts = candidate?.content?.parts || [];
+            const text = parts.filter(p => !p.thought).map(p => p.text || '').join('');
+            if (opts.json) {
+                let parsed;
+                try { parsed = JSON.parse(text); }
+                catch (e) { lastErr = `${modelName}: bad JSON`; continue; }   // מודל החזיר JSON שבור — נסה הבא
+                _geminiMarkModelOk(modelName);
+                return parsed;
+            }
+            _geminiMarkModelOk(modelName);
+            return { text, parts, finishReason: candidate?.finishReason || '', model: modelName };
+        } catch (e) {
+            if (e.name === 'AbortError' || (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')))) {
+                lastErr = `${modelName}: ${e.name === 'AbortError' ? 'timeout' : e.message}`;
+                continue;
+            }
+            throw e;
+        }
+    }
+    const err = new Error('ALL_MODELS_FAILED');
+    err._details = lastErr;
+    throw err;
+}
+
 async function _callGeminiOneShot(prompt, opts = {}) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
 
-    // מודל מועדף — האחרון שהצליח נשמר ונבדק ראשון בקריאות הבאות.
-    // בלי זה, מפתח שחוטף 404/429 במודל הראשון משלם סיבוב מבוזבז בכל קריאה (איטיות כרונית).
-    const PREF_KEY = 'gympro_ai_pref_model';
-    const pref = localStorage.getItem(PREF_KEY);
-    const models = (pref && config.models.includes(pref))
-        ? [pref, ...config.models.filter(m => m !== pref)]
-        : config.models;
-    const _markOk = (m) => { try { localStorage.setItem(PREF_KEY, m); } catch (e) {} };
-
-    // Gemini 3 אינו תומך ב-thinkingBudget:0 לכיבוי חשיבה — שם הפרמטר הוא thinkingLevel.
-    // בלעדיו המודל "חושב" בברירת מחדל (medium), מבזבז את תקרת הטוקנים על מחשבות
-    // ומחזיר טקסט גלוי ריק (finishReason=MAX_TOKENS) → סיכום ריק/איטי מאוד.
-    const _thinkingConfig = (modelName) => /gemini-3/i.test(modelName)
-        ? { thinkingLevel: 'low' }
-        : { thinkingBudget: 0 };
+    const models = _geminiOrderedModels(config);
+    const _markOk = _geminiMarkModelOk;
+    const _thinkingConfig = _geminiThinkingConfig;
     const _genConfigFor = (modelName) => opts.freeText
         ? { temperature: 0.7, maxOutputTokens: opts.maxTokens || 8192, thinkingConfig: _thinkingConfig(modelName) }
         : { temperature: 0.35, maxOutputTokens: opts.maxTokens || 512, responseMimeType: 'application/json', thinkingConfig: _thinkingConfig(modelName) };
@@ -3546,7 +3647,7 @@ function buildSummaryUI() {
             cardsHtml += `
             <div class="obsidian-card">
                 <div class="card-header">
-                    <h3 class="card-title">${seg.exName}${tmBadgeHtml}</h3>
+                    <h3 class="card-title">${escapeHtml(seg.exName)}${tmBadgeHtml}</h3>
                     <span class="card-vol">${volStr}</span>
                 </div>
                 ${setRows}
@@ -4089,7 +4190,7 @@ function openSessionLog() {
             card.innerHTML = `
                 <div class="slog-ex-header">
                     <div class="slog-ex-info">
-                        <h3 class="slog-ex-name">${exName}${tmBadgeHtml}</h3>
+                        <h3 class="slog-ex-name">${escapeHtml(exName)}${tmBadgeHtml}</h3>
                     </div>
                     <div class="slog-ex-vol-wrap">
                         <p class="slog-vol-lbl">VOLUME</p>
@@ -4439,7 +4540,9 @@ function openExerciseSettings() {
 // ─── RESET ─────────────────────────────────────────────────────────────────
 
 function resetToFactorySettings() {
-    showConfirm("האם לאפס את כל הנתונים? פעולה זו בלתי הפיכה.", () => {
+    // הנוסח מדייק את מה שבאמת נמחק (resetToFactory מוחק תוכניות/תרגילים/סשן בלבד) —
+    // הארכיון, שקילות, תזונה, AI והחיבורים נשמרים בכוונה
+    showConfirm("לאפס תוכניות ותרגילים לברירת המחדל? האימון הפעיל יימחק. הארכיון, שקילות, תזונה וההגדרות יישמרו. פעולה זו בלתי הפיכה.", () => {
         StorageManager.resetToFactory();
         showAlert("האפליקציה אופסה. טוען מחדש...", () => {
             window.location.reload();
@@ -4885,10 +4988,6 @@ ${convo}`;
  * שולח 10 הודעות אחרונות מ-aiChatHistory.
  */
 async function callGeminiAPI(userMessage) {
-    const config = StorageManager.getAIConfig();
-    if (!config.apiKey) throw new Error('API_KEY_MISSING');
-
-    let lastErr = '';
     const last10 = aiChatHistory.slice(-10);
 
     // אורך תשובה לפי המצב הנבחר (auto/short/deep) — משפיע על תקרת הטוקנים ועל הנחיית האורך
@@ -4897,54 +4996,22 @@ async function callGeminiAPI(userMessage) {
         ? '\n\n# הנחיית אורך לשיחה זו\nספק תשובה מלאה, מעמיקה ומובנית — כסה את כל ההיבטים הרלוונטיים.'
         : '\n\n# הנחיית אורך לשיחה זו\nענה בקצרה ולעניין — שורות ספורות בלבד, ללא הרחבות מיותרות.';
 
-    const payload = {
-        system_instruction: { parts: [{ text: buildSystemPrompt({ slim: !deep }) + depthDirective }] },
+    // תחבורה דרך השכבה המשותפת — thinking מותאם-מודל, מודל מועדף, timeout.
+    // 404/429/503 בלבד כ-fallback (כמו קודם): שגיאת 400 בצ'אט מוצגת למשתמש עם הפירוט.
+    const { text, finishReason } = await _geminiRequest({
+        systemInstruction: { parts: [{ text: buildSystemPrompt({ slim: !deep }) + depthDirective }] },
         contents: [
             ...last10.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
             { role: 'user', parts: [{ text: userMessage }] }
         ],
-        generationConfig: { temperature: 0.7, maxOutputTokens: deep ? 2048 : 768, thinkingConfig: { thinkingBudget: 0 } }
-    };
+        generationConfig: { temperature: 0.7, maxOutputTokens: deep ? 2048 : 768 }
+    }, { timeoutMs: 90000, fallbackStatuses: [404, 429, 503] });
 
-    for (const modelName of config.models) {
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (response.ok) {
-                const data = await response.json();
-                const candidate = data.candidates?.[0];
-                const parts = candidate?.content?.parts || [];
-                // איחוד כל ה-parts (לא רק הראשון) — Gemini עלול לפצל תשובה ארוכה לכמה parts
-                let text = parts.filter(p => !p.thought).map(p => p.text || '').join('');
-                // זיהוי קטיעה אמיתית מתקרת הטוקנים — לסימון במקום בליעה שקטה
-                if (candidate?.finishReason === 'MAX_TOKENS' && text) {
-                    text += '\n\n[התשובה נקטעה עקב מגבלת אורך — כתוב "המשך" כדי להשלים]';
-                }
-                return text;
-            }
-            if (response.status === 429 || response.status === 503 || response.status === 404) {
-                console.warn(`GymPro AI: model ${modelName} unavailable (${response.status}), trying next...`);
-                lastErr = `${modelName}: ${response.status}`;
-                continue;
-            }
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(`API_ERROR_${response.status}: ${errData.error?.message || ''}`);
-        } catch(e) {
-            if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
-                console.warn(`GymPro AI: network error on ${modelName}, trying next...`);
-                lastErr = `${modelName}: ${e.message}`;
-                continue;
-            }
-            throw e;
-        }
+    // זיהוי קטיעה אמיתית מתקרת הטוקנים — לסימון במקום בליעה שקטה
+    if (finishReason === 'MAX_TOKENS' && text) {
+        return text + '\n\n[התשובה נקטעה עקב מגבלת אורך — כתוב "המשך" כדי להשלים]';
     }
-    const err = new Error('ALL_MODELS_FAILED');
-    err._details = lastErr;
-    throw err;
+    return text;
 }
 
 /**
@@ -5105,10 +5172,6 @@ function _renderMarkdown(str) {
     return html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');  // הדגשה
 }
 
-function _escapeHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
-
 /**
  * _updateAIContextBanner — מציג/מסתיר banner הקשר אימון פעיל.
  */
@@ -5120,10 +5183,10 @@ function _updateAIContextBanner() {
         const rm = StorageManager.getLastRM(state.currentExName);
         const sets = (state.log || [])
             .filter(l => !l.skip && l.exName === state.currentExName)
-            .map(l => `${l.w}×${l.r} (RIR ${l.rir !== undefined ? l.rir : '—'})`)
+            .map(l => `${_fmtW(l)}×${l.r} (RIR ${l.rir !== undefined ? l.rir : '—'})`)
             .join(' • ');
         banner.innerHTML = `<div class="ctx-lbl">הקשר אימון נוכחי</div>
-            <strong>${state.currentExName}</strong>${rm ? ` • 1RM: ${rm}kg` : ''}<br><span class="ctx-nutri">Nutritional: ${nutri}</span>${sets ? `<br>${sets}` : ''}`;
+            <strong>${escapeHtml(state.currentExName)}</strong>${rm ? ` • 1RM: ${rm}kg` : ''}<br><span class="ctx-nutri">Nutritional: ${nutri}</span>${sets ? `<br>${sets}` : ''}`;
         banner.style.display = 'block';
     } else {
         // גם ללא אימון פעיל — מציג את מצב התזונה כי הוא רלוונטי לכל שיחה עם המאמן
@@ -5619,8 +5682,6 @@ async function importNutritionFromGmail() {
         if (typeof openSettings === 'function') openSettings();
         return;
     }
-    const btn = document.getElementById('bl-nutri-import-btn');
-    if (btn) btn.disabled = true;
     haptic('light');
     showCloudToast('⏳ מושך תזונה מ-Gmail…', true);
     try {
@@ -5652,8 +5713,6 @@ async function importNutritionFromGmail() {
     } catch (e) {
         console.error('GymPro: nutrition import error', e);
         showCloudToast('⚠️ ' + e.message, false);
-    } finally {
-        if (btn) btn.disabled = false;
     }
 }
 
@@ -5837,8 +5896,8 @@ async function enterWorkoutLiveMode() {
     overlay.setAttribute('aria-hidden', 'false');
     document.body.classList.add('live-mode-active');
 
-    // Wake lock — שומר את המסך דלוק
-    try { if ('wakeLock' in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+    // Wake lock — שומר את המסך דלוק (רכישה חוזרת אחרי רקע מטופלת ב-visibilitychange)
+    await _acquireWakeLock();
 
     // Fullscreen — באייפון Safari לרוב נכשל בלי gesture, נסבול בשקט
     try { if (document.documentElement.requestFullscreen && !document.fullscreenElement) await document.documentElement.requestFullscreen(); } catch (e) {}
@@ -5857,6 +5916,8 @@ async function exitWorkoutLiveMode(silent = false) {
     document.body.classList.remove('live-mode-active');
 
     try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) {}
+    // שחרור ה-lock ביציאה — אלא אם הצלילים דולקים (הם מחזיקים lock משלהם בכוונה)
+    if (!soundEnabled) _releaseWakeLock();
     if (!silent) {
         // יציאה מפורשת ע"י המשתמש — מסמן שהוא רוצה את המסך הקלאסי לכל האימון הזה
         _liveModeSuppressed = true;

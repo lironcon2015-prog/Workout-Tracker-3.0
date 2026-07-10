@@ -2127,9 +2127,21 @@
                 <button class="fd-day-arrow" id="fd-day-next" onclick="fdShiftDay(1)" aria-label="יום הבא"><span class="material-symbols-outlined">chevron_left</span></button>
             </div>
             <button class="fd-manage-btn" onclick="fdOpenCustomFoodsManager()" aria-label="ניהול מזונות מותאמים"><span class="material-symbols-outlined">tune</span></button>
-            <input type="date" id="fd-date-input" class="fd-date-input" onchange="fdSetDate(this.value)">
         </div>
         <div class="fd-scroll" id="fd-scroll"></div>
+    </div>
+
+    <!-- לוח שנה לבחירת יום ביומן המזון -->
+    <div id="fd-cal-overlay" class="bottom-sheet-overlay" onclick="fdCloseCal()"></div>
+    <div id="fd-cal-sheet" class="bottom-sheet fd-cal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="fd-cal-head">
+            <button class="fd-cal-nav" onclick="fdCalShiftMonth(-1)" aria-label="חודש קודם"><span class="material-symbols-outlined">chevron_right</span></button>
+            <span class="fd-cal-title" id="fd-cal-title"></span>
+            <button class="fd-cal-nav" id="fd-cal-next" onclick="fdCalShiftMonth(1)" aria-label="חודש הבא"><span class="material-symbols-outlined">chevron_left</span></button>
+        </div>
+        <div class="fd-cal-grid fd-cal-dows"><span>א</span><span>ב</span><span>ג</span><span>ד</span><span>ה</span><span>ו</span><span>ש</span></div>
+        <div class="fd-cal-grid" id="fd-cal-days"></div>
     </div>
 
     <!-- שיט הוספת מזון (חיפוש/אחרונים/מועדפים/מותאמים) -->

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מוקאפ — Avatar + AI בכותרת</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg: #070708;
+    --surface-2: #161619;
+    --surface-4: #26262c;
+    --hairline: rgba(255,255,255,0.06);
+    --r-xs: 8px;
+    --r-lg: 28px;
+    --accent: #0A84FF;
+    --accent-rgb: 10, 132, 255;
+    --text-dim: #8E8E93;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: #0d0d10;
+    color: #fff;
+    font-family: 'Heebo', -apple-system, sans-serif;
+    padding: 40px 20px 80px;
+}
+h1 { font-weight: 900; font-size: 1.6rem; text-align: center; }
+.page-sub { color: var(--text-dim); text-align: center; font-size: 0.85rem; margin: 8px 0 36px; }
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 390px));
+    gap: 28px;
+    justify-content: center;
+}
+.variant { display: flex; flex-direction: column; gap: 10px; }
+.variant-label { font-weight: 900; font-size: 1rem; }
+.variant-label .tag {
+    display: inline-block; font-size: 0.68rem; font-weight: 700;
+    background: var(--surface-4); color: var(--text-dim);
+    border-radius: 9999px; padding: 3px 10px; margin-inline-start: 8px;
+    vertical-align: middle;
+}
+.variant-label .tag.rec { background: rgba(48,209,88,0.15); color: #30D158; }
+.variant-notes { color: var(--text-dim); font-size: 0.78rem; line-height: 1.6; min-height: 3.2em; }
+
+/* ── מסגרת "טלפון" ── */
+.phone {
+    background: var(--bg);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 24px;
+    padding: 18px 16px 22px;
+    overflow: hidden;
+}
+
+/* ── שחזור app-header ── */
+.app-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 8px; position: relative; margin-bottom: 22px;
+}
+.header-slot { display: flex; align-items: center; }
+.brand-logo {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center;
+    line-height: 1; direction: ltr;
+}
+.brand-word {
+    font-weight: 900; font-size: 1.65rem; letter-spacing: 0.02em; text-transform: uppercase;
+    background: linear-gradient(180deg, #ffffff 12%, #c8cdd6 38%, #6e7480 52%, #b6bcc8 66%, #eef1f6 92%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 1px 0 rgba(0,0,0,0.8));
+}
+.brand-glowline {
+    margin-top: 4px; width: 86%; height: 2.5px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent) 30%, #7db8ff 50%, var(--accent) 70%, transparent);
+    box-shadow: 0 0 8px rgba(var(--accent-rgb),0.8), 0 0 18px rgba(var(--accent-rgb),0.45);
+}
+.brand-elite {
+    font-weight: 700; font-size: 0.54rem; letter-spacing: 0.55em; margin-left: 0.55em;
+    color: #5a91c9; margin-top: 4.5px; text-transform: uppercase;
+}
+
+/* ── רכיבים משותפים ── */
+button { background: none; border: none; cursor: pointer; font-family: inherit; }
+.user-avatar {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.16);
+    background: var(--surface-4);
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar-btn { padding: 4px; display: flex; align-items: center; justify-content: center; }
+.ai-svg { display: block; }
+
+/* מצב נוכחי — הצ'יפ המרובע */
+.ai-chip-current {
+    padding: 8px; display: flex; align-items: center; justify-content: center;
+    color: var(--accent); background: rgba(var(--accent-rgb),0.12);
+    border: 1px solid rgba(var(--accent-rgb),0.25); border-radius: var(--r-xs);
+}
+
+/* A1 — עיגול accent */
+.ai-circle-accent {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); background: rgba(var(--accent-rgb),0.12);
+    border: 1.5px solid rgba(var(--accent-rgb),0.35);
+}
+
+/* A2 — עיגול שקט */
+.ai-circle-quiet {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(174,174,178,0.85); background: var(--surface-4);
+    border: 1.5px solid rgba(255,255,255,0.16);
+}
+
+/* B — קפסולה מאוחדת */
+.header-capsule {
+    display: flex; align-items: center;
+    background: var(--surface-4);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 9999px;
+    padding: 3px;
+}
+.header-capsule .cap-divider {
+    width: 1px; height: 20px; background: rgba(255,255,255,0.12); margin: 0 6px;
+}
+.header-capsule .user-avatar { width: 30px; height: 30px; border: none; }
+.header-capsule .cap-ai {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent);
+}
+
+/* D — רובוט רפאים */
+.ai-ghost {
+    padding: 8px; display: flex; align-items: center; justify-content: center;
+    color: rgba(174,174,178,0.7);
+}
+
+/* חץ back (לווריאציה C) */
+.chevron-back {
+    width: 10px; height: 10px;
+    border-right: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    transform: rotate(135deg);
+}
+
+/* רמז תוכן מתחת ל-header כדי לתת הקשר */
+.content-hint { display: flex; flex-direction: column; gap: 10px; opacity: 0.55; }
+.hint-card {
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: var(--r-lg); height: 64px;
+}
+.hint-card.sm { height: 40px; width: 62%; }
+
+.gap-8 { gap: 8px; }
+.gap-5 { gap: 5px; }
+</style>
+</head>
+<body>
+
+<h1>Avatar + AI Coach בכותרת — וריאציות</h1>
+<p class="page-sub">הבעיה: עיגול (avatar) ליד ריבוע מעוגל (AI) — צורות, גדלים ומשקל ויזואלי לא תואמים, בלי רווח ביניהם.</p>
+
+<div class="grid">
+
+    <!-- ═══ 0. מצב נוכחי ═══ -->
+    <div class="variant">
+        <div class="variant-label">0 · מצב נוכחי <span class="tag">v17.12</span></div>
+        <div class="phone">
+            <header class="app-header">
+                <div class="header-slot">
+                    <button class="avatar-btn"><span class="user-avatar"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f0a562'/%3E%3Cstop offset='1' stop-color='%23b3552e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='25' r='11' fill='%23fde3c8'/%3E%3Cpath d='M10 64c2-14 11-21 22-21s20 7 22 21z' fill='%23fde3c8'/%3E%3C/svg%3E" alt=""></span></button>
+                    <button class="ai-chip-current"><svg class="ai-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1" fill="currentColor" stroke="none"/></svg></button>
+                </div>
+                <div class="brand-logo"><span class="brand-word">GYMPRO</span><span class="brand-glowline"></span><span class="brand-elite">ELITE</span></div>
+                <div class="header-slot"></div>
+            </header>
+            <div class="content-hint"><div class="hint-card sm"></div><div class="hint-card"></div></div>
+        </div>
+        <div class="variant-notes">עיגול מול קופסה, שתי שפות עיצוב צמודות בלי רווח. זה מה שרוצים לתקן.</div>
+    </div>
+
+    <!-- ═══ A1 ═══ -->
+    <div class="variant">
+        <div class="variant-label">A1 · עיגולים אחידים — accent <span class="tag rec">מומלץ</span></div>
+        <div class="phone">
+            <header class="app-header">
+                <div class="header-slot gap-8">
+                    <button class="avatar-btn" style="padding:0;"><span class="user-avatar"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f0a562'/%3E%3Cstop offset='1' stop-color='%23b3552e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='25' r='11' fill='%23fde3c8'/%3E%3Cpath d='M10 64c2-14 11-21 22-21s20 7 22 21z' fill='%23fde3c8'/%3E%3C/svg%3E" alt=""></span></button>
+                    <button style="padding:0;"><span class="ai-circle-accent"><svg class="ai-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1" fill="currentColor" stroke="none"/></svg></span></button>
+                </div>
+                <div class="brand-logo"><span class="brand-word">GYMPRO</span><span class="brand-glowline"></span><span class="brand-elite">ELITE</span></div>
+                <div class="header-slot"></div>
+            </header>
+            <div class="content-hint"><div class="hint-card sm"></div><div class="hint-card"></div></div>
+        </div>
+        <div class="variant-notes">שני עיגולי 32px זהים + רווח 8px. ה-AI שומר על זהות ה-accent אבל באותה צורה ומשקל. סגנון Apple Fitness. שינוי CSS בלבד.</div>
+    </div>
+
+    <!-- ═══ A2 ═══ -->
+    <div class="variant">
+        <div class="variant-label">A2 · עיגולים אחידים — שקט</div>
+        <div class="phone">
+            <header class="app-header">
+                <div class="header-slot gap-8">
+                    <button class="avatar-btn" style="padding:0;"><span class="user-avatar"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f0a562'/%3E%3Cstop offset='1' stop-color='%23b3552e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='25' r='11' fill='%23fde3c8'/%3E%3Cpath d='M10 64c2-14 11-21 22-21s20 7 22 21z' fill='%23fde3c8'/%3E%3C/svg%3E" alt=""></span></button>
+                    <button style="padding:0;"><span class="ai-circle-quiet"><svg class="ai-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1" fill="currentColor" stroke="none"/></svg></span></button>
+                </div>
+                <div class="brand-logo"><span class="brand-word">GYMPRO</span><span class="brand-glowline"></span><span class="brand-elite">ELITE</span></div>
+                <div class="header-slot"></div>
+            </header>
+            <div class="content-hint"><div class="hint-card sm"></div><div class="hint-card"></div></div>
+        </div>
+        <div class="variant-notes">כמו A1 אבל בלי accent — רקע surface-4 ואייקון אפור, אותה מסגרת כמו האווטאר. הכי אחיד ושקט; ה-AI מאבד קצת בולטות.</div>
+    </div>
+
+    <!-- ═══ B ═══ -->
+    <div class="variant">
+        <div class="variant-label">B · קפסולה מאוחדת</div>
+        <div class="phone">
+            <header class="app-header">
+                <div class="header-slot">
+                    <div class="header-capsule">
+                        <button style="padding:0;"><span class="user-avatar"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f0a562'/%3E%3Cstop offset='1' stop-color='%23b3552e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='25' r='11' fill='%23fde3c8'/%3E%3Cpath d='M10 64c2-14 11-21 22-21s20 7 22 21z' fill='%23fde3c8'/%3E%3C/svg%3E" alt=""></span></button>
+                        <span class="cap-divider"></span>
+                        <button style="padding:0;"><span class="cap-ai"><svg class="ai-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1" fill="currentColor" stroke="none"/></svg></span></button>
+                    </div>
+                </div>
+                <div class="brand-logo"><span class="brand-word">GYMPRO</span><span class="brand-glowline"></span><span class="brand-elite">ELITE</span></div>
+                <div class="header-slot"></div>
+            </header>
+            <div class="content-hint"><div class="hint-card sm"></div><div class="hint-card"></div></div>
+        </div>
+        <div class="variant-notes">שניהם בקפסולת pill אחת עם מפריד hairline — cluster בסגנון iOS. מלוטש, אבל דורש שינוי HTML והסתרת האווטאר במסכי אימון תשאיר "חצי קפסולה".</div>
+    </div>
+
+    <!-- ═══ C ═══ -->
+    <div class="variant">
+        <div class="variant-label">C · הפרדה לצדדים</div>
+        <div class="phone">
+            <header class="app-header">
+                <div class="header-slot">
+                    <button class="avatar-btn" style="padding:0;"><span class="user-avatar"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f0a562'/%3E%3Cstop offset='1' stop-color='%23b3552e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='25' r='11' fill='%23fde3c8'/%3E%3Cpath d='M10 64c2-14 11-21 22-21s20 7 22 21z' fill='%23fde3c8'/%3E%3C/svg%3E" alt=""></span></button>
+                </div>
+                <div class="brand-logo"><span class="brand-word">GYMPRO</span><span class="brand-glowline"></span><span class="brand-elite">ELITE</span></div>
+                <div class="header-slot">
+                    <button style="padding:0;"><span class="ai-circle-accent"><svg class="ai-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1" fill="currentColor" stroke="none"/></svg></span></button>
+                </div>
+            </header>
+            <div class="content-hint"><div class="hint-card sm"></div><div class="hint-card"></div></div>
+        </div>
+        <div class="variant-notes">אווטאר בקצה הימני, AI בקצה השמאלי (איפה שהיה הגלגל) — סימטריה מלאה סביב הלוגו. דורש תיאום עם כפתור ה-back שחולק את הצד השמאלי.</div>
+    </div>
+
+    <!-- ═══ D ═══ -->
+    <div class="variant">
+        <div class="variant-label">D · רובוט רפאים</div>
+        <div class="phone">
+            <header class="app-header">
+                <div class="header-slot gap-5">
+                    <button class="avatar-btn" style="padding:0;"><span class="user-avatar"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f0a562'/%3E%3Cstop offset='1' stop-color='%23b3552e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='25' r='11' fill='%23fde3c8'/%3E%3Cpath d='M10 64c2-14 11-21 22-21s20 7 22 21z' fill='%23fde3c8'/%3E%3C/svg%3E" alt=""></span></button>
+                    <button class="ai-ghost"><svg class="ai-svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1" fill="currentColor" stroke="none"/></svg></button>
+                </div>
+                <div class="brand-logo"><span class="brand-word">GYMPRO</span><span class="brand-glowline"></span><span class="brand-elite">ELITE</span></div>
+                <div class="header-slot"></div>
+            </header>
+            <div class="content-hint"><div class="hint-card sm"></div><div class="hint-card"></div></div>
+        </div>
+        <div class="variant-notes">בלי קופסה בכלל — אייקון אפור שקט בסגנון הגלגל הישן. האווטאר נשאר האלמנט הבולט היחיד. מינימליסטי, אבל ה-AI Coach מאבד נוכחות.</div>
+    </div>
+
+</div>
+
+</body>
+</html>

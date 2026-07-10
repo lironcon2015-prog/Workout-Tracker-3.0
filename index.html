@@ -2131,17 +2131,19 @@
         <div class="fd-scroll" id="fd-scroll"></div>
     </div>
 
-    <!-- לוח שנה לבחירת יום ביומן המזון -->
+    <!-- לוח שנה לבחירת יום ביומן המזון — אותה שפה ויזואלית כמו לוח הארכיון -->
     <div id="fd-cal-overlay" class="bottom-sheet-overlay" onclick="fdCloseCal()"></div>
     <div id="fd-cal-sheet" class="bottom-sheet fd-cal-sheet">
         <div class="sheet-handle"></div>
-        <div class="fd-cal-head">
-            <button class="fd-cal-nav" onclick="fdCalShiftMonth(-1)" aria-label="חודש קודם"><span class="material-symbols-outlined">chevron_right</span></button>
-            <span class="fd-cal-title" id="fd-cal-title"></span>
-            <button class="fd-cal-nav" id="fd-cal-next" onclick="fdCalShiftMonth(1)" aria-label="חודש הבא"><span class="material-symbols-outlined">chevron_left</span></button>
+        <div class="calendar-header">
+            <button class="month-nav-btn" onclick="fdCalShiftMonth(-1)" aria-label="חודש קודם">❮</button>
+            <span id="fd-cal-title" class="current-month-display"></span>
+            <button class="month-nav-btn" id="fd-cal-next" onclick="fdCalShiftMonth(1)" aria-label="חודש הבא">❯</button>
         </div>
-        <div class="fd-cal-grid fd-cal-dows"><span>א</span><span>ב</span><span>ג</span><span>ד</span><span>ה</span><span>ו</span><span>ש</span></div>
-        <div class="fd-cal-grid" id="fd-cal-days"></div>
+        <div class="calendar-grid">
+            <div class="day-name">א</div><div class="day-name">ב</div><div class="day-name">ג</div><div class="day-name">ד</div><div class="day-name">ה</div><div class="day-name">ו</div><div class="day-name">ש</div>
+        </div>
+        <div id="fd-cal-days" class="calendar-grid"></div>
     </div>
 
     <!-- שיט הוספת מזון (חיפוש/אחרונים/מועדפים/מותאמים) -->

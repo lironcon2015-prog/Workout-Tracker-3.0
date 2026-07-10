@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 17.09
+## גרסה נוכחית: 17.12
 
 ## יומן מזון — לוח שנה + יתרה שבועית (v17.08–17.09)
 
@@ -223,7 +223,8 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 | 8 | inline styles ב-`index.html` עם radius/spacing קשיחים — מחוץ לתחולת Polish (P3) | נמוכה |
 | 9 | transitions מ-JS לא על טוקני מושן: sheet snap-back (`workout-core.js`), טבעת (`food-logic.js`) | נמוכה |
 | 7 | ✅ נפתר (v16.81) — עריכת סט details-only כעת בונה מחדש את הסטרינג לפי mode (kg/פלטות/BW), לא קשיח kg | — |
-| 10 | **Audit v17.05** (`docs/BUG_AUDIT_v17.05.md`) — 23 ממצאים + קוד מת. עיקריים: תיקון thinking של Gemini 3 קיים רק ב-`_callGeminiOneShot` ולא ב-6 קריאות ה-API האחרות; `_editAliasGroup` מוחק קבוצה לפני אישור (אובדן בביטול); wakeLock לא משוחרר/לא נרכש מחדש אחרי רקע; TM/weights/RM לא בסנכרון הענן; `openExerciseSettings` תוך-אימון בלתי נגיש (קוד מת/רגרסיה) | גבוהה |
+| 10 | ✅ נפתר ברובו (v17.12) — **Audit v17.05** (`docs/BUG_AUDIT_v17.05.md`): תוקנו #1-#18, #20-#23 + נוקה הקוד המת (zxing 332KB, ‎~450 שורות CSS מת, פונקציות ללא קוראים). קריאות Gemini מאוחדות כעת ב-`_geminiRequest` (workout-core) — **אין לשכפל לולאת fetch, להשתמש בה**. נותרו פתוחים: `openExerciseSettings` תוך-אימון (דורש הכרעת מוצר — להחזיר entry point או למחוק), תנאי מת ב-`_fdMealsHTML` (הושאר בכוונה), ותמונות unsplash שהן עדיין דומיין חיצוני אך נתפסות כעת ב-runtime cache של ה-SW | בינונית |
+| 11 | `getArchive()` מפרסר את כל ה-JSON בכל קריאה (51 אתרי קריאה) ו-`renderArchiveList` בונה DOM לכל ההיסטוריה גם בחודשים מכווצים — ישלם ריבית ככל שהארכיון גדל. פתרון עתידי: memo-cache שמתבטל ב-save + בניית חודש עצלה | נמוכה |
 
 ---
 

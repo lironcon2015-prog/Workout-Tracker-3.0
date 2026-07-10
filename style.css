@@ -64,6 +64,7 @@
     --type-c: #ffb868;
     --type-c-rgb: 255, 184, 104;
     --type-free: #5E5CE6;
+    --type-free-soft: #9F9CFF;    /* נגזרת בהירה לטקסט על כהה (מספר ממוזג ביומן) */
     --danger: #ff453a;
     --danger-rgb: 255, 69, 58;
     --danger-soft: #ff6b6b;       /* P2: אדום רך לטקסט קטן על כהה (קריאות) */
@@ -6086,6 +6087,24 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-ring-num { font-family: 'Heebo', sans-serif; font-weight: 200; font-size: 3.6rem; line-height: 0.9; color: #fff; letter-spacing: -0.04em; }
 .fd-ring-num.over { color: var(--danger); }
 .fd-ring-lbl { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; text-transform: uppercase; letter-spacing: 0.22em; }
+/* chip יתרה שבועית בתוך הטבעת — לחיצה ממזגת את היתרה ל"נותרו" (טוגל תצוגה).
+   ההורה .fd-ring-center הוא pointer-events:none — לכן auto מפורש כאן */
+.fd-wkbal-ring {
+    pointer-events: auto;
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 7px; padding: 4px 12px;
+    background: var(--surface-4); border: 1px solid var(--hairline);
+    border-radius: var(--r-pill);
+    font-family: inherit; font-size: var(--fs-xs); font-weight: 700;
+    color: var(--text-dim); letter-spacing: 0.02em; cursor: pointer;
+    transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.fd-wkbal-ring b { font-weight: 800; font-size: 0.78rem; letter-spacing: -0.01em; }
+.fd-wkbal-ring b.pos { color: var(--success); }
+.fd-wkbal-ring b.neg { color: var(--danger-soft); }
+.fd-wkbal-ring.active { background: rgba(255,255,255,0.09); border-color: var(--hairline-hi); color: var(--text); }
+/* מספר ממוזג — אינדיגו קבוע לשני הכיוונים: מסמן "תצוגה משולבת", לא טוב/רע */
+.fd-ring-num.merged { color: var(--type-free-soft); }
 /* נצרכו / יעד */
 .fd-kcal-caption { position: relative; z-index: 1; display: flex; align-items: stretch; justify-content: center; margin: 18px 0 6px; }
 .fd-kcap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 14.11.0</title>
+    <title>GymPro Elite</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" id="meta-theme-color" content="#070708">
@@ -1652,7 +1652,7 @@
 
                     <!-- PR Card -->
                     <div class="obsidian-card pr-card" id="pr-expand-card">
-                        <div class="pr-header" onclick="togglePRCard()">
+                        <div class="pr-header">
                             <div style="display:flex; align-items:center; gap:12px;">
                                 <div class="pr-icon"><span class="material-symbols-outlined icon-fill" style="font-size:20px;">trophy</span></div>
                                 <div>
@@ -2399,7 +2399,7 @@
 
     <!-- מצב עריכת תמונות רקע (מופעל מההגדרות). כפתורים מוסתרים עד כניסה למצב עריכה. -->
     <button id="bg-lab" onclick="cycleBg()" style="display:none;position:fixed;bottom:150px;left:50%;transform:translateX(-50%);z-index:500;background:var(--accent);color:#fff;border:none;border-radius:9999px;padding:11px 20px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;max-width:92vw;white-space:nowrap;">לחץ להחלפת רקע</button>
-    <button id="bg-save" onclick="saveBgEdit()" style="display:none;position:fixed;bottom:104px;left:50%;transform:translateX(-50%);z-index:500;background:#47e266;color:#0a0a0a;border:none;border-radius:9999px;padding:11px 24px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;">✓ שמור וסיום</button>
+    <button id="bg-save" onclick="saveBgEdit()" style="display:none;position:fixed;bottom:104px;left:50%;transform:translateX(-50%);z-index:500;background:var(--success);color:#0a0a0a;border:none;border-radius:9999px;padding:11px 24px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;">✓ שמור וסיום</button>
     <script>
     (function(){
         var KEY = 'gympro-bg-choices-v2';
@@ -2515,7 +2515,7 @@
             document.getElementById('bg-lab').style.display = 'none';
             document.getElementById('bg-save').style.display = 'none';
             applyAll();
-            if (typeof showCloudToast === 'function') showCloudToast('תמונות הרקע נשמרו ✓');
+            if (typeof showCloudToast === 'function') showCloudToast('תמונות הרקע נשמרו ✓', true);
         };
     })();
     </script>

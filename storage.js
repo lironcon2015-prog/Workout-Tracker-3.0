@@ -1,6 +1,6 @@
 /**
  * GymPro Elite - Storage Manager
- * Version: 14.11.0
+ * (הגרסה הנוכחית: ראה version.json)
  * Handles all LocalStorage operations. No native alert/confirm.
  */
 
@@ -507,11 +507,15 @@ const StorageManager = {
         const prefs = this.getAnalyticsPrefs();
         const configData = {
             type: 'config_only',
-            version: '14.11.0',
+            version: (typeof window !== 'undefined' && window._gymproVersion) || 'unknown',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
             meta: this.getData(this.KEY_META),
+            exerciseTM: this.getData(this.KEY_EXERCISE_TM) || {},
+            lastWeights: this.getData(this.KEY_WEIGHTS) || {},
+            rmHistory: this.getData(this.KEY_RM) || {},
+            hiddenThumbs: this.getData('gympro_hidden_thumbs') || [],
             aliases: prefs.workoutAliases || {},
             nutrition: this.getNutritionalState(),
             nutritionLog: this.getNutritionLog(),
@@ -562,6 +566,10 @@ const StorageManager = {
             this.saveData(this.KEY_DB_WORKOUTS, data.workouts);
             this.saveData(this.KEY_DB_EXERCISES, data.exercises);
             if (data.meta) this.saveData(this.KEY_META, data.meta);
+            if (data.exerciseTM)   this.saveData(this.KEY_EXERCISE_TM, data.exerciseTM);
+            if (data.lastWeights)  this.saveData(this.KEY_WEIGHTS, data.lastWeights);
+            if (data.rmHistory)    this.saveData(this.KEY_RM, data.rmHistory);
+            if (data.hiddenThumbs) this.saveData('gympro_hidden_thumbs', data.hiddenThumbs);
             // מיזוג prefs — מעדכן שדות ספציפיים בלי לדרוס שדות שאינם בקובץ
             const prefs = this.getAnalyticsPrefs();
             if (data.aliases)        prefs.workoutAliases    = data.aliases;
@@ -1620,6 +1628,12 @@ const FirebaseManager = {
                 bodyProfile:    StorageManager.getBodyProfile(),
                 bodylog:        StorageManager.getBodyLog(),
                 coachPrompts:   StorageManager.getData(StorageManager.KEY_COACH_PROMPTS) || {},
+                // v17.12: TM/משקלים אחרונים/היסטוריית 1RM/תמונות מוסתרות — בלעדיהם שחזור
+                // מכשיר מהענן איבד בשקט את ה-TM, ה-prefill והעדפות בוחר התמונות
+                exerciseTM:     StorageManager.getData(StorageManager.KEY_EXERCISE_TM) || {},
+                lastWeights:    StorageManager.getData(StorageManager.KEY_WEIGHTS) || {},
+                rmHistory:      StorageManager.getData(StorageManager.KEY_RM) || {},
+                hiddenThumbs:   StorageManager.getData('gympro_hidden_thumbs') || [],
                 updatedAt:      Date.now()
             };
             await this._db.collection('gympro_data').doc('config').set(configData);
@@ -1682,6 +1696,10 @@ const FirebaseManager = {
         if (data.bodyProfile)    StorageManager.saveData(StorageManager.KEY_BODY_PROFILE, data.bodyProfile);
         if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
         if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
+        if (data.exerciseTM)     StorageManager.saveData(StorageManager.KEY_EXERCISE_TM, data.exerciseTM);
+        if (data.lastWeights)    StorageManager.saveData(StorageManager.KEY_WEIGHTS, data.lastWeights);
+        if (data.rmHistory)      StorageManager.saveData(StorageManager.KEY_RM, data.rmHistory);
+        if (data.hiddenThumbs)   StorageManager.saveData('gympro_hidden_thumbs', data.hiddenThumbs);
     },
 
     // ── Upload All (העלאה ראשונית) ────────────────────────────────────────────

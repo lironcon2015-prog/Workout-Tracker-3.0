@@ -482,7 +482,9 @@ function _renderNutritionDaily(allDays) {
     card.classList.toggle('bl-daily-live', isToday);
     const liveBadge = isToday ? `<span class="bl-live-badge"><span class="bl-live-dot"></span>LIVE</span>` : '';
     const title = (isToday ? 'תזונה היום' : `יום אחרון <small>— ${_blListDate(latest.date)}</small>`) + liveBadge;
-    const foot = [`מקור: ${latest.src === 'health' ? 'Apple Health' : 'MyFitnessPal'}`];
+    // תווית מקור מלאה — כולל 'app' (תיעוד פנימי) שקודם הוצג בטעות כ-MyFitnessPal
+    const srcLabels = { health: 'Apple Health', app: 'תיעוד ידני' };
+    const foot = [`מקור: ${srcLabels[latest.src] || 'MyFitnessPal'}`];
     const lastSync = StorageManager.getHealthLastSync();
     if (lastSync) {
         const d = new Date(lastSync);
@@ -1155,25 +1157,14 @@ async function _callGeminiVision(base64, mimeType) {
     const prompt = 'אתה קורא תצוגה של משקל חכם מתוך תמונה. החזר JSON בלבד: {"weight": number|null, "bodyFat": number|null}. ' +
         'weight = משקל גוף בק"ג (מספר עשרוני). bodyFat = אחוז שומן (מספר, ללא סימן %). אם ערך לא קריא או לא קיים בתמונה — החזר null עבורו. אל תכלול טקסט נוסף.';
     const parts = [{ text: prompt }, { inlineData: { mimeType, data: base64 } }];
-    const generationConfig = { temperature: 0.1, maxOutputTokens: 120, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
-    let lastErr = '';
-    for (const modelName of config.models) {
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
-            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig }) });
-            if (!resp.ok) {
-                if ([400, 404, 429, 503].includes(resp.status)) { lastErr = `${modelName}:${resp.status}`; continue; } // מודל לא תומך/עמוס — נסה הבא
-                throw new Error('API_ERROR_' + resp.status);
-            }
-            const data = await resp.json();
-            const txt = (data.candidates?.[0]?.content?.parts || []).find(p => !p.thought)?.text || '';
-            const parsed = JSON.parse(txt);
-            const w = (typeof parsed.weight === 'number') ? parsed.weight : null;
-            const bf = (typeof parsed.bodyFat === 'number') ? parsed.bodyFat : null;
-            return { weight: w, bodyFat: bf };
-        } catch (e) { lastErr = e.message || String(e); }
-    }
-    throw new Error(lastErr || 'VISION_FAILED');
+    // תחבורה דרך השכבה המשותפת (workout-core) — thinking מותאם-מודל + מודל מועדף
+    const parsed = await _geminiRequest({
+        contents: [{ role: 'user', parts }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 120, responseMimeType: 'application/json' }
+    }, { json: true, timeoutMs: 45000 });
+    const w = (typeof parsed.weight === 'number') ? parsed.weight : null;
+    const bf = (typeof parsed.bodyFat === 'number') ? parsed.bodyFat : null;
+    return { weight: w, bodyFat: bf };
 }
 
 // ─── ייבוא CSV / Excel ───────────────────────────────────────────────────────

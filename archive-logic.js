@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS LOGIC
- * Version: 15.8
+ * (הגרסה הנוכחית: ראה version.json)
  * שינויים: אנליטיקה - תצוגת Stitch Perfect (Bento, Bezier, Liquid Obsidian).
  */
 
@@ -68,11 +68,6 @@ function switchArchiveView(view) {
 
     if (view === 'list') renderArchiveList();
     else renderCalendar();
-}
-
-function getLastPerformance(exName) {
-    const all = getLastPerformances(exName, 1);
-    return all.length ? all[0] : null;
 }
 
 // מחזיר עד `limit` ביצועים אחרונים של תרגיל בארכיון — מהחדש לישן
@@ -155,7 +150,7 @@ function createArchiveCard(item) {
         <div class="archive-card-main" onclick="openArchiveDetail(${idx})">
             <div class="archive-card-body">
                 <div class="archive-card-info">
-                    <span class="archive-card-title">${item.type}</span>
+                    <span class="archive-card-title">${escapeHtml(item.type)}</span>
                     <span class="archive-card-date">${item.week && item.week !== 'deload' ? 'שבוע ' + item.week + ' • ' : item.week === 'deload' ? 'דילואוד • ' : ''}${item.date || ''} • ${item.time || ''}</span>
                 </div>
                 <div class="archive-card-thumbnail" style="background-image:url('${thumbUrl}');"></div>
@@ -338,7 +333,7 @@ function buildArchiveDetailHTML(item) {
 
     let html = `<div class="summary-overview-card">
         <div class="summary-overview-col">
-            <div class="summary-overview-val" style="color:${typeColor}">${item.type}</div>
+            <div class="summary-overview-val" style="color:${typeColor}">${escapeHtml(item.type)}</div>
             <div class="summary-overview-label">סוג אימון</div>
         </div>
         <div class="summary-overview-col">
@@ -356,7 +351,7 @@ function buildArchiveDetailHTML(item) {
     </div>`;
 
     if (item.note) {
-        html += `<div class="summary-ex-card" style="font-size:0.9em;color:var(--text-dim);margin-bottom:10px;">הערה: ${item.note}</div>`;
+        html += `<div class="summary-ex-card" style="font-size:0.9em;color:var(--text-dim);margin-bottom:10px;">הערה: ${escapeHtml(item.note)}</div>`;
     }
 
     if (item.log && item.log.length > 0) {
@@ -388,7 +383,7 @@ function buildArchiveDetailHTML(item) {
                 });
                 html += `<div class="summary-ex-card">
                     <div class="summary-ex-header">
-                        <div class="summary-ex-title">${exName}</div>
+                        <div class="summary-ex-title">${escapeHtml(exName)}</div>
                         <div class="summary-ex-vol">${volStr}</div>
                     </div>
                     ${setRows}
@@ -410,7 +405,7 @@ function buildArchiveDetailHTML(item) {
                         clusterHtml += `<div class="summary-set-row">
                             <div class="summary-set-num">${i + 1}</div>
                             <div class="summary-set-details">
-                                <span class="summary-cluster-ex-name">${entry.exName}</span>
+                                <span class="summary-cluster-ex-name">${escapeHtml(entry.exName)}</span>
                                 ${_fmtW(entry)} x ${entry.r} (RIR ${rir}${noteStr})
                             </div>
                         </div>`;
@@ -462,7 +457,7 @@ function buildArchiveDetailHTML(item) {
             });
             html += `<div class="summary-ex-card">
                 <div class="summary-ex-header">
-                    <div class="summary-ex-title">${exName}</div>
+                    <div class="summary-ex-title">${escapeHtml(exName)}</div>
                     <div class="summary-ex-vol">${volStr}</div>
                 </div>
                 ${setRows}
@@ -563,14 +558,19 @@ function enterArchiveEditMode() {
 
 function exitArchiveEditMode() {
     _archiveEditMode = false;
-    _archiveEditItem = null;
-    _archiveEditTimestamp = null;
+    const ts = _archiveEditTimestamp;
 
     document.getElementById('archive-detail-actions').style.display = 'flex';
     document.getElementById('archive-edit-actions').style.display = 'none';
     document.getElementById('archive-detail-note-editor').style.display = 'none';
 
-    // חזור לתצוגה רגילה — פתח מחדש
+    // ביטול = חזרה למסך פרטי האימון (לא לרשימה), עם הדאטה המקורית מהאחסון —
+    // openArchiveDetail קורא מחדש מ-storage ולכן זורק את העריכות שלא נשמרו
+    const idx = StorageManager.getArchive().findIndex(w => w.timestamp === ts);
+    if (idx >= 0) { openArchiveDetail(idx); return; }
+
+    _archiveEditItem = null;
+    _archiveEditTimestamp = null;
     navigate('ui-archive');
 }
 
@@ -594,7 +594,7 @@ function _buildArchiveEditHTML_withLog(item) {
 
     let html = `<div class="summary-overview-card">
         <div class="summary-overview-col">
-            <div class="summary-overview-val" style="color:${typeColor}">${item.type}</div>
+            <div class="summary-overview-val" style="color:${typeColor}">${escapeHtml(item.type)}</div>
             <div class="summary-overview-label">סוג אימון</div>
         </div>
         <div class="summary-overview-col">
@@ -645,7 +645,7 @@ function _buildArchiveEditHTML_withLog(item) {
             });
             html += `<div class="summary-ex-card">
                 <div class="summary-ex-header">
-                    <div class="summary-ex-title">${exName}</div>
+                    <div class="summary-ex-title">${escapeHtml(exName)}</div>
                     <div class="summary-ex-vol">${volStr}</div>
                 </div>
                 ${setRows}
@@ -668,7 +668,7 @@ function _buildArchiveEditHTML_withLog(item) {
                     clusterHtml += `<div class="summary-set-row archive-edit-set" onclick="openArchiveSetEditor(${logIdx})">
                         <div class="summary-set-num">${i + 1}</div>
                         <div class="summary-set-details">
-                            <span class="summary-cluster-ex-name">${entry.exName}</span>
+                            <span class="summary-cluster-ex-name">${escapeHtml(entry.exName)}</span>
                             ${_fmtW(entry)} x ${entry.r} (RIR ${rir}${noteStr})
                         </div>
                         <span class="material-symbols-outlined archive-edit-icon">edit</span>
@@ -697,7 +697,7 @@ function _buildArchiveEditHTML_detailsOnly(item) {
 
     let html = `<div class="summary-overview-card">
         <div class="summary-overview-col">
-            <div class="summary-overview-val" style="color:${typeColor}">${item.type}</div>
+            <div class="summary-overview-val" style="color:${typeColor}">${escapeHtml(item.type)}</div>
             <div class="summary-overview-label">סוג אימון</div>
         </div>
         <div class="summary-overview-col">
@@ -936,9 +936,18 @@ function _recalcExVolume(exName) {
 
 // בניית summary מחדש
 function _rebuildArchiveSummary(item) {
+    // Freestyle מזוהה לפי type — שדה week הוא תמיד מספר/'deload' (הרשומה לא שומרת isFreestyle)
     const weekLabel = item.week === 'deload' ? 'Deload' :
-                      item.week === 'Freestyle' ? 'Freestyle' :
+                      (item.type === 'Freestyle' || item.week === 'Freestyle') ? 'Freestyle' :
                       item.week ? `Week ${item.week}` : '';
+
+    // שימור תגיות (Main, TM: X) מהסיכום המקורי — למידע הזה אין שדה ברשומה
+    const _origSummary = item.summary || '';
+    const _mainTagOf = (exName) => {
+        const esc = String(exName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const m = _origSummary.match(new RegExp('^' + esc + '( \\(Main(?:, TM: [^)]*)?\\))', 'm'));
+        return m ? m[1] : '';
+    };
 
     // שחזור תאריך מ-timestamp
     const now = new Date(item.timestamp);
@@ -971,7 +980,7 @@ function _rebuildArchiveSummary(item) {
                 const exVol = (item.details && item.details[exName]) ? item.details[exName].vol : 0;
                 const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
                 const uniTag = isUnilateral(exName) ? ' (צד אחד)' : '';
-                lines.push(`${exName}${uniTag} (Vol: ${volStr}):`);
+                lines.push(`${exName}${_mainTagOf(exName)}${uniTag} (Vol: ${volStr}):`);
                 seg.sets.forEach(entry => {
                     const rir = entry.rir !== undefined ? entry.rir : '—';
                     const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
@@ -1327,7 +1336,7 @@ function renderHeroMetricsGrid(archive) {
             <span class="material-symbols-outlined bento-icon-bg">schedule</span>
             <div class="bento-lbl">זמן כולל</div>
             <div class="bento-val font-headline italic-black" style="color:var(--text);">${Math.round(totalDurMins / 60)}<span class="inline-unit">שעות</span></div>
-            ${avgDur ? `<div class="bento-sub" style="color:#47e266;">ממוצע ${avgDur} דקות</div>` : ''}
+            ${avgDur ? `<div class="bento-sub" style="color:var(--success);">ממוצע ${avgDur} דקות</div>` : ''}
         </div>
         <div class="bento-card glass-card m-0" style="margin:0;">
             <span class="material-symbols-outlined bento-icon-bg">calendar_today</span>
@@ -1461,6 +1470,7 @@ function closeAliasSheet() {
 
 function _renderAliasStep1() {
     _aliasStep = 1;
+    _aliasEditingGroup = null;   // חזרה לרשימה = יציאה ממצב עריכה (שלא תימחק קבוצה ישנה בשמירה הבאה)
     const prefs = getAnalyticsPrefs();
     const aliases = prefs.workoutAliases || {};
     const archive = getArchiveClean();
@@ -1547,8 +1557,7 @@ function _editAliasGroup(g) {
     _aliasGroupName = g;
     _aliasEditingGroup = g;
     _aliasSelectedColor = (prefs.workoutAliasColors || {})[g] || '';
-    delete prefs.workoutAliases[g];
-    saveAnalyticsPrefs(prefs);
+    // המחיקה של הקבוצה הישנה נדחית ל-_saveAliasGroup — ביטול/סגירת ה-sheet לא מאבד אותה
     _renderAliasStep2();
 }
 
@@ -1576,7 +1585,7 @@ function _renderAliasStep2() {
         <div class="alias-name-field">
             <div class="alias-name-lbl">שם תצוגה מקוצר</div>
             <input class="alias-name-input" id="alias-name-inp" type="text"
-                value="${suggested}"
+                value="${escapeHtml(suggested)}"
                 placeholder="לדוגמה: חזה"
                 oninput="_onAliasNameInput(this.value)"
                 onkeydown="if(event.key==='Enter')_renderAliasStep3()">
@@ -1587,7 +1596,7 @@ function _renderAliasStep2() {
         </div>
         <div class="alias-preview-box">
             <div class="alias-preview-lbl">אימונים שיאוחדו</div>
-            ${selArr.map(n => `<span class="alias-preview-tag">${n}</span>`).join('')}
+            ${selArr.map(n => `<span class="alias-preview-tag">${escapeHtml(n)}</span>`).join('')}
         </div>
         <button class="btn-main primary-gradient" id="alias-btn-step3" ${suggested ? '' : 'disabled'} onclick="_renderAliasStep3()">המשך</button>
         <button class="btn-text" onclick="_renderAliasStep1()">⟵ חזור</button>`;
@@ -1628,11 +1637,11 @@ function _renderAliasStep3() {
     const html = `<div class="sh-title">אישור איחוד</div>
         <div class="sheet-content" style="font-size:0.78em;color:var(--text-dim);margin-bottom:18px;">כך זה ייראה לאחר השמירה:</div>
         <div class="alias-confirm-box">
-            <div class="alias-confirm-name">${_aliasGroupName}</div>
+            <div class="alias-confirm-name">${escapeHtml(_aliasGroupName)}</div>
             <div style="font-size:0.72em;color:var(--text-dim);margin-bottom:6px;">${totalCount} אימונים · ממוצע ${avgStr}</div>
             <div class="alias-confirm-arrow">מכיל ↓</div>
             <div class="alias-confirm-tags">
-                ${selArr.map(n => `<span class="alias-confirm-tag">${n}</span>`).join('')}
+                ${selArr.map(n => `<span class="alias-confirm-tag">${escapeHtml(n)}</span>`).join('')}
             </div>
         </div>
         <button class="btn-main success-gradient" onclick="_saveAliasGroup()">✓ שמור קבוצה</button>
@@ -1645,6 +1654,11 @@ function _saveAliasGroup() {
     const prefs = getAnalyticsPrefs();
     if (!prefs.workoutAliases) prefs.workoutAliases = {};
     if (!prefs.workoutAliasColors) prefs.workoutAliasColors = {};
+    // עריכה ששינתה שם — הקבוצה הישנה נמחקת רק עכשיו, ברגע השמירה
+    if (_aliasEditingGroup && _aliasEditingGroup !== _aliasGroupName) {
+        delete prefs.workoutAliases[_aliasEditingGroup];
+        delete prefs.workoutAliasColors[_aliasEditingGroup];
+    }
     prefs.workoutAliases[_aliasGroupName] = [..._aliasSelected];
     if (_aliasSelectedColor) {
         prefs.workoutAliasColors[_aliasGroupName] = _aliasSelectedColor;
@@ -1787,7 +1801,7 @@ function populateMicroSelector(archive) {
     }
 
     const current = sel.value;
-    sel.innerHTML = sorted.map(e => `<option value="${e}">${e}</option>`).join('');
+    sel.innerHTML = sorted.map(e => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
     if (current && exMap[current]) sel.value = current;
     
     const display = document.getElementById('micro-ex-display');
@@ -1812,7 +1826,7 @@ function openMicroSortSheet() {
     const content = document.getElementById('micro-sort-content'); if (!content) return;
     content.innerHTML = order.map((ex, i) => `
         <div class="micro-sort-row">
-            <span class="micro-sort-name">${ex}</span>
+            <span class="micro-sort-name">${escapeHtml(ex)}</span>
             <div class="micro-sort-btns">
                 <button class="micro-sort-btn" onclick="moveMicroOrder(${i}, -1)" ${i === 0 ? 'disabled' : ''}>↑</button>
                 <button class="micro-sort-btn" onclick="moveMicroOrder(${i}, 1)" ${i === order.length - 1 ? 'disabled' : ''}>↓</button>
@@ -2103,8 +2117,6 @@ function renderPRCard(exName, relevant, prefs) {
     document.getElementById('pr-card-reps').textContent = prW ? prR : '—';
     document.getElementById('pr-card-rir').textContent = prW ? prRIR : '—';
 }
-
-function togglePRCard() {}
 
 // ════════════════════════════════════════════════════════════════════
 // ─── SPRINT 3 — ANALYTICS ENGINE ────────────────────────────────────
@@ -2942,7 +2954,10 @@ function _homePRDrawChart(sessions, _all) {
     const prPt  = pts[prIdx];
     const labelY  = Math.max(prPt[1] - 14, pT - 2);
     const labelX  = Math.min(Math.max(prPt[0], 18), W - 18);
-    const colAlpha = col === '#0A84FF' ? 'rgba(10,132,255,0.22)' : 'rgba(255,159,10,0.22)';
+    // גזירת ה-gradient מצבע הקו עצמו — קודם bench (ירוק) קיבל בטעות gradient כתום
+    const colAlpha = /^#[0-9a-f]{6}$/i.test(col)
+        ? `rgba(${parseInt(col.slice(1, 3), 16)},${parseInt(col.slice(3, 5), 16)},${parseInt(col.slice(5, 7), 16)},0.22)`
+        : 'rgba(255,159,10,0.22)';
     const gradId   = 'hprg_' + _homePRCurrent;
 
     const dotsHtml = pts.map((p, i) => {

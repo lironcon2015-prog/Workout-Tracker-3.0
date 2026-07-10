@@ -206,11 +206,6 @@ function _fdTokenMatch(name, q) {
     return toks.length ? toks.some(t => n.indexOf(t) >= 0) : false;
 }
 
-function _fdBasicMatches(q) {
-    if (!_fdNorm(q)) return [];
-    return BASIC_FOODS.filter(f => _fdTokenMatch(f.name, q));
-}
-
 // ─── דירוג רלוונטיות (v16.88) ────────────────────────────────────────
 // פירוק שם למילים — לזיהוי התאמת מילה-שלמה מול substring ("חלב" ≠ "חלבון")
 function _fdWords(s) { return _fdNorm(s).toLowerCase().split(/[^\w֐-׿%.]+/).filter(Boolean); }
@@ -439,19 +434,11 @@ async function _callGeminiFood(base64, mimeType) {
         'אם רואים ברקוד (EAN/UPC) — החזר אותו ב-barcode (ספרות בלבד). אחרת קרא את ערכי התזונה: ' +
         'kcal/protein/carbs/fat, וציין ב-per אם הם ל-100 גרם או למנה. ערך לא קריא = null. אל תוסיף טקסט.';
     const parts = [{ text: prompt }, { inlineData: { mimeType, data: base64 } }];
-    const generationConfig = { temperature: 0.1, maxOutputTokens: 200, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
-    let lastErr = '';
-    for (const modelName of config.models) {
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
-            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig }) });
-            if (!resp.ok) { if ([400, 404, 429, 503].includes(resp.status)) { lastErr = `${modelName}:${resp.status}`; continue; } throw new Error('API_ERROR_' + resp.status); }
-            const data = await resp.json();
-            const txt = (data.candidates?.[0]?.content?.parts || []).find(p => !p.thought)?.text || '';
-            return JSON.parse(txt);
-        } catch (e) { lastErr = e.message || String(e); }
-    }
-    throw new Error(lastErr || 'VISION_FAILED');
+    // תחבורה דרך השכבה המשותפת (workout-core) — thinking מותאם-מודל + מודל מועדף
+    return _geminiRequest({
+        contents: [{ role: 'user', parts }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 200, responseMimeType: 'application/json' }
+    }, { json: true, timeoutMs: 45000 });
 }
 
 // _callGeminiMeal — הערכת מנה מתוך תמונת אוכל אמיתי (לא תווית): זיהוי + הערכת משקל ומאקרו לכל המנה
@@ -464,19 +451,10 @@ async function _callGeminiMeal(base64, mimeType) {
         'name = תיאור קצר בעברית של המנה כולה. items = רשימת המרכיבים שזוהו (למשל חזה עוף, אורז, שמן), כל אחד עם ההערכה שלו. ' +
         'אם לא בטוח — תן הערכה סבירה ביותר. אל תוסיף טקסט.';
     const parts = [{ text: prompt }, { inlineData: { mimeType, data: base64 } }];
-    const generationConfig = { temperature: 0.2, maxOutputTokens: 400, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
-    let lastErr = '';
-    for (const modelName of config.models) {
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
-            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig }) });
-            if (!resp.ok) { if ([400, 404, 429, 503].includes(resp.status)) { lastErr = `${modelName}:${resp.status}`; continue; } throw new Error('API_ERROR_' + resp.status); }
-            const data = await resp.json();
-            const txt = (data.candidates?.[0]?.content?.parts || []).find(p => !p.thought)?.text || '';
-            return JSON.parse(txt);
-        } catch (e) { lastErr = e.message || String(e); }
-    }
-    throw new Error(lastErr || 'VISION_FAILED');
+    return _geminiRequest({
+        contents: [{ role: 'user', parts }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 400, responseMimeType: 'application/json' }
+    }, { json: true, timeoutMs: 45000 });
 }
 
 // ════════ DIARY OVERLAY ════════
@@ -1052,20 +1030,10 @@ async function _fdAiNutrition(q) {
     const prompt = 'אתה מסד נתונים תזונתי. החזר ערכים תזונתיים סטנדרטיים ל-100 גרם של המזון: "' + q + '". ' +
         'החזר JSON בלבד: {"found": boolean, "name": string, "kcal": number, "protein": number, "carbs": number, "fat": number}. ' +
         'name = שם תקני קצר בעברית. אם המחרוזת אינה מזון מוכר — found=false. אל תוסיף טקסט.';
-    const parts = [{ text: prompt }];
-    const generationConfig = { temperature: 0, maxOutputTokens: 150, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
-    let lastErr = '';
-    for (const modelName of config.models) {
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
-            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig }) });
-            if (!resp.ok) { if ([400, 404, 429, 503].includes(resp.status)) { lastErr = `${modelName}:${resp.status}`; continue; } throw new Error('API_ERROR_' + resp.status); }
-            const data = await resp.json();
-            const txt = (data.candidates?.[0]?.content?.parts || []).find(p => !p.thought)?.text || '';
-            return JSON.parse(txt);
-        } catch (e) { lastErr = e.message || String(e); }
-    }
-    throw new Error(lastErr || 'AI_FAILED');
+    return _geminiRequest({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 150, responseMimeType: 'application/json' }
+    }, { json: true });
 }
 
 // ממיר תשובת AI לאובייקט מזון ושומר ב-DB (קאש → פעם הבאה מיידי + offline)
@@ -1502,22 +1470,12 @@ async function _fdAiParseLabelText(text) {
     const prompt = 'הטקסט הבא הוא ערכים תזונתיים של מוצר מזון (הועתק מתווית או מאתר). נרמל את הערכים ל-100 גרם או 100 מ"ל. ' +
         'החזר JSON בלבד: {"found": boolean, "name": string|null, "kcal": number, "protein": number, "carbs": number, "fat": number, "per": "100g"|"100ml"}. ' +
         'name = שם המוצר אם מופיע בטקסט, אחרת null. אם אין בטקסט ערכים תזונתיים — found=false. אל תוסיף טקסט.\n---\n' + String(text).slice(0, 2000);
-    const parts = [{ text: prompt }];
-    const generationConfig = { temperature: 0, maxOutputTokens: 200, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } };
-    let lastErr = '';
-    for (const modelName of config.models) {
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`;
-            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig }) });
-            if (!resp.ok) { if ([400, 404, 429, 503].includes(resp.status)) { lastErr = `${modelName}:${resp.status}`; continue; } throw new Error('API_ERROR_' + resp.status); }
-            const data = await resp.json();
-            const txt = (data.candidates?.[0]?.content?.parts || []).find(p => !p.thought)?.text || '';
-            const res = JSON.parse(txt);
-            if (!res || res.found === false || res.kcal == null) return null;
-            return { name: res.name || null, kcal: _fdR(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat), unit: res.per === '100ml' ? 'ml' : 'g', basis: 100, ai: true };
-        } catch (e) { lastErr = e.message || String(e); }
-    }
-    throw new Error(lastErr || 'AI_FAILED');
+    const res = await _geminiRequest({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 200, responseMimeType: 'application/json' }
+    }, { json: true });
+    if (!res || res.found === false || res.kcal == null) return null;
+    return { name: res.name || null, kcal: _fdR(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat), unit: res.per === '100ml' ? 'ml' : 'g', basis: 100, ai: true };
 }
 
 async function fdParsePastedNutrition() {
@@ -1784,8 +1742,8 @@ function _fdLabelViaGemini(file, box) {
 }
 
 // ════════ LIVE BARCODE SCAN ════════
-// מצלמה חיה + פענוח בלולאה. BarcodeDetector מועדף (קל); ZXing כ-fallback (iOS).
-let _fdLiveStream = null, _fdLiveRAF = null, _fdLiveReader = null, _fdLiveActive = false;
+// מצלמה חיה + פענוח בלולאה. BarcodeDetector מועדף (קל); ZBar (WASM) כ-fallback (iOS).
+let _fdLiveStream = null, _fdLiveRAF = null, _fdLiveActive = false;
 let _fdLiveTimer = null, _fdTorchTrack = null, _fdTorchOn = false;
 
 // כיוון מצלמה אחרי פתיחת הסטרים — autofocus רציף + זיהוי תמיכת פנס. guarded: no-op בשקט כש-API חסר (iOS Safari).
@@ -1805,14 +1763,6 @@ async function _fdTuneCamera(stream) {
 
 function _fdLiveTorchBtn(show) { const b = document.getElementById('fd-live-torch'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
 
-// כיוון מצלמה ברגע שהסטרים מתחבר ל-<video> (נתיב ZXing — לא נסמכים על ה-promise של הסורק)
-function _fdTuneWhenReady(video, tries) {
-    tries = tries || 0;
-    const stream = video && video.srcObject;
-    if (stream && stream.getVideoTracks && stream.getVideoTracks().length) { _fdTuneCamera(stream); return; }
-    if (tries < 20 && _fdLiveActive) setTimeout(() => _fdTuneWhenReady(video, tries + 1), 100);
-}
-
 // הדלקה/כיבוי פנס המצלמה — לתאורה חלשה. נתמך בעיקר ב-Android/Chrome.
 async function fdLiveToggleTorch() {
     if (!_fdTorchTrack) return;
@@ -1823,19 +1773,7 @@ async function fdLiveToggleTorch() {
     if (b) b.classList.toggle('on', _fdTorchOn);
 }
 
-// טעינה עצלה של ZXing — רק כשנכנסים למצב חי בפלטפורמה ללא BarcodeDetector
-function _fdLoadZXing() {
-    if (window.ZXing) return Promise.resolve(window.ZXing);
-    return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'vendor/zxing.min.js';
-        s.onload = () => window.ZXing ? resolve(window.ZXing) : reject(new Error('ZXING_LOAD'));
-        s.onerror = () => reject(new Error('ZXING_LOAD'));
-        document.head.appendChild(s);
-    });
-}
-
-// טעינה עצלה של ZBar (WASM, wasm מוטמע) — מנוע הפענוח החזק ל-iOS (חלופה ל-ZXing).
+// טעינה עצלה של ZBar (WASM, wasm מוטמע) — מנוע הפענוח החזק ל-iOS.
 // סורק את הפריים המלא בשתי צפיפויות → קורא ברקוד רחוק, לא-ממורכז, ומסובב 90°.
 function _fdLoadZBar() {
     if (window.zbarWasm) return Promise.resolve(window.zbarWasm);
@@ -1879,7 +1817,6 @@ function _fdLiveTeardownCamera() {
     // כיבוי פנס לפני עצירת ה-track (שלא יישאר דולק)
     if (_fdTorchTrack && _fdTorchOn) { try { _fdTorchTrack.applyConstraints({ advanced: [{ torch: false }] }); } catch (e) {} }
     _fdTorchTrack = null; _fdTorchOn = false; _fdLiveTorchBtn(false);
-    if (_fdLiveReader) { try { _fdLiveReader.reset(); } catch (e) {} _fdLiveReader = null; }
     _fdStopStream();
     const v = document.getElementById('fd-live-video');
     if (v) { try { v.pause(); } catch (e) {} v.srcObject = null; }

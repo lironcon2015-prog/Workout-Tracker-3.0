@@ -550,31 +550,36 @@ function fdCalPick(ds) {
     fdCloseCal();
     haptic('light');
 }
+// רינדור בתאי לוח הארכיון (cal-day-active/empty, cal-dots-row) — שפה ויזואלית אחידה
 function _fdCalRender() {
     const grid = document.getElementById('fd-cal-days');
     const title = document.getElementById('fd-cal-title');
     if (!grid || !title || !_fdCalYM) return;
     const { y, m } = _fdCalYM;
-    title.textContent = `‏${MONTH_NAMES_HE[m]} ${y}`;
+    title.innerText = `‏${MONTH_NAMES_HE[m]} ${y}`;
     const today = _blTodayStr();
     // חסימת ניווט לחודש עתידי
     const nextBtn = document.getElementById('fd-cal-next');
     const tp = today.split('-');
     if (nextBtn) nextBtn.disabled = y > +tp[0] || (y === +tp[0] && m >= +tp[1] - 1);
-    // ימים עם תיעוד תזונה — נקודה ירוקה (שאילתה אחת לרינדור)
+    // ימים עם תיעוד תזונה — נקודה ירוקה זוהרת (שאילתה אחת לרינדור)
     const logged = new Set((StorageManager.getNutritionDaily() || []).map(d => d.date));
     const firstDow = new Date(y, m, 1).getDay();   // 0=ראשון — תואם לשבוע הישראלי
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const mm = String(m + 1).padStart(2, '0');
     let html = '';
-    for (let i = 0; i < firstDow; i++) html += '<span class="fd-cal-ph"></span>';
+    for (let i = 0; i < firstDow; i++) html += '<div class="cal-day-placeholder"></div>';
     for (let d = 1; d <= daysInMonth; d++) {
         const ds = `${y}-${mm}-${String(d).padStart(2, '0')}`;
-        const cls = ['fd-cal-day'];
-        if (ds === today) cls.push('fd-cal-today');
+        const hasLog = logged.has(ds);
+        const future = ds > today;
+        const cls = [hasLog ? 'cal-day-active' : 'cal-day-empty'];
+        if (ds === today) cls.push('cal-today');
         if (ds === _fdDate) cls.push('fd-cal-sel');
-        const dot = logged.has(ds) ? '<span class="fd-cal-dot"></span>' : '<span class="fd-cal-dot fd-cal-dot--ph"></span>';
-        html += `<button class="${cls.join(' ')}" ${ds > today ? 'disabled' : `onclick="fdCalPick('${ds}')"`}><span class="fd-cal-num">${d}</span>${dot}</button>`;
+        if (future) cls.push('fd-cal-future');
+        const num = `<span class="cal-day-num${hasLog ? '' : ' cal-day-num-dim'}">${d}</span>`;
+        const dots = hasLog ? '<div class="cal-dots-row"><div class="cal-dot fd-cal-dot"></div></div>' : '<div class="cal-dot-ph"></div>';
+        html += `<div class="${cls.join(' ')}"${future ? '' : ` onclick="fdCalPick('${ds}')"`}>${num}${dots}</div>`;
     }
     grid.innerHTML = html;
 }

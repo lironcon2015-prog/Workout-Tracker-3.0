@@ -2726,7 +2726,9 @@ function saveAnalyticsSettingsPrefs() {
         delete p.consistencyGreen;
         delete p.consistencyOrange;
     }
-    saveAnalyticsPrefs(p); closeAnalyticsSettings(); renderAnalyticsDashboard(); renderHeroCard(); haptic('success');
+    saveAnalyticsPrefs(p); closeAnalyticsSettings(); renderAnalyticsDashboard(); renderHeroCard();
+    if (typeof renderUserAvatar === 'function') renderUserAvatar();   // השם משנה מונוגרמה + ברכה
+    haptic('success');
 }
 
 const HERO_METRIC_OPTIONS = [

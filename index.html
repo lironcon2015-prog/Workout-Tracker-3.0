@@ -415,6 +415,11 @@
     <div class="app-container">
         <header class="app-header">
             <div id="header-start-slot" style="display:flex;align-items:center;justify-content:flex-start;">
+                <!-- Avatar משתמש (v17.11): הקצה הימני (leading ב-RTL). מחזיק את id=btn-settings
+                     כדי ש-_applyScreenChrome ימשיך להסתיר אותו במסכי אימון ללא שינוי לוגיקה. -->
+                <button id="btn-settings" class="avatar-btn" onclick="openSettings()" title="פרופיל והגדרות">
+                    <span id="header-avatar" class="user-avatar"></span>
+                </button>
                 <button id="btn-ai" class="settings-btn ai-header-btn" onclick="openAICoach()" title="AI Coach">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
@@ -432,13 +437,7 @@
                 <button id="global-back" class="back-btn" style="display:none;visibility:visible;" onclick="handleBackClick()">
                     <div class="chevron-back"></div>
                 </button>
-                <!-- Settings button: gear SVG -->
-                <button id="btn-settings" class="settings-btn" onclick="openSettings()">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                    </svg>
-                </button>
+                <!-- גלגל השיניים הוסר (v17.11) — ה-avatar בצד ימין הוא הכניסה להגדרות -->
             </div>
         </header>
 
@@ -453,7 +452,7 @@
                     <div class="hero-watermark">GYMPRO</div>
                     <button class="hero-edit-btn" onclick="openHeroSettings()">ערוך תצוגה</button>
                     <div class="hero-content">
-                        <h2>מוכן לאימון?</h2>
+                        <h2 id="hero-greeting">מוכן לאימון?</h2>
                         <div class="hero-last-workout" id="hero-last-workout"></div>
                         <div class="hero-stats-row" id="hero-stats-row">
                             <div class="hero-stat" id="hero-stat-0"><div class="hero-stat-val">—</div><div class="hero-stat-lbl">—</div></div>
@@ -566,6 +565,26 @@
 
                 <!-- ════════ פאנל: כללי ════════ -->
                 <div class="stg-panel active" data-stg-panel="general">
+
+                    <!-- פרופיל (v17.11) — תמונה + שם. השם הוא אותו prefs.name של "שם המתאמן" באנליטיקה -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">פרופיל</div>
+                        <div class="stg-bento">
+                            <div class="stg-profile-row">
+                                <button class="avatar-btn" onclick="document.getElementById('avatar-file-input').click()" title="החלף תמונה">
+                                    <span id="stg-avatar-preview" class="user-avatar user-avatar--lg"></span>
+                                </button>
+                                <div class="stg-profile-fields">
+                                    <input type="text" id="stg-profile-name" class="minimal-input m-0" placeholder="שם המתאמן" onchange="saveProfileName(this.value)">
+                                    <div class="stg-profile-btns">
+                                        <button class="stg-avatar-btn" onclick="document.getElementById('avatar-file-input').click()">העלה תמונה</button>
+                                        <button class="stg-avatar-btn stg-avatar-btn--danger" id="stg-avatar-remove" style="display:none;" onclick="removeUserAvatar()">הסר תמונה</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="handleAvatarUpload(this)">
+                        </div>
+                    </div>
 
                     <!-- אפליקציה -->
                     <div class="settings-group">

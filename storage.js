@@ -536,6 +536,7 @@ const StorageManager = {
                 formula:            prefs.formula,
                 units:              prefs.units,
                 name:               prefs.name,
+                avatar:             prefs.avatar,
                 homePRRange:        prefs.homePRRange,
                 workoutAliasColors: prefs.workoutAliasColors || {},
                 kcalTarget:         prefs.kcalTarget,
@@ -566,7 +567,7 @@ const StorageManager = {
             if (data.aliases)        prefs.workoutAliases    = data.aliases;
             if (data.analyticsPrefs) {
                 const ap = data.analyticsPrefs;
-                ['heroMetrics','volumeRange','muscleRange','consistencyRange','consistencyGreen','consistencyOrange','microPoints','microAxis','microOrder','formula','units','name','homePRRange','workoutAliasColors','kcalTarget','kcalTargetManual','proteinTarget','carbsTarget','fatTarget','mealLabels'].forEach(k => {
+                ['heroMetrics','volumeRange','muscleRange','consistencyRange','consistencyGreen','consistencyOrange','microPoints','microAxis','microOrder','formula','units','name','avatar','homePRRange','workoutAliasColors','kcalTarget','kcalTargetManual','proteinTarget','carbsTarget','fatTarget','mealLabels'].forEach(k => {
                     if (ap[k] !== undefined) prefs[k] = ap[k];
                 });
             }

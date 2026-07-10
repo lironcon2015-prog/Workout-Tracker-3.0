@@ -253,6 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (WatchBridge.enabled()) WatchBridge.activate();
     } catch (e) {}
     if (typeof renderHeroCard === 'function') renderHeroCard();
+    renderUserAvatar();
     // מציג את הסקשן לפי ההעדפה (כרטיסי "היום" / גרף PR) ומרנדר את הפעיל
     if (typeof applyHomeSectionPref === 'function') applyHomeSectionPref();
     maybeShowCloudSyncBanner();
@@ -1093,8 +1094,99 @@ function _initAllSheetsDrag() {
     });
 }
 
+// ─── USER PROFILE — Avatar ב-header + פרופיל בהגדרות (v17.11) ──────────────
+
+// מרנדר את ה-avatar בכל החזיתות: כפתור ה-header, תצוגת ההגדרות, וברכת מסך הבית.
+// שרשרת fallback: תמונה → מונוגרמה (אות ראשונה מהשם) → צללית ריקה.
+function renderUserAvatar() {
+    const prefs  = StorageManager.getAnalyticsPrefs();
+    const name   = (prefs.name || '').trim();
+    const avatar = prefs.avatar || '';
+
+    const silhouetteSVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(174,174,178,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
+
+    ['header-avatar', 'stg-avatar-preview'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('monogram', 'empty');
+        if (avatar) {
+            const img = document.createElement('img');
+            img.alt = 'פרופיל';
+            img.src = avatar;
+            el.replaceChildren(img);
+        } else if (name) {
+            el.classList.add('monogram');
+            el.textContent = name.charAt(0);
+        } else {
+            el.classList.add('empty');
+            el.innerHTML = silhouetteSVG;
+        }
+    });
+
+    // ברכה אישית בכרטיס הבית
+    const greet = document.getElementById('hero-greeting');
+    if (greet) greet.textContent = name ? `מוכן לאימון, ${name}?` : 'מוכן לאימון?';
+
+    // סנכרון שדות סקשן הפרופיל בהגדרות
+    const inp = document.getElementById('stg-profile-name');
+    if (inp && document.activeElement !== inp) inp.value = name;
+    const rm = document.getElementById('stg-avatar-remove');
+    if (rm) rm.style.display = avatar ? '' : 'none';
+}
+
+// קליטת קובץ תמונה: crop ריבועי מרכזי → 128×128 → JPEG dataURL (~10KB) → analyticsPrefs.avatar.
+// נשמר בתוך analyticsPrefs כדי לרכוב חינם על סנכרון הענן (saveConfigToCloud שולח prefs שלם).
+function handleAvatarUpload(input) {
+    const file = input.files && input.files[0];
+    input.value = '';   // מאפשר בחירה חוזרת של אותו קובץ
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onerror = () => showAlert('שגיאה בקריאת הקובץ.');
+    reader.onload = e => {
+        const img = new Image();
+        img.onerror = () => showAlert('קובץ התמונה לא נתמך.');
+        img.onload = () => {
+            try {
+                const SIZE = 128;
+                const canvas = document.createElement('canvas');
+                canvas.width = SIZE; canvas.height = SIZE;
+                const side = Math.min(img.naturalWidth, img.naturalHeight);
+                const sx = (img.naturalWidth  - side) / 2;
+                const sy = (img.naturalHeight - side) / 2;
+                canvas.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+                const prefs = StorageManager.getAnalyticsPrefs();
+                prefs.avatar = canvas.toDataURL('image/jpeg', 0.85);
+                StorageManager.saveAnalyticsPrefs(prefs);
+                renderUserAvatar();
+                haptic('success');
+            } catch (err) {
+                showAlert('שגיאה בעיבוד התמונה: ' + err.message);
+            }
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeUserAvatar() {
+    const prefs = StorageManager.getAnalyticsPrefs();
+    delete prefs.avatar;
+    StorageManager.saveAnalyticsPrefs(prefs);
+    renderUserAvatar();
+    haptic('light');
+}
+
+// שמירת שם מסקשן הפרופיל — כותב לאותו prefs.name של "שם המתאמן" בהגדרות האנליטיקה
+function saveProfileName(value) {
+    const prefs = StorageManager.getAnalyticsPrefs();
+    prefs.name = (value || '').trim();
+    StorageManager.saveAnalyticsPrefs(prefs);
+    renderUserAvatar();
+}
+
 function openSettings() {
     navigate('ui-settings');
+    renderUserAvatar();
     if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
     if (typeof updateAIStatus === 'function') updateAIStatus();
     if (typeof updateMfpBridgeStatus === 'function') updateMfpBridgeStatus();

@@ -494,6 +494,7 @@ function _fdPruneCacheOnce() {
 function openFoodDiary(date) {
     _fdPruneCacheOnce();
     _fdDate = date || _blTodayStr();
+    _fdWkbalMerged = false;   // תמיד נפתח בתצוגת "נותרו" של היום בלבד
     const ov = document.getElementById('food-diary');
     if (!ov) return;
     ov.style.display = 'flex';
@@ -586,6 +587,39 @@ function _fdDateLabel(d) {
     return `${p[2]}.${p[1]}`;
 }
 
+// ── יתרה שבועית — Σ(יעד − בפועל) על השבוע הישראלי (ראשון–שבת) של היום
+// המוצג, בלי היום השוטף. ימים ללא תיעוד או ללא יעד קלורי מדולגים.
+// היעד לכל יום הוא היעד שהיה בתוקף בו (getTargetsForDate), לא היעד הנוכחי.
+function _fdWeeklyBalance(dateStr) {
+    const today = _blTodayStr();
+    const sunday = _addDays(dateStr, -new Date(_blDTs(dateStr)).getDay());
+    const byDate = {};
+    (StorageManager.getNutritionDaily() || []).forEach(r => { byDate[r.date] = r; });
+    let bal = 0, days = 0;
+    for (let i = 0; i < 7; i++) {
+        const d = _addDays(sunday, i);
+        if (d >= today) continue;              // בלי היום השוטף ובלי עתיד
+        const rec = byDate[d];
+        if (!rec) continue;                    // יום לא מתועד — לא נספר
+        const kcalT = Number(StorageManager.getTargetsForDate(d).kcal) || 0;
+        if (!kcalT) continue;                  // יום בלי יעד — אין ממה לגזור הפרש
+        bal += kcalT - (rec.calories || 0);
+        days++;
+    }
+    return { bal: Math.round(bal), days };
+}
+
+// טוגל תצוגה: המספר הגדול בטבעת כולל את היתרה השבועית (אינדיגו) או לא (רגיל).
+// משנה תצוגה בלבד — לא נוגע בנתונים; הקשת עצמה ממשיכה לשקף את היום בלבד.
+let _fdWkbalMerged = false;
+let _fdSkipRingAnim = false;
+function fdToggleWkbal() {
+    _fdWkbalMerged = !_fdWkbalMerged;
+    _fdSkipRingAnim = true;   // בלי לנגן מחדש את אנימציית מילוי הקשת בכל טוגל
+    fdRender();
+    haptic('light');
+}
+
 // ── רינדור היומן ─────────────────────────────────────────────────────
 const _FD_DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 function fdRender() {
@@ -617,6 +651,7 @@ function fdRender() {
 
 // אנימציית מילוי הטבעת — מ-"ריק" (היקף מלא) לערך היעד, דרך transition של ה-CSS
 function _fdAnimateRing(scope) {
+    if (_fdSkipRingAnim) { _fdSkipRingAnim = false; return; }
     const prog = scope.querySelector('.fd-ring-prog');
     if (!prog) return;
     const target = prog.getAttribute('stroke-dashoffset');
@@ -663,9 +698,19 @@ function _fdSummaryHTML(t, mfpOwned, tg) {
     tg = tg || StorageManager.getTargetsForDate(_fdDate);
     const kcalT = Number(tg.kcal) || 0;
     const consumed = Math.round(t.kcal);
-    const over = kcalT > 0 && t.kcal > kcalT;
-    const big = kcalT > 0 ? Math.abs(Math.round(kcalT - t.kcal)) : consumed;
+    // יתרה שבועית — chip בתוך הטבעת; מוצג רק כשיש יעד וגם ימים שנספרו
+    const wk = kcalT > 0 ? _fdWeeklyBalance(_fdDate) : null;
+    const hasWk = !!(wk && wk.days > 0);
+    const merged = hasWk && _fdWkbalMerged;
+    const shown = (kcalT - t.kcal) + (merged ? wk.bal : 0);
+    const over = kcalT > 0 && shown < 0;
+    const big = kcalT > 0 ? Math.abs(Math.round(shown)) : consumed;
     const lbl = kcalT > 0 ? (over ? 'מעל היעד' : 'נותרו') : 'נצרכו';
+    // במצב ממוזג המספר באינדיגו (מצב תצוגה, לא טוב/רע) — גובר על צבע החריגה
+    const numCls = merged ? ' merged' : (over ? ' over' : '');
+    const wkChip = hasWk
+        ? `<button class="fd-wkbal-ring${merged ? ' active' : ''}" onclick="fdToggleWkbal()" aria-label="שלב את היתרה השבועית במספר הנותרות" aria-pressed="${merged}">שבועי<b class="${wk.bal >= 0 ? 'pos' : 'neg'}">‎${wk.bal >= 0 ? '+' : '−'}${_fdFmt(Math.abs(wk.bal))}‎</b></button>`
+        : '';
     const caption = kcalT > 0
         ? `<div class="fd-kcap"><span class="fd-kcap-lbl">נצרכו</span><span class="fd-kcap-val accent">${_fdFmt(consumed)}</span></div>
            <span class="fd-kcap-sep"></span>
@@ -675,8 +720,9 @@ function _fdSummaryHTML(t, mfpOwned, tg) {
         <div class="fd-ring-wrap">
             ${_fdRingSVG(t.kcal, kcalT)}
             <div class="fd-ring-center">
-                <span class="fd-ring-num${over ? ' over' : ''}">${_fdFmt(big)}</span>
+                <span class="fd-ring-num${numCls}">${_fdFmt(big)}</span>
                 <span class="fd-ring-lbl">${lbl}</span>
+                ${wkChip}
             </div>
         </div>
         <div class="fd-kcal-caption">${caption}</div>

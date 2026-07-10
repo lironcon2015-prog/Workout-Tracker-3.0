@@ -1154,7 +1154,8 @@ function renderUserAvatar() {
     if (rm) rm.style.display = avatar ? '' : 'none';
 }
 
-// קליטת קובץ תמונה: crop ריבועי מרכזי → 128×128 → JPEG dataURL (~10KB) → analyticsPrefs.avatar.
+// קליטת קובץ תמונה: crop ריבועי מרכזי → 192×192 → JPEG dataURL (~20KB) → analyticsPrefs.avatar.
+// (v17.14: הוגדל מ-128 — בתצוגת 56px על מסך 3x נדרשים 168px פיזיים כדי להישאר חד.)
 // נשמר בתוך analyticsPrefs כדי לרכוב חינם על סנכרון הענן (saveConfigToCloud שולח prefs שלם).
 function handleAvatarUpload(input) {
     const file = input.files && input.files[0];
@@ -1167,7 +1168,7 @@ function handleAvatarUpload(input) {
         img.onerror = () => showAlert('קובץ התמונה לא נתמך.');
         img.onload = () => {
             try {
-                const SIZE = 128;
+                const SIZE = 192;
                 const canvas = document.createElement('canvas');
                 canvas.width = SIZE; canvas.height = SIZE;
                 const side = Math.min(img.naturalWidth, img.naturalHeight);

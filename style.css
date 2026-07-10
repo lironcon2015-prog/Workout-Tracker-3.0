@@ -3014,10 +3014,14 @@ body::before {
    AI COACH
    ───────────────────────────────────────────────────────────────────────────── */
 
+/* v17.13: עיגול 32px בקצה השמאלי — משקל וצורה זהים ל-avatar שבקצה הימני */
 .ai-header-btn {
+    width: 32px; height: 32px; padding: 0; flex-shrink: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
     color: var(--accent); background: rgba(var(--accent-rgb),0.12);
-    border: 1px solid rgba(var(--accent-rgb),0.25); border-radius: var(--r-xs);
+    border: 1.5px solid rgba(var(--accent-rgb),0.35); border-radius: 50%;
 }
+.ai-header-btn svg { stroke: var(--accent); display: block; }
 .ai-header-btn:active { background: rgba(var(--accent-rgb),0.22); }
 .ai-coach-overlay {
     align-items: flex-end; background: rgba(0,0,0,0.55);

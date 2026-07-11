@@ -14,6 +14,7 @@
  * 3. חובה — אישור הרשאת Gmail: בחר בתפריט הפונקציות את testMail → Run (▶) →
  *    Review permissions → בחר חשבון → Advanced → Go to (unsafe) → Allow.
  *    בלי הצעד הזה השליחה תיכשל עם MAIL_FAILED ("does not have permission").
+ *    (המנגנון: MailApp — הרשאה קלה שמאושרת תמיד, לא ההרשאה הרגישה של Gmail.)
  *    ודא שהגיע מייל בדיקה.
  * 4. Deploy → New deployment → type: Web app.
  *      - Execute as:  Me
@@ -52,7 +53,7 @@ function doPost(e) {
   var to = Session.getEffectiveUser().getEmail();   // בעל הסקריפט — אתה
 
   try {
-    GmailApp.sendEmail(to, 'GYMPRO ELITE — גיבוי שבועי (' + new Date().toLocaleDateString('he-IL') + ')',
+    MailApp.sendEmail(to, 'GYMPRO ELITE — גיבוי שבועי (' + new Date().toLocaleDateString('he-IL') + ')',
       'מצורף קובץ הגיבוי המלא של GYMPRO ELITE.\n\n' +
       'גרסת אפליקציה: ' + (backup.version || '?') + '\n' +
       'מועד הגיבוי: ' + (backup.date || '?') + '\n' +
@@ -80,6 +81,6 @@ function _json(obj) {
 
 /* ─── testMail — הרץ ידנית פעם אחת מהעורך לאישור הרשאת ה-Gmail ───────────*/
 function testMail() {
-  GmailApp.sendEmail(Session.getEffectiveUser().getEmail(),
+  MailApp.sendEmail(Session.getEffectiveUser().getEmail(),
     'GYMPRO — בדיקת הרשאות', 'אם קיבלת את זה — ההרשאה עובדת ✅');
 }

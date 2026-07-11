@@ -189,10 +189,19 @@ function addMacro(stack, tag, val, color) {
     t.font = Font.blackSystemFont(10); t.textColor = col(color);
 }
 
+// רוחב ווידג'ט Medium לפי רוחב המסך (נקודות) — כדי שהפס יימתח מקצה לקצה.
+// רוחב קבוע (292) השאיר פער רקע בקצה הימני במכשירים רחבים (Pro Max).
+function mediumWidgetWidth() {
+    const s = Device.screenSize();
+    const sw = Math.min(s.width, s.height);
+    const map = { 440: 364, 430: 364, 428: 364, 414: 348, 402: 338, 393: 338, 390: 338, 375: 329, 360: 329, 320: 292 };
+    return map[sw] || Math.max(292, Math.min(364, sw - 62));
+}
+
 // פס התקדמות מ-stacks: track אפור + מילוי גרדיאנט כחול→ירוק, מעוגן ימין (RTL).
 // לא DrawContext — שם fillPath() ממלא רק path שנוסף ב-addPath (באג שקט אם שוכחים).
 function addProgressBar(w, pct) {
-    const BAR_W = 292, BAR_H = 5;
+    const BAR_W = mediumWidgetWidth() - 30, BAR_H = 5;   // מינוס padding 15+15
     const track = w.addStack();
     track.size = new Size(BAR_W, BAR_H);
     track.cornerRadius = BAR_H / 2;

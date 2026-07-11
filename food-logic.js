@@ -1602,7 +1602,8 @@ function fdSaveCustomFood(logAfter) {
         const k = 100 / unitGrams;
         per100 = { kcal: Math.round(kcal * k), p: _fdR(rawP * k), c: _fdR(rawC * k), f: _fdR(rawF * k) };
         baseUnit = 'g';
-        servings = [{ label: unitName || 'יחידה', grams: unitGrams }, { label: '100 גרם', grams: 100 }];
+        // המשקל מוצג ליד שם היחידה — "סקופ (33 גרם)"; התווית מתפשטת לפיקר, לרשומה וליומן
+        servings = [{ label: `${unitName || 'יחידה'} (${unitGrams} גרם)`, grams: unitGrams }, { label: '100 גרם', grams: 100 }];
     } else if (unit === 'unit') {
         // יחידה ללא משקל — טריק ×100: per100 מאחסן את ערכי היחידה מוכפלים (הכל מחושב לפי /100)
         per100 = { kcal: Math.round(kcal * 100), p: _fdR(rawP * 100), c: _fdR(rawC * 100), f: _fdR(rawF * 100) };

@@ -1007,6 +1007,25 @@ function processConnectionsImport(input) {
     input.value = "";
 }
 
+// ─── שחזור גיבוי מלא (צילום localStorage) ───────────────────────────────────
+
+function triggerFullBackupImport() { document.getElementById('import-full-backup-file').click(); }
+
+function processFullBackupImport(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            StorageManager.restoreFullBackup(data);
+        } catch (err) {
+            showAlert("שגיאה בקריאת קובץ הגיבוי");
+        }
+    };
+    reader.readAsText(file);
+    input.value = "";
+}
+
 // ─── ARCHIVE HELPERS ───────────────────────────────────────────────────────
 
 function openArchiveFromDrawer(timestamp) {

@@ -327,6 +327,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // משיכה שקטה עם throttle פנימי (15 דק') — לא חוסמת את הטעינה.
     setTimeout(() => syncHealthNutrition(false), 2500);
     _scheduleHealthHourlySync();
+    // גיבוי שבועי לאימייל — בדיקה שקטה בפתיחה (שולח רק אם עברו ≥7 ימים)
+    setTimeout(() => StorageManager.maybeSendWeeklyBackup(false), 4000);
 });
 
 // חזרה לאפליקציה מהרקע (PWA ב-iOS נשאר בזיכרון) = "כניסה" — משיכת Health שקטה.
@@ -1238,6 +1240,7 @@ function openSettings() {
     if (typeof updateMfpBridgeStatus === 'function') updateMfpBridgeStatus();
     if (typeof updateHealthBridgeStatus === 'function') updateHealthBridgeStatus();
     if (typeof updateWatchBridgeStatus === 'function') updateWatchBridgeStatus();
+    if (typeof updateBackupBridgeStatus === 'function') updateBackupBridgeStatus();
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
     _renderMainTMSettings();
@@ -5544,6 +5547,40 @@ function updateMfpBridgeStatus() {
         el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span>';
         const ui = document.getElementById('mfp-bridge-url-input');
         const ti = document.getElementById('mfp-bridge-token-input');
+        if (ui && !ui.value) ui.value = url;
+        if (ti && !ti.value) ti.value = token;
+    } else {
+        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
+    }
+}
+
+// ─── גשר גיבוי שבועי לאימייל (Apps Script) ──────────────────────────────────
+function saveBackupBridgeSettings() {
+    const urlInput   = document.getElementById('backup-bridge-url-input');
+    const tokenInput = document.getElementById('backup-bridge-token-input');
+    if (!urlInput || !tokenInput) return;
+    const on = !!(document.getElementById('backup-bridge-toggle') || {}).checked;
+    StorageManager.saveBackupBridge(on, urlInput.value.trim(), tokenInput.value.trim());
+    updateBackupBridgeStatus();
+    showAlert('הגדרות גשר הגיבוי נשמרו!');
+}
+
+function sendBackupNow() {
+    StorageManager.maybeSendWeeklyBackup(true).then(ok => { if (ok) updateBackupBridgeStatus(); });
+}
+
+function updateBackupBridgeStatus() {
+    const el = document.getElementById('backup-bridge-status');
+    const tg = document.getElementById('backup-bridge-toggle');
+    const { on, url, token } = StorageManager.getBackupBridge();
+    if (tg) tg.checked = on;
+    if (!el) return;
+    if (url) {
+        const last = StorageManager.getBackupLast();
+        const lastTxt = last ? ' · נשלח לאחרונה ' + new Date(last).toLocaleDateString('he-IL') : ' · טרם נשלח';
+        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span><span style="color:var(--text-dim);">' + lastTxt + '</span>';
+        const ui = document.getElementById('backup-bridge-url-input');
+        const ti = document.getElementById('backup-bridge-token-input');
         if (ui && !ui.value) ui.value = url;
         if (ti && !ti.value) ti.value = token;
     } else {

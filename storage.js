@@ -45,6 +45,10 @@ const StorageManager = {
     KEY_FOOD_LOG:     'gympro_food_log',     // יומן מזון פנימי — רשומות לפי יום
     KEY_FOOD_DB:      'gympro_food_db',        // מאגר מזון: קאש OFF + מותאמים + מועדפים
     KEY_USDA_KEY:     'gympro_usda_key',        // מפתח USDA FoodData Central (אופציונלי)
+    KEY_BACKUP_BRIDGE_URL:   'gympro_backup_bridge_url',    // גשר גיבוי שבועי לאימייל (Apps Script)
+    KEY_BACKUP_BRIDGE_TOKEN: 'gympro_backup_bridge_token',  // token סודי לגשר הגיבוי
+    KEY_BACKUP_BRIDGE_ON:    'gympro_backup_bridge_on',     // האם גיבוי שבועי פעיל (ברירת מחדל: כבוי — דורש הקמת גשר)
+    KEY_BACKUP_LAST:         'gympro_backup_last',          // timestamp שליחת גיבוי מוצלחת אחרונה
 
     getUsdaKey() { return localStorage.getItem(this.KEY_USDA_KEY) || ''; },
     saveUsdaKey(k) { localStorage.setItem(this.KEY_USDA_KEY, (k || '').trim()); },
@@ -418,6 +422,9 @@ const StorageManager = {
             this.KEY_WATCH_BRIDGE_URL,
             this.KEY_WATCH_BRIDGE_TOKEN,
             this.KEY_WATCH_BRIDGE_ON,
+            this.KEY_BACKUP_BRIDGE_URL,
+            this.KEY_BACKUP_BRIDGE_TOKEN,
+            this.KEY_BACKUP_BRIDGE_ON,
             this.KEY_SOUND,
             this.KEY_COPY_INCLUDE_COACH,
             this.KEY_ARCHIVE_COPY_COACH
@@ -499,6 +506,115 @@ const StorageManager = {
                 showAlert('החיבורים שוחזרו בהצלחה!', () => { window.location.reload(); });
             }
         });
+    },
+
+    // ── Full Backup — צילום מלא של localStorage (v17.17) ─────────────────
+    // כל מפתחות gympro_* כערכים גולמיים (מחרוזות, בלי parse) — שחזור מדויק
+    // ביט-לביט של מצב האפליקציה, כולל סודות. עמיד לעתיד: מפתח חדש נכנס אוטומטית.
+    // ⚠️ הקובץ מכיל את כל ה-API keys והטוקנים — לשמור במקום בטוח.
+
+    buildFullBackup() {
+        const keys = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.indexOf('gympro_') === 0) keys[k] = localStorage.getItem(k);
+        }
+        return {
+            type: 'gympro_full_backup',
+            version: (typeof window !== 'undefined' && window._gymproVersion) || 'unknown',
+            date: new Date().toISOString(),
+            keyCount: Object.keys(keys).length,
+            keys
+        };
+    },
+
+    exportFullBackup() {
+        const payload = this.buildFullBackup();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+        a.download = `gympro_full_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    },
+
+    restoreFullBackup(payload) {
+        if (!payload || payload.type !== 'gympro_full_backup' || !payload.keys || typeof payload.keys !== 'object') {
+            showAlert('שגיאה: זה אינו קובץ גיבוי מלא של GYMPRO.');
+            return;
+        }
+        const count = Object.keys(payload.keys).length;
+        if (!count) { showAlert('קובץ הגיבוי ריק.'); return; }
+        const when = payload.date ? payload.date.slice(0, 10) : 'לא ידוע';
+        showConfirm(`שחזור גיבוי מלא מ-${when} (${count} מפתחות). כל הנתונים וההגדרות הנוכחיים יידרסו והאפליקציה תחזור בדיוק למצב של מועד הגיבוי. להמשיך?`, () => {
+            // מחיקת כל מפתחות האפליקציה הקיימים — שחזור מדויק, בלי שאריות
+            const toRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.indexOf('gympro_') === 0) toRemove.push(k);
+            }
+            toRemove.forEach(k => localStorage.removeItem(k));
+            try {
+                Object.keys(payload.keys).forEach(k => {
+                    if (k.indexOf('gympro_') === 0) localStorage.setItem(k, String(payload.keys[k]));
+                });
+            } catch (e) {
+                console.error('GymPro: full backup restore error', e);
+                showAlert('שגיאה בכתיבת הגיבוי (ייתכן שהאחסון מלא). המצב עשוי להיות חלקי — טען את הקובץ שוב.');
+                return;
+            }
+            showAlert('הגיבוי שוחזר בהצלחה!', () => { window.location.reload(); });
+        });
+    },
+
+    // ── גשר גיבוי שבועי לאימייל (Apps Script) — כבוי כברירת מחדל ──────────
+    getBackupBridge() {
+        return {
+            on:    localStorage.getItem(this.KEY_BACKUP_BRIDGE_ON) === '1',
+            url:   localStorage.getItem(this.KEY_BACKUP_BRIDGE_URL) || '',
+            token: localStorage.getItem(this.KEY_BACKUP_BRIDGE_TOKEN) || ''
+        };
+    },
+    saveBackupBridge(on, url, token) {
+        localStorage.setItem(this.KEY_BACKUP_BRIDGE_ON, on ? '1' : '0');
+        if (url !== undefined)   localStorage.setItem(this.KEY_BACKUP_BRIDGE_URL, (url || '').trim());
+        if (token !== undefined) localStorage.setItem(this.KEY_BACKUP_BRIDGE_TOKEN, (token || '').trim());
+    },
+    getBackupLast() {
+        return parseInt(localStorage.getItem(this.KEY_BACKUP_LAST), 10) || 0;
+    },
+
+    // maybeSendWeeklyBackup — נקרא בפתיחת האפליקציה (וידנית עם force).
+    // שולח את הגיבוי המלא לגשר האימייל אם עברו ≥7 ימים מהשליחה האחרונה.
+    // כשל שקט (רשת/גשר) — ינוסה שוב בפתיחה הבאה; force מציג שגיאות למשתמש.
+    maybeSendWeeklyBackup(force) {
+        const WEEK_MS = 7 * 86400000;
+        const { on, url, token } = this.getBackupBridge();
+        if (!on || !url) {
+            if (force) showAlert('גשר הגיבוי אינו מוגדר או כבוי. הגדר URL והפעל את המתג.');
+            return Promise.resolve(false);
+        }
+        if (!force && Date.now() - this.getBackupLast() < WEEK_MS) return Promise.resolve(false);
+        const payload = this.buildFullBackup();
+        const body = {
+            token,
+            filename: `gympro_full_backup_${new Date().toISOString().slice(0, 10)}.json`,
+            backup: payload
+        };
+        // Content-Type: text/plain — בקשה "פשוטה" בלי preflight; GAS מחזיר CORS פתוח
+        return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+            .then(r => r.json())
+            .then(res => {
+                if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
+                localStorage.setItem(this.KEY_BACKUP_LAST, String(Date.now()));
+                if (typeof showCloudToast === 'function') showCloudToast('📧 גיבוי שבועי נשלח לאימייל', true);
+                if (force) showAlert('הגיבוי נשלח לאימייל בהצלחה!');
+                return true;
+            })
+            .catch(e => {
+                console.warn('GymPro: weekly backup send failed', e);
+                if (force) showAlert('שליחת הגיבוי נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. בדוק את ה-URL, ה-token ופריסת הסקריפט.');
+                return false;
+            });
     },
 
     // ── Configuration Export / Import ────────────────────────────────────

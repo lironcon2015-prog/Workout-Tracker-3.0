@@ -922,13 +922,45 @@
                                 <span class="stg-row-title">ייבוא חיבורים</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">key</span>
                             </button>
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportFullBackup()">
+                                <span class="stg-row-title">גיבוי מלא (כל הנתונים והמפתחות)</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">shield_lock</span>
+                            </button>
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="triggerFullBackupImport()">
+                                <span class="stg-row-title">שחזור גיבוי מלא</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">settings_backup_restore</span>
+                            </button>
                             <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="openUnifiedExportModal()">
                                 <span class="stg-row-title">ייצוא קובץ מאוחד (לקלוד)</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">database</span>
                             </button>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">תבנית = תוכניות ותרגילים. חיבורים = Firebase, מפתח Gemini, גשרי MFP/שעון והעדפות — לשחזור מערכת בלי הזנה ידנית. ⚠️ קובץ החיבורים מכיל מפתחות אישיים — לשמור במקום בטוח.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">תבנית = תוכניות ותרגילים. חיבורים = Firebase, מפתח Gemini, גשרי MFP/שעון והעדפות. גיבוי מלא = צילום מדויק של כל האפליקציה — שחזורו מחזיר אותה בדיוק למצב של מועד הגיבוי. ⚠️ קובצי החיבורים והגיבוי המלא מכילים מפתחות אישיים — לשמור במקום בטוח.</div>
                         <input type="file" id="import-connections-file" class="d-none" accept=".json,application/json" onchange="processConnectionsImport(this)">
+                        <input type="file" id="import-full-backup-file" class="d-none" accept=".json,application/json" onchange="processFullBackupImport(this)">
+                    </div>
+
+                    <!-- גיבוי שבועי לאימייל -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">גיבוי שבועי לאימייל</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <div id="backup-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
+                            <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>הפעל גיבוי שבועי</span>
+                                <span class="stg-switch"><input type="checkbox" id="backup-bridge-toggle" onchange="saveBackupBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                            </label>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
+                                <input type="text" id="backup-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+                            </div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">SECRET TOKEN</label>
+                                <input type="password" id="backup-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
+                            </div>
+                            <button class="stg-ai-save" onclick="saveBackupBridgeSettings()">שמור הגדרות גשר</button>
+                            <button class="stg-ai-save" style="margin-top:6px;" onclick="sendBackupNow()">שלח גיבוי עכשיו</button>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">בכל פתיחת אפליקציה נבדק אם עברו 7 ימים מהגיבוי האחרון — ואם כן, קובץ הגיבוי המלא נשלח לאימייל שלך דרך הגשר (docs/backup-bridge.gs, רץ בחשבון ה-Gmail שלך). ⚠️ המייל מכיל את כל המפתחות — הוא נשלח מחשבונך לעצמך בלבד.</div>
                     </div>
 
                     <!-- ייבוא תזונה (MyFitnessPal) -->

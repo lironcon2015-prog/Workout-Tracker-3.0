@@ -194,23 +194,26 @@ function addMacro(stack, tag, val, color) {
 function mediumWidgetWidth() {
     const s = Device.screenSize();
     const sw = Math.min(s.width, s.height);
-    const map = { 440: 364, 430: 364, 428: 364, 414: 348, 402: 338, 393: 338, 390: 338, 375: 329, 360: 329, 320: 292 };
+    const map = { 440: 373, 430: 364, 428: 364, 414: 348, 402: 338, 393: 338, 390: 338, 375: 329, 360: 329, 320: 292 };
     return map[sw] || Math.max(292, Math.min(364, sw - 62));
 }
 
 // פס התקדמות מ-stacks: track אפור + מילוי גרדיאנט כחול→ירוק, מעוגן ימין (RTL).
+// ה-track ברוחב גמיש (Size עם 0) + spacer פנימי — נמתח מעצמו לכל רוחב הווידג'ט,
+// בכל מכשיר, בלי לנחש מידות. רק אורך המילוי מחושב מהערכת הרוחב (אי-דיוק זניח).
 // לא DrawContext — שם fillPath() ממלא רק path שנוסף ב-addPath (באג שקט אם שוכחים).
 function addProgressBar(w, pct) {
-    const BAR_W = mediumWidgetWidth() - 30, BAR_H = 5;   // מינוס padding 15+15
+    const BAR_H = 5;
+    const estW = mediumWidgetWidth() - 30;   // הערכה לאורך המילוי בלבד
     const track = w.addStack();
-    track.size = new Size(BAR_W, BAR_H);
+    track.size = new Size(0, BAR_H);   // רוחב 0 = גמיש; ה-spacer שבפנים ממתח אותו עד הקצוות
     track.cornerRadius = BAR_H / 2;
     track.backgroundColor = col(C.track);
     track.layoutHorizontally();
+    track.addSpacer();   // ממלא את הרוחב ומעגן את המילוי לקצה הימני — התקדמות RTL
     if (pct > 0) {
-        track.addSpacer();   // דוחף את המילוי לימין — התקדמות RTL
         const fill = track.addStack();
-        fill.size = new Size(Math.max(BAR_H, Math.round(BAR_W * pct)), BAR_H);
+        fill.size = new Size(Math.max(BAR_H, Math.round(estW * pct)), BAR_H);
         fill.cornerRadius = BAR_H / 2;
         const g = new LinearGradient();
         g.colors = [col(C.accent), col(C.success)];

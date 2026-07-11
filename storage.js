@@ -567,17 +567,27 @@ const StorageManager = {
     },
 
     // ── גשר גיבוי שבועי לאימייל (Apps Script) — כבוי כברירת מחדל ──────────
+
+    // _cleanPastedSecret — מסיר תווים בלתי-נראים שהדבקה בהקשר RTL מזריקה
+    // (תווי כיווניות: U+200E/F, U+202A-E, U+2066-9, zero-width, BOM) וכל רווח.
+    // בלעדיו fetch נכשל ב-Safari עם "The string did not match the expected pattern".
+    // בטוח ל-URL ול-token — לעולם אינם מכילים רווחים או תווי כיווניות לגיטימיים.
+    _cleanPastedSecret(s) {
+        return String(s || '').replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF\s]/g, '');
+    },
+
+    // הניקוי רץ גם בקריאה — מתקן ערכים שכבר נשמרו "מזוהמים", בלי הזנה מחדש
     getBackupBridge() {
         return {
             on:    localStorage.getItem(this.KEY_BACKUP_BRIDGE_ON) === '1',
-            url:   localStorage.getItem(this.KEY_BACKUP_BRIDGE_URL) || '',
-            token: localStorage.getItem(this.KEY_BACKUP_BRIDGE_TOKEN) || ''
+            url:   this._cleanPastedSecret(localStorage.getItem(this.KEY_BACKUP_BRIDGE_URL)),
+            token: this._cleanPastedSecret(localStorage.getItem(this.KEY_BACKUP_BRIDGE_TOKEN))
         };
     },
     saveBackupBridge(on, url, token) {
         localStorage.setItem(this.KEY_BACKUP_BRIDGE_ON, on ? '1' : '0');
-        if (url !== undefined)   localStorage.setItem(this.KEY_BACKUP_BRIDGE_URL, (url || '').trim());
-        if (token !== undefined) localStorage.setItem(this.KEY_BACKUP_BRIDGE_TOKEN, (token || '').trim());
+        if (url !== undefined)   localStorage.setItem(this.KEY_BACKUP_BRIDGE_URL, this._cleanPastedSecret(url));
+        if (token !== undefined) localStorage.setItem(this.KEY_BACKUP_BRIDGE_TOKEN, this._cleanPastedSecret(token));
     },
     getBackupLast() {
         return parseInt(localStorage.getItem(this.KEY_BACKUP_LAST), 10) || 0;

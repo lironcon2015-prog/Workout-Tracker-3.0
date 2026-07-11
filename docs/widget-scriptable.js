@@ -48,7 +48,9 @@ const w = new ListWidget();
 w.backgroundColor = col(C.bg);
 if (TAP_URL) w.url = TAP_URL;
 w.setPadding(13, 15, 13, 15);
-w.refreshAfterDate = new Date(Date.now() + 15 * 60000);
+// בקשת רענון צפופה (5 דק') — iOS לא מתחייב אבל מתקרב אליה כשיש תקציב.
+// אין דרך לכפות רענון מבחוץ: לא מה-PWA, לא מאוטומציה — הציור בשליטת iOS בלבד.
+w.refreshAfterDate = new Date(Date.now() + 5 * 60000);
 
 if (!snap) {
     w.addSpacer();

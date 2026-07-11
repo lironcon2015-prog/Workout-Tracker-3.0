@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GYMPRO — מוקאפ ווידג'ט iOS</title>
+<style>
+    :root {
+        --bg: #070708; --surface-1: #101013; --surface-2: #161619;
+        --surface-3: #1e1e22; --surface-4: #26262c;
+        --text: #e2e2e2; --text-dim: #8E8E93;
+        --accent: #0A84FF; --success: #30D158; --danger: #ff453a;
+        --macro-p: #8FB0C9; --macro-c: #C3A874; --macro-f: #C594A6;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        background: var(--bg); color: var(--text);
+        font-family: 'Heebo', -apple-system, 'Segoe UI', sans-serif;
+        padding: 28px 16px 60px; max-width: 760px; margin: 0 auto;
+    }
+    h1 { font-size: 1.3rem; font-weight: 900; margin-bottom: 4px; }
+    .sub { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 28px; }
+    h2 { font-size: 1rem; font-weight: 800; margin: 36px 0 4px; }
+    .note { color: var(--text-dim); font-size: 0.8rem; margin-bottom: 14px; line-height: 1.5; }
+
+    /* ── "מסך בית" — הקשר של אייפון ── */
+    .homescreen {
+        background: linear-gradient(160deg, #0b0b10 0%, #101018 55%, #0a0d14 100%);
+        border-radius: 34px; padding: 26px 18px 18px;
+        border: 1px solid rgba(255,255,255,0.07);
+        display: flex; flex-direction: column; gap: 18px; align-items: center;
+    }
+    .icons { display: flex; gap: 22px; justify-content: center; }
+    .icon {
+        width: 52px; height: 52px; border-radius: 13px;
+        background: var(--surface-3); opacity: 0.55;
+    }
+
+    /* ── מסגרת ווידג'ט Medium (יחס ~2.13:1, כמו iOS) ── */
+    .widget {
+        width: 100%; max-width: 360px; aspect-ratio: 2.13 / 1;
+        background: var(--surface-2);
+        border-radius: 22px; border: 1px solid rgba(255,255,255,0.06);
+        padding: 13px 15px; display: flex; flex-direction: column;
+        overflow: hidden;
+    }
+    .w-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+    .w-title { font-size: 0.64rem; font-weight: 900; letter-spacing: 0.06em; color: var(--text-dim); }
+    .w-time { font-size: 0.56rem; color: var(--text-dim); opacity: 0.7; }
+
+    .label { font-size: 0.58rem; color: var(--text-dim); font-weight: 600; }
+    .big  { font-size: 1.25rem; font-weight: 900; line-height: 1.05; }
+    .unit { font-size: 0.62rem; font-weight: 600; color: var(--text-dim); }
+    .up   { color: var(--success); } .down { color: var(--danger); }
+
+    /* מפרידי עמודות */
+    .cols { display: flex; flex: 1; gap: 0; }
+    .col  { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
+    .col + .col { border-inline-start: 1px solid rgba(255,255,255,0.07); padding-inline-start: 12px; margin-inline-start: 12px; }
+
+    /* פסי מאקרו — 4px, קצוות מעוגלים, רווח 2px מהמסגרת */
+    .macros { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+    .m-row { display: flex; align-items: center; gap: 5px; }
+    .m-tag { font-size: 0.56rem; font-weight: 800; width: 10px; }
+    .m-val { font-size: 0.56rem; color: var(--text); font-weight: 700; min-width: 40px; }
+    .m-bar { flex: 1; height: 4px; border-radius: 4px; background: var(--surface-4); overflow: hidden; }
+    .m-fill { height: 100%; border-radius: 4px; }
+    .p .m-tag, .p .m-fill { color: var(--macro-p); background-color: var(--macro-p); }
+    .c .m-tag, .c .m-fill { color: var(--macro-c); background-color: var(--macro-c); }
+    .f .m-tag, .f .m-fill { color: var(--macro-f); background-color: var(--macro-f); }
+    .m-tag { background: none !important; }
+
+    /* פס התקדמות קלוריות */
+    .kbar { height: 5px; border-radius: 5px; background: var(--surface-4); overflow: hidden; margin-top: 5px; }
+    .kfill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #0A84FF, #30D158); }
+
+    .spark { display: block; margin-top: 2px; }
+    .w-workout-name { font-size: 0.78rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .caption { text-align: center; color: var(--text-dim); font-size: 0.72rem; margin-top: 10px; }
+    .tag-rec {
+        display: inline-block; background: rgba(48,209,88,0.14); color: var(--success);
+        font-size: 0.66rem; font-weight: 800; border-radius: 999px; padding: 2px 10px; margin-inline-start: 6px;
+    }
+</style>
+</head>
+<body>
+
+<h1>ווידג'ט iOS — מוקאפ (Medium)</h1>
+<div class="sub">שלוש גרסאות פריסה · נתוני דוגמה · עיצוב Liquid Obsidian · הנתונים מתעדכנים בכל פתיחת אפליקציה</div>
+
+<!-- ═══════════ גרסה 1 ═══════════ -->
+<h2>גרסה 1 — שלוש עמודות שוות <span class="tag-rec">מומלץ</span></h2>
+<div class="note">תזונה (ימין) · משקל+מגמה (אמצע) · אימון אחרון (שמאל). הכל במבט אחד, צפיפות מאוזנת.</div>
+<div class="homescreen">
+    <div class="widget">
+        <div class="w-head"><span class="w-title">GYMPRO ELITE</span><span class="w-time">עודכן 15:42</span></div>
+        <div class="cols">
+            <div class="col">
+                <span class="label">תזונה היום</span>
+                <div><span class="big">1,842</span> <span class="unit">/ 2,600 קק"ל</span></div>
+                <div class="macros">
+                    <div class="m-row p"><span class="m-tag">P</span><span class="m-val">142g</span><div class="m-bar"><div class="m-fill" style="width:82%"></div></div></div>
+                    <div class="m-row c"><span class="m-tag">C</span><span class="m-val">195g</span><div class="m-bar"><div class="m-fill" style="width:65%"></div></div></div>
+                    <div class="m-row f"><span class="m-tag">F</span><span class="m-val">58g</span><div class="m-bar"><div class="m-fill" style="width:64%"></div></div></div>
+                </div>
+            </div>
+            <div class="col">
+                <span class="label">משקל</span>
+                <div><span class="big">82.4</span> <span class="unit">ק"ג</span></div>
+                <span style="font-size:0.62rem;font-weight:800;" class="up">▾ 0.4 השבוע</span>
+                <svg class="spark" width="86" height="22" viewBox="0 0 86 22">
+                    <polyline points="2,6 16,9 30,8 44,13 58,12 72,15 82,17" fill="none" stroke="#0A84FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="82" cy="17" r="2.6" fill="#0A84FF" stroke="#161619" stroke-width="2"/>
+                </svg>
+            </div>
+            <div class="col">
+                <span class="label">אימון אחרון</span>
+                <span class="w-workout-name">אימון A — חזה</span>
+                <span style="font-size:0.62rem;color:var(--text-dim);">לפני יומיים</span>
+                <span style="font-size:0.62rem;"><b>18</b> סטים · <b>12,450</b> ק"ג</span>
+            </div>
+        </div>
+    </div>
+    <div class="icons"><div class="icon"></div><div class="icon"></div><div class="icon"></div><div class="icon"></div></div>
+</div>
+
+<!-- ═══════════ גרסה 2 ═══════════ -->
+<h2>גרסה 2 — תזונה דומיננטית</h2>
+<div class="note">שורת קלוריות רחבה עם פס התקדמות + מאקרו אינליין; משקל ואימון בשורה תחתונה. מדגיש את היום התזונתי.</div>
+<div class="homescreen">
+    <div class="widget">
+        <div class="w-head"><span class="w-title">GYMPRO ELITE</span><span class="w-time">עודכן 15:42</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <div><span class="big">1,842</span> <span class="unit">/ 2,600 קק"ל</span></div>
+            <div style="display:flex;gap:9px;font-size:0.6rem;font-weight:700;">
+                <span><span class="m-tag" style="color:var(--macro-p);">P</span> 142</span>
+                <span><span class="m-tag" style="color:var(--macro-c);">C</span> 195</span>
+                <span><span class="m-tag" style="color:var(--macro-f);">F</span> 58</span>
+            </div>
+        </div>
+        <div class="kbar"><div class="kfill" style="width:71%"></div></div>
+        <div class="cols" style="margin-top:9px;">
+            <div class="col" style="flex-direction:row;align-items:center;gap:8px;">
+                <div>
+                    <div><span style="font-size:0.95rem;font-weight:900;">82.4</span> <span class="unit">ק"ג</span>
+                    <span style="font-size:0.6rem;font-weight:800;" class="up">▾0.4</span></div>
+                    <span class="label">מגמה שבועית</span>
+                </div>
+                <svg class="spark" width="70" height="20" viewBox="0 0 70 20">
+                    <polyline points="2,5 13,8 24,7 35,11 46,10 57,13 66,15" fill="none" stroke="#0A84FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="66" cy="15" r="2.4" fill="#0A84FF" stroke="#161619" stroke-width="2"/>
+                </svg>
+            </div>
+            <div class="col">
+                <span class="w-workout-name">אימון A — חזה <span style="font-weight:600;color:var(--text-dim);font-size:0.6rem;">· לפני יומיים</span></span>
+                <span style="font-size:0.62rem;"><b>18</b> סטים · <b>12,450</b> ק"ג נפח</span>
+            </div>
+        </div>
+    </div>
+    <div class="icons"><div class="icon"></div><div class="icon"></div><div class="icon"></div><div class="icon"></div></div>
+</div>
+
+<!-- ═══════════ גרסה 3 ═══════════ -->
+<h2>גרסה 3 — משקל כגיבור</h2>
+<div class="note">המשקל והמגמה תופסים את העין (ספארקליין גדול); תזונה מצטמצמת לשורה אחת; אימון בפינה. מתאים אם המעקב המרכזי שלך הוא הקומפוזיציה.</div>
+<div class="homescreen">
+    <div class="widget">
+        <div class="w-head"><span class="w-title">GYMPRO ELITE</span><span class="w-time">עודכן 15:42</span></div>
+        <div class="cols">
+            <div class="col" style="flex:1.25;">
+                <span class="label">משקל · 7 ימים</span>
+                <div><span class="big" style="font-size:1.5rem;">82.4</span> <span class="unit">ק"ג</span>
+                <span style="font-size:0.66rem;font-weight:800;" class="up">▾ 0.4</span></div>
+                <svg class="spark" width="150" height="30" viewBox="0 0 150 30">
+                    <polyline points="3,8 27,12 51,10 75,17 99,15 123,20 145,23" fill="none" stroke="#0A84FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="145" cy="23" r="2.8" fill="#0A84FF" stroke="#161619" stroke-width="2"/>
+                </svg>
+            </div>
+            <div class="col">
+                <span class="label">תזונה היום</span>
+                <div><span style="font-size:0.95rem;font-weight:900;">1,842</span> <span class="unit">/ 2,600</span></div>
+                <div style="display:flex;gap:7px;font-size:0.58rem;font-weight:700;">
+                    <span style="color:var(--macro-p);">P142</span>
+                    <span style="color:var(--macro-c);">C195</span>
+                    <span style="color:var(--macro-f);">F58</span>
+                </div>
+                <span class="label" style="margin-top:4px;">אימון אחרון</span>
+                <span style="font-size:0.66rem;font-weight:800;">אימון A · לפני יומיים</span>
+            </div>
+        </div>
+    </div>
+    <div class="icons"><div class="icon"></div><div class="icon"></div><div class="icon"></div><div class="icon"></div></div>
+</div>
+
+<div class="caption" style="margin-top:34px;">
+    כל הגרסאות: רקע var(--surface-2)‎, פינות 22px, טיפוגרפיה 900 לכותרות — תואם Liquid Obsidian.<br>
+    ירוק/אדום במגמת המשקל הוא סמנטי (ירידה בקאט = ירוק). הספארקליין — 7 שקילות אחרונות.
+</div>
+
+</body>
+</html>

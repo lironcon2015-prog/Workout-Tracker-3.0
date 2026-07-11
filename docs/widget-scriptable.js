@@ -2,7 +2,7 @@
  * GYMPRO ELITE — ווידג'ט מסך הבית (Scriptable, iOS)
  * ----------------------------------------------------------------------------
  * מציג: תזונה היום (קלוריות מול יעד + מאקרו + פס התקדמות), משקל אחרון
- * + מגמה שבועית + ספארקליין, והאימון האחרון. פריסת "גרסה 2" מהמוקאפ
+ * + מגמה שבועית + ספארקליין, והאימון האחרון. נאמן לפריסת "גרסה 2" מהמוקאפ
  * (docs/mockup-widget.html), עיצוב Liquid Obsidian.
  *
  * ── התקנה (חד-פעמי) ────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ const TAP_URL = '';
 
 // ── טוקני Liquid Obsidian ──
 const C = {
-    bg: '#161619', track: '#2e2e36',
+    bg: '#161619', track: '#26262c', sep: '#ffffff',
     text: '#e2e2e2', dim: '#8E8E93',
     accent: '#0A84FF', success: '#30D158', danger: '#ff453a',
     p: '#8FB0C9', c: '#C3A874', f: '#C594A6'
@@ -47,7 +47,7 @@ try {
 const w = new ListWidget();
 w.backgroundColor = col(C.bg);
 if (TAP_URL) w.url = TAP_URL;
-w.setPadding(13, 16, 13, 16);
+w.setPadding(13, 15, 13, 15);
 w.refreshAfterDate = new Date(Date.now() + 15 * 60000);
 
 if (!snap) {
@@ -66,7 +66,9 @@ Script.setWidget(w);
 if (config.runsInApp) w.presentMedium();
 Script.complete();
 
-// ═══════════════ בניית הפריסה (גרסה 2 — תזונה דומיננטית) ═══════════════
+// ═══════════════ בניית הפריסה (גרסה 2 — נאמן למוקאפ) ═══════════════
+// כלל RTL ב-Scriptable: ה-stacks הם LTR; "יישור לימין" = spacer גמיש ראשון בשורה,
+// והרכיב הימני-ויזואלית נוסף אחרון.
 function buildWidget(w, s) {
     const n = s.nutrition || {};
 
@@ -81,7 +83,7 @@ function buildWidget(w, s) {
 
     w.addSpacer(8);
 
-    // ── שורת קלוריות: מאקרו משמאל (מיושר לבסיס), קלוריות/יעד מימין ──
+    // ── שורת קלוריות: מאקרו משמאל, קלוריות/יעד מימין ──
     const kRow = w.addStack();
     kRow.layoutHorizontally(); kRow.bottomAlignContent();
     const macros = kRow.addStack();
@@ -97,68 +99,82 @@ function buildWidget(w, s) {
         tgt.font = Font.semiboldRoundedSystemFont(10); tgt.textColor = col(C.dim);
     }
     const big = kcal.addText(fmtNum(n.calories));
-    big.font = Font.blackRoundedSystemFont(26); big.textColor = col(C.text);
+    big.font = Font.blackRoundedSystemFont(24); big.textColor = col(C.text);
     big.minimumScaleFactor = 0.8;
 
-    w.addSpacer(7);
+    w.addSpacer(6);
 
-    // ── פס התקדמות קלוריות ──
+    // ── פס התקדמות קלוריות — גרדיאנט כחול→ירוק, מילוי מעוגן ימין (RTL) ──
     const pct = n.kcalTarget > 0 ? Math.min(1, n.calories / n.kcalTarget) : 0;
-    const bar = w.addImage(progressBar(pct));
-    bar.imageSize = new Size(292, 5);
-    bar.cornerRadius = 2.5;
-    bar.centerAlignImage();
+    addProgressBar(w, pct);
 
-    w.addSpacer();   // ריווח גמיש — דוחף את השורה התחתונה למטה בלי למרוח את התוכן
+    w.addSpacer();   // ריווח גמיש — השורה התחתונה נדחפת למטה
 
-    // ── שורה תחתונה: אימון משמאל, משקל+ספארקליין מימין ──
+    // ── שורה תחתונה: [אימון | מפריד | ספארקליין | משקל] — משקל בקצה הימני ──
     const bottom = w.addStack();
-    bottom.layoutHorizontally(); bottom.bottomAlignContent();
+    bottom.layoutHorizontally(); bottom.centerAlignContent();
 
-    // אימון אחרון (שמאל)
+    // אימון (עמודה שמאלית, טקסט מיושר ימינה כמו RTL)
     const wo = bottom.addStack();
     wo.layoutVertically(); wo.spacing = 3;
     if (s.workout) {
-        const meta = wo.addText(s.workout.sets + ' סטים · ' + fmtNum(s.workout.volume) + ' ק"ג נפח');
-        meta.font = Font.mediumSystemFont(9); meta.textColor = col(C.dim);
         const nameRow = wo.addStack();
-        nameRow.layoutHorizontally(); nameRow.centerAlignContent(); nameRow.spacing = 4;
-        const icon = nameRow.addImage(SFSymbol.named('dumbbell.fill').image);
-        icon.imageSize = new Size(12, 12); icon.tintColor = col(C.dim);
-        const name = nameRow.addText(s.workout.type + ' · ' + agoText(s.workout.timestamp));
-        name.font = Font.heavySystemFont(12); name.textColor = col(C.text); name.lineLimit = 1;
-        name.minimumScaleFactor = 0.75;
+        nameRow.layoutHorizontally(); nameRow.bottomAlignContent(); nameRow.spacing = 4;
+        nameRow.addSpacer();
+        const ago = nameRow.addText('· ' + agoText(s.workout.timestamp));
+        ago.font = Font.semiboldSystemFont(9); ago.textColor = col(C.dim);
+        const name = nameRow.addText(s.workout.type);
+        name.font = Font.heavySystemFont(13); name.textColor = col(C.text);
+        name.lineLimit = 1; name.minimumScaleFactor = 0.7;
+        const metaRow = wo.addStack();
+        metaRow.layoutHorizontally();
+        metaRow.addSpacer();
+        const meta = metaRow.addText(s.workout.sets + ' סטים · ' + fmtNum(s.workout.volume) + ' ק"ג נפח');
+        meta.font = Font.mediumSystemFont(9.5); meta.textColor = col('#b9b9be');
     } else {
-        const none = wo.addText('אין אימונים עדיין');
+        const noneRow = wo.addStack();
+        noneRow.layoutHorizontally(); noneRow.addSpacer();
+        const none = noneRow.addText('אין אימונים עדיין');
         none.font = Font.mediumSystemFont(10); none.textColor = col(C.dim);
     }
 
-    bottom.addSpacer();
+    bottom.addSpacer(12);
 
-    // משקל + מגמה + ספארקליין (ימין)
-    const wt = bottom.addStack();
-    wt.layoutHorizontally(); wt.bottomAlignContent(); wt.spacing = 9;
+    // מפריד אנכי עדין — כמו במוקאפ
+    const sep = bottom.addStack();
+    sep.size = new Size(1, 44);
+    sep.backgroundColor = col(C.sep, 0.08);
+
+    bottom.addSpacer(12);
+
+    // ספארקליין + עמודת משקל (קצה ימין)
     if (s.weight) {
-        const sp = wt.addImage(sparkline(s.weight.points || []));
-        sp.imageSize = new Size(72, 26);
-        const wcol = wt.addStack();
-        wcol.layoutVertically(); wcol.spacing = 2;
-        // שורת ערך: צ'יפ מגמה משמאל, מספר+יחידה מימין
+        const sp = bottom.addImage(sparkline(s.weight.points || []));
+        sp.imageSize = new Size(74, 26);
+        bottom.addSpacer(8);
+        const wcol = bottom.addStack();
+        wcol.layoutVertically(); wcol.spacing = 1;
+        // שורת ערך: המספר בקצה הימני, היחידה משמאלו
         const wrow = wcol.addStack();
-        wrow.layoutHorizontally(); wrow.centerAlignContent(); wrow.spacing = 5;
-        addDeltaChip(wrow, s.weight.weekDelta, (s.nutrition || {}).state);
-        const val = wrow.addText(String(s.weight.current));
-        val.font = Font.blackRoundedSystemFont(18); val.textColor = col(C.text);
+        wrow.layoutHorizontally(); wrow.bottomAlignContent(); wrow.spacing = 3;
+        wrow.addSpacer();
         const unit = wrow.addText('ק"ג');
         unit.font = Font.semiboldSystemFont(9); unit.textColor = col(C.dim);
-        // תווית מיושרת לימין מתחת למספר
-        const lblRow = wcol.addStack();
-        lblRow.layoutHorizontally();
-        lblRow.addSpacer();
-        const lbl = lblRow.addText('מגמה שבועית');
-        lbl.font = Font.mediumSystemFont(7.5); lbl.textColor = col(C.dim);
+        const val = wrow.addText(String(s.weight.current));
+        val.font = Font.blackRoundedSystemFont(19); val.textColor = col(C.text);
+        // דלתא — שורה נפרדת, צבע סמנטי, מיושרת ימינה (כמו במוקאפ)
+        const dRow = wcol.addStack();
+        dRow.layoutHorizontally(); dRow.addSpacer();
+        const delta = dRow.addText(deltaText(s.weight.weekDelta));
+        delta.font = Font.heavyRoundedSystemFont(10);
+        delta.textColor = col(deltaColor(s.weight.weekDelta, (s.nutrition || {}).state));
+        // תווית
+        const lRow = wcol.addStack();
+        lRow.layoutHorizontally(); lRow.addSpacer();
+        const lbl = lRow.addText('מגמה שבועית');
+        lbl.font = Font.mediumSystemFont(8); lbl.textColor = col(C.dim);
     } else {
-        const none = wt.addText('אין שקילות');
+        const none = bottom.addText('אין שקילות');
         none.font = Font.mediumSystemFont(10); none.textColor = col(C.dim);
     }
 }
@@ -173,33 +189,32 @@ function addMacro(stack, tag, val, color) {
     t.font = Font.blackSystemFont(10); t.textColor = col(color);
 }
 
-// צ'יפ מגמה — pill קטן בסגנון האפליקציה, צבע סמנטי לפי המצב התזונתי
-function addDeltaChip(stack, d, state) {
-    const c = deltaColor(d, state);
-    const chip = stack.addStack();
-    chip.setPadding(2, 6, 2, 6);
-    chip.cornerRadius = 8;
-    chip.backgroundColor = col(c, 0.16);
-    const t = chip.addText(deltaText(d));
-    t.font = Font.heavyRoundedSystemFont(9);
-    t.textColor = col(c);
-}
-
-function progressBar(pct) {
-    const W = 876, H = 15;   // 3x מגודל התצוגה (292x5pt) — חד ברשתית
-    const ctx = new DrawContext();
-    ctx.size = new Size(W, H); ctx.opaque = false; ctx.respectScreenScale = false;
-    ctx.setFillColor(col(C.track));
-    ctx.fillPath(roundedRect(0, 0, W, H, H / 2));
+// פס התקדמות מ-stacks: track אפור + מילוי גרדיאנט כחול→ירוק, מעוגן ימין (RTL).
+// לא DrawContext — שם fillPath() ממלא רק path שנוסף ב-addPath (באג שקט אם שוכחים).
+function addProgressBar(w, pct) {
+    const BAR_W = 292, BAR_H = 5;
+    const track = w.addStack();
+    track.size = new Size(BAR_W, BAR_H);
+    track.cornerRadius = BAR_H / 2;
+    track.backgroundColor = col(C.track);
+    track.layoutHorizontally();
     if (pct > 0) {
-        ctx.setFillColor(col(pct >= 1 ? C.success : C.accent));
-        ctx.fillPath(roundedRect(0, 0, Math.max(H, W * pct), H, H / 2));
+        track.addSpacer();   // דוחף את המילוי לימין — התקדמות RTL
+        const fill = track.addStack();
+        fill.size = new Size(Math.max(BAR_H, Math.round(BAR_W * pct)), BAR_H);
+        fill.cornerRadius = BAR_H / 2;
+        const g = new LinearGradient();
+        g.colors = [col(C.accent), col(C.success)];
+        g.locations = [0, 1];
+        g.startPoint = new Point(0, 0);
+        g.endPoint = new Point(1, 0);
+        fill.backgroundGradient = g;
     }
-    return ctx.getImage();
 }
 
+// ספארקליין — קו + נקודת קצה עם טבעת רקע (כמו במוקאפ, בלי מילוי שטח)
 function sparkline(points) {
-    const W = 216, H = 78, PAD = 12;   // 3x מגודל התצוגה (72x26pt)
+    const W = 222, H = 78, PAD = 12;   // 3x מגודל התצוגה (74x26pt)
     const ctx = new DrawContext();
     ctx.size = new Size(W, H); ctx.opaque = false; ctx.respectScreenScale = false;
     if (points.length >= 2) {
@@ -210,27 +225,16 @@ function sparkline(points) {
         // ציר הזמן מימין לשמאל (RTL): הנקודה הישנה מימין, העדכנית משמאל
         const px = i => W - x(i);
 
-        // מילוי שטח עדין מתחת לקו — עומק בלי רעש
-        const fill = new Path();
-        fill.move(new Point(px(0), H));
-        points.forEach((v, i) => fill.addLine(new Point(px(i), y(v))));
-        fill.addLine(new Point(px(points.length - 1), H));
-        fill.closeSubpath();
-        ctx.addPath(fill);
-        ctx.setFillColor(col(C.accent, 0.16));
-        ctx.fillPath();
-
-        // הקו עצמו
         const line = new Path();
         points.forEach((v, i) => {
             const pt = new Point(px(i), y(v));
             i === 0 ? line.move(pt) : line.addLine(pt);
         });
         ctx.addPath(line);
-        ctx.setStrokeColor(col(C.accent)); ctx.setLineWidth(5);
+        ctx.setStrokeColor(col(C.accent)); ctx.setLineWidth(5.5);
         ctx.strokePath();
 
-        // נקודת הערך האחרון — עם טבעת בצבע הרקע (כמו במוקאפ)
+        // נקודת הערך האחרון — עם טבעת בצבע הרקע
         const lx = px(points.length - 1), ly = y(points[points.length - 1]);
         ctx.setFillColor(col(C.bg));
         ctx.fillEllipse(new Rect(lx - 10, ly - 10, 20, 20));
@@ -238,12 +242,6 @@ function sparkline(points) {
         ctx.fillEllipse(new Rect(lx - 6.5, ly - 6.5, 13, 13));
     }
     return ctx.getImage();
-}
-
-function roundedRect(x, y, w, h, r) {
-    const p = new Path();
-    p.addRoundedRect(new Rect(x, y, w, h), r, r);
-    return p;
 }
 
 function fmtNum(v) { return (Math.round(v || 0)).toLocaleString('he-IL'); }

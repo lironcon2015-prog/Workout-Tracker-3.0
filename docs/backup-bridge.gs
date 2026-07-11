@@ -11,12 +11,16 @@
  * ── פריסה (חד-פעמי, זהה לשאר הגשרים) ───────────────────────────────────────
  * 1. היכנס ל-https://script.google.com → New project.
  * 2. הדבק את כל הקובץ הזה. שנה את SECRET_TOKEN לערך אקראי משלך.
- * 3. Deploy → New deployment → type: Web app.
+ * 3. חובה — אישור הרשאת Gmail: בחר בתפריט הפונקציות את testMail → Run (▶) →
+ *    Review permissions → בחר חשבון → Advanced → Go to (unsafe) → Allow.
+ *    בלי הצעד הזה השליחה תיכשל עם MAIL_FAILED ("does not have permission").
+ *    ודא שהגיע מייל בדיקה.
+ * 4. Deploy → New deployment → type: Web app.
  *      - Execute as:  Me
  *      - Who has access: Anyone (ה-token מגן על הגישה)
- * 4. העתק את "Web app URL" → הדבק בהגדרות GYMPRO ("גיבוי שבועי לאימייל")
- *    יחד עם ה-SECRET_TOKEN, והפעל את המתג.
- * 5. בהגדרות לחץ "שלח גיבוי עכשיו" — אמור להגיע מייל תוך שניות.
+ * 5. העתק את "Web app URL" → הדבק בהגדרות GYMPRO ("גיבוי שבועי לאימייל")
+ *    יחד עם ה-SECRET_TOKEN (הערך בלבד, בלי גרשיים), והפעל את המתג.
+ * 6. בהגדרות לחץ "שלח גיבוי עכשיו" — אמור להגיע מייל תוך שניות.
  *
  * בדיקה בדפדפן:  <WebAppURL>?token=<SECRET_TOKEN>  ← אמור להחזיר {"ok":true,...}
  * ==========================================================================*/
@@ -72,4 +76,10 @@ function doGet(e) {
 function _json(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ─── testMail — הרץ ידנית פעם אחת מהעורך לאישור הרשאת ה-Gmail ───────────*/
+function testMail() {
+  GmailApp.sendEmail(Session.getEffectiveUser().getEmail(),
+    'GYMPRO — בדיקת הרשאות', 'אם קיבלת את זה — ההרשאה עובדת ✅');
 }

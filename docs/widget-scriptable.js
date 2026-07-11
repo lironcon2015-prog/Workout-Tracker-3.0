@@ -63,11 +63,10 @@ if (!snap) {
 }
 
 Script.setWidget(w);
+if (config.runsInApp) w.presentMedium();   // ▶ בעורך = תצוגה מקדימה
 Script.complete();
-// הקשה על הווידג'ט (When Interacting: Run Script) פותחת את Scriptable להרצה —
-// סוגרים מיד וחוזרים למסך הבית. תופעת לוואי: גם ▶ בעורך סוגר את האפליקציה;
-// לתצוגה מקדימה בעורך — הערה זמנית של השורה והוספת w.presentMedium() במקומה.
-if (config.runsInApp) App.close();
+// רענון: iOS מרענן את הווידג'ט לבד כל ~15-30 דק'. רענון ידני בהקשה נפסל —
+// "Run Script" פותח את אפליקציית Scriptable (התנהגות iOS), והמשתמש ויתר.
 
 // ═══════════════ בניית הפריסה (גרסה 2 — נאמן למוקאפ) ═══════════════
 // כלל RTL ב-Scriptable: ה-stacks הם LTR; "יישור לימין" = spacer גמיש ראשון בשורה,

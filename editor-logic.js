@@ -32,7 +32,9 @@ function autoSaveConfigToCloud() {
     if (!FirebaseManager._isSyncArmed()) return;   // מצב לא-מזוין: דילוג שקט (הגנת ענן) — לא כשל
     FirebaseManager.saveConfigToCloud().then(ok => {
         // הצלחה = שקט (הודעת ההצלחה רק הפריעה). רק כשל אמיתי מציג טוסט.
-        if (!ok && typeof showCloudToast === 'function') showCloudToast('⚠️ שמירת קונפיג לענן נכשלה', false);
+        if (!ok && typeof showCloudToast === 'function') {
+            showCloudToast('⚠️ שמירת נתונים לענן נכשלה — ' + FirebaseManager.describeSyncFailure('config'), false);
+        }
     });
 }
 
@@ -1166,13 +1168,23 @@ function updateFirebaseStatus() {
     if (FirebaseManager.isConfigured()) {
         const cfg = FirebaseManager.getFirebaseConfig();
         let html = `<span style="color:var(--type-b);font-weight:700;">&#9679; מחובר</span> <span style="color:var(--text-dim);font-size:0.85em;">${cfg.projectId}</span>`;
-        // שורת "סונכרן לאחרונה" / התראת כשל (#3)
+        // שורת "סונכרן לאחרונה" / התראת כשל (#3; v17.15: כל ארבעת המסלולים + אזהרת גודל)
         const sync = FirebaseManager.getSyncStatus();
-        if (sync.archiveAt) {
-            const when = new Date(sync.archiveAt).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-            html += sync.archiveOk
-                ? `<br><span style="color:var(--text-dim);font-size:0.85em;">&#10003; סונכרן: ${when}</span>`
-                : `<br><span style="color:var(--danger);font-weight:700;font-size:0.85em;">&#9888; הסנכרון האחרון נכשל (${when}) — גבה ידנית</span>`;
+        const stores = [['archive', 'ארכיון'], ['config', 'נתונים'], ['raw', 'MFP'], ['ai', 'שיחות AI']];
+        const failed = stores.filter(([k]) => sync[k + 'Ok'] === false);
+        const times  = stores.map(([k]) => sync[k + 'At']).filter(Boolean);
+        if (failed.length) {
+            const list = failed.map(([k, l]) => l + (sync[k + 'Err'] === 'size' ? ' (גדול מדי)' : '')).join(', ');
+            html += `<br><span style="color:var(--danger);font-weight:700;font-size:0.85em;">&#9888; כשל סנכרון: ${list} — גבה ידנית</span>`;
+        } else if (times.length) {
+            const when = new Date(Math.max(...times)).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            html += `<br><span style="color:var(--text-dim);font-size:0.85em;">&#10003; סונכרן: ${when}</span>`;
+        }
+        // אזהרת גודל מקדימה — המסמך מתקרב למחסום ה-1MB של Firestore
+        const warns = ['config', 'ai'].filter(k => sync[k + 'Warn']);
+        if (warns.length) {
+            const pct = Math.round(Math.max(...warns.map(k => sync[k + 'Warn'])) / 1048576 * 100);
+            html += `<br><span style="color:var(--type-c);font-weight:700;font-size:0.85em;">&#9888; מסמך הגיבוי ב-${pct}% ממגבלת Firestore — פנה מקום בקרוב</span>`;
         }
         el.innerHTML = html;
     } else {
@@ -1190,12 +1202,19 @@ function manualBackupArchive() {
     a.href = URL.createObjectURL(blob);
     a.download = `gympro_backup_${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    // גיבוי ענן
+    // גיבוי ענן — v17.15: כל ארבעת המסלולים, לא רק הארכיון (הכפתור משמש גם את
+    // באנר "גבה עכשיו" שנדלק על כשל בכל אחד מהם)
     if (FirebaseManager.isConfigured()) {
-        FirebaseManager.saveArchiveToCloud().then(ok => {
+        Promise.all([
+            FirebaseManager.saveArchiveToCloud(),
+            FirebaseManager.saveConfigToCloud(),
+            FirebaseManager.saveNutritionRawToCloud(),
+            FirebaseManager.saveAIHistoryToCloud()
+        ]).then(results => {
+            const ok = results.every(Boolean);
             if (ok && typeof dismissCloudSyncBanner === 'function') dismissCloudSyncBanner();
             if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
-            showAlert(ok ? 'גיבוי הורד + הועלה לענן!' : 'גיבוי הורד. שגיאה בשמירה לענן.');
+            showAlert(ok ? 'גיבוי הורד + הכל הועלה לענן!' : 'גיבוי הורד. חלק מהשמירה לענן נכשל — בדוק סטטוס בהגדרות.');
         });
     } else {
         showAlert('גיבוי הורד מקומית! (Firebase לא מוגדר)');
@@ -1208,7 +1227,7 @@ function manualBackupConfig() {
     // גיבוי ענן
     if (FirebaseManager.isConfigured()) {
         FirebaseManager.saveConfigToCloud().then(ok => {
-            showAlert(ok ? 'קונפיג הורד + הועלה לענן!' : 'קונפיג הורד. שגיאה בשמירה לענן.');
+            showAlert(ok ? 'קונפיג הורד + הועלה לענן!' : 'קונפיג הורד. שגיאה בשמירה לענן — ' + FirebaseManager.describeSyncFailure('config') + '.');
         });
     } else {
         showAlert('קונפיג הורד מקומית! (Firebase לא מוגדר)');
@@ -1221,7 +1240,7 @@ function saveWorkoutManagerToCloud() {
         return;
     }
     FirebaseManager.saveConfigToCloud().then(ok => {
-        showAlert(ok ? 'הקונפיגורציה נשמרה בענן!' : 'שגיאה בשמירה לענן. בדוק חיבור.');
+        showAlert(ok ? 'הקונפיגורציה נשמרה בענן!' : 'שגיאה בשמירה לענן — ' + FirebaseManager.describeSyncFailure('config') + '.');
     });
 }
 

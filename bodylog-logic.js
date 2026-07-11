@@ -654,13 +654,22 @@ function exportNutritionDailyJson() {
     haptic('success');
 }
 
-// (ב) מפורט — לכל יום ארוחות→פריטים→מרכיבים (תיעוד ישיר) או שורות MFP גולמיות
+// (ב) מפורט — לכל יום ארוחות→פריטים→מרכיבים, במבנה meals אחיד לכל המקורות
+// הסבר מוטמע בקובץ (readme) — מיועד לקוראים אוטומטיים (LLM), מונע פרשנות שגויה של המבנה
+const _NUTRI_EXPORT_README = [
+    'nutrition_detailed: לכל יום שדה meals אחיד (ארוחות → items), בלי תלות במקור. הפירוט המלא נמצא שם — לא בסיכומים.',
+    'source:"app" = תיעוד ישיר באפליקציה: items עם שם מזון, מותג וגרמים; מנות מורכבות כוללות components (מרכיבים).',
+    'source:"mfp" = ייבוא MyFitnessPal: item אחד לכל שורת ארוחה, ללא שם מזון (מגבלת המקור), עם מאקרו + micros (מיקרו-נוטריינטים).',
+    'source:"summary" = קיים סיכום יומי בלבד (למשל Apple Health) — meals ריק, totals בלבד.',
+    'nutrition_daily / totals הם שורה תחתונה בכוונה; לניתוח הרכב מזון השתמש ב-meals.'
+];
 function exportNutritionDetailedJson() {
     const b = _nutritionRangeBounds();
     const days = _buildNutritionDetailed(b.from, b.to);
     if (!days.length) { showAlert('אין נתוני תזונה בטווח שנבחר.'); return; }
     _blDownloadJson({
         app: 'GYMPRO ELITE', type: 'nutrition_detailed',
+        readme: _NUTRI_EXPORT_README,
         range: { label: b.label, from: b.from, to: b.to },
         generated: new Date().toISOString(), days
     }, `gympro_nutrition_detailed_${b.slug}_${_blTodayStr()}.json`);
@@ -668,7 +677,9 @@ function exportNutritionDetailedJson() {
 }
 
 // _buildNutritionDetailed — בונה משותף (גם לייצוא הנפרד וגם לקובץ המאוחד).
-// כלל קדימות ליום: אם יש תיעוד ישיר באפליקציה — הוא גובר; אחרת שורות MFP; אחרת סיכום בלבד.
+// כלל קדימות ליום: תיעוד ישיר גובר; אחרת MFP; אחרת סיכום בלבד.
+// כל יום מחזיר שדה meals באותו מבנה (ימי MFP מומרים דרך _detailMealsFromMfpRows) —
+// פורמט אחיד מונע מקוראים אוטומטיים להסיק "אין פירוט" כשהשדות משתנים בין מקורות.
 function _buildNutritionDetailed(from, to) {
     const inRange = d => (!from || d >= from) && (!to || d <= to);
     const foodLog = StorageManager.getFoodLog() || {};
@@ -701,10 +712,47 @@ function _buildNutritionDetailed(from, to) {
         }
         const rows = mfpByDate[date];
         if (rows && rows.length) {
-            return { date, source: 'mfp', totals, mfp_rows: rows.map(r => _rowToObj(header, r)) };
+            return { date, source: 'mfp', totals, meals: _detailMealsFromMfpRows(header, rows) };
         }
-        return { date, source: (sum && sum.src) || 'summary', totals };   // סיכום בלבד (Health וכו')
+        return { date, source: (sum && sum.src) || 'summary', totals, meals: [] };   // סיכום בלבד (Health וכו')
     });
+}
+
+// המרת שורות MFP למבנה meals אחיד — פורמט אחד לכל הימים בייצוא, בלי תלות במקור.
+// כל שורת MFP היא סיכום-לארוחה ללא שם מזון; עמודות הליבה ממופות ל-kcal/מאקרו,
+// וכל שאר העמודות (נתרן, סיבים, סוכר...) נשמרות תחת micros.
+function _detailMealsFromMfpRows(header, rows) {
+    const h = header || [];
+    const idx = re => h.findIndex(c => re.test(String(c)));
+    const iMeal = idx(/^meal$/i), iTime = idx(/^time$/i),
+        iKcal = idx(/^calories/i), iP = idx(/^protein/i),
+        iC = idx(/^carbohydrates/i), iF = idx(/^fat\b/i),
+        iDate = idx(/date|תאריך/i);
+    const core = new Set([iMeal, iTime, iKcal, iP, iC, iF, iDate]);
+    const order = [], byMeal = {};
+    rows.forEach(r => {
+        const m = (iMeal >= 0 && r[iMeal]) || 'אחר';
+        if (!byMeal[m]) { byMeal[m] = []; order.push(m); }
+        const item = {
+            name: '(סיכום ארוחה — MFP, ללא שם מזון)',
+            time: iTime >= 0 ? (r[iTime] || '') : '',
+            kcal: Math.round(Number(r[iKcal]) || 0),
+            protein: _nR(iP >= 0 ? r[iP] : 0),
+            carbs: _nR(iC >= 0 ? r[iC] : 0),
+            fat: _nR(iF >= 0 ? r[iF] : 0)
+        };
+        const micros = {};
+        h.forEach((col, i) => {
+            if (core.has(i)) return;
+            const v = r[i];
+            if (v == null || v === '') return;
+            const n = Number(v);
+            micros[col || ('col' + i)] = isNaN(n) ? v : n;
+        });
+        if (Object.keys(micros).length) item.micros = micros;
+        byMeal[m].push(item);
+    });
+    return order.map(m => ({ meal: m, items: byMeal[m] }));
 }
 
 // קיבוץ רשומות יום לפי ארוחה → פריטים (כולל מרכיבי Meal Builder כשקיימים)
@@ -1382,7 +1430,7 @@ function confirmBodyImport() {
 }
 
 // ─── ייצוא מאוחד (לקלוד) ─────────────────────────────────────────────────────
-// קובץ JSON יחיד עם 4 מקטעים: שקילות, תזונה יומית, תזונה גולמית MFP, אימונים.
+// קובץ JSON יחיד עם 4 מקטעים: שקילות, תזונה יומית, תזונה מפורטת (meals אחיד), אימונים.
 // כל מקור מסונן בנפרד — מחזיר את כל מה שקיים בטווח גם אם חלקי.
 function _unifiedRange(range) {
     const today = _blTodayStr();
@@ -1432,6 +1480,9 @@ function exportUnifiedData(range) {
 
     const payload = {
         app: 'GYMPRO ELITE', type: 'unified_export',
+        readme: _NUTRI_EXPORT_README.concat(
+            'הקובץ מכיל 4 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימונים).'
+        ),
         generated: new Date().toISOString(),
         range: { label: r.label, from: r.from, to: r.to },
         counts: {

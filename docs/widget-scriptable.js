@@ -63,8 +63,11 @@ if (!snap) {
 }
 
 Script.setWidget(w);
-if (config.runsInApp) w.presentMedium();
 Script.complete();
+// הקשה על הווידג'ט (When Interacting: Run Script) פותחת את Scriptable להרצה —
+// סוגרים מיד וחוזרים למסך הבית. תופעת לוואי: גם ▶ בעורך סוגר את האפליקציה;
+// לתצוגה מקדימה בעורך — הערה זמנית של השורה והוספת w.presentMedium() במקומה.
+if (config.runsInApp) App.close();
 
 // ═══════════════ בניית הפריסה (גרסה 2 — נאמן למוקאפ) ═══════════════
 // כלל RTL ב-Scriptable: ה-stacks הם LTR; "יישור לימין" = spacer גמיש ראשון בשורה,

@@ -98,8 +98,11 @@ function buildWidget(w, s) {
 
     // ── פס התקדמות קלוריות ──
     const pct = n.kcalTarget > 0 ? Math.min(1, n.calories / n.kcalTarget) : 0;
-    w.addImage(progressBar(pct)).cornerRadius = 3;
-    w.addSpacer(9);
+    const bar = w.addImage(progressBar(pct));
+    bar.imageSize = new Size(292, 6);   // גודל מפורש בנקודות — בלי זה iOS מכווץ/ממקם לא צפוי
+    bar.cornerRadius = 3;
+    bar.centerAlignImage();
+    w.addSpacer(10);
 
     // ── שורה תחתונה: אימון משמאל, משקל+ספארקליין מימין ──
     const bottom = w.addStack();
@@ -124,7 +127,8 @@ function buildWidget(w, s) {
     const wt = bottom.addStack();
     wt.layoutHorizontally(); wt.centerAlignContent(); wt.spacing = 8;
     if (s.weight) {
-        wt.addImage(sparkline(s.weight.points || []));
+        const sp = wt.addImage(sparkline(s.weight.points || []));
+        sp.imageSize = new Size(64, 22);   // קטן וצמוד — לא משתלט על השורה
         const wcol = wt.addStack();
         wcol.layoutVertically(); wcol.spacing = 1;
         const wrow = wcol.addStack();
@@ -155,10 +159,10 @@ function addMacro(stack, tag, val, color) {
 }
 
 function progressBar(pct) {
-    const W = 600, H = 12;
+    const W = 876, H = 18;   // 3x מגודל התצוגה (292x6pt) — חד ברשתית
     const ctx = new DrawContext();
-    ctx.size = new Size(W, H); ctx.opaque = false; ctx.respectScreenScale = true;
-    ctx.setFillColor(col(C.surface4));
+    ctx.size = new Size(W, H); ctx.opaque = false; ctx.respectScreenScale = false;
+    ctx.setFillColor(col('#2e2e36'));   // track בהיר מספיק להיראות על רקע הווידג'ט
     ctx.fillPath(roundedRect(0, 0, W, H, H / 2));
     if (pct > 0) {
         ctx.setFillColor(col(pct >= 1 ? C.success : C.accent));
@@ -168,9 +172,9 @@ function progressBar(pct) {
 }
 
 function sparkline(points) {
-    const W = 140, H = 40, PAD = 6;
+    const W = 192, H = 66, PAD = 10;   // 3x מגודל התצוגה (64x22pt)
     const ctx = new DrawContext();
-    ctx.size = new Size(W, H); ctx.opaque = false; ctx.respectScreenScale = true;
+    ctx.size = new Size(W, H); ctx.opaque = false; ctx.respectScreenScale = false;
     if (points.length >= 2) {
         const min = Math.min(...points), max = Math.max(...points);
         const span = (max - min) || 1;
@@ -183,12 +187,12 @@ function sparkline(points) {
             i === 0 ? path.move(new Point(px, py)) : path.addLine(new Point(px, py));
         });
         ctx.addPath(path);
-        ctx.setStrokeColor(col(C.accent)); ctx.setLineWidth(2.5);
+        ctx.setStrokeColor(col(C.accent)); ctx.setLineWidth(5.5);
         ctx.strokePath();
         // נקודת הערך האחרון
         const lx = W - x(points.length - 1), ly = y(points[points.length - 1]);
         ctx.setFillColor(col(C.accent));
-        ctx.fillEllipse(new Rect(lx - 3.5, ly - 3.5, 7, 7));
+        ctx.fillEllipse(new Rect(lx - 8, ly - 8, 16, 16));
     }
     return ctx.getImage();
 }

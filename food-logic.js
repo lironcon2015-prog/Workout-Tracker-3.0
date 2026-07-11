@@ -797,7 +797,12 @@ function _fdMealsHTML(entries, mfpOwned) {
 }
 
 function _fdPortionLabel(e) {
-    if (e.unit === 'serving') return `${_fdR(e.qty)} ${e.baseUnit === 'unit' ? 'יחידות' : 'מנות'}`;
+    if (e.unit === 'serving') {
+        // שם היחידה שנבחרה בתיעוד (סקופ/פרוסה...) — תוויות גנריות נשארות בנוסח הישן
+        const lbl = (e.unitLabel && e.unitLabel !== '100 גרם' && e.unitLabel !== '1 יחידה') ? e.unitLabel : null;
+        if (lbl) return `${_fdR(e.qty)} ${lbl}`;
+        return `${_fdR(e.qty)} ${e.baseUnit === 'unit' ? 'יחידות' : 'מנות'}`;
+    }
     return `${_fdR(e.qty)} ${e.unit === 'ml' ? 'מ"ל' : 'ג\''}`;
 }
 
@@ -1156,7 +1161,8 @@ function _fdOpenPortion(food, entry) {
     const servings = (food.servings && food.servings.length) ? food.servings : [{ label: '100 גרם', grams: 100 }];
     // יחידת הבסיס קובעת את אפשרות ה-fallback (כמות גולמית בלי "מנה"): גרם/מ"ל מאפשרים הזנה חופשית,
     // "יחידה" (מזון מותאם נפרד-ספירה, למשל ביצה) לא — כי הזנת "גרם" גולמי על מזון כזה תיתן ערך שגוי.
-    const baseUnit = (entry ? entry.baseUnit : food.baseUnit) || 'g';
+    // תמיד לפי המזון עצמו — אחרי "עריכת ערכי המוצר" ייתכן שהרשומה נושאת baseUnit ישן שכבר לא נכון.
+    const baseUnit = food.baseUnit || 'g';
     const fallbackUnit = baseUnit === 'unit' ? null : (baseUnit === 'ml' ? 'ml' : 'g');
     const fallbackOpt = fallbackUnit ? `<option value="${fallbackUnit}">${fallbackUnit === 'ml' ? 'מ"ל' : 'גרם'}</option>` : '';
     const unitOpts = servings.map((s, i) => `<option value="s${i}">${_fdEsc(s.label)}</option>`).join('') + fallbackOpt;
@@ -1186,8 +1192,12 @@ function _fdOpenPortion(food, entry) {
             ${_fdEditEntryId ? `<button class="fd-del-btn" onclick="fdDeleteCurrentEntry()"><span class="material-symbols-outlined">delete</span></button>` : ''}
             <button class="fd-save-btn" onclick="fdSavePortion()">${_fdEditEntryId ? 'עדכן' : 'הוסף ליומן'}</button>
         </div>`;
-    // unit ברירת מחדל
-    const us = document.getElementById('fd-unit'); if (us) us.value = unit;
+    // unit ברירת מחדל; אם יחידת הרשומה כבר לא קיימת (המזון נערך בינתיים) — איפוס לכמות 1
+    const us = document.getElementById('fd-unit');
+    if (us) {
+        us.value = unit;
+        if (us.value !== unit) { us.selectedIndex = 0; const q = document.getElementById('fd-qty'); if (q) q.value = 1; }
+    }
     _fdMeal = curMeal;
     document.getElementById('fd-portion-overlay').style.display = 'block';
     sheet.classList.add('open');
@@ -1206,7 +1216,7 @@ function _fdComputeGrams() {
     if (unitSel === 'g' || unitSel === 'ml') return { grams: qty, unit: unitSel, qtyVal: qty };
     const idx = parseInt(unitSel.slice(1), 10);
     const serv = (_fdSelectedFood.servings || [])[idx] || { grams: 100 };
-    return { grams: (serv.grams || 100) * qty, unit: 'serving', qtyVal: qty, gramsPerUnit: serv.grams };
+    return { grams: (serv.grams || 100) * qty, unit: 'serving', qtyVal: qty, gramsPerUnit: serv.grams, label: serv.label || null };
 }
 
 function _fdMacrosFor(grams) {
@@ -1219,7 +1229,10 @@ function _fdMacrosFor(grams) {
 // (מזון נספר, כמו ביצה) — כי gramsPerUnit=1 שם הוא טריק פנימי בלבד ולא משקל אמיתי.
 function _fdQtyDisplayLabel(g) {
     const baseUnit = (_fdSelectedFood && _fdSelectedFood.baseUnit) || 'g';
-    if (g.unit === 'serving' && baseUnit === 'unit') return `${_fdR(g.qtyVal)} יחידות`;
+    if (g.unit === 'serving' && baseUnit === 'unit') {
+        const lbl = (g.label && g.label !== '1 יחידה') ? g.label : 'יחידות';
+        return `${_fdR(g.qtyVal)} ${lbl}`;
+    }
     if (g.unit === 'ml') return `${Math.round(g.grams)} מ"ל`;
     return `${Math.round(g.grams)} ${baseUnit === 'ml' ? 'מ"ל' : 'גרם'}`;
 }
@@ -1256,7 +1269,10 @@ function fdSavePortion() {
     const entry = {
         name: food.name, brand: food.brand || '', source: food.source || 'off', barcode: food.barcode || null,
         meal: _fdMeal || _fdMealLabels()[0], time,
-        qty: g.qtyVal, unit: g.unit, gramsPerUnit: g.gramsPerUnit || null, baseUnit: food.baseUnit || 'g',
+        // ל"יחידה" ללא משקל gramsPerUnit=1 הוא טריק פנימי — לא נשמר, כדי שלא ידלוף לתצוגה כ"1 גרם".
+        // unitLabel — שם היחידה שנבחרה (סקופ/פרוסה...) לשחזור נאמן בעריכה ובתצוגת היומן.
+        qty: g.qtyVal, unit: g.unit, gramsPerUnit: (food.baseUnit === 'unit') ? null : (g.gramsPerUnit || null),
+        unitLabel: g.unit === 'serving' ? (g.label || null) : null, baseUnit: food.baseUnit || 'g',
         per100: food.per100, kcal: m.kcal, p: m.p, c: m.c, f: m.f
     };
     if (_fdEditEntryId) {
@@ -1300,9 +1316,15 @@ function fdEditEntry(id) {
     }
     // שחזור אובייקט מזון מתוך הרשומה — baseUnit נשמר על הרשומה עצמה (ברירת מחדל 'g' לרשומות ישנות)
     const baseUnit = entry.baseUnit || 'g';
-    const servings = entry.gramsPerUnit
-        ? [{ label: baseUnit === 'unit' ? '1 יחידה' : `מנה (${entry.gramsPerUnit} ג')`, grams: entry.gramsPerUnit }, { label: '100 גרם', grams: 100 }]
-        : [{ label: baseUnit === 'ml' ? '100 מ"ל' : '100 גרם', grams: 100 }];
+    let servings;
+    if (baseUnit === 'unit') {
+        // מזון נספר (טריק ×100) — יחידה בלבד, ללא אפשרות גרמים (grams=1 פנימי, לא משקל אמיתי)
+        servings = [{ label: entry.unitLabel || '1 יחידה', grams: 1 }];
+    } else if (entry.gramsPerUnit && entry.gramsPerUnit !== 100) {
+        servings = [{ label: entry.unitLabel || `מנה (${entry.gramsPerUnit} ג')`, grams: entry.gramsPerUnit }, { label: '100 גרם', grams: 100 }];
+    } else {
+        servings = [{ label: baseUnit === 'ml' ? '100 מ"ל' : '100 גרם', grams: 100 }];
+    }
     const food = { id: entry.barcode ? 'off:' + entry.barcode : 'log:' + id, name: entry.name, brand: entry.brand, barcode: entry.barcode, source: entry.source, per100: entry.per100, servings, baseUnit };
     _fdOpenPortion(food, entry);
 }

@@ -304,7 +304,8 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 
 - **מתג הפעלה/כיבוי לכל גשר:** MFP ו-Health כעת ניתנים לכיבוי (`KEY_MFP_BRIDGE_ON`/`KEY_HEALTH_BRIDGE_ON`, **ברירת מחדל דלוק** — רק `'0'` מכבה, להבדיל מהשעון שכבוי). Gating בנקודה אחת: `syncHealthNutrition` ו-`importNutritionFromGmail` בודקים `is…BridgeOn()` בראש. שלושת ה-`*_ON` בקובץ החיבורים.
 - **ייצוא תזונה — בדיוק 2 קבצי JSON מכבדי-פיקר** (`_nutritionRangeBounds` ← `_blRange`/`_blCustom`): `exportNutritionDailyJson` (מקוצר: date+cal+macros) ו-`exportNutritionDetailedJson` (מפורט). הוסרו: `exportNutritionCsv`, `exportNutritionRawCsv`, `exportFoodDiaryJson`.
-- **`_buildNutritionDetailed(from,to)`** (בונה משותף לייצוא הנפרד ולמאוחד) — **קדימות ליום: תיעוד ישיר (`getFoodLogDay`) גובר על MFP**; אחרת שורות MFP; אחרת סיכום. מקור יחיד ליום, בלי ספירה כפולה. כולל `components` של Meal Builder.
+- **`_buildNutritionDetailed(from,to)`** (בונה משותף לייצוא הנפרד ולמאוחד) — **קדימות ליום: תיעוד ישיר (`getFoodLogDay`) גובר על MFP**; אחרת MFP; אחרת סיכום. מקור יחיד ליום, בלי ספירה כפולה. כולל `components` של Meal Builder.
+- **פורמט meals אחיד בייצוא (v17.16):** כל יום ב-`nutrition_detailed` מחזיר שדה `meals` באותו מבנה — ימי MFP מומרים דרך `_detailMealsFromMfpRows` (item לכל שורת ארוחה, שם גנרי, מאקרו + `micros`), ימי summary מקבלים `meals: []`. השדה `mfp_rows` הוסר. **סיבה:** LLM שקרא קובץ שבו הימים הראשונים היו `mfp_rows` הסיק ש"אין פירוט" בימי `app` (שדה `meals` שונה). בנוסף `readme` מוטמע בראש שני הייצואים (`_NUTRI_EXPORT_README`) שמסביר את המבנה לקוראים אוטומטיים.
 - **קובץ מאוחד (`exportUnifiedData`):** `nutrition_raw_mfp` הוחלף ב-`nutrition_detailed`. כעת = weights + nutrition_daily + nutrition_detailed + workouts.
 - **המאגר המקומי בענן בלבד:** `KEY_FOOD_DB`+`KEY_FOOD_LOG` מסונכרנים דרך מסמך `config` (saveConfigToCloud) — אין ייצוא JSON מקומי.
 - **קובץ החיבורים:** נוסף `KEY_USDA_KEY`. כלל ב-CLAUDE.md: בכל סוד/אינטגרציה חדשים — לשאול אם לכלול ב-`_connectionKeys()`.

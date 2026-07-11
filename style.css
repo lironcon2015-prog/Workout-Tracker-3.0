@@ -6151,6 +6151,20 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-kcal-warn { margin-top: 4px; font-size: var(--fs-sm); font-weight: 700; color: var(--danger); text-align: center; }
 #fd-c-warn:not(:empty) { margin: -4px 0 14px; text-align: start; }
 
+/* ── עריכת מזון גמישה (v17.20) ── */
+/* כפתור עריכת המוצר בעורך המנה — פותח את עורך המזון המלא (ערכים/יחידה/שם) */
+.fd-edit-food-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-4); border: none; border-radius: 9999px;
+    padding: 7px 14px; margin-bottom: 12px; align-self: flex-start;
+    font-family: inherit; font-size: var(--fs-sm); font-weight: 700; color: var(--text);
+    cursor: pointer; transition: background var(--dur-1) var(--ease);
+}
+.fd-edit-food-btn:active { background: var(--surface-3); }
+.fd-edit-food-btn .material-symbols-outlined { font-size: var(--fs-lg); }
+/* רמז מתחת לשדות היחידה בעורך המזון */
+.fd-unit-hint { display: block; margin: -6px 0 14px; font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; }
+
 /* ── הדבקת טקסט ערכים תזונתיים ← מוצר מותאם (v17.04) ── */
 .fd-paste-toggle {
     display: flex; align-items: center; gap: 8px; width: 100%;

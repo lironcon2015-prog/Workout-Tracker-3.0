@@ -1190,7 +1190,8 @@ const StorageManager = {
         return this.getFoodDb().filter(f => f.favorite).sort(this._mealSort(meal));
     },
     customFoods() {
-        return this.getFoodDb().filter(f => f.source === 'custom')
+        // מותאמים + מוצרים סרוקים (gemini) + מוצרים חיצוניים שנערכו ידנית (edited) — כולם ניתנים לעריכה
+        return this.getFoodDb().filter(f => f.source === 'custom' || f.source === 'gemini' || f.edited)
             .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
     },
 

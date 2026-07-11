@@ -11,12 +11,8 @@
  * 2. התקן את Scriptable מה-App Store (חינם).
  * 3. Scriptable → + → הדבק את כל הקובץ הזה → שנה למטה את BRIDGE_URL ו-TOKEN.
  *    קרא לסקריפט "GYMPRO Widget".
- * 4. קיצור לפתיחת האפליקציה בלחיצה: אפליקציית Shortcuts → + → הוסף פעולה
- *    "Open App" → בחר את GYMPRO (אפליקציית ה-web מהמסך הראשי מופיעה ברשימה)
- *    → קרא לקיצור בדיוק "GYMPRO".
- * 5. מסך הבית → לחיצה ארוכה → + → Scriptable → גודל Medium → הוסף.
- *    לחיצה ארוכה על הווידג'ט → Edit Widget → Script: "GYMPRO Widget",
- *    When Interacting: Run Script.
+ * 4. מסך הבית → לחיצה ארוכה → + → Scriptable → גודל Medium → הוסף.
+ *    לחיצה ארוכה על הווידג'ט → Edit Widget → Script: "GYMPRO Widget".
  *
  * iOS מרענן ווידג'טים כל ~15-30 דק'; הנתונים טריים כמו השימוש האחרון באפליקציה.
  * ==========================================================================*/
@@ -24,7 +20,11 @@
 // 🔐 הדבק את ה-URL וה-token של גשר הווידג'ט (אותם ערכים כמו בהגדרות GYMPRO)
 const BRIDGE_URL = 'PASTE_WEB_APP_URL_HERE';
 const TOKEN = 'PASTE_SECRET_TOKEN_HERE';
-const SHORTCUT_NAME = 'GYMPRO';   // שם הקיצור שיצרת בשלב 4
+// לחיצה על הווידג'ט: iOS אינו מאפשר לפתוח PWA מבחוץ (web clip אינו ברשימת
+// "Open App" של Shortcuts, וקישורים לכתובת נפתחים בספארי — אחסון נפרד!).
+// לכן הווידג'ט הוא תצוגה בלבד. אם בעתיד iOS יפתח קישורי scope באפליקציה
+// המותקנת — הצב כאן את כתובת האפליקציה והלחיצה תעבוד.
+const TAP_URL = '';
 
 // ── טוקני Liquid Obsidian ──
 const C = {
@@ -45,7 +45,7 @@ try {
 
 const w = new ListWidget();
 w.backgroundColor = col(C.bg);
-w.url = 'shortcuts://run-shortcut?name=' + encodeURIComponent(SHORTCUT_NAME);
+if (TAP_URL) w.url = TAP_URL;
 w.setPadding(12, 14, 12, 14);
 w.refreshAfterDate = new Date(Date.now() + 15 * 60000);
 

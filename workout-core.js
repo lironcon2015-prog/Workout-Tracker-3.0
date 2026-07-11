@@ -22,13 +22,38 @@ function showCloudToast(msg, success) {
     }, 3000);
 }
 
-// באנר התראה מתמשך כשהגיבוי האחרון לענן נכשל (#3) — מוצג ב-load, לא קשור ללוגיקת ההעתקה
+// באנר התראה מתמשך כשהגיבוי האחרון לענן נכשל (#3) — מוצג ב-load, לא קשור ללוגיקת ההעתקה.
+// v17.15: מכסה את כל ארבעת מסלולי הסנכרון + אזהרת גודל מקדימה (התקרבות ל-1MB/doc).
 function maybeShowCloudSyncBanner() {
     if (typeof FirebaseManager === 'undefined' || !FirebaseManager.isConfigured()) return;
     const sync = FirebaseManager.getSyncStatus();
-    if (!sync || sync.archiveOk !== false) return;  // מוצג רק על כשל מפורש
+    if (!sync) return;
+    const labels = { archive: 'ארכיון אימונים', config: 'נתונים ותזונה', raw: 'קובץ MFP', ai: 'שיחות AI' };
+    const failed = Object.keys(labels).filter(s => sync[s + 'Ok'] === false);
+    const warned = ['config', 'ai'].filter(s => sync[s + 'Warn']);
+    if (!failed.length && !warned.length) return;
     const banner = document.getElementById('cloud-sync-banner');
-    if (banner) banner.classList.add('show');
+    if (!banner) return;
+    const txt = banner.querySelector('.csb-text');
+    if (txt) {
+        if (failed.length) {
+            const why = failed.some(s => sync[s + 'Err'] === 'size') ? ' (מסמך גדול מדי)' : '';
+            txt.textContent = 'הגיבוי לענן נכשל: ' + failed.map(s => labels[s]).join(', ') + why +
+                              '. הנתונים נשמרו במכשיר אך לא בענן.';
+        } else {
+            const pct = Math.round(Math.max(...warned.map(s => sync[s + 'Warn'])) / 1048576 * 100);
+            txt.textContent = `מסמך הגיבוי בענן הגיע ל-${pct}% ממגבלת Firestore — הגיבוי ימשיך לעבוד, אבל כדאי לפנות מקום בקרוב.`;
+        }
+    }
+    banner.classList.add('show');
+}
+
+// דיווח כשל שמירה לענן מנקודות סנכרון-רקע — כשל לעולם לא שקט (v17.15).
+// דילוג מכוון (Firebase לא מוגדר / sync לא חמוש) איננו כשל ולכן לא מדווח.
+function notifyCloudSaveFailure(ok, store, label) {
+    if (ok || typeof FirebaseManager === 'undefined') return;
+    if (!FirebaseManager.isConfigured() || !FirebaseManager._isSyncArmed()) return;
+    showCloudToast('⚠️ ' + label + ' נכשל — ' + FirebaseManager.describeSyncFailure(store), false);
 }
 
 function dismissCloudSyncBanner() {
@@ -3576,7 +3601,9 @@ function finish() {
     state.archivedTimestamp = state.liveSessionId || null;
     _saveToArchive('');
     if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
-        FirebaseManager.saveArchiveToCloud().catch(() => {});
+        FirebaseManager.saveArchiveToCloud()
+            .then(ok => notifyCloudSaveFailure(ok, 'archive', 'גיבוי ארכיון'))
+            .catch(() => {});
     }
 
     const summaryNote = document.getElementById('summary-note');
@@ -5065,7 +5092,9 @@ function closeAICoach() {
     const menu = document.getElementById('ai-copy-menu');
     if (menu) menu.style.display = 'none';
     if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
-        FirebaseManager.saveAIHistoryToCloud();
+        FirebaseManager.saveAIHistoryToCloud()
+            .then(ok => notifyCloudSaveFailure(ok, 'ai', 'גיבוי שיחות AI'))
+            .catch(() => {});
     }
     haptic('light');
 }
@@ -5597,7 +5626,11 @@ async function syncHealthNutrition(manual = false, force = false) {
             if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
         }
         if (changed > 0) {
-            if (typeof FirebaseManager !== 'undefined') FirebaseManager.saveConfigToCloud().catch(() => {});
+            if (typeof FirebaseManager !== 'undefined') {
+                FirebaseManager.saveConfigToCloud()
+                    .then(ok => notifyCloudSaveFailure(ok, 'config', 'גיבוי תזונה לענן'))
+                    .catch(() => {});
+            }
             showCloudToast(`✅ עודכנו ${changed} ימי תזונה מ-Health`, true);
         } else if (manual) {
             showCloudToast('הנתונים כבר מעודכנים', true);
@@ -5653,7 +5686,11 @@ function saveBodyProfileSettings() {
     if (age != null && (!(age > 0) || age > 120)) { showAlert('גיל לא תקין.'); return; }
     if (height != null && (!(height > 80) || height > 250)) { showAlert('גובה לא תקין (ס"מ).'); return; }
     StorageManager.saveBodyProfile({ sex, age, height, activity });
-    if (typeof FirebaseManager !== 'undefined') FirebaseManager.saveConfigToCloud().catch(() => {});
+    if (typeof FirebaseManager !== 'undefined') {
+        FirebaseManager.saveConfigToCloud()
+            .then(ok => notifyCloudSaveFailure(ok, 'config', 'גיבוי פרופיל לענן'))
+            .catch(() => {});
+    }
     if (typeof _renderTdeeCard === 'function') _renderTdeeCard();
     showAlert('פרופיל הגוף נשמר!');
 }
@@ -5739,8 +5776,12 @@ function _applyMfpImport(days, rawCsv, overwriteSet, conflicts) {
     if (typeof renderBodyLog === 'function') renderBodyLog();
     if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
     if (typeof FirebaseManager !== 'undefined') {
-        FirebaseManager.saveConfigToCloud().catch(() => {});
-        FirebaseManager.saveNutritionRawToCloud().catch(() => {});
+        FirebaseManager.saveConfigToCloud()
+            .then(ok => notifyCloudSaveFailure(ok, 'config', 'גיבוי תזונה לענן'))
+            .catch(() => {});
+        FirebaseManager.saveNutritionRawToCloud()
+            .then(ok => notifyCloudSaveFailure(ok, 'raw', 'גיבוי קובץ MFP לענן'))
+            .catch(() => {});
     }
 }
 

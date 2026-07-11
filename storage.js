@@ -49,6 +49,10 @@ const StorageManager = {
     KEY_BACKUP_BRIDGE_TOKEN: 'gympro_backup_bridge_token',  // token סודי לגשר הגיבוי
     KEY_BACKUP_BRIDGE_ON:    'gympro_backup_bridge_on',     // האם גיבוי שבועי פעיל (ברירת מחדל: כבוי — דורש הקמת גשר)
     KEY_BACKUP_LAST:         'gympro_backup_last',          // timestamp שליחת גיבוי מוצלחת אחרונה
+    KEY_WIDGET_BRIDGE_URL:   'gympro_widget_bridge_url',    // גשר ווידג'ט אייפון (Apps Script + Scriptable)
+    KEY_WIDGET_BRIDGE_TOKEN: 'gympro_widget_bridge_token',  // token סודי לגשר הווידג'ט
+    KEY_WIDGET_BRIDGE_ON:    'gympro_widget_bridge_on',     // האם דחיפת snapshot לווידג'ט פעילה (ברירת מחדל: כבוי)
+    KEY_WIDGET_LAST_PUSH:    'gympro_widget_last_push',     // timestamp דחיפת snapshot מוצלחת אחרונה
 
     getUsdaKey() { return localStorage.getItem(this.KEY_USDA_KEY) || ''; },
     saveUsdaKey(k) { localStorage.setItem(this.KEY_USDA_KEY, (k || '').trim()); },
@@ -425,6 +429,9 @@ const StorageManager = {
             this.KEY_BACKUP_BRIDGE_URL,
             this.KEY_BACKUP_BRIDGE_TOKEN,
             this.KEY_BACKUP_BRIDGE_ON,
+            this.KEY_WIDGET_BRIDGE_URL,
+            this.KEY_WIDGET_BRIDGE_TOKEN,
+            this.KEY_WIDGET_BRIDGE_ON,
             this.KEY_SOUND,
             this.KEY_COPY_INCLUDE_COACH,
             this.KEY_ARCHIVE_COPY_COACH
@@ -625,6 +632,111 @@ const StorageManager = {
                 if (force) showAlert('שליחת הגיבוי נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. בדוק את ה-URL, ה-token ופריסת הסקריפט.');
                 return false;
             });
+    },
+
+    // ── גשר ווידג'ט אייפון (Apps Script + Scriptable) — כבוי כברירת מחדל ──
+    // האפליקציה דוחפת snapshot קומפקטי (תזונה היום, משקל+מגמה, אימון אחרון);
+    // ווידג'ט Scriptable מושך אותו ומרנדר על מסך הבית.
+
+    getWidgetBridge() {
+        return {
+            on:    localStorage.getItem(this.KEY_WIDGET_BRIDGE_ON) === '1',
+            url:   this._cleanPastedSecret(localStorage.getItem(this.KEY_WIDGET_BRIDGE_URL)),
+            token: this._cleanPastedSecret(localStorage.getItem(this.KEY_WIDGET_BRIDGE_TOKEN))
+        };
+    },
+    saveWidgetBridge(on, url, token) {
+        localStorage.setItem(this.KEY_WIDGET_BRIDGE_ON, on ? '1' : '0');
+        if (url !== undefined)   localStorage.setItem(this.KEY_WIDGET_BRIDGE_URL, this._cleanPastedSecret(url));
+        if (token !== undefined) localStorage.setItem(this.KEY_WIDGET_BRIDGE_TOKEN, this._cleanPastedSecret(token));
+    },
+    getWidgetLastPush() {
+        return parseInt(localStorage.getItem(this.KEY_WIDGET_LAST_PUSH), 10) || 0;
+    },
+
+    // buildWidgetSnapshot — הנתונים שהווידג'ט מציג (פריסת "גרסה 2"):
+    // תזונה היום + יעדים + מאקרו, משקל אחרון + מגמה שבועית + 7 נקודות, אימון אחרון.
+    buildWidgetSnapshot() {
+        const pad = n => String(n).padStart(2, '0');
+        const localDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const today = localDate(new Date());
+        const prefs = this.getAnalyticsPrefs();
+
+        const day = (this.getNutritionDaily() || []).find(x => x && x.date === today) || null;
+        const nutrition = {
+            calories: day ? Math.round(day.calories || 0) : 0,
+            protein:  day ? Math.round(day.protein  || 0) : 0,
+            carbs:    day ? Math.round(day.carbs    || 0) : 0,
+            fat:      day ? Math.round(day.fat      || 0) : 0,
+            kcalTarget:    Math.round(Number(prefs.kcalTarget)    || 0),
+            proteinTarget: Math.round(Number(prefs.proteinTarget) || 0),
+            carbsTarget:   Math.round(Number(prefs.carbsTarget)   || 0),
+            fatTarget:     Math.round(Number(prefs.fatTarget)     || 0),
+            state: (this.getNutritionalState() || {}).state || 'maintenance'
+        };
+
+        let weight = null;
+        const log = (this.getBodyLog() || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+        if (log.length) {
+            const cur = log[log.length - 1];
+            const cutoff = localDate(new Date(Date.now() - 7 * 86400000));
+            const ref = log.find(e => e.date >= cutoff) || log[0];
+            weight = {
+                current: cur.weight, date: cur.date,
+                weekDelta: Math.round((cur.weight - ref.weight) * 10) / 10,
+                points: log.slice(-7).map(e => e.weight)
+            };
+        }
+
+        let workout = null;
+        const arch = this.getArchive() || [];
+        if (arch.length) {
+            const last = arch.reduce((a, b) => ((a.timestamp || 0) > (b.timestamp || 0) ? a : b));
+            let sets = 0, vol = 0;
+            if (last.details) Object.values(last.details).forEach(ex => {
+                sets += (ex.sets || []).length;
+                vol  += Number(ex.vol) || 0;
+            });
+            workout = { type: last.type || 'אימון', timestamp: last.timestamp || 0, sets, volume: Math.round(vol) };
+        }
+
+        return { generated: new Date().toISOString(), nutrition, weight, workout };
+    },
+
+    // maybePushWidgetSnapshot — נקרא בפתיחה/חזרה-לפוקוס. throttle 10 דק'; כשל שקט.
+    maybePushWidgetSnapshot(force) {
+        const THROTTLE_MS = 10 * 60000;
+        const { on, url, token } = this.getWidgetBridge();
+        if (!on || !url) {
+            if (force) showAlert('גשר הווידג\'ט אינו מוגדר או כבוי. הגדר URL והפעל את המתג.');
+            return Promise.resolve(false);
+        }
+        if (!force && Date.now() - this.getWidgetLastPush() < THROTTLE_MS) return Promise.resolve(false);
+        const body = { token, snapshot: this.buildWidgetSnapshot() };
+        return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+            .then(r => r.json())
+            .then(res => {
+                if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
+                localStorage.setItem(this.KEY_WIDGET_LAST_PUSH, String(Date.now()));
+                if (force) showAlert('ה-snapshot נדחף לגשר! הווידג\'ט יתעדכן ברענון הבא של iOS.');
+                return true;
+            })
+            .catch(e => {
+                console.warn('GymPro: widget snapshot push failed', e);
+                if (force) showAlert('דחיפת ה-snapshot נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. בדוק את ה-URL, ה-token ופריסת הסקריפט.');
+                return false;
+            });
+    },
+
+    // pushWidgetSnapshotBeacon — ביציאה מהאפליקציה (visibilitychange→hidden):
+    // sendBeacon שורד את סגירת הדף, בלי throttle — הווידג'ט מקבל את המצב הכי טרי.
+    pushWidgetSnapshotBeacon() {
+        const { on, url, token } = this.getWidgetBridge();
+        if (!on || !url || typeof navigator === 'undefined' || !navigator.sendBeacon) return;
+        try {
+            const body = JSON.stringify({ token, snapshot: this.buildWidgetSnapshot() });
+            navigator.sendBeacon(url, new Blob([body], { type: 'text/plain;charset=utf-8' }));
+        } catch (e) { /* beacon הוא best-effort */ }
     },
 
     // ── Configuration Export / Import ────────────────────────────────────

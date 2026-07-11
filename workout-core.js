@@ -329,12 +329,16 @@ document.addEventListener('DOMContentLoaded', () => {
     _scheduleHealthHourlySync();
     // גיבוי שבועי לאימייל — בדיקה שקטה בפתיחה (שולח רק אם עברו ≥7 ימים)
     setTimeout(() => StorageManager.maybeSendWeeklyBackup(false), 4000);
+    // ווידג'ט אייפון — דחיפת snapshot שקטה בפתיחה (throttle 10 דק')
+    setTimeout(() => StorageManager.maybePushWidgetSnapshot(false), 5000);
 });
 
 // חזרה לאפליקציה מהרקע (PWA ב-iOS נשאר בזיכרון) = "כניסה" — משיכת Health שקטה.
 // force=true: כל העלאה לפרונט מושכת מחדש, גם אם האפליקציה לא נסגרה (עוקף throttle).
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') syncHealthNutrition(false, true);
+    // ביציאה מהאפליקציה — דחיפת snapshot טרי לווידג'ט (beacon, שורד סגירת דף)
+    if (document.visibilityState === 'hidden') StorageManager.pushWidgetSnapshotBeacon();
 });
 // iOS PWA: שחזור מ-bfcache לא תמיד יורה visibilitychange — pageshow מכסה את המקרה
 window.addEventListener('pageshow', (e) => {
@@ -1241,6 +1245,7 @@ function openSettings() {
     if (typeof updateHealthBridgeStatus === 'function') updateHealthBridgeStatus();
     if (typeof updateWatchBridgeStatus === 'function') updateWatchBridgeStatus();
     if (typeof updateBackupBridgeStatus === 'function') updateBackupBridgeStatus();
+    if (typeof updateWidgetBridgeStatus === 'function') updateWidgetBridgeStatus();
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
     _renderMainTMSettings();
@@ -5581,6 +5586,40 @@ function updateBackupBridgeStatus() {
         el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span><span style="color:var(--text-dim);">' + lastTxt + '</span>';
         const ui = document.getElementById('backup-bridge-url-input');
         const ti = document.getElementById('backup-bridge-token-input');
+        if (ui && !ui.value) ui.value = url;
+        if (ti && !ti.value) ti.value = token;
+    } else {
+        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
+    }
+}
+
+// ─── גשר ווידג'ט אייפון (Apps Script + Scriptable) ──────────────────────────
+function saveWidgetBridgeSettings() {
+    const urlInput   = document.getElementById('widget-bridge-url-input');
+    const tokenInput = document.getElementById('widget-bridge-token-input');
+    if (!urlInput || !tokenInput) return;
+    const on = !!(document.getElementById('widget-bridge-toggle') || {}).checked;
+    StorageManager.saveWidgetBridge(on, urlInput.value.trim(), tokenInput.value.trim());
+    updateWidgetBridgeStatus();
+    showAlert('הגדרות גשר הווידג\'ט נשמרו!');
+}
+
+function pushWidgetNow() {
+    StorageManager.maybePushWidgetSnapshot(true).then(ok => { if (ok) updateWidgetBridgeStatus(); });
+}
+
+function updateWidgetBridgeStatus() {
+    const el = document.getElementById('widget-bridge-status');
+    const tg = document.getElementById('widget-bridge-toggle');
+    const { on, url, token } = StorageManager.getWidgetBridge();
+    if (tg) tg.checked = on;
+    if (!el) return;
+    if (url) {
+        const last = StorageManager.getWidgetLastPush();
+        const lastTxt = last ? ' · נדחף לאחרונה ' + new Date(last).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : ' · טרם נדחף';
+        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span><span style="color:var(--text-dim);">' + lastTxt + '</span>';
+        const ui = document.getElementById('widget-bridge-url-input');
+        const ti = document.getElementById('widget-bridge-token-input');
         if (ui && !ui.value) ui.value = url;
         if (ti && !ti.value) ti.value = token;
     } else {

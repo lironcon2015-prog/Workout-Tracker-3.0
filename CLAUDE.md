@@ -170,6 +170,9 @@ version.json: { "version": "15.X" }
 | `data.js` | נתוני ברירת מחדל |
 | `docs/mfp-nutrition-bridge.gs` | Google Apps Script — גשר שמושך ייצוא MyFitnessPal מ-Gmail (JSONP) |
 | `docs/health-nutrition-bridge.gs` | Google Apps Script — גשר תזונה מ-Apple Health (קיצור דרך דוחף, האפליקציה מושכת) |
+| `docs/backup-bridge.gs` | Google Apps Script — גשר גיבוי שבועי: מקבל גיבוי מלא ושולח לאימייל (MailApp) |
+| `docs/widget-bridge.gs` | Google Apps Script — גשר ווידג'ט: האפליקציה דוחפת snapshot, ווידג'ט Scriptable מושך |
+| `docs/widget-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הבית ל-iOS (תזונה+מאקרו, משקל+מגמה, אימון אחרון) |
 | `vendor/zbar.js` | ספריית ZBar (WASM) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
@@ -188,7 +191,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-17.18
+17.19
 
 ---
 

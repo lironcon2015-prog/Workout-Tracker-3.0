@@ -698,14 +698,14 @@ async function _ppDoCapture() {
     const raw = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
     if (!raw) { _ppCamMsg('הצילום נכשל — נסה שוב.'); return; }
     haptic('medium');
-    // נורמליזציית כיוון: מצלמה קדמית נלכדת הפוכה — flip בדחיסה, כך שכל
-    // תמונות השרשרת באותו כיוון (אחרת ה-AI ישווה תמונות ראי)
-    const mirror = _ppCamFacing === 'user';
+    // נורמליזציית כיוון: פריים גולמי מ-getUserMedia אינו mirrored גם במצלמה
+    // קדמית (ה-mirror הוא קונבנציית תצוגה בלבד, ב-CSS) — לכן קדמית ואחורית
+    // כבר באותו כיוון ואסור להפוך בלכידה. יכולת ה-flip נשארת במכווץ למקרה עתידי.
     const today = _ppTodayStr();
     const exists = StorageManager.getPhotoIndex().some(e => e.date === today);
     const doSave = async () => {
         try {
-            await ppStorePhoto(raw, { mirror });
+            await ppStorePhoto(raw, {});
             ppCloseCamera();
             if (typeof setBodyTab === 'function' && _blTab !== 'photos') setBodyTab('photos');
             _renderBodyPhotos();

@@ -165,6 +165,7 @@ version.json: { "version": "15.X" }
 | `archive-logic.js` | ארכיון אימונים + `switchMainTab` + סנכרון ענן (Firestore chunked) |
 | `editor-logic.js` | עורך תוכנית + `renderWorkoutMenu` + `checkForUpdate` |
 | `bodylog-logic.js` | מסך Composition: שקילות (משקל/שומן) + תזונה (MyFitnessPal: גרפים, ממוצעים, ייצוא) |
+| `photos-logic.js` | תמונות התקדמות (תת-טאב "תמונות" ב-Composition): IndexedDB (cache) + Drive (מקור אמת), מסך צילום עם Ghost Overlay, גלריה/השוואה, ניתוח AI משורשר (`_ppRunAnalysis`) |
 | `food-logic.js` | יומן מזון מובנה: חיפוש Open Food Facts, ברקוד/תווית דרך Gemini, עורך מנה/ארוחה/שעה, מועדפים/אחרונים/מותאמים. כותב ל-NUTRITION_DAILY דרך `recomputeNutritionDay` |
 | `storage.js` | StorageManager (localStorage) + FirebaseManager (סנכרון ענן) |
 | `data.js` | נתוני ברירת מחדל |
@@ -173,6 +174,7 @@ version.json: { "version": "15.X" }
 | `docs/backup-bridge.gs` | Google Apps Script — גשר גיבוי שבועי: מקבל גיבוי מלא ושולח לאימייל (MailApp) |
 | `docs/widget-bridge.gs` | Google Apps Script — גשר ווידג'ט: האפליקציה דוחפת snapshot, ווידג'ט Scriptable מושך |
 | `docs/widget-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הבית ל-iOS (תזונה+מאקרו, משקל+מגמה, אימון אחרון) |
+| `docs/photo-bridge.gs` | Google Apps Script — גשר תמונות התקדמות: upload/get/list/del מול תיקיית Drive פרטית |
 | `vendor/zbar.js` | ספריית ZBar (WASM) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
@@ -191,7 +193,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-17.23
+17.28
 
 ---
 

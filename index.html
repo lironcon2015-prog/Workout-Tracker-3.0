@@ -678,9 +678,13 @@
                     <div class="settings-group">
                         <div class="settings-group-label">תצוגה</div>
                         <div class="stg-bento">
-                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="enterBgEdit()">
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="enterBgEdit()">
                                 <span class="stg-row-title">התאמת תמונות רקע</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">image</span>
+                            </button>
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="openBgManager()">
+                                <span class="stg-row-title">רקעים מותאמים אישית</span>
+                                <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">add_photo_alternate</span>
                             </button>
                         </div>
                     </div>
@@ -2541,6 +2545,29 @@
         <button class="btn-main primary-gradient" onclick="closeThumbManageSheet()" style="margin-top:16px;">סיום</button>
     </div>
 
+    <!-- Custom Backgrounds Manager Sheet — העלאה/מחיקה של רקעים אישיים (IndexedDB מקומי) -->
+    <div id="bg-manager-overlay" class="bottom-sheet-overlay" onclick="closeBgManager()"></div>
+    <div id="bg-manager-sheet" class="bottom-sheet" style="max-height:85vh; overflow-y:auto;">
+        <div class="sheet-handle"></div>
+        <h3>רקעים מותאמים אישית</h3>
+        <p class="sub-text" style="margin-bottom:12px;">התמונות נשמרות במכשיר בלבד ומצטרפות לסבב "התאמת תמונות רקע"</p>
+        <button class="bl-entry-btn" style="width:100%; margin-bottom:12px;" onclick="bgMgrPick()">
+            <span class="material-symbols-outlined">add_photo_alternate</span>
+            <span>בחר תמונה מהמכשיר</span>
+        </button>
+        <input type="file" id="bgm-file" accept="image/*" style="display:none;" onchange="_bgMgrFile(this.files[0]); this.value='';">
+        <div id="bgm-preview-wrap" style="display:none;">
+            <div class="bgm-preview">
+                <img id="bgm-preview-img" alt="">
+                <div class="bgm-preview-caption">כך ייראה הרקע באפליקציה</div>
+            </div>
+            <input type="text" id="bgm-name" class="bgm-name-input" placeholder="שם הרקע (למשל: חוף הים)" maxlength="30">
+            <button id="bgm-save" class="btn-main primary-gradient" style="margin-bottom:16px;" onclick="bgMgrSave()">שמור רקע</button>
+        </div>
+        <div class="bl-list-head" style="margin-top:4px;">הרקעים שלי</div>
+        <div id="bgm-list"></div>
+    </div>
+
     <!-- סקריפטי האפליקציה הועברו ל-<head> עם defer (טעינה מוקדמת ומקבילית). -->
     <div id="cloud-toast" class="cloud-toast"></div>
     <div id="cloud-sync-banner" class="cloud-sync-banner">
@@ -2603,6 +2630,37 @@
         var draft = null;              // עותק עבודה במצב עריכה
         var ix = {};                   // אינדקס נוכחי לכל slot במצב עריכה
 
+        // ── רקעים מותאמים אישית — IndexedDB מקומי (פר-מכשיר, לא מסונכרן) ──
+        // בחירה נשמרת כ-'custom:<id>'; אם הרקע נמחק/אבד — נפילה לברירת המחדל של ה-slot.
+        var customLib = [];    // [{n:שם, s:'custom:<id>'}] — מצטרף לסבב של LIB
+        var customUrls = {};   // id -> objectURL של ה-blob
+        var BG_DB = 'gympro-bg', BG_STORE = 'bgs';
+
+        function bgDb(){
+            return new Promise(function(res, rej){
+                var r = indexedDB.open(BG_DB, 1);
+                r.onupgradeneeded = function(){ r.result.createObjectStore(BG_STORE, { keyPath: 'id' }); };
+                r.onsuccess = function(){ res(r.result); };
+                r.onerror = function(){ rej(r.error); };
+            });
+        }
+        function bgTx(mode, fn){
+            return bgDb().then(function(db){
+                return new Promise(function(res, rej){
+                    var q = fn(db.transaction(BG_STORE, mode).objectStore(BG_STORE));
+                    q.onsuccess = function(){ res(q.result); };
+                    q.onerror = function(){ rej(q.error); };
+                });
+            });
+        }
+        function bgAll(){ return bgTx('readonly',  function(s){ return s.getAll(); }); }
+        function bgPut(rec){ return bgTx('readwrite', function(s){ return s.put(rec); }); }
+        function bgDel(id){ return bgTx('readwrite', function(s){ return s.delete(id); }); }
+
+        function resolveSrc(v, slot){
+            if (v && v.indexOf('custom:') === 0) return customUrls[v.slice(7)] || DEFAULTS[slot];
+            return v;
+        }
         function setImg(id, src){ var el = document.getElementById(id); if (el && src) el.src = src; }
         function st(){ return draft || choices; }
 
@@ -2611,14 +2669,24 @@
         function archCalendar(){ var b = document.getElementById('btn-view-calendar'); return !!(b && b.classList.contains('active')); }
         function blNutrition(){ var b = document.querySelector('#bl-subtab .seg-btn.active'); return !!(b && b.getAttribute('data-tab') === 'nutrition'); }
 
-        function applyAnalytics(){ setImg('ana-bg-img',     st()[anaMicro()    ? 'ana-micro'         : 'ana-macro']); }
-        function applyArchive(){   setImg('archive-bg-img', st()[archCalendar() ? 'archive-calendar'  : 'archive-list']); }
-        function applyBodylog(){   setImg('bodylog-bg-img', st()[blNutrition()  ? 'bodylog-nutrition' : 'bodylog-weight']); }
+        function applySlot(imgId, slot){ setImg(imgId, resolveSrc(st()[slot], slot)); }
+        function applyAnalytics(){ applySlot('ana-bg-img',     anaMicro()    ? 'ana-micro'         : 'ana-macro'); }
+        function applyArchive(){   applySlot('archive-bg-img', archCalendar() ? 'archive-calendar'  : 'archive-list'); }
+        function applyBodylog(){   applySlot('bodylog-bg-img', blNutrition()  ? 'bodylog-nutrition' : 'bodylog-weight'); }
         function applyAll(){ applyAnalytics(); applyArchive(); applyBodylog(); }
 
         // יישום בטעינה + חיבור (wrap) לפונקציות החלפת תת-המסכים — כדי לעדכן רקע בכל מעבר
         document.addEventListener('DOMContentLoaded', function(){
             applyAll();
+            // טעינת הרקעים המותאמים (async) — slots עם custom: מקבלים בינתיים ברירת מחדל,
+            // וברגע שה-blobs נטענו מיושמים מחדש
+            bgAll().then(function(recs){
+                (recs || []).forEach(function(rec){
+                    customUrls[rec.id] = URL.createObjectURL(rec.blob);
+                    customLib.push({ n: rec.name, s: 'custom:' + rec.id });
+                });
+                if (recs && recs.length) applyAll();
+            }).catch(function(){});
             function wrap(name, after){
                 var orig = window[name];
                 if (typeof orig === 'function') window[name] = function(){ var r = orig.apply(this, arguments); after(); return r; };
@@ -2656,10 +2724,11 @@
             if (!draft) return;
             var t = active();
             if (!t) { b.textContent = 'פתח אנליטיקה / ארכיון / תזונה'; return; }
-            ix[t.slot] = ((ix[t.slot] == null ? -1 : ix[t.slot]) + 1) % LIB.length;
-            var o = LIB[ix[t.slot]];
-            draft[t.slot] = o.s; setImg(t.img, o.s);
-            b.textContent = t.label + ': ' + o.n + ' (' + (ix[t.slot] + 1) + '/' + LIB.length + ')';
+            var lib = LIB.concat(customLib);   // המובנים + המותאמים אישית
+            ix[t.slot] = ((ix[t.slot] == null ? -1 : ix[t.slot]) + 1) % lib.length;
+            var o = lib[ix[t.slot]];
+            draft[t.slot] = o.s; setImg(t.img, resolveSrc(o.s, t.slot));
+            b.textContent = t.label + ': ' + o.n + ' (' + (ix[t.slot] + 1) + '/' + lib.length + ')';
         };
         window.saveBgEdit = function(){
             if (draft) choices = Object.assign({}, draft);
@@ -2669,6 +2738,112 @@
             document.getElementById('bg-save').style.display = 'none';
             applyAll();
             if (typeof showCloudToast === 'function') showCloudToast('תמונות הרקע נשמרו ✓', true);
+        };
+
+        // ── ניהול רקעים מותאמים (sheet בהגדרות) ──
+        var bgPending = null;   // blob דחוס שממתין לשמירה
+
+        function escHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+        // כיווץ לפני שמירה — רקע לא צריך יותר מ-1600px; ‏JPEG q0.8 (~150-350KB)
+        function compressBg(file){
+            return new Promise(function(res, rej){
+                var url = URL.createObjectURL(file);
+                var img = new Image();
+                img.onload = function(){
+                    var MAX = 1600, k = Math.min(1, MAX / Math.max(img.width, img.height));
+                    var c = document.createElement('canvas');
+                    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+                    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                    URL.revokeObjectURL(url);
+                    c.toBlob(function(b){ b ? res(b) : rej(new Error('compress failed')); }, 'image/jpeg', 0.8);
+                };
+                img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error('bad image')); };
+                img.src = url;
+            });
+        }
+
+        function renderBgList(){
+            var el = document.getElementById('bgm-list');
+            if (!el) return;
+            if (!customLib.length) { el.innerHTML = '<p class="bgm-empty">אין עדיין רקעים מותאמים</p>'; return; }
+            el.innerHTML = customLib.map(function(o){
+                var id = o.s.slice(7);
+                return '<div class="bgm-row">' +
+                    '<img class="bgm-thumb" src="' + (customUrls[id] || '') + '" alt="">' +
+                    '<span class="bgm-name">' + escHtml(o.n) + '</span>' +
+                    '<button class="bgm-del" onclick="bgMgrDelete(\'' + id + '\')" aria-label="מחק רקע"><span class="material-symbols-outlined">delete</span></button>' +
+                '</div>';
+            }).join('');
+        }
+
+        window.openBgManager = function(){
+            bgPending = null;
+            document.getElementById('bgm-preview-wrap').style.display = 'none';
+            document.getElementById('bgm-name').value = '';
+            renderBgList();
+            document.getElementById('bg-manager-overlay').style.display = 'block';
+            document.getElementById('bg-manager-sheet').classList.add('open');
+        };
+        window.closeBgManager = function(){
+            document.getElementById('bg-manager-overlay').style.display = 'none';
+            document.getElementById('bg-manager-sheet').classList.remove('open');
+        };
+        window.bgMgrPick = function(){ document.getElementById('bgm-file').click(); };
+
+        window._bgMgrFile = function(file){
+            if (!file) return;
+            compressBg(file).then(function(blob){
+                bgPending = blob;
+                var pv = document.getElementById('bgm-preview-img');
+                if (pv.dataset.url) URL.revokeObjectURL(pv.dataset.url);
+                var u = URL.createObjectURL(blob);
+                pv.src = u; pv.dataset.url = u;
+                document.getElementById('bgm-preview-wrap').style.display = '';
+                var nm = document.getElementById('bgm-name');
+                if (!nm.value) nm.value = (file.name || '').replace(/\.[^.]+$/, '');
+            }).catch(function(){
+                if (typeof showAlert === 'function') showAlert('לא ניתן לקרוא את התמונה. נסה קובץ אחר.');
+            });
+        };
+
+        window.bgMgrSave = function(){
+            if (!bgPending) return;
+            var name = (document.getElementById('bgm-name').value || '').trim();
+            if (!name) { if (typeof showAlert === 'function') showAlert('תן שם לרקע.'); return; }
+            var rec = { id: 'bg' + Date.now(), name: name, blob: bgPending, ts: Date.now() };
+            bgPut(rec).then(function(){
+                customUrls[rec.id] = URL.createObjectURL(rec.blob);
+                customLib.push({ n: rec.name, s: 'custom:' + rec.id });
+                bgPending = null;
+                document.getElementById('bgm-preview-wrap').style.display = 'none';
+                document.getElementById('bgm-name').value = '';
+                renderBgList();
+                if (typeof showCloudToast === 'function') showCloudToast('הרקע "' + name + '" נוסף ✓', true);
+                if (typeof haptic === 'function') haptic('success');
+            }).catch(function(){
+                if (typeof showAlert === 'function') showAlert('שמירת הרקע נכשלה. ייתכן שאין מקום פנוי במכשיר.');
+            });
+        };
+
+        window.bgMgrDelete = function(id){
+            var doDel = function(){
+                bgDel(id).then(function(){
+                    if (customUrls[id]) { URL.revokeObjectURL(customUrls[id]); delete customUrls[id]; }
+                    customLib = customLib.filter(function(o){ return o.s !== 'custom:' + id; });
+                    // בחירות שמצביעות על הרקע שנמחק — חזרה לברירת המחדל של אותו slot
+                    var changed = false;
+                    Object.keys(choices).forEach(function(slot){
+                        if (choices[slot] === 'custom:' + id) { choices[slot] = DEFAULTS[slot]; changed = true; }
+                    });
+                    if (changed) { try { localStorage.setItem(KEY, JSON.stringify(choices)); } catch (e) {} applyAll(); }
+                    renderBgList();
+                    if (typeof haptic === 'function') haptic('light');
+                }).catch(function(){
+                    if (typeof showAlert === 'function') showAlert('מחיקת הרקע נכשלה.');
+                });
+            };
+            if (typeof showConfirm === 'function') showConfirm('למחוק את הרקע?', doDel); else doDel();
         };
     })();
     </script>

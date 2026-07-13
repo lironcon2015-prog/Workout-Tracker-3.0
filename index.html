@@ -2578,7 +2578,15 @@
     </div>
 
     <!-- מצב עריכת תמונות רקע (מופעל מההגדרות). כפתורים מוסתרים עד כניסה למצב עריכה. -->
-    <button id="bg-lab" onclick="cycleBg()" style="display:none;position:fixed;bottom:150px;left:50%;transform:translateX(-50%);z-index:500;background:var(--accent);color:#fff;border:none;border-radius:9999px;padding:11px 20px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;max-width:92vw;white-space:nowrap;">לחץ להחלפת רקע</button>
+    <button id="bg-lab" onclick="openBgPicker()" style="display:none;position:fixed;bottom:150px;left:50%;transform:translateX(-50%);z-index:500;background:var(--accent);color:#fff;border:none;border-radius:9999px;padding:11px 20px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;max-width:92vw;white-space:nowrap;">בחר רקע</button>
+
+    <!-- בורר רקעים — גריד ויזואלי (מחליף את הדפדוף האחד-אחד) -->
+    <div id="bg-picker-overlay" class="bottom-sheet-overlay" onclick="closeBgPicker()"></div>
+    <div id="bg-picker-sheet" class="bottom-sheet" style="max-height:75vh; overflow-y:auto;">
+        <div class="sheet-handle"></div>
+        <h3 id="bg-picker-title">בחירת רקע</h3>
+        <div id="bg-picker-content"></div>
+    </div>
     <button id="bg-save" onclick="saveBgEdit()" style="display:none;position:fixed;bottom:104px;left:50%;transform:translateX(-50%);z-index:500;background:var(--success);color:#0a0a0a;border:none;border-radius:9999px;padding:11px 24px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;">✓ שמור וסיום</button>
     <script>
     (function(){
@@ -2628,7 +2636,7 @@
         }
         var choices = loadChoices();   // המצב השמור/מיושם
         var draft = null;              // עותק עבודה במצב עריכה
-        var ix = {};                   // אינדקס נוכחי לכל slot במצב עריכה
+        var pickerItems = [];          // הפריטים המוצגים כרגע בגריד הבורר (שלי + מובנים)
 
         // ── רקעים מותאמים אישית — IndexedDB מקומי (פר-מכשיר, לא מסונכרן) ──
         // בחירה נשמרת כ-'custom:<id>'; אם הרקע נמחק/אבד — נפילה לברירת המחדל של ה-slot.
@@ -2713,22 +2721,57 @@
         }
         window.enterBgEdit = function(){
             draft = Object.assign({}, choices);
-            ix = {};
             document.getElementById('bg-lab').style.display = '';
             document.getElementById('bg-save').style.display = '';
             if (typeof navigate === 'function') navigate('ui-analytics');
-            document.getElementById('bg-lab').textContent = 'לחץ להחלפת רקע';
+            document.getElementById('bg-lab').textContent = 'בחר רקע';
         };
-        window.cycleBg = function(){
-            var b = document.getElementById('bg-lab');
+
+        // ── בורר גריד: כל הרקעים במבט אחד, הקשה = החלה מיידית על המסך הפעיל ──
+        function pickerTile(o, i, cur){
+            var sel = (o.s === cur);
+            var src = o.s.indexOf('custom:') === 0 ? (customUrls[o.s.slice(7)] || '') : o.s;
+            return '<button class="bgp-tile' + (sel ? ' selected' : '') + '" onclick="bgPickerChoose(' + i + ')">' +
+                '<img src="' + src + '" loading="lazy" alt="">' +
+                (sel ? '<span class="bgp-check material-symbols-outlined">check_circle</span>' : '') +
+                '<span class="bgp-tile-name">' + escHtml(o.n) + '</span>' +
+            '</button>';
+        }
+        window.openBgPicker = function(){
             if (!draft) return;
             var t = active();
-            if (!t) { b.textContent = 'פתח אנליטיקה / ארכיון / תזונה'; return; }
-            var lib = LIB.concat(customLib);   // המובנים + המותאמים אישית
-            ix[t.slot] = ((ix[t.slot] == null ? -1 : ix[t.slot]) + 1) % lib.length;
-            var o = lib[ix[t.slot]];
-            draft[t.slot] = o.s; setImg(t.img, resolveSrc(o.s, t.slot));
-            b.textContent = t.label + ': ' + o.n + ' (' + (ix[t.slot] + 1) + '/' + lib.length + ')';
+            var b = document.getElementById('bg-lab');
+            if (!t) { if (b) b.textContent = 'פתח אנליטיקה / ארכיון / תזונה'; return; }
+            var cur = st()[t.slot];
+            pickerItems = customLib.concat(LIB);   // שלי קודם — הם כנראה הסיבה שנכנסת
+            var addTile = '<button class="bgp-tile bgp-tile-add" onclick="closeBgPicker(); openBgManager();">' +
+                '<span class="material-symbols-outlined">add_photo_alternate</span>' +
+                '<span class="bgp-tile-name">העלה רקע</span></button>';
+            var mine = pickerItems.slice(0, customLib.length)
+                .map(function(o, i){ return pickerTile(o, i, cur); }).join('');
+            var builtin = pickerItems.slice(customLib.length)
+                .map(function(o, i){ return pickerTile(o, customLib.length + i, cur); }).join('');
+            document.getElementById('bg-picker-title').textContent = 'רקע: ' + t.label;
+            document.getElementById('bg-picker-content').innerHTML =
+                '<div class="bgp-section-title">שלי</div><div class="bgp-grid">' + addTile + mine + '</div>' +
+                '<div class="bgp-section-title">מובנים</div><div class="bgp-grid">' + builtin + '</div>';
+            document.getElementById('bg-picker-overlay').style.display = 'block';
+            document.getElementById('bg-picker-sheet').classList.add('open');
+        };
+        window.closeBgPicker = function(){
+            document.getElementById('bg-picker-overlay').style.display = 'none';
+            document.getElementById('bg-picker-sheet').classList.remove('open');
+        };
+        window.bgPickerChoose = function(i){
+            if (!draft) return;
+            var t = active(); if (!t) return;
+            var o = pickerItems[i]; if (!o) return;
+            draft[t.slot] = o.s;
+            setImg(t.img, resolveSrc(o.s, t.slot));
+            var b = document.getElementById('bg-lab');
+            if (b) b.textContent = t.label + ': ' + o.n;
+            window.closeBgPicker();
+            if (typeof haptic === 'function') haptic('light');
         };
         window.saveBgEdit = function(){
             if (draft) choices = Object.assign({}, draft);

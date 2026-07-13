@@ -1246,6 +1246,7 @@ function openSettings() {
     if (typeof updateWatchBridgeStatus === 'function') updateWatchBridgeStatus();
     if (typeof updateBackupBridgeStatus === 'function') updateBackupBridgeStatus();
     if (typeof updateWidgetBridgeStatus === 'function') updateWidgetBridgeStatus();
+    if (typeof updatePhotoBridgeStatus === 'function') updatePhotoBridgeStatus();
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
     _renderMainTMSettings();
@@ -5620,6 +5621,54 @@ function updateWidgetBridgeStatus() {
         el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span><span style="color:var(--text-dim);">' + lastTxt + '</span>';
         const ui = document.getElementById('widget-bridge-url-input');
         const ti = document.getElementById('widget-bridge-token-input');
+        if (ui && !ui.value) ui.value = url;
+        if (ti && !ti.value) ti.value = token;
+    } else {
+        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
+    }
+}
+
+// ─── גשר תמונות התקדמות (Apps Script → Google Drive) ────────────────────────
+function savePhotoBridgeSettings() {
+    const urlInput   = document.getElementById('photo-bridge-url-input');
+    const tokenInput = document.getElementById('photo-bridge-token-input');
+    if (!urlInput || !tokenInput) return;
+    const on = !!(document.getElementById('photo-bridge-toggle') || {}).checked;
+    StorageManager.savePhotoBridge(on, urlInput.value.trim(), tokenInput.value.trim());
+    updatePhotoBridgeStatus();
+    if (on && typeof _ppKickUploads === 'function') _ppKickUploads();   // העלאת ממתינות מיד עם ההפעלה
+    showAlert('הגדרות גשר התמונות נשמרו!');
+}
+
+function testPhotoBridgeNow() {
+    if (typeof ppTestPhotoBridge !== 'function') return;
+    ppTestPhotoBridge()
+        .then(res => showAlert('הגשר מחובר! תיקייה: "' + res.folder + '" · ' + res.files + ' תמונות בדרייב.'))
+        .catch(e => showAlert('בדיקת הגשר נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. בדוק את ה-URL, ה-token ופריסת הסקריפט.'));
+}
+
+function scanPhotoDriveNow() {
+    if (typeof ppReconcileFromDrive !== 'function') return;
+    ppReconcileFromDrive()
+        .then(r => {
+            showAlert('הסריקה הושלמה: ' + r.added + ' תמונות נוספו לאינדקס, ' + r.linked + ' קושרו מחדש. סה"כ ' + r.total + '.');
+            if (typeof _renderBodyPhotos === 'function') _renderBodyPhotos();
+        })
+        .catch(e => showAlert('הסריקה נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת')));
+}
+
+function updatePhotoBridgeStatus() {
+    const el = document.getElementById('photo-bridge-status');
+    const tg = document.getElementById('photo-bridge-toggle');
+    const { on, url, token } = StorageManager.getPhotoBridge();
+    if (tg) tg.checked = on;
+    if (!el) return;
+    if (url) {
+        const pending = StorageManager.getPhotoIndex().filter(e => !e.driveId).length;
+        const pendTxt = pending ? ' · ' + pending + ' ממתינות להעלאה' : ' · הכל בענן';
+        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span><span style="color:var(--text-dim);">' + pendTxt + '</span>';
+        const ui = document.getElementById('photo-bridge-url-input');
+        const ti = document.getElementById('photo-bridge-token-input');
         if (ui && !ui.value) ui.value = url;
         if (ti && !ti.value) ti.value = token;
     } else {

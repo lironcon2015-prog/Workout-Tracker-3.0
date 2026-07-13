@@ -1774,6 +1774,7 @@
                     <div class="segment-wrapper" id="bl-subtab">
                         <button class="seg-btn active" data-tab="weight" onclick="setBodyTab('weight')">שקילה</button>
                         <button class="seg-btn" data-tab="nutrition" onclick="setBodyTab('nutrition')">תזונה</button>
+                        <button class="seg-btn" data-tab="photos" onclick="setBodyTab('photos')">תמונות</button>
                     </div>
                 </div>
 
@@ -1861,6 +1862,18 @@
 
                     <div class="bl-list-head">היסטוריית תזונה</div>
                     <div id="bl-nutrition-list" class="bodylog-list"></div>
+                </div>
+
+                <!-- ========== תצוגת תמונות התקדמות ========== -->
+                <div id="bl-view-photos" style="display:none;">
+                    <div class="pp-actions">
+                        <button class="pp-cta" onclick="ppOpenCamera()">צלם תמונת התקדמות</button>
+                        <button class="pp-secondary" id="pp-analyze-btn" onclick="ppAnalyzeNow()">נתח עכשיו</button>
+                    </div>
+                    <div class="bl-chart-card" id="pp-analysis-card"></div>
+                    <div class="bl-chart-card" id="pp-compare-card" style="display:none;"></div>
+                    <div class="bl-list-head" id="pp-gallery-head" style="display:none;">גלריה</div>
+                    <div id="pp-gallery"></div>
                 </div>
 
                 <input type="file" id="bl-camera-input" accept="image/*" capture="environment" style="display:none;" onchange="_onBodyPhotoSelected(this.files[0]); this.value='';">
@@ -2284,6 +2297,33 @@
             <button id="fd-live-label" class="fd-live-btn" onclick="fdLiveSnapLabel()" style="display:none"><span class="material-symbols-outlined">photo_camera</span>צלם תווית</button>
             <button id="fd-live-retry" class="fd-live-btn" onclick="fdLiveScanStart()" style="display:none"><span class="material-symbols-outlined">refresh</span>סרוק שוב</button>
             <button class="fd-live-btn fd-live-close" onclick="fdLiveScanStop()"><span class="material-symbols-outlined">close</span>סגור</button>
+        </div>
+    </div>
+
+    <!-- ════════ מסך צילום תמונת התקדמות (Ghost Overlay + טיימר) ════════ -->
+    <div id="pp-cam" class="pp-cam">
+        <video id="pp-cam-video" class="pp-cam-video" muted playsinline webkit-playsinline></video>
+        <img id="pp-ghost" class="pp-ghost" alt="" style="display:none;">
+        <div id="pp-countdown" class="pp-countdown" style="display:none;"></div>
+        <div class="pp-cam-top">
+            <button class="pp-cam-chip" id="pp-ghost-btn" onclick="ppToggleGhost()">רפאים: פעיל</button>
+            <button class="pp-cam-chip" id="pp-face-btn" onclick="ppSwitchCamera()">מצלמה: קדמית</button>
+            <button class="pp-cam-chip" id="pp-timer-btn" onclick="ppCycleTimer()">טיימר: כבוי</button>
+        </div>
+        <div class="pp-cam-msg" id="pp-cam-msg" style="display:none;"></div>
+        <div class="pp-cam-actions">
+            <button class="fd-live-btn pp-shoot" onclick="ppCapture()">צלם</button>
+            <button class="fd-live-btn fd-live-close" onclick="ppCloseCamera()">סגור</button>
+        </div>
+    </div>
+
+    <!-- תצוגה מלאה של תמונת התקדמות -->
+    <div id="pp-viewer" class="pp-viewer" onclick="ppCloseViewer()">
+        <img id="pp-viewer-img" alt="">
+        <div class="pp-viewer-bar" onclick="event.stopPropagation()">
+            <span id="pp-viewer-date"></span>
+            <button class="pp-viewer-btn pp-viewer-del" onclick="ppDeleteCurrent()">מחק</button>
+            <button class="pp-viewer-btn" onclick="ppCloseViewer()">סגור</button>
         </div>
     </div>
 

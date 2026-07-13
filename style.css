@@ -6599,6 +6599,9 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
 /* מצלמה קדמית — mirror לתצוגה חיה וגם ל-ghost, כדי שהיישור יהיה טבעי כמו מראה.
    הלכידה עצמה לא מתהפכת: הפריים הגולמי כבר un-mirrored בשתי המצלמות. */
 .pp-cam.mirror .pp-cam-video, .pp-cam.mirror .pp-ghost { transform: scaleX(-1); }
+/* תצוגה "מלאה" (contain) — רואים את כל הפריים שיילכד, עם פסים שחורים.
+   ה-ghost עובר יחד עם הווידאו כדי שהיישור יישאר נכון. */
+.pp-cam.contain .pp-cam-video, .pp-cam.contain .pp-ghost { object-fit: contain; }
 .pp-cam-top {
     position: absolute; top: calc(env(safe-area-inset-top, 0px) + 16px); z-index: 2;
     display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 0 12px;

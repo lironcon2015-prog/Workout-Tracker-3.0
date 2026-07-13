@@ -567,6 +567,9 @@ let _ppGhostOn = true;
 let _ppGhostUrl = null;
 let _ppTimerSec = 0;              // 0 / 3 / 10
 let _ppCountdownTimer = null;
+let _ppZoomLevels = [];           // רמות זום זמינות מהחומרה (ריק = אין תמיכה)
+let _ppZoomIdx = 0;
+let _ppFitContain = false;        // תצוגה: false=מסך מלא (cover), true=פריים מלא (contain)
 
 function _ppCamMsg(txt) {
     const el = document.getElementById('pp-cam-msg');
@@ -579,9 +582,59 @@ function _ppUpdateCamChips() {
     const g = document.getElementById('pp-ghost-btn');
     const f = document.getElementById('pp-face-btn');
     const t = document.getElementById('pp-timer-btn');
+    const z = document.getElementById('pp-zoom-btn');
+    const fit = document.getElementById('pp-fit-btn');
     if (g) { g.textContent = 'רפאים: ' + (_ppGhostOn ? 'פעיל' : 'כבוי'); g.classList.toggle('off', !_ppGhostOn); }
     if (f) f.textContent = 'מצלמה: ' + (_ppCamFacing === 'user' ? 'קדמית' : 'אחורית');
     if (t) { t.textContent = 'טיימר: ' + (_ppTimerSec ? _ppTimerSec + ' שנ\'' : 'כבוי'); t.classList.toggle('off', !_ppTimerSec); }
+    if (z) {
+        z.style.display = _ppZoomLevels.length > 1 ? '' : 'none';
+        if (_ppZoomLevels.length) z.textContent = 'זום: ' + _ppZoomLevels[_ppZoomIdx] + 'x';
+    }
+    if (fit) fit.textContent = 'תצוגה: ' + (_ppFitContain ? 'מלאה' : 'מסך');
+}
+
+// ─── זום חומרה — רק אם ה-track חושף capability (iOS 17+/Android Chrome) ─────
+// רמות מועמדות: מינימום החומרה (0.5x אולטרה-רחבה כשקיימת), 1x, 2x, 3x — בתחום הנתמך.
+function _ppInitZoom() {
+    _ppZoomLevels = []; _ppZoomIdx = 0;
+    try {
+        const track = _ppCamStream && _ppCamStream.getVideoTracks()[0];
+        const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+        if (!caps || caps.zoom == null || caps.zoom.min == null) return;
+        const { min, max } = caps.zoom;
+        const cand = [min, 1, 2, 3].filter(v => v >= min && v <= max);
+        _ppZoomLevels = [...new Set(cand.map(v => Math.round(v * 10) / 10))].sort((a, b) => a - b);
+        if (_ppZoomLevels.length < 2) { _ppZoomLevels = []; return; }
+        // ברירת מחדל: 1x אם קיים, אחרת הרמה הראשונה
+        _ppZoomIdx = Math.max(0, _ppZoomLevels.indexOf(1));
+        _ppApplyZoom();
+    } catch (e) { _ppZoomLevels = []; }
+}
+
+function _ppApplyZoom() {
+    try {
+        const track = _ppCamStream && _ppCamStream.getVideoTracks()[0];
+        if (track && _ppZoomLevels.length)
+            track.applyConstraints({ advanced: [{ zoom: _ppZoomLevels[_ppZoomIdx] }] }).catch(() => {});
+    } catch (e) { /* מכשיר בלי תמיכה */ }
+}
+
+function ppCycleZoom() {
+    if (!_ppZoomLevels.length) return;
+    _ppZoomIdx = (_ppZoomIdx + 1) % _ppZoomLevels.length;
+    _ppApplyZoom();
+    _ppUpdateCamChips();
+    haptic('light');
+}
+
+// תצוגה מסך-מלא (cover, חותכת) ↔ פריים מלא (contain, עם פסים) — הלכידה זהה בשתיהן
+function ppToggleFit() {
+    _ppFitContain = !_ppFitContain;
+    const ov = document.getElementById('pp-cam');
+    if (ov) ov.classList.toggle('contain', _ppFitContain);
+    _ppUpdateCamChips();
+    haptic('light');
 }
 
 async function ppOpenCamera() {
@@ -616,7 +669,12 @@ async function _ppStartStream() {
     video.setAttribute('playsinline', '');
     await video.play().catch(() => {});
     // mirror בתצוגה במצלמה קדמית — גם הווידאו וגם ה-ghost (יישור פוזה טבעי)
-    if (ov) ov.classList.toggle('mirror', _ppCamFacing === 'user');
+    if (ov) {
+        ov.classList.toggle('mirror', _ppCamFacing === 'user');
+        ov.classList.toggle('contain', _ppFitContain);
+    }
+    _ppInitZoom();
+    _ppUpdateCamChips();
 }
 
 function _ppStopStream() {

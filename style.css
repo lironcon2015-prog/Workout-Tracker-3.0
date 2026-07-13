@@ -5895,6 +5895,14 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .fd-meal-del .material-symbols-outlined { font-size: var(--fs-xl); }
+/* שמירת ארוחה שלמה מהיומן למותאמים (v17.23) — כפתור טקסט, ללא אייקון */
+.fd-meal-savebtn {
+    background: var(--surface-4); color: var(--text); border: 1px solid var(--hairline);
+    font-family: inherit; font-weight: 700; font-size: var(--fs-xs);
+    padding: 8px 12px; border-radius: var(--r-pill); flex-shrink: 0; cursor: pointer;
+    transition: transform var(--dur-1) var(--ease);
+}
+.fd-meal-savebtn:active { transform: scale(0.94); }
 .fd-meal-body { border-top: 1px solid var(--hairline); }
 .fd-entry {
     display: flex; align-items: center; gap: 12px; width: 100%;
@@ -6051,6 +6059,12 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-src-chip {
     flex-shrink: 0; font-size: 0.54rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
     padding: 2px 8px; border-radius: var(--r-xs); border: 1px solid var(--hairline); color: var(--text-dim);
+}
+/* כותרת סקציה ברשימת התוצאות — "ארוחות שמורות" / "מזונות" (v17.23) */
+.fd-list-sec {
+    font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 12px 4px 6px; border-bottom: 1px solid var(--hairline);
 }
 .fd-food-star { font-size: var(--fs-2xl); color: var(--faint, var(--text-dim)); flex-shrink: 0; line-height: 1; }
 .fd-food-star.on { color: var(--accent); }
@@ -6281,6 +6295,16 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-comp-del .material-symbols-outlined { font-size: var(--fs-xl); }
 .fd-comp-addrow { display: flex; gap: 8px; margin-bottom: 16px; }
 .fd-comp-addrow .fd-comp-add { flex: 1; margin-bottom: 0; }
+/* טוגל "שמור גם במותאמים" ב-Meal Builder (v17.23) — טקסט בלבד, מצב מסומן בצבע */
+.fd-savedb {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--hairline); color: var(--text);
+    font-family: inherit; font-weight: 600; font-size: var(--fs-md); text-align: right;
+    padding: 12px 16px; border-radius: var(--r-md); cursor: pointer; margin-bottom: 14px;
+}
+.fd-savedb span { font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim); letter-spacing: 0.06em; flex-shrink: 0; }
+.fd-savedb.on { border-color: var(--accent); }
+.fd-savedb.on span { color: var(--accent); }
 .fd-comp-add {
     display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
     background: transparent; border: 1.5px dashed var(--hairline-hi); color: var(--text-dim);

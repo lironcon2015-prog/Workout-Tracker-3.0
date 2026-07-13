@@ -22,6 +22,10 @@ let _fdMoreFoods = [];        // תוצאות מעבר לקאפ התצוגה —
 let _fdPhotoMode = 'label';   // 'label' = ברקוד/תווית | 'meal' = הערכת מנה מצילום
 let _fdMealComponents = [];   // Meal Builder — מרכיבי המנה {name, grams, per100}
 let _fdMealEditId = null;     // עריכת רשומת composite קיימת
+let _fdMealMode = 'log';      // מצב ה-Meal Builder: 'log' = כתיבה ליומן | 'saved' = עריכת ארוחה שמורה במאגר
+let _fdMealSavedId = null;    // id הארוחה השמורה הנערכת (מצב 'saved'; null = יצירה חדשה)
+let _fdMealSrcId = null;      // id ארוחה שמורה שממנה מולא ה-Builder (מצב 'log') — לעדכון דירוג שימוש
+let _fdMealSaveToDb = false;  // טוגל "שמור גם במותאמים" במצב 'log'
 let _fdCompPickMode = false;  // מצב "בחירת מרכיב מהמאגר" — בחירה בחיפוש מוסיפה כמרכיב במקום לפתוח עורך
 let _fdEditCustomFoodId = null;  // עריכת מזון קיים במאגר (null = יצירת מזון מותאם חדש)
 let _fdEditCustomFoodSrc = null; // המקור המקורי של המזון הנערך ('custom'/'gemini'/'off') — נשמר בעריכה
@@ -754,6 +758,10 @@ function _fdMealsHTML(entries, mfpOwned) {
         const delBtn = (_FD_DEFAULT_MEALS.indexOf(meal) < 0 && !items.length)
             ? `<button class="fd-meal-del" data-meal="${_fdEsc(meal)}" onclick="event.stopPropagation();fdDeleteMeal(this)" aria-label="מחק ארוחה"><span class="material-symbols-outlined">delete</span></button>`
             : '';
+        // שמירת הארוחה כולה (כל רשומות היום תחתיה) כארוחה שמורה במותאמים
+        const saveBtn = items.length
+            ? `<button class="fd-meal-savebtn" data-meal="${_fdEsc(meal)}" title="שמור את הארוחה במותאמים לשימוש חוזר" onclick="event.stopPropagation();fdSaveMealAsCustom(this.dataset.meal)">שמור</button>`
+            : '';
         const accVar = _FD_MEAL_ACCENT[meal] ? `--fd-meal-accent:${_FD_MEAL_ACCENT[meal]};` : '';
         html += `<div class="fd-meal" style="${accVar}animation-delay:${mi * 0.04}s">
             <div class="fd-meal-hdr">
@@ -764,7 +772,7 @@ function _fdMealsHTML(entries, mfpOwned) {
                         ? `${_fdFmt(mt)} קלוריות <span class="fd-meal-pcf"><i class="macro-p">P ${Math.round(mp)}</i><i class="macro-c">C ${Math.round(mc)}</i><i class="macro-f">F ${Math.round(mf)}</i></span>`
                         : '—'}</span>
                 </div>
-                ${delBtn}
+                ${delBtn}${saveBtn}
                 <button class="fd-meal-add" onclick="fdOpenAdd('${mealJs}')" aria-label="הוסף מזון"><span class="material-symbols-outlined">add</span></button>
             </div>
             <div class="fd-meal-body">`;
@@ -804,6 +812,36 @@ function _fdPortionLabel(e) {
         return `${_fdR(e.qty)} ${e.baseUnit === 'unit' ? 'יחידות' : 'מנות'}`;
     }
     return `${_fdR(e.qty)} ${e.unit === 'ml' ? 'מ"ל' : 'ג\''}`;
+}
+
+// "שמור" בכותרת ארוחה ביומן — אוסף את כל רשומות הארוחה של היום לארוחה שמורה אחת
+// ופותח את ה-Meal Builder במצב מאגר לאישור שם/מרכיבים. רשומות מורכבות נפרסות למרכיביהן;
+// מזון בודד הופך למרכיב (רשומות "יחידה" מנורמלות מטריק ×100 לערך אמיתי ליחידה).
+function fdSaveMealAsCustom(meal) {
+    const entries = StorageManager.getFoodLogDay(_fdDate).filter(e => e.meal === meal);
+    if (!entries.length) return;
+    const comps = [];
+    entries.forEach(e => {
+        if (e.components && e.components.length) {
+            e.components.forEach(c => comps.push({ name: c.name, grams: c.grams, per100: Object.assign({}, c.per100), baseUnit: c.baseUnit || 'g' }));
+            return;
+        }
+        const p = e.per100 || {};
+        if ((e.baseUnit || 'g') === 'unit') {
+            comps.push({
+                name: e.name, grams: e.qty || 1, baseUnit: 'unit',
+                per100: { kcal: (p.kcal || 0) / 100, p: (p.p || 0) / 100, c: (p.c || 0) / 100, f: (p.f || 0) / 100 }
+            });
+            return;
+        }
+        const grams = e.unit === 'serving' ? (e.qty || 0) * (e.gramsPerUnit || 100) : (e.qty || 0);
+        // אין per100 (רשומה ישנה/מיובאת) — נגזר מסך הרשומה לפי המשקל
+        const per100 = (p.kcal != null) ? Object.assign({}, p)
+            : (grams > 0 ? { kcal: (e.kcal || 0) / grams * 100, p: (e.p || 0) / grams * 100, c: (e.c || 0) / grams * 100, f: (e.f || 0) / grams * 100 }
+                : { kcal: 0, p: 0, c: 0, f: 0 });
+        comps.push({ name: e.name, grams, baseUnit: 'g', per100 });
+    });
+    _fdOpenMealBuilder({ mode: 'saved', savedId: null, name: meal, components: comps });
 }
 
 // הוספת שם ארוחה חופשי (ארוחת ביניים) — input inline בתוך שיט קטן
@@ -909,6 +947,21 @@ function fdRenderTab() {
             : _fdTab === 'fav' ? emptyStateHtml('star', 'אין מועדפים', 'סמן ⭐ על מזון כדי שיופיע כאן')
             : emptyStateHtml('edit_note', 'אין מזונות מותאמים', 'צור באמצעות הכפתור למטה');
         return;
+    }
+    // טאב מותאמים — ארוחות שמורות בסקציה נפרדת מעל המזונות
+    if (_fdTab === 'custom') {
+        const meals = foods.filter(f => f.components && f.components.length);
+        if (meals.length) {
+            const others = foods.filter(f => !(f.components && f.components.length));
+            _fdFoodCache = {};
+            box.innerHTML = '<div class="fd-list-sec">ארוחות שמורות</div>';
+            _fdRenderFoodList(meals, box, true);
+            if (others.length) {
+                box.insertAdjacentHTML('beforeend', '<div class="fd-list-sec">מזונות</div>');
+                _fdRenderFoodList(others, box, true);
+            }
+            return;
+        }
     }
     _fdRenderFoodList(foods, box);
 }
@@ -1078,7 +1131,7 @@ async function fdAiLookup() {
     }
 }
 
-const _FD_SRC_LABEL = { off: 'OFF', usda: 'USDA', basic: 'בסיסי', custom: 'מותאם', gemini: 'AI', tzameret: 'צמ"ת' };
+const _FD_SRC_LABEL = { off: 'OFF', usda: 'USDA', basic: 'בסיסי', custom: 'מותאם', gemini: 'AI', tzameret: 'צמ"ת', meal: 'ארוחה' };
 function _fdSrcChip(f) {
     const s = (f.source === 'basic' || f.brand === 'חומר גלם') ? 'basic' : (f.source || 'off');
     const lbl = _FD_SRC_LABEL[s] || '';
@@ -1097,15 +1150,18 @@ function _fdRenderFoodList(foods, box, append) {
         const dP = isUnit ? (p.p || 0) / 100 : (p.p || 0);
         const dC = isUnit ? (p.c || 0) / 100 : (p.c || 0);
         const dF = isUnit ? (p.f || 0) / 100 : (p.f || 0);
-        const per100Lbl = isUnit ? 'יחידה' : f.baseUnit === 'ml' ? '100 מ"ל' : '100 ג\'';
-        // עריכה: מזון מותאם, וגם מוצר סרוק (gemini) או OFF שכבר שמור במאגר — תיקון שם/ערכים או מחיקה
-        const editable = f.source === 'custom' || ((f.source === 'gemini' || f.source === 'off') && dbIds.has(f.id));
+        // ארוחה שמורה — מזון "יחידה" עם components; מוצגת כ"מנה" עם מספר מרכיבים
+        const isMeal = !!(f.components && f.components.length);
+        const per100Lbl = isMeal ? 'מנה' : isUnit ? 'יחידה' : f.baseUnit === 'ml' ? '100 מ"ל' : '100 ג\'';
+        const compsLbl = isMeal ? f.components.length + ' מרכיבים · ' : '';
+        // עריכה: מזון מותאם/ארוחה שמורה, וגם מוצר סרוק (gemini) או OFF שכבר שמור במאגר — תיקון שם/ערכים או מחיקה
+        const editable = f.source === 'custom' || f.source === 'meal' || ((f.source === 'gemini' || f.source === 'off') && dbIds.has(f.id));
         const editBtn = editable
             ? `<span class="fd-food-edit" role="button" aria-label="ערוך מזון" onclick="event.stopPropagation();fdEditCustomFood('${_fdEsc(f.id)}')"><span class="material-symbols-outlined">edit</span></span>` : '';
         return `<button class="fd-food-row" onclick="fdSelectFoodById('${_fdEsc(f.id)}')">
             <div class="fd-food-main">
                 <span class="fd-food-name">${_fdSrcChip(f)}${_fdEsc(f.name)}</span>
-                <span class="fd-food-sub">${brand}${_fdFmt(dKcal)} kcal · ${per100Lbl}</span>
+                <span class="fd-food-sub">${compsLbl}${brand}${_fdFmt(dKcal)} kcal · ${per100Lbl}</span>
                 <span class="fd-entry-pcf"><i class="macro-p">ח ${Math.round(dP)}</i><i class="macro-c">פ ${Math.round(dC)}</i><i class="macro-f">ש ${Math.round(dF)}</i></span>
             </div>
             ${editBtn}
@@ -1127,6 +1183,21 @@ function fdSelectFoodById(id) {
     const food = _fdFoodCache[id] || StorageManager.getFoodDb().find(f => f.id === id);
     if (!food) return;
     StorageManager.upsertFoodToDb(food);
+    // ארוחה שמורה (יש components) — נפתחת ב-Meal Builder עם המרכיבים, לא בעורך כמות
+    if (food.components && food.components.length) {
+        const comps = food.components.map(c => ({ name: c.name, grams: c.grams, per100: Object.assign({}, c.per100), baseUnit: c.baseUnit || 'g' }));
+        if (_fdCompPickMode) {
+            // נבחרה כמרכיב למנה אחרת — פורס את מרכיביה במקום שורה אטומה אחת
+            comps.forEach(c => _fdMealComponents.push(c));
+            _fdCompPickMode = false;
+            closeFoodAdd();
+            _fdRenderComponents();
+            haptic('medium');
+            return;
+        }
+        _fdOpenMealBuilder({ name: food.name, components: comps, meal: _fdMeal, time: _fdNowTime(), editId: null, srcId: food.id });
+        return;
+    }
     if (_fdCompPickMode) { _fdAddComponentFromFood(food); return; }   // בחירת מרכיב למנה
     _fdOpenPortion(food, null);
 }
@@ -1440,6 +1511,14 @@ function fdNewCustomFood() { _fdShowCustomFoodForm(null); }
 function fdEditCustomFood(id) {
     const food = _fdFoodCache[id] || StorageManager.getFoodDb().find(f => f.id === id);
     if (!food) return;
+    // ארוחה שמורה — עריכה ב-Meal Builder (מצב מאגר), לא בטופס מזון מותאם
+    if (food.components && food.components.length) {
+        _fdOpenMealBuilder({
+            mode: 'saved', savedId: food.id, name: food.name,
+            components: food.components.map(c => ({ name: c.name, grams: c.grams, per100: Object.assign({}, c.per100), baseUnit: c.baseUnit || 'g' }))
+        });
+        return;
+    }
     _fdShowCustomFoodForm(food);
 }
 
@@ -2066,11 +2145,20 @@ function _fdOpenMealBuilder(opts) {
     _fdCompPickMode = false;
     _fdMealComponents = (opts.components || []).map(c => ({ name: c.name, grams: c.grams, per100: c.per100, baseUnit: c.baseUnit || 'g' }));
     _fdMealEditId = opts.editId || null;
-    _fdMeal = opts.meal || _fdMealLabels()[0];
+    _fdMealMode = opts.mode || 'log';
+    _fdMealSavedId = opts.savedId || null;
+    _fdMealSrcId = opts.srcId || null;
+    _fdMealSaveToDb = false;
+    const saved = _fdMealMode === 'saved';
+    // במצב 'saved' לא נוגעים ב-_fdMeal — כדי לא לשבש את הארוחה שנבחרה בשיט ההוספה שמאחור
+    if (!saved) _fdMeal = opts.meal || _fdMealLabels()[0];
     const sheet = document.getElementById('fd-meal-sheet');
     const body = document.getElementById('fd-meal-body');
     if (!sheet || !body) return;
     const time = opts.time || _fdNowTime();
+    // מצב 'saved' — אין ארוחה/שעה/טוגל (כתיבה למאגר בלבד); מחיקה זמינה רק לארוחה שמורה קיימת
+    const showDel = saved ? !!_fdMealSavedId : !!_fdMealEditId;
+    const saveLbl = saved ? (_fdMealSavedId ? 'עדכן ארוחה שמורה' : 'שמור במותאמים') : (_fdMealEditId ? 'עדכן מנה' : 'הוסף ליומן');
     body.innerHTML = `
         <input type="text" id="fd-meal-name-inp" class="fd-meal-name-inp" value="${_fdEsc(opts.name || 'מנה')}" placeholder="שם המנה">
         <div class="fd-meal-total">
@@ -2082,11 +2170,12 @@ function _fdOpenMealBuilder(opts) {
             <button class="fd-comp-add" onclick="fdMealSearchComponent()"><span class="material-symbols-outlined">search</span>חפש מרכיב</button>
             <button class="fd-comp-add fd-comp-add--manual" onclick="fdMealAddComponent()"><span class="material-symbols-outlined">edit</span>ידני</button>
         </div>
-        <div class="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>
+        ${saved ? '' : `<div class="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>
         <label class="fd-field fd-field--full" style="margin-bottom:14px;"><span>שעה</span><input type="time" id="fd-meal-time" value="${time}"></label>
+        <button type="button" class="fd-savedb" id="fd-meal-savedb" aria-pressed="false" onclick="fdToggleMealSaveDb()">שמור גם במותאמים לשימוש חוזר<span id="fd-savedb-state">כבוי</span></button>`}
         <div class="fd-portion-actions">
-            ${_fdMealEditId ? `<button class="fd-del-btn" onclick="fdMealDeleteEntry()"><span class="material-symbols-outlined">delete</span></button>` : ''}
-            <button class="fd-save-btn" onclick="fdSaveMeal()">${_fdMealEditId ? 'עדכן מנה' : 'הוסף ליומן'}</button>
+            ${showDel ? `<button class="fd-del-btn" onclick="fdMealDeleteEntry()"><span class="material-symbols-outlined">delete</span></button>` : ''}
+            <button class="fd-save-btn" onclick="fdSaveMeal()">${saveLbl}</button>
         </div>`;
     _fdRenderComponents();
     document.getElementById('fd-meal-overlay').style.display = 'block';
@@ -2193,6 +2282,15 @@ function fdSaveMeal() {
     if (!comps.length) { showAlert('הוסף לפחות מרכיב אחד עם כמות.'); return; }
     const sum = comps.reduce((a, x) => { a.kcal += x.kcal; a.p += x.p; a.c += x.c; a.f += x.f; return a; }, { kcal: 0, p: 0, c: 0, f: 0 });
     const name = (document.getElementById('fd-meal-name-inp')?.value || 'מנה').trim() || 'מנה';
+    // מצב 'saved' — כתיבה למאגר המותאמים בלבד, ללא נגיעה ביומן
+    if (_fdMealMode === 'saved') {
+        _fdUpsertSavedMeal(_fdMealSavedId, name, comps, sum);
+        closeFoodMeal();
+        fdRenderTab();   // רענון הרשימה בשיט ההוספה (אם פתוח מאחור)
+        _fdSyncCloud();
+        haptic('medium');
+        return;
+    }
     const time = document.getElementById('fd-meal-time')?.value || _fdNowTime();
     const entry = {
         name, brand: 'מנה', source: 'gemini', barcode: null,
@@ -2200,7 +2298,13 @@ function fdSaveMeal() {
         kcal: Math.round(sum.kcal), p: _fdR(sum.p), c: _fdR(sum.c), f: _fdR(sum.f)
     };
     if (_fdMealEditId) StorageManager.updateFoodEntry(_fdDate, _fdMealEditId, entry);
-    else StorageManager.addFoodEntry(_fdDate, entry);
+    else {
+        StorageManager.addFoodEntry(_fdDate, entry);
+        // תועדה מתוך ארוחה שמורה — עדכון דירוג שימוש (אחרונים/מיון לפי ארוחה)
+        if (_fdMealSrcId) StorageManager.bumpFoodUsage(_fdMealSrcId, entry.meal);
+    }
+    // טוגל "שמור גם במותאמים" — עותק לשימוש חוזר במאגר
+    if (_fdMealSaveToDb) _fdUpsertSavedMeal(null, name, comps, sum);
     closeFoodMeal();
     closeFoodAdd();
     fdRender();
@@ -2208,7 +2312,43 @@ function fdSaveMeal() {
     haptic('medium');
 }
 
+// יצירה/עדכון של ארוחה שמורה במאגר — baseUnit 'unit' עם טריק per100 ×100 (ערכי המנה השלמה),
+// כך שכל המסלולים הקיימים (חיפוש/אחרונים/מועדפים/מרכיב) מטפלים בה כמזון נספר תקין.
+function _fdUpsertSavedMeal(id, name, comps, sum) {
+    StorageManager.upsertFoodToDb({
+        id: id || ('meal:' + Date.now().toString(36)),
+        name, brand: '', barcode: null, source: 'meal', baseUnit: 'unit',
+        per100: { kcal: Math.round(sum.kcal) * 100, p: _fdR(sum.p) * 100, c: _fdR(sum.c) * 100, f: _fdR(sum.f) * 100 },
+        servings: [{ label: '1 מנה', grams: 1 }],
+        components: comps.map(c => ({ name: c.name, grams: c.grams, per100: Object.assign({}, c.per100), baseUnit: c.baseUnit || 'g' }))
+    });
+}
+
+function fdToggleMealSaveDb() {
+    _fdMealSaveToDb = !_fdMealSaveToDb;
+    const btn = document.getElementById('fd-meal-savedb');
+    if (btn) {
+        btn.classList.toggle('on', _fdMealSaveToDb);
+        btn.setAttribute('aria-pressed', _fdMealSaveToDb ? 'true' : 'false');
+        const st = document.getElementById('fd-savedb-state');
+        if (st) st.textContent = _fdMealSaveToDb ? 'פעיל' : 'כבוי';
+    }
+    haptic('light');
+}
+
 function fdMealDeleteEntry() {
+    // מצב 'saved' — מחיקת הארוחה השמורה מהמאגר (רשומות יומן קיימות לא נמחקות)
+    if (_fdMealMode === 'saved') {
+        if (!_fdMealSavedId) return;
+        showConfirm('למחוק את הארוחה השמורה מהמאגר? רשומות יומן קיימות לא יימחקו.', () => {
+            StorageManager.deleteFoodFromDb(_fdMealSavedId);
+            closeFoodMeal();
+            fdRenderTab();
+            _fdSyncCloud();
+            haptic('warning');
+        });
+        return;
+    }
     if (!_fdMealEditId) return;
     StorageManager.deleteFoodEntry(_fdDate, _fdMealEditId);
     closeFoodMeal();

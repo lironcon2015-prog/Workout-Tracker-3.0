@@ -5698,6 +5698,39 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-list-toggle:active { background: rgba(255,255,255,0.1); }
 .bl-list-empty { text-align: center; color: var(--text-dim); font-size: var(--fs-sm); padding: 14px 0; }
 
+/* ── רקעים מותאמים אישית (bg manager) ── */
+/* התצוגה המקדימה מחילה בדיוק את הטריטמנט של .screen-bg — פילטר, שקיפות ומסכה */
+.bgm-preview {
+    position: relative; border-radius: var(--r-md); overflow: hidden;
+    background: var(--bg); border: 1px solid var(--border);
+    aspect-ratio: 16/10; margin-bottom: 10px;
+}
+.bgm-preview img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    filter: grayscale(1) contrast(1.2) brightness(0.8);
+    opacity: 0.28;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 58%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 58%, transparent 100%);
+}
+.bgm-preview-caption {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--text); font-weight: 900; font-size: var(--fs-lg); pointer-events: none;
+}
+.bgm-name-input {
+    width: 100%; margin-bottom: 12px; padding: 12px 14px; border-radius: var(--r-sm);
+    background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text);
+    font-family: 'Heebo', sans-serif; font-size: var(--fs-md); font-weight: 600;
+}
+.bgm-name-input:focus { outline: none; border-color: rgba(var(--accent-rgb),0.5); }
+#bgm-list { display: flex; flex-direction: column; }
+.bgm-row { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--hairline); }
+.bgm-row:last-child { border-bottom: none; }
+.bgm-thumb { width: 56px; height: 40px; object-fit: cover; border-radius: var(--r-sm); flex-shrink: 0; }
+.bgm-name { flex: 1; font-weight: 700; color: var(--text); font-size: var(--fs-md); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bgm-del { background: none; border: none; color: var(--danger-soft); cursor: pointer; padding: 6px; flex-shrink: 0; }
+.bgm-del .material-symbols-outlined { font-size: var(--fs-xl); }
+.bgm-empty { text-align: center; color: var(--text-dim); font-size: var(--fs-sm); padding: 14px 0; }
+
 /* OCR hint inside entry modal */
 .bl-ocr-hint { font-size: var(--fs-md); font-weight: 600; padding: 8px 12px; border-radius: var(--r-sm); margin-bottom: 14px; text-align: center; }
 .bl-ocr-hint--loading { background: rgba(var(--accent-rgb),0.12); color: #79bbff; }

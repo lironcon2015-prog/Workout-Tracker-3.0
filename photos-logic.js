@@ -734,8 +734,200 @@ function ppCloseCamera() {
     if (ov) ov.style.display = 'none';
 }
 
-// ─── "נתח עכשיו" — מוגדר במלואו בשלב מנוע ה-AI ──────────────────────────────
-function ppAnalyzeNow() {
-    if (typeof _ppRunAnalysis === 'function') { _ppRunAnalysis(true); return; }
-    showAlert('מנוע הניתוח עוד לא זמין בגרסה זו.');
+function ppAnalyzeNow() { _ppRunAnalysis(true); }
+
+/* ════════ מנוע ניתוח AI משורשר (Gemini Vision) ════════
+ * עקרונות (החלטות מוצר — לא רק פרומפט):
+ * - אין השוואה במרווח < 10 ימים (רעש: מים/פמפ/תאורה) — נאכף בקוד.
+ * - שער "בר-השוואה" לפני ניתוח; מתחת ל-5 — אין השוואה, רק פידבק צילום.
+ * - עיגון בנתוני משקל (despiked) ותזונה מהאפליקציה; אנטי-הזיה; אין מדידות
+ *   מספריות מתמונה (אחוז שומן/היקפים).
+ * - הזיכרון = KEY_PHOTO_TREND: entries (עד 30) + aiNotes מצטבר, רוכב על config. */
+
+const _PP_MIN_COMPARE_DAYS = 10;
+const _PP_TREND_MAX_ENTRIES = 30;
+let _ppAnalysisBusy = false;
+let _ppAutoTriedAt = 0;   // הגנת סשן — לא לחזור על ניסיון אוטומטי שנכשל בכל רינדור
+
+// משקל מוחלק לתאריך: סדרת המשקל אחרי despike, הנקודה הקרובה ביותר (±5 ימים)
+function _ppSmoothedWeightAt(date) {
+    const log = (StorageManager.getBodyLog() || [])
+        .filter(e => e && e.date && e.weight != null)
+        .sort((a, b) => a.date < b.date ? -1 : 1);
+    if (!log.length) return null;
+    const ts = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d).getTime(); };
+    let pts = log.map(e => ({ t: ts(e.date), v: e.weight, date: e.date }));
+    if (typeof _despikeWeight === 'function') pts = _despikeWeight(pts);
+    let best = null, bestDist = Infinity;
+    pts.forEach(p => {
+        const d = Math.abs(_ppDaysBetween(p.date, date));
+        if (d < bestDist) { bestDist = d; best = p.v; }
+    });
+    return bestDist <= 5 ? Math.round(best * 10) / 10 : null;
+}
+
+// ממוצע קלוריות/חלבון בתקופה (ימים עם נתונים בלבד)
+function _ppNutritionAvg(fromDate, toDate) {
+    const days = (StorageManager.getNutritionDaily() || [])
+        .filter(d => d && d.date && d.date >= fromDate && d.date <= toDate && (Number(d.calories) || 0) > 0);
+    if (!days.length) return null;
+    const avg = k => Math.round(days.reduce((s, d) => s + (Number(d[k]) || 0), 0) / days.length);
+    return { kcal: avg('calories'), protein: avg('protein'), count: days.length };
+}
+
+// בחירת סט התמונות: נוכחית, השוואה (האחרונה במרחק ≥10 ימים; אחרת הישנה ביותר),
+// עוגן (התמונה הראשונה אי-פעם — אם שונה משתי האחרות)
+function _ppPickAnalysisSet() {
+    const index = _ppIndexDesc();
+    if (index.length < 2) return null;
+    const current = index[0].date;
+    let vs = null;
+    for (const e of index.slice(1)) {
+        if (_ppDaysBetween(e.date, current) >= _PP_MIN_COMPARE_DAYS) { vs = e.date; break; }
+    }
+    const oldest = index[index.length - 1].date;
+    if (!vs) vs = oldest;
+    const trend = StorageManager.getPhotoTrend() || {};
+    let baseline = (trend.baselineDate && index.some(e => e.date === trend.baselineDate)) ? trend.baselineDate : oldest;
+    if (baseline === current || baseline === vs) baseline = null;
+    return { current, vs, baseline };
+}
+
+async function _ppPhotoBase64(date) {
+    const blob = await ppGetPhotoBlob(date);
+    if (!blob) throw new Error('אין גישה לתמונה מ-' + _ppListDate(date) + ' (לא מקומית ולא בדרייב)');
+    return _ppBlobToBase64(blob);
+}
+
+function _ppBuildAnalysisPrompt(ctx) {
+    const line = (lbl, v) => v != null ? lbl + ': ' + v + '\n' : '';
+    let p =
+        'אתה אנליסט הרכב גוף שמרן וזהיר. משימתך: להשוות תמונות התקדמות (חזית) של מתאמן.\n' +
+        'עיקרון-על: שינוי גוף אמיתי בין תמונות במרווח ימים-שבועות הוא לרוב קטן או בלתי נראה.\n' +
+        'ברירת המחדל שלך היא "אין שינוי ניכר". אסור לדווח שינוי בלי ראיה ויזואלית קונקרטית\n' +
+        'שאתה יכול לתאר (קו מתאר, צל, יחס רוחב). אל תנסה לרצות.\n\n' +
+        'קלט:\n' +
+        '- תמונה 1 (נוכחית): ' + ctx.current + (ctx.wNow != null ? ', משקל מוחלק ' + ctx.wNow + ' ק"ג' : ', אין נתון משקל') + '\n' +
+        '- תמונה 2 (השוואה): ' + ctx.vs + (ctx.wPrev != null ? ', משקל מוחלק ' + ctx.wPrev + ' ק"ג' : ', אין נתון משקל') + '\n' +
+        (ctx.baseline ? '- תמונה 3 (עוגן — התמונה הראשונה): ' + ctx.baseline + '\n' : '') +
+        line('- דלתא משקל', ctx.delta != null ? ctx.delta + ' ק"ג ב-' + ctx.days + ' ימים' : null) +
+        (ctx.nut ? '- ממוצע בתקופה: ' + ctx.nut.kcal + ' קלוריות, ' + ctx.nut.protein + 'g חלבון (' + ctx.nut.count + ' ימי נתונים)\n' : '') +
+        (ctx.aiNotes ? '- מצב מצטבר קודם: ' + ctx.aiNotes + '\n' : '') +
+        (ctx.recent.length ? '- ניתוחים אחרונים: ' + JSON.stringify(ctx.recent) + '\n' : '') +
+        '\nשלבים (בסדר הזה):\n' +
+        '1. בר-השוואה (0-10): תאורה, זווית, מרחק, פוזה, לבוש. מתחת ל-5 — עצור, החזר\n' +
+        '   comparability בלבד + flags עם מה לתקן בצילום הבא. אל תשווה.\n' +
+        '2. השוואה אזורית (כתפיים/חזה/מותן-בטן/זרועות) נוכחית-מול-השוואה: לכל אזור החזר\n' +
+        '   מחרוזת שמתחילה ב-none/subtle/clear ואחריה נימוק ויזואלי של משפט. ספק = none.\n' +
+        '3. הצלבה עם הנתונים: האם הנראה עקבי עם דלתת המשקל והתזונה? ציין סתירות.\n' +
+        '4. מול העוגן (אם סופק): משפט אחד על המגמה הכוללת.\n' +
+        '5. עדכן את המצב המצטבר (aiNotes): עד 120 מילים, עובדתי, בעברית, כולל מה שנותר יציב.\n\n' +
+        'אסור: להמציא מספרים (אחוז שומן/היקפים), לדווח שינוי בגלל תאורה/פוזה, להשתמש\n' +
+        'בשפה מחמיאה ריקה.\n' +
+        'החזר JSON בלבד:\n' +
+        '{ "comparability": 0-10, "flags": ["..."], "verdict": "none|subtle|clear",\n' +
+        '  "regions": {"shoulders": "...", "chest": "...", "waist": "...", "arms": "..."},\n' +
+        '  "dataConsistency": "...", "vsBaseline": "...", "summary": "2-3 משפטים בעברית",\n' +
+        '  "aiNotes": "המצב המצטבר המעודכן" }';
+    return p;
+}
+
+// הרצת ניתוח. manual=true — עם הודעות למשתמש; false — שקט (טריגר שבועי)
+async function _ppRunAnalysis(manual) {
+    if (_ppAnalysisBusy) return;
+    const fail = msg => { if (manual) showAlert(msg); };
+    if (typeof _geminiRequest !== 'function') { fail('מנוע ה-AI לא זמין.'); return; }
+    if (!StorageManager.getAIConfig().apiKey) { fail('דרוש מפתח Gemini — הגדרות ← AI.'); return; }
+    const set = _ppPickAnalysisSet();
+    if (!set) { fail('דרושות לפחות 2 תמונות לניתוח.'); return; }
+    const days = _ppDaysBetween(set.vs, set.current);
+    if (days < _PP_MIN_COMPARE_DAYS) {
+        fail('המרווח בין התמונות קטן מדי (' + days + ' ימים). השוואה אמינה דורשת ' +
+            _PP_MIN_COMPARE_DAYS + '+ ימים — המשך לצלם, הניתוח יהיה זמין בהמשך.');
+        return;
+    }
+
+    _ppAnalysisBusy = true;
+    const btn = document.getElementById('pp-analyze-btn');
+    const btnTxt = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'מנתח…'; }
+    try {
+        const trend = StorageManager.getPhotoTrend() || {};
+        const wNow = _ppSmoothedWeightAt(set.current);
+        const wPrev = _ppSmoothedWeightAt(set.vs);
+        const ctx = {
+            current: set.current, vs: set.vs, baseline: set.baseline,
+            wNow, wPrev,
+            delta: (wNow != null && wPrev != null) ? Math.round((wNow - wPrev) * 10) / 10 : null,
+            days,
+            nut: _ppNutritionAvg(set.vs, set.current),
+            aiNotes: trend.aiNotes || '',
+            recent: (trend.entries || []).slice(-5)
+        };
+        // סדר ה-parts = סדר ההתייחסות בפרומפט: נוכחית, השוואה, עוגן
+        const parts = [{ text: _ppBuildAnalysisPrompt(ctx) }];
+        parts.push({ inlineData: { mimeType: 'image/jpeg', data: await _ppPhotoBase64(set.current) } });
+        parts.push({ inlineData: { mimeType: 'image/jpeg', data: await _ppPhotoBase64(set.vs) } });
+        if (set.baseline) parts.push({ inlineData: { mimeType: 'image/jpeg', data: await _ppPhotoBase64(set.baseline) } });
+
+        const res = await _geminiRequest({
+            contents: [{ role: 'user', parts }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: 'application/json' }
+        }, { json: true, timeoutMs: 60000 });
+
+        // ולידציה + נרמול — אל תסמוך על המודל
+        const comparability = Math.max(0, Math.min(10, Math.round(Number(res.comparability) || 0)));
+        const entry = {
+            date: set.current,
+            vsDate: set.vs,
+            comparability,
+            verdict: ['none', 'subtle', 'clear'].includes(res.verdict) ? res.verdict : 'none',
+            regions: (res.regions && typeof res.regions === 'object') ? res.regions : {},
+            summary: String(res.summary || ''),
+            flags: Array.isArray(res.flags) ? res.flags.map(String).slice(0, 6) : []
+        };
+        const index = _ppIndexDesc();
+        const updated = {
+            baselineDate: trend.baselineDate && index.some(e => e.date === trend.baselineDate)
+                ? trend.baselineDate
+                : (index.length ? index[index.length - 1].date : set.vs),
+            baselineDesc: trend.baselineDesc || '',
+            lastAnalyzedDate: set.current,
+            lastAutoRun: _ppTodayStr(),
+            entries: ((trend.entries || []).filter(e => !(e.date === entry.date && e.vsDate === entry.vsDate)))
+                .concat([entry])
+                .slice(-_PP_TREND_MAX_ENTRIES),
+            aiNotes: comparability >= 5 && res.aiNotes ? String(res.aiNotes) : (trend.aiNotes || '')
+        };
+        StorageManager.savePhotoTrend(updated);
+        _ppSyncConfigSoon();
+        _ppRenderAnalysisCard();
+        if (manual) haptic('medium');
+        if (typeof showCloudToast === 'function')
+            showCloudToast(comparability >= 5 ? '🧠 ניתוח תמונות הושלם' : '🧠 הניתוח דילג — איכות צילום נמוכה', comparability >= 5);
+    } catch (e) {
+        console.warn('GymPro photos: analysis failed', e);
+        fail('הניתוח נכשל: ' + (e && e.message === 'ALL_MODELS_FAILED' ? 'כל המודלים נכשלו — נסה שוב מאוחר יותר' : (e && e.message) || 'שגיאה'));
+    } finally {
+        _ppAnalysisBusy = false;
+        if (btn) { btn.textContent = btnTxt; btn.disabled = false; }
+        if (typeof _renderBodyPhotos === 'function' && manual) _renderBodyPhotos();
+    }
+}
+
+// ─── טריגר שבועי שקט — בכניסה לטאב (נקרא מ-_renderBodyPhotos) ───────────────
+function _ppMaybeAutoAnalyze() {
+    try {
+        if (_ppAnalysisBusy) return;
+        if (Date.now() - _ppAutoTriedAt < 10 * 60000) return;   // ניסיון אחד ל-10 דק' בסשן
+        const trend = StorageManager.getPhotoTrend() || {};
+        const today = _ppTodayStr();
+        if (trend.lastAutoRun && _ppDaysBetween(trend.lastAutoRun, today) < 7) return;
+        const index = _ppIndexDesc();
+        if (index.length < 2) return;
+        if (trend.lastAnalyzedDate && index[0].date <= trend.lastAnalyzedDate) return;   // אין תמונה חדשה
+        if (!StorageManager.getAIConfig().apiKey) return;
+        _ppAutoTriedAt = Date.now();
+        _ppRunAnalysis(false);
+    } catch (e) { /* טריגר רקע — שקט */ }
 }

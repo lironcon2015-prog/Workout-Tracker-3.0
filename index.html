@@ -987,6 +987,30 @@
                         <div class="ai-security-note" style="margin-top:6px;">האפליקציה דוחפת לגשר (docs/widget-bridge.gs) תמונת מצב: תזונה היום + מאקרו, משקל ומגמה, האימון האחרון — בכל פתיחה וביציאה. ווידג'ט Scriptable (docs/widget-scriptable.js) מושך ומציג על מסך הבית. לחיצה על הווידג'ט פותחת את האפליקציה.</div>
                     </div>
 
+                    <!-- תמונות התקדמות (Google Drive) -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">תמונות התקדמות (Google Drive)</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <div id="photo-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
+                            <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>הפעל גיבוי תמונות לדרייב</span>
+                                <span class="stg-switch"><input type="checkbox" id="photo-bridge-toggle" onchange="savePhotoBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                            </label>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
+                                <input type="text" id="photo-bridge-url-input" class="stg-ai-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+                            </div>
+                            <div class="stg-ai-field">
+                                <label class="stg-ai-label">SECRET TOKEN</label>
+                                <input type="password" id="photo-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
+                            </div>
+                            <button class="stg-ai-save" onclick="savePhotoBridgeSettings()">שמור הגדרות גשר</button>
+                            <button class="stg-ai-save" style="margin-top:6px;" onclick="testPhotoBridgeNow()">בדוק חיבור</button>
+                            <button class="stg-ai-save" style="margin-top:6px;" onclick="scanPhotoDriveNow()">סרוק את הדרייב (שחזור אינדקס)</button>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">תמונות ההתקדמות נשמרות בתיקייה פרטית בדרייב שלך דרך הגשר (docs/photo-bridge.gs) — מקור האמת; במכשיר נשמר רק cache. ⚠️ פרטיות: ניתוח ה-AI שולח את התמונות ל-Gemini API — ב-free tier גוגל רשאית להשתמש בקלט לשיפור מודלים; במסלול בתשלום לא.</div>
+                    </div>
+
                     <!-- ייבוא תזונה (MyFitnessPal) -->
                     <div class="settings-group">
                         <div class="settings-group-label">ייבוא תזונה (MyFitnessPal)</div>

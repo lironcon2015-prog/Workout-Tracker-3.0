@@ -194,13 +194,126 @@ function _ppSyncConfigSoon() {
     }, 3000);
 }
 
-/* תור ההעלאה לדרייב, משיכה מהדרייב ומחיקה בגשר — מוגדרים בשלב הגשר.
- * stubs בטוחים כדי ששלב התשתית יעמוד בפני עצמו: */
-function _ppKickUploads() { if (typeof _ppProcessUploadQueue === 'function') _ppProcessUploadQueue(); }
+// ─── גשר הדרייב (Apps Script — docs/photo-bridge.gs) ───────────────────────
+// Content-Type: text/plain — בקשה "פשוטה" בלי preflight (כמו שאר הגשרים).
+
+function _ppBridgePost(payload, timeoutMs) {
+    const { on, url, token } = StorageManager.getPhotoBridge();
+    if (!on || !url) return Promise.reject(new Error('BRIDGE_OFF'));
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs || 45000);
+    return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(Object.assign({ token }, payload)),
+        signal: ctrl.signal
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
+            return res;
+        })
+        .finally(() => clearTimeout(t));
+}
+
+// בדיקת חיבור (doGet health) — לכפתור בהגדרות
+function ppTestPhotoBridge() {
+    const { url, token } = StorageManager.getPhotoBridge();
+    if (!url) return Promise.reject(new Error('NO_URL'));
+    return fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token))
+        .then(r => r.json())
+        .then(res => {
+            if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
+            return res;   // { ok, folder, files }
+        });
+}
+
+// ─── תור העלאה לדרייב ──────────────────────────────────────────────────────
+// רשומות אינדקס בלי driveId = ממתינות. רץ אחרי צילום, בפתיחה, ובחזרת רשת.
+// כשל עוצר את הסבב (ינוסה שוב בטריגר הבא) — בלי לולאת retry אגרסיבית.
+let _ppUploadBusy = false;
+
+async function _ppProcessUploadQueue() {
+    if (_ppUploadBusy) return;
+    const { on, url } = StorageManager.getPhotoBridge();
+    if (!on || !url || !navigator.onLine) return;
+    const pending = StorageManager.getPhotoIndex().filter(e => !e.driveId);
+    if (!pending.length) return;
+    _ppUploadBusy = true;
+    try {
+        for (const entry of pending) {
+            let rec;
+            try { rec = await _ppIdbGet('photos', entry.date); } catch (e) { rec = null; }
+            if (!rec || !rec.blob) continue;   // אין bytes מקומיים — אין מה להעלות
+            const base64 = await _ppBlobToBase64(rec.blob);
+            const res = await _ppBridgePost({ action: 'upload', date: entry.date, data: base64, mime: 'image/jpeg' });
+            // עדכון driveId באינדקס וב-IDB — קריאה טרייה של האינדקס נגד דריסת שינויים מקבילים
+            const idx = StorageManager.getPhotoIndex();
+            const cur = idx.find(e => e.date === entry.date);
+            if (cur) { cur.driveId = res.id; StorageManager.savePhotoIndex(idx); }
+            rec.uploaded = true; rec.driveId = res.id;
+            await _ppIdbPut('photos', rec);
+            if (typeof _ppRefreshGalleryBadges === 'function') _ppRefreshGalleryBadges();
+        }
+        _ppSyncConfigSoon();
+    } catch (e) {
+        console.warn('GymPro photos: upload queue stopped', e);
+    } finally {
+        _ppUploadBusy = false;
+    }
+}
+
+function _ppKickUploads() { _ppProcessUploadQueue(); }
+
+// משיכת תמונה מלאה מהדרייב (לפי driveId מהאינדקס, fallback לפי שם התאריך)
 async function _ppFetchFromDrive(date) {
-    if (typeof _ppDriveGet !== 'function') return null;
-    return _ppDriveGet(date);
+    const { on, url } = StorageManager.getPhotoBridge();
+    if (!on || !url) return null;
+    try {
+        const driveId = _ppDriveIdOf(date);
+        const res = await _ppBridgePost(driveId ? { action: 'get', id: driveId } : { action: 'get', date }, 60000);
+        if (!res.data) return null;
+        // driveId התגלה דרך fallback לפי שם — נקבע אותו באינדקס
+        if (!driveId && res.id) {
+            const idx = StorageManager.getPhotoIndex();
+            const cur = idx.find(e => e.date === date);
+            if (cur) { cur.driveId = res.id; StorageManager.savePhotoIndex(idx); _ppSyncConfigSoon(); }
+        }
+        return _ppBase64ToBlob(res.data, res.mime);
+    } catch (e) {
+        console.warn('GymPro photos: drive fetch failed', date, e);
+        return null;
+    }
 }
+
+// מחיקה בדרייב — ברקע, כשל לא חוסם (הקובץ יימחק בניסיון ידני עתידי דרך סריקה)
 function _ppDriveDelete(driveId) {
-    if (typeof _ppDriveDel === 'function') _ppDriveDel(driveId);
+    _ppBridgePost({ action: 'del', id: driveId }).catch(e =>
+        console.warn('GymPro photos: drive delete failed', e));
 }
+
+// ─── Reconciliation — "סרוק את הדרייב" ─────────────────────────────────────
+// משחזר את האינדקס מרשימת הקבצים בדרייב (מיזוג — לא דריסה): מכשיר חדש בלי
+// config, או אינדקס שאבד. thumbnails ייבנו lazy בגלילת הגלריה.
+async function ppReconcileFromDrive() {
+    const res = await _ppBridgePost({ action: 'list' }, 60000);
+    const idx = StorageManager.getPhotoIndex();
+    let added = 0, linked = 0;
+    (res.files || []).forEach(f => {
+        const cur = idx.find(e => e.date === f.date);
+        if (cur) {
+            if (!cur.driveId) { cur.driveId = f.id; linked++; }
+        } else {
+            idx.push({ date: f.date, driveId: f.id, bytes: f.bytes || 0 });
+            added++;
+        }
+    });
+    idx.sort((a, b) => a.date < b.date ? -1 : 1);
+    StorageManager.savePhotoIndex(idx);
+    _ppSyncConfigSoon();
+    return { added, linked, total: idx.length };
+}
+
+// ─── טריגרים: פתיחת אפליקציה + חזרת רשת ─────────────────────────────────────
+window.addEventListener('online', () => _ppKickUploads());
+document.addEventListener('DOMContentLoaded', () => setTimeout(_ppKickUploads, 4000));

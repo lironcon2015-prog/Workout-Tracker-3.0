@@ -5731,6 +5731,35 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bgm-del .material-symbols-outlined { font-size: var(--fs-xl); }
 .bgm-empty { text-align: center; color: var(--text-dim); font-size: var(--fs-sm); padding: 14px 0; }
 
+/* ── בורר רקעים — גריד (bg picker) ── */
+.bgp-section-title { font-size: var(--fs-sm); font-weight: 700; color: var(--text-dim); margin: 12px 2px 8px; text-align: right; }
+.bgp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bgp-tile {
+    position: relative; display: flex; flex-direction: column;
+    border: 2px solid transparent; border-radius: var(--r-md); overflow: hidden;
+    background: var(--surface-2); padding: 0; cursor: pointer;
+    transition: transform var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.bgp-tile:active { transform: scale(0.97); }
+.bgp-tile img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+.bgp-tile-name {
+    font-family: 'Heebo', sans-serif; font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim);
+    padding: 6px 4px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bgp-tile.selected { border-color: var(--accent); }
+.bgp-tile.selected .bgp-tile-name { color: var(--text); }
+.bgp-check {
+    position: absolute; top: 6px; inset-inline-start: 6px;
+    color: var(--accent); background: var(--bg); border-radius: 50%;
+    font-size: var(--fs-xl); line-height: 1;
+}
+/* אריח "העלה רקע" — מקווקו, בשפת ה-Freestyle card */
+.bgp-tile-add {
+    align-items: center; justify-content: center; gap: 4px;
+    border: 2px dashed rgba(255,255,255,0.2); background: transparent; color: var(--text-dim);
+}
+.bgp-tile-add .material-symbols-outlined { font-size: var(--fs-2xl); margin-top: 10px; }
+
 /* OCR hint inside entry modal */
 .bl-ocr-hint { font-size: var(--fs-md); font-weight: 600; padding: 8px 12px; border-radius: var(--r-sm); margin-bottom: 14px; text-align: center; }
 .bl-ocr-hint--loading { background: rgba(var(--accent-rgb),0.12); color: #79bbff; }

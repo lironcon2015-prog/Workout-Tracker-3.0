@@ -2239,6 +2239,7 @@ body::before {
 /* ── Archive Action Pills — שפת ה-pill של האפליקציה: surface-4, ללא italic/uppercase ── */
 .archive-action-pills {
     display: flex;
+    flex-wrap: wrap;          /* הטוגל "כלול סיכומי מאמן" יורד לשורה שנייה במקום לגלוש מהמסך */
     gap: 8px;
     margin-bottom: 20px;
 }

@@ -495,13 +495,13 @@ function _renderNutritionDaily(allDays) {
     // לחיצה על הכרטיס = רענון ידני מגשר ה-Health; stopPropagation בכפתור מונע כפילות
     card.onclick = () => { if (typeof syncHealthNutrition === 'function') syncHealthNutrition(true); };
     card.style.cursor = 'pointer';
-    const ioBtn = `<button class="bl-nutri-import" onclick="event.stopPropagation();openNutriIOSheet()"><span class="material-symbols-outlined">swap_vert</span><span>ייבוא · ייצוא</span></button>`;
+    // כפתור ייבוא/ייצוא עבר לתת-מסך התזונה בארכיון (openNutriIOSheet נפתח משם)
     const diaryBtn = `<button class="bl-nutri-import bl-nutri-diary" onclick="event.stopPropagation();openFoodDiary()"><span class="material-symbols-outlined">menu_book</span><span>יומן תזונה</span></button>`;
 
     if (!all.length) {
         card.classList.remove('bl-daily-live');
-        card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">תזונה היום</div><div class="bl-nutri-head-btns">${diaryBtn}${ioBtn}</div></div>
-            ${emptyStateHtml('restaurant', 'אין עדיין נתוני תזונה', 'חבר את גשר ה-Health (הגדרות) או ייבא ייצוא MFP דרך "ייבוא · ייצוא".')}`;
+        card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">תזונה היום</div><div class="bl-nutri-head-btns">${diaryBtn}</div></div>
+            ${emptyStateHtml('restaurant', 'אין עדיין נתוני תזונה', 'חבר את גשר ה-Health (הגדרות) או ייבא ייצוא MFP דרך "ייבוא / ייצוא תזונה" בארכיון.')}`;
         return;
     }
     const today = _blTodayStr();
@@ -521,7 +521,7 @@ function _renderNutritionDaily(allDays) {
         foot.push(`עדכון Health אחרון: ${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`);
     }
     foot.push('לחיצה מרעננת');
-    card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">${title}</div><div class="bl-nutri-head-btns">${diaryBtn}${ioBtn}</div></div>
+    card.innerHTML = `<div class="bl-nutri-head"><div class="bl-chart-title">${title}</div><div class="bl-nutri-head-btns">${diaryBtn}</div></div>
         <div class="bl-nutri-grid">
             ${_nutriKpi('קלוריות', latest.calories || 0, 'kcal')}
             ${_nutriKpi('חלבון', latest.protein || 0, 'g')}

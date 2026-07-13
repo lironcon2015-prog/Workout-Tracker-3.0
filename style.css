@@ -6596,8 +6596,8 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
     position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
     opacity: 0.35; pointer-events: none; z-index: 1;
 }
-/* מצלמה קדמית — mirror לתצוגה חיה וגם ל-ghost, כדי שהיישור יהיה טבעי.
-   התמונה הנלכדת מנורמלת בנפרד (flip בציור) — כל השרשרת באותו כיוון. */
+/* מצלמה קדמית — mirror לתצוגה חיה וגם ל-ghost, כדי שהיישור יהיה טבעי כמו מראה.
+   הלכידה עצמה לא מתהפכת: הפריים הגולמי כבר un-mirrored בשתי המצלמות. */
 .pp-cam.mirror .pp-cam-video, .pp-cam.mirror .pp-ghost { transform: scaleX(-1); }
 .pp-cam-top {
     position: absolute; top: calc(env(safe-area-inset-top, 0px) + 16px); z-index: 2;

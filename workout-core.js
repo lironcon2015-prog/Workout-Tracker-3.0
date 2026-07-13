@@ -172,6 +172,7 @@ let state = {
     lastLoggedSet: null,
     lastWorkoutDetails: {},
     archiveView: 'list',
+    archiveSubTab: 'workouts',
     calendarOffset: 0,
     editingIndex: -1,
     freestyleFilter: 'all',
@@ -998,8 +999,8 @@ function _initSwipeBackGesture() {
 
 // ─── מעבר בין מסכי הטאבים בהחלקת אצבע (RTL-aware) ─────────────────────────
 // החלקה אופקית על מסכי הטאבים הראשיים מחליפה טאב, בהתאם לכיוון הפיזי של ה-tab-bar.
-const _TAB_SWIPE_ORDER = ['workout', 'analytics', 'archive', 'bodylog'];   // סדר ה-DOM ב-tab-bar
-const _TAB_SWIPE_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive', 'ui-bodylog'];
+const _TAB_SWIPE_ORDER = ['workout', 'bodylog', 'analytics', 'archive'];   // סדר ה-DOM ב-tab-bar
+const _TAB_SWIPE_SCREENS = ['ui-week', 'ui-bodylog', 'ui-analytics', 'ui-archive'];
 
 function _currentMainTab() {
     const active = document.querySelector('.tab-btn.active');

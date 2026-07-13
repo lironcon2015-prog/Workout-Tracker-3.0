@@ -53,6 +53,11 @@ const StorageManager = {
     KEY_WIDGET_BRIDGE_TOKEN: 'gympro_widget_bridge_token',  // token סודי לגשר הווידג'ט
     KEY_WIDGET_BRIDGE_ON:    'gympro_widget_bridge_on',     // האם דחיפת snapshot לווידג'ט פעילה (ברירת מחדל: כבוי)
     KEY_WIDGET_LAST_PUSH:    'gympro_widget_last_push',     // timestamp דחיפת snapshot מוצלחת אחרונה
+    KEY_PHOTO_BRIDGE_URL:   'gympro_photo_bridge_url',    // גשר תמונות התקדמות — Google Drive (Apps Script)
+    KEY_PHOTO_BRIDGE_TOKEN: 'gympro_photo_bridge_token',  // token סודי לגשר התמונות
+    KEY_PHOTO_BRIDGE_ON:    'gympro_photo_bridge_on',     // האם גשר התמונות פעיל (ברירת מחדל: כבוי)
+    KEY_PHOTO_INDEX:        'gympro_photo_index',         // אינדקס תמונות קל [{date, driveId, bytes}] — רוכב על config, בלי bytes של תמונות
+    KEY_PHOTO_TREND:        'gympro_photo_trend',         // זיכרון ניתוח ה-AI המשורשר (JSON קטן) — רוכב על config
 
     getUsdaKey() { return localStorage.getItem(this.KEY_USDA_KEY) || ''; },
     saveUsdaKey(k) { localStorage.setItem(this.KEY_USDA_KEY, (k || '').trim()); },
@@ -432,6 +437,9 @@ const StorageManager = {
             this.KEY_WIDGET_BRIDGE_URL,
             this.KEY_WIDGET_BRIDGE_TOKEN,
             this.KEY_WIDGET_BRIDGE_ON,
+            this.KEY_PHOTO_BRIDGE_URL,
+            this.KEY_PHOTO_BRIDGE_TOKEN,
+            this.KEY_PHOTO_BRIDGE_ON,
             this.KEY_SOUND,
             this.KEY_COPY_INCLUDE_COACH,
             this.KEY_ARCHIVE_COPY_COACH
@@ -738,6 +746,30 @@ const StorageManager = {
             navigator.sendBeacon(url, new Blob([body], { type: 'text/plain;charset=utf-8' }));
         } catch (e) { /* beacon הוא best-effort */ }
     },
+
+    // ── גשר תמונות התקדמות (Apps Script → Google Drive) — כבוי כברירת מחדל ──
+    // התמונות המלאות נשמרות בדרייב (מקור אמת); IndexedDB הוא cache מקומי בלבד.
+    // הלוגיקה עצמה ב-photos-logic.js — כאן רק ה-config וה-accessors.
+
+    getPhotoBridge() {
+        return {
+            on:    localStorage.getItem(this.KEY_PHOTO_BRIDGE_ON) === '1',
+            url:   this._cleanPastedSecret(localStorage.getItem(this.KEY_PHOTO_BRIDGE_URL)),
+            token: this._cleanPastedSecret(localStorage.getItem(this.KEY_PHOTO_BRIDGE_TOKEN))
+        };
+    },
+    savePhotoBridge(on, url, token) {
+        localStorage.setItem(this.KEY_PHOTO_BRIDGE_ON, on ? '1' : '0');
+        if (url !== undefined)   localStorage.setItem(this.KEY_PHOTO_BRIDGE_URL, this._cleanPastedSecret(url));
+        if (token !== undefined) localStorage.setItem(this.KEY_PHOTO_BRIDGE_TOKEN, this._cleanPastedSecret(token));
+    },
+
+    // אינדקס תמונות קל (בלי bytes של תמונות!) + זיכרון מגמת ה-AI — שניהם
+    // רוכבים על מסמך ה-config בענן, ולכן חייבים להישאר קטנים.
+    getPhotoIndex()      { return this.getData(this.KEY_PHOTO_INDEX) || []; },
+    savePhotoIndex(idx)  { return this.saveData(this.KEY_PHOTO_INDEX, idx || []); },
+    getPhotoTrend()      { return this.getData(this.KEY_PHOTO_TREND) || null; },
+    savePhotoTrend(t)    { return this.saveData(this.KEY_PHOTO_TREND, t); },
 
     // ── Configuration Export / Import ────────────────────────────────────
 
@@ -1914,6 +1946,10 @@ const FirebaseManager = {
                 lastWeights:    StorageManager.getData(StorageManager.KEY_WEIGHTS) || {},
                 rmHistory:      StorageManager.getData(StorageManager.KEY_RM) || {},
                 hiddenThumbs:   StorageManager.getData('gympro_hidden_thumbs') || [],
+                // v17.24: תמונות התקדמות — אינדקס קל + זיכרון מגמת AI בלבד.
+                // ה-bytes של התמונות לעולם לא כאן (Drive/IndexedDB בלבד — מחסום 1MB).
+                photoIndex:     StorageManager.getPhotoIndex(),
+                photoTrend:     StorageManager.getPhotoTrend() || {},
                 updatedAt:      Date.now()
             };
             // אזהרה מקדימה על התקרבות למגבלת 1MB — כדי לדעת חודשים מראש, לא בדיעבד
@@ -2052,6 +2088,8 @@ const FirebaseManager = {
         if (data.lastWeights)    StorageManager.saveData(StorageManager.KEY_WEIGHTS, data.lastWeights);
         if (data.rmHistory)      StorageManager.saveData(StorageManager.KEY_RM, data.rmHistory);
         if (data.hiddenThumbs)   StorageManager.saveData('gympro_hidden_thumbs', data.hiddenThumbs);
+        if (data.photoIndex)     StorageManager.savePhotoIndex(data.photoIndex);
+        if (data.photoTrend && Object.keys(data.photoTrend).length) StorageManager.savePhotoTrend(data.photoTrend);
     },
 
     // ── Upload All (העלאה ראשונית) ────────────────────────────────────────────

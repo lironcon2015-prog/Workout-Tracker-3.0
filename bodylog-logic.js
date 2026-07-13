@@ -6,7 +6,7 @@
 
 let _blRange = 30;            // טווח גרף נוכחי: 7 / 30 / 90 / 'all' / 'custom'
 let _blCustom = { from: '', to: '' };  // גבולות טווח מותאם (YYYY-MM-DD)
-let _blTab = 'weight';        // תת-מסך פעיל: 'weight' | 'nutrition'
+let _blTab = 'weight';        // תת-מסך פעיל: 'weight' | 'nutrition' | 'photos'
 let _blListExpanded = false;  // האם רשימת השקילות מורחבת (מעבר ל-7 האחרונות)
 let _blNutriExpanded = false; // האם רשימת התזונה מורחבת
 let _blEditDate = null;       // התאריך שנערך כרגע (null = רשומה חדשה)
@@ -32,17 +32,25 @@ function renderBodyLog() {
     _renderBodyCharts(log);
     _renderBodyList(log);
     _renderNutritionView();
+    if (typeof _renderBodyPhotos === 'function') _renderBodyPhotos();
     _applyTabVisibility();
 }
 
-// ─── תתי-מסכים: שקילה / תזונה ────────────────────────────────────────────────
+// ─── תתי-מסכים: שקילה / תזונה / תמונות ──────────────────────────────────────
 function _applyTabVisibility() {
     document.querySelectorAll('#bl-subtab .seg-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.tab === _blTab));
     const w = document.getElementById('bl-view-weight');
     const n = document.getElementById('bl-view-nutrition');
+    const p = document.getElementById('bl-view-photos');
     if (w) w.style.display = _blTab === 'weight' ? '' : 'none';
     if (n) n.style.display = _blTab === 'nutrition' ? '' : 'none';
+    if (p) p.style.display = _blTab === 'photos' ? '' : 'none';
+    // צ'יפי הטווח שייכים לגרפים בלבד — לא רלוונטיים לתמונות
+    const chips = document.getElementById('bl-range-chips');
+    if (chips) chips.style.display = _blTab === 'photos' ? 'none' : '';
+    const custom = document.getElementById('bl-custom-range');
+    if (custom) custom.style.display = (_blTab !== 'photos' && _blRange === 'custom') ? 'flex' : 'none';
 }
 
 function setBodyTab(tab) {
@@ -54,6 +62,7 @@ function setBodyTab(tab) {
 
 function _refreshActiveView() {
     if (_blTab === 'weight') _renderBodyCharts(StorageManager.getBodyLog());
+    else if (_blTab === 'photos') { if (typeof _renderBodyPhotos === 'function') _renderBodyPhotos(); }
     else _renderNutritionView();
 }
 

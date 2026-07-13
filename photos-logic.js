@@ -317,3 +317,425 @@ async function ppReconcileFromDrive() {
 // ─── טריגרים: פתיחת אפליקציה + חזרת רשת ─────────────────────────────────────
 window.addEventListener('online', () => _ppKickUploads());
 document.addEventListener('DOMContentLoaded', () => setTimeout(_ppKickUploads, 4000));
+
+/* ════════ UI — תת-טאב "תמונות" במסך Composition ════════ */
+
+let _ppObjUrls = [];                       // object URLs פעילים — מבוטלים ברינדור הבא
+let _ppCompareSel = { a: null, b: null };  // תאריכי ההשוואה (a = חדשה, b = ישנה)
+
+function _ppUrl(blob) { const u = URL.createObjectURL(blob); _ppObjUrls.push(u); return u; }
+function _ppRevokeUrls() { _ppObjUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} }); _ppObjUrls = []; }
+
+function _ppIndexDesc() {
+    return StorageManager.getPhotoIndex().slice().sort((a, b) => a.date < b.date ? 1 : -1);
+}
+
+function _ppListDate(d) { const p = d.split('-'); return `${p[2]}.${p[1]}.${p[0]}`; }
+function _ppCellDate(d) { const p = d.split('-'); return `${p[2]}.${p[1]}.${p[0].slice(2)}`; }
+
+// הרנדר הראשי — נקרא מ-renderBodyLog ומ-setBodyTab('photos')
+function _renderBodyPhotos() {
+    const view = document.getElementById('bl-view-photos');
+    if (!view) return;
+    _ppRevokeUrls();
+    const index = _ppIndexDesc();
+    const btn = document.getElementById('pp-analyze-btn');
+    if (btn) {
+        const hasKey = !!(typeof StorageManager.getAIConfig === 'function' && StorageManager.getAIConfig().apiKey);
+        btn.disabled = index.length < 2 || !hasKey;
+        btn.title = !hasKey ? 'דרוש מפתח Gemini (הגדרות → AI)' : (index.length < 2 ? 'דרושות לפחות 2 תמונות' : '');
+    }
+    _ppRenderAnalysisCard();
+    _ppRenderCompareCard(index);
+    _ppRenderGallery(index);
+    if (typeof _ppMaybeAutoAnalyze === 'function') _ppMaybeAutoAnalyze();
+}
+
+// ─── כרטיס ניתוח AI אחרון ───────────────────────────────────────────────────
+function _ppRenderAnalysisCard() {
+    const el = document.getElementById('pp-analysis-card');
+    if (!el) return;
+    const trend = StorageManager.getPhotoTrend();
+    const entries = (trend && trend.entries) || [];
+    if (!entries.length) {
+        el.innerHTML = '<div class="bl-chart-title">ניתוח AI</div>' +
+            '<div class="pp-empty-sub">טרם בוצע ניתוח. עם 2+ תמונות (במרווח של ~10 ימים ומעלה) לחץ "נתח עכשיו", או המתן לניתוח השבועי האוטומטי.</div>';
+        return;
+    }
+    const last = entries[entries.length - 1];
+    const compTxt = 'בר-השוואה: ' + last.comparability + '/10';
+    const meta = _ppListDate(last.date) + ' מול ' + _ppListDate(last.vsDate) + ' · ' + compTxt;
+    let html = '<div class="bl-chart-title">ניתוח AI אחרון</div><div class="pp-analysis-meta">' + meta + '</div>';
+    if (last.comparability < 5) {
+        // הניתוח סירב להשוות — הצגת הסיבות כפידבק לצילום הבא
+        html += '<div class="pp-analysis-summary">ההשוואה לא בוצעה — איכות הצילום אינה מספיקה להשוואה אמינה.</div>';
+        if ((last.flags || []).length)
+            html += '<div class="pp-analysis-flags">לתיקון בצילום הבא: ' + last.flags.join(' · ') + '</div>';
+    } else {
+        html += '<div class="pp-analysis-summary">' + (last.summary || '') + '</div>';
+        const regionNames = { shoulders: 'כתפיים', chest: 'חזה', waist: 'מותן', arms: 'זרועות' };
+        const regions = last.regions || {};
+        const chips = Object.keys(regionNames)
+            .filter(k => regions[k])
+            .map(k => {
+                const v = String(regions[k]);
+                const cls = /clear/.test(v) ? 'clear' : (/subtle/.test(v) ? 'subtle' : '');
+                const lbl = /clear/.test(v) ? 'שינוי ברור' : (/subtle/.test(v) ? 'שינוי עדין' : 'ללא שינוי');
+                return '<span class="pp-region-chip ' + cls + '">' + regionNames[k] + ': ' + lbl + '</span>';
+            }).join('');
+        if (chips) html += '<div class="pp-analysis-regions">' + chips + '</div>';
+        if ((last.flags || []).length)
+            html += '<div class="pp-analysis-flags">שים לב: ' + last.flags.join(' · ') + '</div>';
+    }
+    if (trend.aiNotes) html += '<div class="pp-analysis-notes">מצב מצטבר: ' + trend.aiNotes + '</div>';
+    el.innerHTML = html;
+}
+
+// ─── כרטיס השוואה צד-לצד ────────────────────────────────────────────────────
+// ברירת מחדל: התמונה האחרונה מול הקרובה ביותר ל-14 יום אחורה.
+function _ppDefaultCompareDate(index, newestDate) {
+    const target = _ppDaysBetween('1970-01-01', newestDate) - 14;
+    let best = null, bestDist = Infinity;
+    index.forEach(e => {
+        if (e.date >= newestDate) return;
+        const dist = Math.abs(_ppDaysBetween('1970-01-01', e.date) - target);
+        if (dist < bestDist) { bestDist = dist; best = e.date; }
+    });
+    return best;
+}
+
+function _ppRenderCompareCard(index) {
+    const el = document.getElementById('pp-compare-card');
+    if (!el) return;
+    if (index.length < 2) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    const newest = index[0].date;
+    if (!_ppCompareSel.a || !index.find(e => e.date === _ppCompareSel.a)) _ppCompareSel.a = newest;
+    if (!_ppCompareSel.b || !index.find(e => e.date === _ppCompareSel.b) || _ppCompareSel.b === _ppCompareSel.a)
+        _ppCompareSel.b = _ppDefaultCompareDate(index, _ppCompareSel.a) || index[index.length - 1].date;
+    const opts = sel => index.map(e =>
+        `<option value="${e.date}" ${e.date === sel ? 'selected' : ''}>${_ppListDate(e.date)}</option>`).join('');
+    // RTL: העמודה הראשונה מוצגת מימין — הישנה ("לפני") מימין, החדשה משמאל
+    el.innerHTML =
+        '<div class="bl-chart-title">השוואה</div>' +
+        '<div class="pp-compare-row">' +
+        '<div class="pp-compare-col"><select class="pp-compare-sel" onchange="ppSetCompare(\'b\', this.value)">' + opts(_ppCompareSel.b) + '</select><img id="pp-cmp-b" alt="לפני"></div>' +
+        '<div class="pp-compare-col"><select class="pp-compare-sel" onchange="ppSetCompare(\'a\', this.value)">' + opts(_ppCompareSel.a) + '</select><img id="pp-cmp-a" alt="אחרי"></div>' +
+        '</div><div class="pp-compare-delta" id="pp-cmp-delta"></div>';
+    _ppFillCompareImages();
+}
+
+function ppSetCompare(side, date) {
+    _ppCompareSel[side] = date;
+    _ppFillCompareImages();
+}
+
+async function _ppFillCompareImages() {
+    const { a, b } = _ppCompareSel;
+    for (const [side, date] of [['b', b], ['a', a]]) {
+        const img = document.getElementById('pp-cmp-' + side);
+        if (!img || !date) continue;
+        const blob = await ppGetPhotoBlob(date).catch(() => null);
+        if (blob && img.isConnected) img.src = _ppUrl(blob);
+    }
+    // דלתת משקל בין התאריכים — משקל despiked מהשקילות (אם קיים בסביבה)
+    const deltaEl = document.getElementById('pp-cmp-delta');
+    if (!deltaEl || !a || !b) return;
+    const wa = _ppWeightNear(a), wb = _ppWeightNear(b);
+    const days = Math.abs(_ppDaysBetween(b, a));
+    if (wa != null && wb != null) {
+        const d = Math.round((wa - wb) * 10) / 10;
+        const sign = d > 0 ? '+' : '';
+        deltaEl.innerHTML = '<strong>' + sign + d + ' ק"ג</strong> בין התאריכים (' + days + ' ימים) · ' + wb + ' ← ' + wa + ' ק"ג';
+    } else {
+        deltaEl.textContent = days + ' ימים בין התאריכים · אין נתוני שקילה סמוכים';
+    }
+}
+
+// משקל בשקילה הקרובה ביותר לתאריך (עד ±5 ימים), null אם אין
+function _ppWeightNear(date) {
+    const log = (StorageManager.getBodyLog() || []).filter(e => e && e.date && e.weight != null);
+    let best = null, bestDist = Infinity;
+    log.forEach(e => {
+        const dist = Math.abs(_ppDaysBetween(e.date, date));
+        if (dist < bestDist) { bestDist = dist; best = e.weight; }
+    });
+    return bestDist <= 5 ? best : null;
+}
+
+// ─── גלריה ──────────────────────────────────────────────────────────────────
+function _ppRenderGallery(index) {
+    const gal = document.getElementById('pp-gallery');
+    const head = document.getElementById('pp-gallery-head');
+    if (!gal) return;
+    if (!index.length) {
+        if (head) head.style.display = 'none';
+        gal.innerHTML =
+            '<div class="pp-empty"><strong>פרוטוקול צילום — כך ההשוואה תהיה אמינה:</strong><br>' +
+            '• בוקר, על קיבה ריקה, אחרי שירותים<br>' +
+            '• אותו מקום, אותה תאורה, אותו מרחק מהמצלמה<br>' +
+            '• עמידה זקופה מול המצלמה (חזית), ידיים בצדדים<br>' +
+            '• אותו לבוש (או דומה) בכל צילום<br>' +
+            'תמונה אחת ליום מספיקה — ההשוואות נעשות במרווחים של ~10 ימים ומעלה.</div>';
+        return;
+    }
+    if (head) head.style.display = '';
+    gal.innerHTML = '<div class="pp-gallery-grid">' + index.map(e =>
+        `<div class="pp-cell" data-date="${e.date}" onclick="ppOpenViewer('${e.date}')">` +
+        `<img data-th="${e.date}" alt="${e.date}">` +
+        `<div class="pp-cell-date">${_ppCellDate(e.date)}</div>` +
+        `<div class="pp-cell-badge ${e.driveId ? 'up' : 'wait'}">${e.driveId ? 'בענן' : 'ממתין'}</div>` +
+        '</div>').join('') + '</div>';
+    _ppLoadThumbsInto(index);
+}
+
+function _ppSetThumb(date, blob) {
+    const img = document.querySelector(`#pp-gallery img[data-th="${date}"]`);
+    if (img && blob) img.src = _ppUrl(blob);
+}
+
+// טעינת thumbnails: קודם כל המקומיים (מהיר), ואז חסרים מהדרייב — סדרתי,
+// כדי לא להציף את הגשר (כל משיכה 1-3 שניות)
+async function _ppLoadThumbsInto(index) {
+    const missing = [];
+    for (const e of index) {
+        let blob = null;
+        try { const rec = await _ppIdbGet('thumbs', e.date); blob = rec && rec.blob; } catch (err) {}
+        if (blob) _ppSetThumb(e.date, blob);
+        else missing.push(e.date);
+    }
+    for (const date of missing) {
+        const blob = await ppGetThumbBlob(date).catch(() => null);
+        if (blob) _ppSetThumb(date, blob);
+    }
+}
+
+// עדכון badges אחרי העלאה מוצלחת (נקרא מתור ההעלאה) — בלי רינדור מלא
+function _ppRefreshGalleryBadges() {
+    StorageManager.getPhotoIndex().forEach(e => {
+        if (!e.driveId) return;
+        const badge = document.querySelector(`.pp-cell[data-date="${e.date}"] .pp-cell-badge`);
+        if (badge && badge.classList.contains('wait')) {
+            badge.classList.remove('wait'); badge.classList.add('up'); badge.textContent = 'בענן';
+        }
+    });
+    if (typeof updatePhotoBridgeStatus === 'function') updatePhotoBridgeStatus();
+}
+
+// ─── תצוגה מלאה + מחיקה ─────────────────────────────────────────────────────
+let _ppViewerDate = null, _ppViewerUrl = null;
+
+async function ppOpenViewer(date) {
+    const ov = document.getElementById('pp-viewer');
+    if (!ov) return;
+    _ppViewerDate = date;
+    ov.style.display = 'flex';
+    document.getElementById('pp-viewer-date').textContent = _ppListDate(date);
+    const img = document.getElementById('pp-viewer-img');
+    img.removeAttribute('src');
+    const blob = await ppGetPhotoBlob(date).catch(() => null);
+    if (!blob) { if (_ppViewerDate === date) { ppCloseViewer(); showAlert('התמונה לא נמצאה מקומית ולא בדרייב.'); } return; }
+    if (_ppViewerDate !== date) return;   // נסגר/הוחלף בזמן הטעינה
+    if (_ppViewerUrl) { try { URL.revokeObjectURL(_ppViewerUrl); } catch (e) {} }
+    _ppViewerUrl = URL.createObjectURL(blob);
+    img.src = _ppViewerUrl;
+}
+
+function ppCloseViewer() {
+    const ov = document.getElementById('pp-viewer');
+    if (ov) ov.style.display = 'none';
+    if (_ppViewerUrl) { try { URL.revokeObjectURL(_ppViewerUrl); } catch (e) {} _ppViewerUrl = null; }
+    _ppViewerDate = null;
+}
+
+function ppDeleteCurrent() {
+    const date = _ppViewerDate;
+    if (!date) return;
+    showConfirm('למחוק את התמונה מ-' + _ppListDate(date) + '? היא תימחק גם מהדרייב.', async () => {
+        await ppDeletePhoto(date);
+        ppCloseViewer();
+        _renderBodyPhotos();
+    });
+}
+
+/* ════════ מסך צילום — Ghost Overlay, מתג מצלמה, טיימר ════════ */
+
+let _ppCamActive = false;
+let _ppCamStream = null;
+let _ppCamFacing = 'user';        // ברירת מחדל: מצלמה קדמית (החלטת מוצר)
+let _ppGhostOn = true;
+let _ppGhostUrl = null;
+let _ppTimerSec = 0;              // 0 / 3 / 10
+let _ppCountdownTimer = null;
+
+function _ppCamMsg(txt) {
+    const el = document.getElementById('pp-cam-msg');
+    if (!el) return;
+    el.textContent = txt || '';
+    el.style.display = txt ? '' : 'none';
+}
+
+function _ppUpdateCamChips() {
+    const g = document.getElementById('pp-ghost-btn');
+    const f = document.getElementById('pp-face-btn');
+    const t = document.getElementById('pp-timer-btn');
+    if (g) { g.textContent = 'רפאים: ' + (_ppGhostOn ? 'פעיל' : 'כבוי'); g.classList.toggle('off', !_ppGhostOn); }
+    if (f) f.textContent = 'מצלמה: ' + (_ppCamFacing === 'user' ? 'קדמית' : 'אחורית');
+    if (t) { t.textContent = 'טיימר: ' + (_ppTimerSec ? _ppTimerSec + ' שנ\'' : 'כבוי'); t.classList.toggle('off', !_ppTimerSec); }
+}
+
+async function ppOpenCamera() {
+    const ov = document.getElementById('pp-cam');
+    if (!ov) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showAlert('המכשיר לא תומך בגישה למצלמה מהדפדפן.');
+        return;
+    }
+    ov.style.display = 'flex';
+    _ppCamActive = true;
+    _ppCamMsg('');
+    _ppUpdateCamChips();
+    await _ppStartStream();
+    _ppLoadGhost();
+}
+
+async function _ppStartStream() {
+    _ppStopStream();
+    const video = document.getElementById('pp-cam-video');
+    const ov = document.getElementById('pp-cam');
+    try {
+        _ppCamStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: _ppCamFacing }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+    } catch (e) {
+        _ppCamMsg('אין גישה למצלמה — אשר הרשאה ונסה שוב.');
+        return;
+    }
+    if (!_ppCamActive) { _ppStopStream(); return; }   // נסגר בזמן בקשת ההרשאה
+    video.srcObject = _ppCamStream;
+    video.setAttribute('playsinline', '');
+    await video.play().catch(() => {});
+    // mirror בתצוגה במצלמה קדמית — גם הווידאו וגם ה-ghost (יישור פוזה טבעי)
+    if (ov) ov.classList.toggle('mirror', _ppCamFacing === 'user');
+}
+
+function _ppStopStream() {
+    if (_ppCamStream) {
+        _ppCamStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+        _ppCamStream = null;
+    }
+}
+
+// Ghost Overlay — התמונה האחרונה בשקיפות מעל הווידאו, ליישור פוזה זהה
+async function _ppLoadGhost() {
+    const img = document.getElementById('pp-ghost');
+    if (!img) return;
+    if (_ppGhostUrl) { try { URL.revokeObjectURL(_ppGhostUrl); } catch (e) {} _ppGhostUrl = null; }
+    img.style.display = 'none';
+    const index = _ppIndexDesc();
+    if (!index.length || !_ppGhostOn) return;
+    const blob = await ppGetPhotoBlob(index[0].date).catch(() => null);
+    if (!blob || !_ppCamActive) return;
+    _ppGhostUrl = URL.createObjectURL(blob);
+    img.src = _ppGhostUrl;
+    img.style.display = _ppGhostOn ? '' : 'none';
+}
+
+function ppToggleGhost() {
+    _ppGhostOn = !_ppGhostOn;
+    _ppUpdateCamChips();
+    const img = document.getElementById('pp-ghost');
+    if (!img) return;
+    if (_ppGhostOn && !img.src) { _ppLoadGhost(); return; }
+    img.style.display = (_ppGhostOn && img.src) ? '' : 'none';
+}
+
+function ppSwitchCamera() {
+    _ppCamFacing = _ppCamFacing === 'user' ? 'environment' : 'user';
+    _ppUpdateCamChips();
+    _ppStartStream();
+}
+
+function ppCycleTimer() {
+    _ppTimerSec = _ppTimerSec === 0 ? 3 : (_ppTimerSec === 3 ? 10 : 0);
+    _ppUpdateCamChips();
+    haptic('light');
+}
+
+function ppCapture() {
+    if (_ppCountdownTimer) return;   // ספירה כבר רצה
+    if (_ppTimerSec > 0) _ppRunCountdown(_ppTimerSec, _ppDoCapture);
+    else _ppDoCapture();
+}
+
+function _ppRunCountdown(sec, done) {
+    const el = document.getElementById('pp-countdown');
+    if (!el) { done(); return; }
+    let n = sec;
+    el.textContent = n;
+    el.style.display = 'flex';
+    _ppCountdownTimer = setInterval(() => {
+        if (!_ppCamActive) { clearInterval(_ppCountdownTimer); _ppCountdownTimer = null; el.style.display = 'none'; return; }
+        n--;
+        if (n <= 0) {
+            clearInterval(_ppCountdownTimer); _ppCountdownTimer = null;
+            el.style.display = 'none';
+            done();
+        } else {
+            el.textContent = n;
+            haptic('light');
+        }
+    }, 1000);
+}
+
+async function _ppDoCapture() {
+    const video = document.getElementById('pp-cam-video');
+    const vw = video && video.videoWidth, vh = video && video.videoHeight;
+    if (!vw || !vh) { _ppCamMsg('המצלמה עוד לא מוכנה — נסה שוב.'); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = vw; canvas.height = vh;
+    canvas.getContext('2d').drawImage(video, 0, 0, vw, vh);
+    const raw = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+    if (!raw) { _ppCamMsg('הצילום נכשל — נסה שוב.'); return; }
+    haptic('medium');
+    // נורמליזציית כיוון: מצלמה קדמית נלכדת הפוכה — flip בדחיסה, כך שכל
+    // תמונות השרשרת באותו כיוון (אחרת ה-AI ישווה תמונות ראי)
+    const mirror = _ppCamFacing === 'user';
+    const today = _ppTodayStr();
+    const exists = StorageManager.getPhotoIndex().some(e => e.date === today);
+    const doSave = async () => {
+        try {
+            await ppStorePhoto(raw, { mirror });
+            ppCloseCamera();
+            if (typeof setBodyTab === 'function' && _blTab !== 'photos') setBodyTab('photos');
+            _renderBodyPhotos();
+            if (typeof showCloudToast === 'function') showCloudToast('📸 תמונת התקדמות נשמרה', true);
+        } catch (e) {
+            console.error('GymPro photos: store failed', e);
+            _ppCamMsg('השמירה נכשלה: ' + (e && e.message ? e.message : 'שגיאה'));
+        }
+    };
+    if (exists) showConfirm('כבר צולמה תמונה היום — להחליף אותה?', doSave);
+    else doSave();
+}
+
+function ppCloseCamera() {
+    _ppCamActive = false;
+    if (_ppCountdownTimer) { clearInterval(_ppCountdownTimer); _ppCountdownTimer = null; }
+    const cd = document.getElementById('pp-countdown');
+    if (cd) cd.style.display = 'none';
+    _ppStopStream();
+    const video = document.getElementById('pp-cam-video');
+    if (video) { try { video.pause(); } catch (e) {} video.srcObject = null; }
+    const ghost = document.getElementById('pp-ghost');
+    if (ghost) { ghost.removeAttribute('src'); ghost.style.display = 'none'; }
+    if (_ppGhostUrl) { try { URL.revokeObjectURL(_ppGhostUrl); } catch (e) {} _ppGhostUrl = null; }
+    const ov = document.getElementById('pp-cam');
+    if (ov) ov.style.display = 'none';
+}
+
+// ─── "נתח עכשיו" — מוגדר במלואו בשלב מנוע ה-AI ──────────────────────────────
+function ppAnalyzeNow() {
+    if (typeof _ppRunAnalysis === 'function') { _ppRunAnalysis(true); return; }
+    showAlert('מנוע הניתוח עוד לא זמין בגרסה זו.');
+}

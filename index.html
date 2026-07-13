@@ -1431,11 +1431,17 @@
 
             <div id="ui-archive" class="screen">
                 <div class="screen-bg"><img id="archive-bg-img" src="./img/bg-dumbbells.jpg"></div>
-                <!-- בורר רשימה/לוח שנה — האלמנט העליון, בסגנון מסך האנליטיקה -->
+                <!-- תתי-מסכים (אימונים/שקילות/תזונה) + טוגל לוח שנה גלובלי -->
                 <div class="analytics-header-sticky">
-                    <div class="segment-wrapper">
-                        <button id="btn-view-list" class="seg-btn active" onclick="switchArchiveView('list')">רשימה</button>
-                        <button id="btn-view-calendar" class="seg-btn" onclick="switchArchiveView('calendar')">לוח שנה</button>
+                    <div class="archive-header-row">
+                        <div class="segment-wrapper" id="archive-seg">
+                            <button class="seg-btn active" data-sub="workouts" onclick="setArchiveTab('workouts')">אימונים</button>
+                            <button class="seg-btn" data-sub="weight" onclick="setArchiveTab('weight')">שקילות</button>
+                            <button class="seg-btn" data-sub="nutrition" onclick="setArchiveTab('nutrition')">תזונה</button>
+                        </div>
+                        <button class="archive-cal-btn" id="btn-view-calendar" onclick="toggleArchiveCalendar()" aria-label="לוח שנה">
+                            <span class="material-symbols-outlined">calendar_month</span>
+                        </button>
                     </div>
                 </div>
                 <div id="calendar-view" style="display:none;">
@@ -1462,25 +1468,52 @@
                     </div>
                 </div>
                 <div id="list-view-container">
-                    <div class="archive-action-pills">
-                        <button class="archive-pill-btn" onclick="openRangeSheet()">
-                            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">date_range</span>
-                            <span>טווח</span>
-                        </button>
-                        <button id="btn-copy-selected" class="archive-pill-btn archive-pill-dim" onclick="copyBulkLog('selected')" disabled>
-                            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">check_box</span>
-                            <span>מסומנים</span>
-                        </button>
-                        <button class="archive-pill-btn" onclick="copyBulkLog('all')">
-                            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">content_copy</span>
-                            <span>העתק הכל</span>
-                        </button>
-                        <label class="archive-coach-toggle" id="archive-coach-toggle-wrap">
-                            <input type="checkbox" id="archive-coach-toggle" onchange="toggleArchiveCopyCoach(this.checked)">
-                            <span>כלול סיכומי מאמן</span>
-                        </label>
+                    <!-- תת-מסך: אימונים -->
+                    <div id="archive-sub-workouts">
+                        <div class="archive-action-pills">
+                            <button class="archive-pill-btn" onclick="openRangeSheet()">
+                                <span class="material-symbols-outlined">date_range</span>
+                                <span>טווח</span>
+                            </button>
+                            <button id="btn-copy-selected" class="archive-pill-btn archive-pill-dim" onclick="copyBulkLog('selected')" disabled>
+                                <span class="material-symbols-outlined">check_box</span>
+                                <span>מסומנים</span>
+                            </button>
+                            <button class="archive-pill-btn" onclick="copyBulkLog('all')">
+                                <span class="material-symbols-outlined">content_copy</span>
+                                <span>העתק הכל</span>
+                            </button>
+                            <label class="archive-coach-toggle" id="archive-coach-toggle-wrap">
+                                <input type="checkbox" id="archive-coach-toggle" onchange="toggleArchiveCopyCoach(this.checked)">
+                                <span>כלול סיכומי מאמן</span>
+                            </label>
+                        </div>
+                        <div id="archive-list" class="vertical-stack"></div>
                     </div>
-                    <div id="archive-list" class="vertical-stack"></div>
+
+                    <!-- צ'יפי טווח — משותפים לשקילות ולתזונה -->
+                    <div class="bl-range-chips" id="ar-range-chips" style="display:none;">
+                        <button class="bl-chip" data-range="7" onclick="setArchiveListRange(7)">7 ימים</button>
+                        <button class="bl-chip" data-range="30" onclick="setArchiveListRange(30)">30 יום</button>
+                        <button class="bl-chip" data-range="90" onclick="setArchiveListRange(90)">90 יום</button>
+                        <button class="bl-chip active" data-range="all" onclick="setArchiveListRange('all')">הכל</button>
+                    </div>
+
+                    <!-- תת-מסך: שקילות -->
+                    <div id="archive-sub-weight" style="display:none;">
+                        <div class="archive-action-pills">
+                            <button class="archive-pill-btn" onclick="openWeightIOSheet()">
+                                <span class="material-symbols-outlined">swap_vert</span>
+                                <span>ייבוא / ייצוא שקילות</span>
+                            </button>
+                        </div>
+                        <div id="bodylog-list" class="bodylog-list"></div>
+                    </div>
+
+                    <!-- תת-מסך: תזונה -->
+                    <div id="archive-sub-nutrition" style="display:none;">
+                        <div id="bl-nutrition-list" class="bodylog-list"></div>
+                    </div>
                 </div>
 
                 <!-- גיבוי וייצוא — בתחתית המסך -->
@@ -1794,17 +1827,15 @@
 
                 <!-- ========== תצוגת שקילה ========== -->
                 <div id="bl-view-weight">
-                    <!-- כניסת צילום — לחיצה = מצלמה מיידית; כפתורי צד = הזנה ידנית + ייבוא/ייצוא -->
+                    <!-- כניסת שקילה — שני כפתורים שווי-משקל; ייבוא/ייצוא עבר לארכיון -->
                     <div class="bl-capture-bar">
-                        <button class="bl-capture-cta" onclick="openBodyCaptureInput()">
+                        <button class="bl-entry-btn" onclick="openBodyEntryModal()">
+                            <span class="material-symbols-outlined">keyboard</span>
+                            <span>הזנה ידנית</span>
+                        </button>
+                        <button class="bl-entry-btn bl-entry-btn--accent" onclick="openBodyCaptureInput()">
                             <span class="material-symbols-outlined">photo_camera</span>
                             <span>צלם שקילה</span>
-                        </button>
-                        <button class="bl-manual-btn" onclick="openBodyEntryModal()" aria-label="הזנה ידנית">
-                            <span class="material-symbols-outlined">keyboard</span>
-                        </button>
-                        <button class="bl-manual-btn" onclick="openWeightIOSheet()" aria-label="ייבוא וייצוא שקילות">
-                            <span class="material-symbols-outlined">swap_vert</span>
                         </button>
                     </div>
 
@@ -1827,9 +1858,6 @@
                         </div>
                         <div class="bl-x-axis" id="bl-fat-dates"></div>
                     </div>
-
-                    <div class="bl-list-head">היסטוריית שקילות</div>
-                    <div id="bodylog-list" class="bodylog-list"></div>
                 </div>
 
                 <!-- ========== תצוגת תזונה (MyFitnessPal) ========== -->
@@ -1859,9 +1887,6 @@
                         </div>
                         <div class="bl-x-axis" id="bl-protein-dates"></div>
                     </div>
-
-                    <div class="bl-list-head">היסטוריית תזונה</div>
-                    <div id="bl-nutrition-list" class="bodylog-list"></div>
                 </div>
 
                 <!-- ========== תצוגת תמונות התקדמות ========== -->
@@ -1926,11 +1951,15 @@
     <nav class="tab-bar">
         <button class="tab-btn active" id="tabbtn-workout" onclick="switchMainTab('workout')">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="1" y="9" width="4" height="6" rx="1.5"/><rect x="19" y="9" width="4" height="6" rx="1.5"/>
-                <rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/>
-                <line x1="8" y1="12" x2="16" y2="12"/>
+                <path d="M3 9.5L12 3l9 6.5"/><path d="M5 8.5V21h14V8.5"/><path d="M9 21v-6h6v6"/>
             </svg>
             <span class="tab-label">בית</span>
+        </button>
+        <button class="tab-btn" id="tabbtn-bodylog" onclick="switchMainTab('bodylog')">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 20h16"/><path d="M5 20a7 7 0 0 1 14 0"/><line x1="12" y1="13" x2="15" y2="10"/>
+            </svg>
+            <span class="tab-label">Composition</span>
         </button>
         <button class="tab-btn" id="tabbtn-analytics" onclick="switchMainTab('analytics')">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1943,12 +1972,6 @@
                 <rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8"/><line x1="9" y1="14" x2="15" y2="14"/>
             </svg>
             <span class="tab-label">ארכיון</span>
-        </button>
-        <button class="tab-btn" id="tabbtn-bodylog" onclick="switchMainTab('bodylog')">
-            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 20h16"/><path d="M5 20a7 7 0 0 1 14 0"/><line x1="12" y1="13" x2="15" y2="10"/>
-            </svg>
-            <span class="tab-label">Composition</span>
         </button>
     </nav>
 

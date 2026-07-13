@@ -30,10 +30,30 @@ function renderBodyLog() {
     const log = StorageManager.getBodyLog();
     _renderBodyKpis(log);
     _renderBodyCharts(log);
-    _renderBodyList(log);
+    _renderBodyList(log);          // הרשימה חיה בארכיון — נשמרת טרייה אחרי כל שינוי דאטה
     _renderNutritionView();
     if (typeof _renderBodyPhotos === 'function') _renderBodyPhotos();
     _applyTabVisibility();
+    // לוח השנה בארכיון מציג גם שקילות/תזונה — רענון אם הוא זה שמוצג כרגע
+    if (document.getElementById('ui-archive')?.classList.contains('active')
+        && state.archiveView === 'calendar' && typeof renderCalendar === 'function') renderCalendar();
+}
+
+// ─── טווח רשימות הארכיון (שקילות/תזונה) ─────────────────────────────────────
+let _arRange = 'all';
+function _arFilterByRange(list) {
+    if (_arRange === 'all') return list;
+    const cutoff = _blCutoff(_arRange);
+    return list.filter(e => e.date >= cutoff);
+}
+
+function setArchiveListRange(r) {
+    _arRange = r;
+    document.querySelectorAll('#ar-range-chips .bl-chip').forEach(b =>
+        b.classList.toggle('active', String(b.dataset.range) === String(r)));
+    _renderBodyList(StorageManager.getBodyLog());
+    _renderNutritionList();
+    haptic('light');
 }
 
 // ─── תתי-מסכים: שקילה / תזונה / תמונות ──────────────────────────────────────
@@ -600,10 +620,10 @@ function _cleanNutriOutliers(points) {
 function _renderNutritionList(allDays) {
     const el = document.getElementById('bl-nutrition-list');
     if (!el) return;
-    // היום השוטף לא מוצג בהיסטוריה — הוא חלקי ויש לו כרטיס ייעודי למעלה
+    // היום השוטף לא מוצג בהיסטוריה — הוא חלקי ויש לו כרטיס ייעודי ב-Composition
     const today = _blTodayStr();
-    const all = (allDays || StorageManager.getNutritionDaily()).filter(d => d.date !== today);
-    if (!all.length) { el.innerHTML = ''; return; }
+    const all = _arFilterByRange((allDays || StorageManager.getNutritionDaily()).filter(d => d.date !== today));
+    if (!all.length) { el.innerHTML = '<p class="bl-list-empty">אין נתוני תזונה בטווח שנבחר</p>'; return; }
     const sorted = all.slice().sort((a, b) => a.date < b.date ? 1 : -1); // חדש→ישן
     const show = _blNutriExpanded ? sorted : sorted.slice(0, _BL_LIST_LIMIT);
     const rowsHtml = show.map(d => `<div class="bl-row">
@@ -1052,8 +1072,9 @@ function toggleBodyListExpand() { _blListExpanded = !_blListExpanded; _renderBod
 function _renderBodyList(log) {
     const el = document.getElementById('bodylog-list');
     if (!el) return;
-    if (!log.length) { el.innerHTML = ''; return; }
-    const sorted = log.slice().sort((a, b) => a.date < b.date ? 1 : -1); // חדש→ישן
+    const ranged = _arFilterByRange(log);
+    if (!ranged.length) { el.innerHTML = '<p class="bl-list-empty">אין שקילות בטווח שנבחר</p>'; return; }
+    const sorted = ranged.slice().sort((a, b) => a.date < b.date ? 1 : -1); // חדש→ישן
     const show = _blListExpanded ? sorted : sorted.slice(0, _BL_LIST_LIMIT);
     const rowsHtml = show.map((e, i) => {
         const prev = sorted[i + 1]; // הישן יותר (מהמערך המלא, גם בגבול 7)

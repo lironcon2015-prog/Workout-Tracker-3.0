@@ -4,7 +4,23 @@
 
 ---
 
-## גרסה נוכחית: 17.28
+## גרסה נוכחית: 17.30
+
+## ארגון מסכים מחדש (v17.30)
+
+- **סדר טאבים חדש:** בית | Composition | אנליטיקה | ארכיון. שינוי סדר ב-tab-bar מחייב סנכרון
+  `_TAB_SWIPE_ORDER` + `_TAB_SWIPE_SCREENS` ב-`workout-core.js` (ההחלקה בין טאבים לפי סדר DOM).
+- **הארכיון הוא בית ההיסטוריה (החלטה):** שלושה תתי-מסכים — אימונים / שקילות / תזונה
+  (`state.archiveSubTab`, `setArchiveTab` ב-`archive-logic.js`). רשימות היסטוריית שקילות/תזונה
+  הוסרו מ-Composition; ה-ids (`bodylog-list`, `bl-nutrition-list`) נשמרו ועברו לארכיון, כך
+  שהרנדררים ב-`bodylog-logic.js` לא השתנו. `renderBodyLog` עדיין מרנדר אותן (מרחוק) — כך כל
+  שינוי דאטה שומר את הארכיון טרי. צ'יפי טווח לרשימות: `_arRange`/`setArchiveListRange`.
+- **לוח שנה מאוחד:** `renderCalendar` קורא גם `getBodyLog`+`getNutritionDaily`; סמני מיקרו
+  (accent=שקילה, אפור=תזונה) מתחת לנקודות האימון הצבעוניות (שנשמרו). `openDayDrawer` מקבל
+  ארגומנט רביעי `extras` ומציג הכל; יום עם דאטה לא-אימונית = `.cal-day-data` (לחיץ).
+- **מלכודת:** בורר הרקעים (IIFE ב-`index.html`) עוטף את `switchArchiveView` ומזהה מצב לוח-שנה
+  לפי `btn-view-calendar.classList.contains('active')` — ה-id והתנהגות ה-active חייבים להישמר.
+- לוח-השנה כבר לא segment: כפתור אייקון (`.archive-cal-btn`) שמחליף תצוגה גלובלית מעל תתי-המסכים.
 
 ## תמונות התקדמות + ניתוח AI משורשר (v17.24–17.28)
 

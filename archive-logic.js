@@ -63,11 +63,38 @@ function switchArchiveView(view) {
     state.archiveView = view;
     document.getElementById('calendar-view').style.display = (view === 'calendar') ? 'block' : 'none';
     document.getElementById('list-view-container').style.display = (view === 'list') ? 'block' : 'none';
-    document.getElementById('btn-view-list').classList.toggle('active', view === 'list');
-    document.getElementById('btn-view-calendar').classList.toggle('active', view === 'calendar');
+    const calBtn = document.getElementById('btn-view-calendar');
+    if (calBtn) calBtn.classList.toggle('active', view === 'calendar');
 
-    if (view === 'list') renderArchiveList();
+    if (view === 'list') _applyArchiveSubTab();
     else renderCalendar();
+}
+
+// ─── תתי-מסכים בארכיון: אימונים / שקילות / תזונה ─────────────────────────────
+function setArchiveTab(sub) {
+    state.archiveSubTab = sub;
+    // בחירת תת-מסך תמיד מציגה רשימה — לוח השנה הוא תצוגה גלובלית נפרדת
+    switchArchiveView('list');
+    haptic('light');
+}
+
+function _applyArchiveSubTab() {
+    const sub = state.archiveSubTab || 'workouts';
+    document.querySelectorAll('#archive-seg .seg-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.sub === sub));
+    const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+    show('archive-sub-workouts', sub === 'workouts');
+    show('archive-sub-weight', sub === 'weight');
+    show('archive-sub-nutrition', sub === 'nutrition');
+    show('ar-range-chips', sub !== 'workouts');
+    if (sub === 'workouts') renderArchiveList();
+    else if (sub === 'weight' && typeof _renderBodyList === 'function') _renderBodyList(StorageManager.getBodyLog());
+    else if (sub === 'nutrition' && typeof _renderNutritionList === 'function') _renderNutritionList();
+}
+
+function toggleArchiveCalendar() {
+    switchArchiveView(state.archiveView === 'calendar' ? 'list' : 'calendar');
+    haptic('light');
 }
 
 // מחזיר עד `limit` ביצועים אחרונים של תרגיל בארכיון — מהחדש לישן
@@ -1082,6 +1109,17 @@ function renderCalendar() {
         return d.getMonth() === month && d.getFullYear() === year;
     });
 
+    // לוח שנה מאוחד — גם שקילות ותזונה של החודש (מיפוי יום→רשומה)
+    const pad2 = x => String(x).padStart(2, '0');
+    const monthPrefix = `${year}-${pad2(month + 1)}-`;
+    const weighByDay = new Map(), nutriByDay = new Map();
+    (StorageManager.getBodyLog() || []).forEach(e => {
+        if (e && e.date && e.date.startsWith(monthPrefix)) weighByDay.set(Number(e.date.slice(8, 10)), e);
+    });
+    (StorageManager.getNutritionDaily() || []).forEach(d => {
+        if (d && d.date && d.date.startsWith(monthPrefix)) nutriByDay.set(Number(d.date.slice(8, 10)), d);
+    });
+
     // תאים ריקים לפני תחילת החודש
     for (let i = 0; i < firstDayIndex; i++) {
         const ph = document.createElement('div');
@@ -1095,10 +1133,14 @@ function renderCalendar() {
     for (let day = 1; day <= daysInMonth; day++) {
         const dailyWorkouts = monthWorkouts.filter(item => new Date(item.timestamp).getDate() === day);
         const hasWorkout = dailyWorkouts.length > 0;
+        const weighE = weighByDay.get(day) || null;
+        const nutriE = nutriByDay.get(day) || null;
+        const hasData = hasWorkout || weighE || nutriE;
         const isToday = isCurrentMonth && day === today.getDate();
 
         const cell = document.createElement('div');
         cell.className = hasWorkout ? 'cal-day-active' : 'cal-day-empty';
+        if (!hasWorkout && hasData) cell.classList.add('cal-day-data');
         if (isToday) cell.classList.add('cal-today');
 
         // מספר היום
@@ -1120,7 +1162,6 @@ function renderCalendar() {
                 dotsRow.appendChild(dot);
             });
             cell.appendChild(dotsRow);
-            cell.onclick = () => openDayDrawer(dailyWorkouts, day, MONTH_NAMES_HE[month]);
         } else {
             // placeholder לגובה אחיד
             const ph = document.createElement('div');
@@ -1128,11 +1169,28 @@ function renderCalendar() {
             cell.appendChild(ph);
         }
 
+        // שורת מיקרו — סמני שקילה/תזונה (קבועה בכל תא לגובה אחיד)
+        const microRow = document.createElement('div');
+        microRow.className = 'cal-micro-row';
+        if (weighE) {
+            const m = document.createElement('div');
+            m.className = 'cal-micro-dot cal-micro-weigh';
+            microRow.appendChild(m);
+        }
+        if (nutriE) {
+            const m = document.createElement('div');
+            m.className = 'cal-micro-dot cal-micro-nutri';
+            microRow.appendChild(m);
+        }
+        cell.appendChild(microRow);
+
+        if (hasData) cell.onclick = () => openDayDrawer(dailyWorkouts, day, MONTH_NAMES_HE[month], { weigh: weighE, nutri: nutriE });
+
         grid.appendChild(cell);
     }
 
     _renderCalendarSummary(monthWorkouts, month, year);
-    _renderCalendarLegend(monthWorkouts);
+    _renderCalendarLegend(monthWorkouts, weighByDay.size > 0, nutriByDay.size > 0);
 }
 
 function _renderCalendarSummary(monthWorkouts, month, year) {
@@ -1168,7 +1226,7 @@ function _renderCalendarSummary(monthWorkouts, month, year) {
         </div>`;
 }
 
-function _renderCalendarLegend(monthWorkouts) {
+function _renderCalendarLegend(monthWorkouts, hasWeighs, hasNutris) {
     const legend = document.getElementById('cal-legend');
     if (!legend) return;
     legend.innerHTML = '';
@@ -1180,6 +1238,9 @@ function _renderCalendarLegend(monthWorkouts) {
             seen.set(wo.type, color);
         }
     });
+    // סמני שקילה/תזונה — אחרי צבעי האימונים, רק אם קיימים בחודש המוצג
+    if (hasWeighs) seen.set('שקילה', 'var(--accent)');
+    if (hasNutris) seen.set('תזונה', '#8e8e93');
     seen.forEach((color, label) => {
         const item = document.createElement('div');
         item.className = 'cal-legend-item';
@@ -1190,14 +1251,16 @@ function _renderCalendarLegend(monthWorkouts) {
     });
 }
 
-function openDayDrawer(workouts, day, monthName) {
+function openDayDrawer(workouts, day, monthName, extras) {
     const drawer = document.getElementById('sheet-modal');
     const overlay = document.getElementById('sheet-overlay');
     const content = document.getElementById('sheet-content');
+    const weigh = extras && extras.weigh, nutri = extras && extras.nutri;
     let html = `<h3>${day} ב${monthName}</h3>`;
-    if (!workouts.length) {
-        html += `<p class="color-dim text-sm">אין אימונים ביום זה</p>`;
-    } else {
+    if (!workouts.length && !weigh && !nutri) {
+        html += `<p class="color-dim text-sm">אין נתונים ביום זה</p>`;
+    }
+    if (workouts.length) {
         html += `<p class="color-dim text-sm">נמצאו ${workouts.length} אימונים:</p>`;
         workouts.forEach(wo => {
             const woMeta = state.workoutMeta[wo.type];
@@ -1208,6 +1271,23 @@ function openDayDrawer(workouts, day, monthName) {
                 <div class="chevron"></div>
             </div>`;
         });
+    }
+    // שקילה — לחיצה פותחת את מודל העריכה (מעל כל מסך)
+    if (weigh) {
+        const fat = weigh.bodyFat != null ? ` • ${weigh.bodyFat.toFixed(1)}%` : '';
+        html += `<div class="mini-workout-item" onclick="closeDayDrawer(); openBodyEntryModal('${weigh.date}')">
+            <div class="mini-dot" style="background:var(--accent)"></div>
+            <div style="flex-grow:1;"><div class="font-semi text-base">שקילה — ${weigh.weight.toFixed(1)} ק"ג${fat}</div></div>
+            <div class="chevron"></div>
+        </div>`;
+    }
+    // תזונה — שורת מידע (העריכה מתבצעת ביומן המזון)
+    if (nutri) {
+        html += `<div class="mini-workout-item" style="cursor:default;">
+            <div class="mini-dot" style="background:#8e8e93"></div>
+            <div style="flex-grow:1;"><div class="font-semi text-base">תזונה — ${nutri.calories} kcal</div>
+            <div class="text-xs color-dim">P ${nutri.protein} • C ${nutri.carbs} • F ${nutri.fat}</div></div>
+        </div>`;
     }
     content.innerHTML = html;
     overlay.style.display = 'block'; drawer.classList.add('open'); haptic('light');

@@ -4,7 +4,7 @@
 
 ---
 
-## גרסה נוכחית: 17.34
+## גרסה נוכחית: 17.36
 
 ## בורר רקעים — גריד (v17.34)
 
@@ -382,7 +382,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 ## ייצוא/ייבוא — סדר (v16.58)
 
 - **מתג הפעלה/כיבוי לכל גשר:** MFP ו-Health כעת ניתנים לכיבוי (`KEY_MFP_BRIDGE_ON`/`KEY_HEALTH_BRIDGE_ON`, **ברירת מחדל דלוק** — רק `'0'` מכבה, להבדיל מהשעון שכבוי). Gating בנקודה אחת: `syncHealthNutrition` ו-`importNutritionFromGmail` בודקים `is…BridgeOn()` בראש. שלושת ה-`*_ON` בקובץ החיבורים.
-- **ייצוא תזונה — בדיוק 2 קבצי JSON מכבדי-פיקר** (`_nutritionRangeBounds` ← `_blRange`/`_blCustom`): `exportNutritionDailyJson` (מקוצר: date+cal+macros) ו-`exportNutritionDetailedJson` (מפורט). הוסרו: `exportNutritionCsv`, `exportNutritionRawCsv`, `exportFoodDiaryJson`.
+- **ייצוא תזונה — בדיוק 2 קבצי JSON**: `exportNutritionDailyJson` (מקוצר: date+cal+macros) ו-`exportNutritionDetailedJson` (מפורט). מ-v17.36 שניהם מקבלים bounds ‏{from,to,slug,label} מבורר הייצוא המשותף (`range-export-sheet`, ‏`openRangeExportSheet`) — לא תלויים בשום צ'יפים על מסך. גם `exportBodyCsv` עבר לאותו בורר. הוסרו: `exportNutritionCsv`, `exportNutritionRawCsv`, `exportFoodDiaryJson`, `bl-export-modal` הישן, `_nutritionRangeBounds`.
 - **`_buildNutritionDetailed(from,to)`** (בונה משותף לייצוא הנפרד ולמאוחד) — **קדימות ליום: תיעוד ישיר (`getFoodLogDay`) גובר על MFP**; אחרת MFP; אחרת סיכום. מקור יחיד ליום, בלי ספירה כפולה. כולל `components` של Meal Builder.
 - **ווידג'ט אייפון (v17.19):** `buildWidgetSnapshot` (storage.js) — snapshot קומפקטי: תזונה היום + יעדים + `state` תזונתי, משקל + מגמה שבועית (`weekDelta` מול שקילה ≥7 ימים אחורה) + 7 נקודות ספארקליין, אימון אחרון (`type`/sets/volume מ-details). דחיפה: `maybePushWidgetSnapshot` בפתיחה (throttle 10 דק') + `pushWidgetSnapshotBeacon` ביציאה (visibilitychange→hidden, sendBeacon). גשר `docs/widget-bridge.gs` (PropertiesService, snapshot יחיד) + ווידג'ט `docs/widget-scriptable.js` (Scriptable, פריסת "גרסה 2" מ-`docs/mockup-widget.html`, תצוגה בלבד). מפתחות הגשר ב-`_connectionKeys()`. **מגבלת iOS (נבדק בפועל):** אי אפשר לפתוח PWA מבחוץ בכלל — web clip לא מופיע ב-"Open App" של Shortcuts, וקישור לכתובת נפתח בספארי (אחסון נפרד!). לכן אין יעד לחיצה (`TAP_URL` ריק בסקריפט).
 - **גיבוי מלא + גיבוי שבועי לאימייל (v17.17):** `buildFullBackup`/`exportFullBackup`/`restoreFullBackup` (storage.js) — צילום גולמי של **כל** מפתחות `gympro_*` (מחרוזות, בלי parse) ⇒ שחזור מדויק ביט-לביט כולל סודות; עמיד לעתיד (מפתח חדש נכנס אוטומטית, בניגוד ל-allowlist של `exportConfiguration`). שחזור = מחיקת כל `gympro_*` ← כתיבה ← reload. גשר חדש `docs/backup-bridge.gs` (doPost → GmailApp לבעל הסקריפט, בלי אחסון); `maybeSendWeeklyBackup` נקרא ב-DOMContentLoaded (delay 4s) ושולח אם עברו ≥7 ימים (`KEY_BACKUP_LAST`), fetch POST עם `text/plain` (בקשה פשוטה, בלי preflight). מפתחות הגשר (URL/TOKEN/ON, כבוי כברירת מחדל) נכללו ב-`_connectionKeys()`. UI: קבוצת "גיבוי שבועי לאימייל" בהגדרות + כפתורי גיבוי/שחזור מלא בקבוצת גיבוי מקומי.

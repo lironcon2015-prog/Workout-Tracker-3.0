@@ -363,25 +363,25 @@
     </div>
 
     <!-- Body Log — export options -->
-    <div id="bl-export-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>ייצוא שקילות</h3>
-            <p class="sub-text" style="margin-bottom:16px;">בחר טווח להורדה כקובץ CSV.</p>
-            <div class="vertical-stack">
-                <button class="btn-main primary-gradient" onclick="exportBodyCsv('all')">הכל</button>
-                <button class="btn-text" onclick="exportBodyCsv(7)">שבוע אחרון</button>
-                <button class="btn-text" onclick="exportBodyCsv(30)">חודש אחרון</button>
-            </div>
-            <div class="glass-card compact m-0" style="text-align:right;margin:14px 0 6px;">
-                <label>טווח מותאם</label>
-                <div style="display:flex;gap:8px;">
-                    <input type="date" id="bl-export-start" class="minimal-input m-0">
-                    <input type="date" id="bl-export-end" class="minimal-input m-0">
-                </div>
-            </div>
-            <button class="btn-text" onclick="exportBodyCsv('custom')">ייצא טווח מותאם</button>
-            <button class="btn-text color-dim" onclick="closeBodyExportModal()">ביטול</button>
+    <!-- בורר טווח לייצוא — sheet משותף לשקילות ולתזונה, בשפת צ'יפי הטווח של האפליקציה -->
+    <div id="range-export-overlay" class="bottom-sheet-overlay" onclick="closeRangeExportSheet()"></div>
+    <div id="range-export-sheet" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <h3 id="rex-title">ייצוא</h3>
+        <p class="sub-text" id="rex-sub" style="margin-bottom:12px;"></p>
+        <div class="bl-range-chips" id="rex-chips">
+            <button class="bl-chip" data-range="7" onclick="setRexRange(7)">7 ימים</button>
+            <button class="bl-chip active" data-range="30" onclick="setRexRange(30)">30 יום</button>
+            <button class="bl-chip" data-range="90" onclick="setRexRange(90)">90 יום</button>
+            <button class="bl-chip" data-range="all" onclick="setRexRange('all')">הכל</button>
+            <button class="bl-chip" data-range="custom" onclick="setRexRange('custom')">מותאם</button>
         </div>
+        <div class="bl-custom-range" id="rex-custom" style="display:none;">
+            <input type="date" id="rex-from" class="bl-custom-input">
+            <span class="bl-custom-sep">—</span>
+            <input type="date" id="rex-to" class="bl-custom-input">
+        </div>
+        <button class="btn-main primary-gradient" style="margin-top:14px;" onclick="confirmRangeExport()">ייצא</button>
     </div>
 
     <!-- ייצוא מאוחד (לקלוד) -->
@@ -2205,11 +2205,11 @@
                 <span class="nutri-io-desc">קובץ CSV או Excel — ממשקל חכם או מאפליקציה אחרת</span>
             </span>
         </button>
-        <button class="nutri-io-row" onclick="_weightIOAction(openBodyExportSheet)">
+        <button class="nutri-io-row" onclick="_weightIOAction(openWeightExportRange)">
             <span class="material-symbols-outlined nutri-io-icon">download</span>
             <span class="nutri-io-text">
                 <span class="nutri-io-title">ייצוא שקילות</span>
-                <span class="nutri-io-desc">CSV לפי טווח — נפתח בורר טווח (7/30/הכל/מותאם)</span>
+                <span class="nutri-io-desc">CSV — נפתח בורר טווח</span>
             </span>
         </button>
     </div>
@@ -2236,15 +2236,15 @@
             </span>
         </button>
 
-        <div class="nutri-io-group-label">ייצוא · לפי צ'יפי הטווח שבמסך (7/30/90/הכל)</div>
-        <button class="nutri-io-row" onclick="_nutriIOAction(exportNutritionDailyJson)">
+        <div class="nutri-io-group-label">ייצוא · כל אפשרות פותחת בורר טווח</div>
+        <button class="nutri-io-row" onclick="_nutriIOAction(openNutriDailyExportRange)">
             <span class="material-symbols-outlined nutri-io-icon">table_view</span>
             <span class="nutri-io-text">
                 <span class="nutri-io-title">תזונה יומית · מקוצר (JSON)</span>
                 <span class="nutri-io-desc">קלוריות ומאקרו לכל יום</span>
             </span>
         </button>
-        <button class="nutri-io-row" onclick="_nutriIOAction(exportNutritionDetailedJson)">
+        <button class="nutri-io-row" onclick="_nutriIOAction(openNutriDetailedExportRange)">
             <span class="material-symbols-outlined nutri-io-icon">segment</span>
             <span class="nutri-io-text">
                 <span class="nutri-io-title">תזונה מפורטת · ארוחות ומרכיבים (JSON)</span>

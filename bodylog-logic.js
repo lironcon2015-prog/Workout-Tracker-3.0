@@ -648,13 +648,63 @@ function toggleNutriListExpand() { _blNutriExpanded = !_blNutriExpanded; _render
 // ─── ייצוא תזונה (JSON) — מקוצר + מפורט, מכבדי בורר-טווח ──────────────────────
 const _nR = v => Math.round((Number(v) || 0) * 10) / 10;   // עיגול ל-decimal אחד
 
-// _nutritionRangeBounds — ממיר את צ'יפי הטווח של הארכיון (7/30/90/all) ל-{from,to,slug,label}.
-// הייצוא נפתח מתת-מסך התזונה בארכיון — לכן הטווח נקרא מ-_arRange (הצ'יפים שעל אותו מסך),
-// לא מ-_blRange של גרפי Composition.
-function _nutritionRangeBounds() {
-    if (_arRange === 'all') return { from: null, to: null, slug: 'all', label: 'הכל' };
-    return { from: _blCutoff(_arRange), to: _blTodayStr(), slug: _arRange + 'd', label: _arRange + ' ימים' };
+// ─── בורר טווח לייצוא (sheet משותף לשקילות ולתזונה) ─────────────────────────
+// כל כפתור ייצוא פותח את ה-sheet עם כותרת ופעולה משלו; אישור ממיר את הבחירה
+// ל-{from,to,slug,label} ומריץ את הפעולה. from/to ריקים = הכל.
+let _rexRange = 30;
+let _rexAction = null;
+
+function openRangeExportSheet(title, sub, action) {
+    _rexAction = action;
+    setRexRange(30);
+    document.getElementById('rex-title').textContent = title;
+    document.getElementById('rex-sub').textContent = sub || '';
+    const today = _blTodayStr();
+    const f = document.getElementById('rex-from'), t = document.getElementById('rex-to');
+    f.max = today; t.max = today;
+    if (!f.value) f.value = _blCutoff(30);
+    if (!t.value) t.value = today;
+    document.getElementById('range-export-overlay').style.display = 'block';
+    document.getElementById('range-export-sheet').classList.add('open');
 }
+
+function closeRangeExportSheet() {
+    document.getElementById('range-export-overlay').style.display = 'none';
+    document.getElementById('range-export-sheet').classList.remove('open');
+}
+
+function setRexRange(r) {
+    _rexRange = r;
+    document.querySelectorAll('#rex-chips .bl-chip').forEach(b =>
+        b.classList.toggle('active', String(b.dataset.range) === String(r)));
+    const c = document.getElementById('rex-custom');
+    if (c) c.style.display = r === 'custom' ? 'flex' : 'none';
+}
+
+function _rexBounds() {
+    if (_rexRange === 'all') return { from: null, to: null, slug: 'all', label: 'הכל' };
+    if (_rexRange === 'custom') {
+        const from = document.getElementById('rex-from').value;
+        const to = document.getElementById('rex-to').value;
+        if (!from || !to) { showAlert('בחר תאריך התחלה וסיום.'); return null; }
+        if (from > to) { showAlert('תאריך ההתחלה מאוחר מתאריך הסיום.'); return null; }
+        return { from, to, slug: 'custom', label: `${_blListDate(from)}–${_blListDate(to)}` };
+    }
+    return { from: _blCutoff(_rexRange), to: _blTodayStr(), slug: _rexRange + 'd', label: _rexRange + ' ימים' };
+}
+
+function confirmRangeExport() {
+    const b = _rexBounds();
+    if (!b) return;
+    closeRangeExportSheet();
+    if (_rexAction) _rexAction(b);
+    haptic('light');
+}
+
+// נקודות כניסה — מכפתורי ה-sheets של ייבוא/ייצוא
+function openWeightExportRange()       { openRangeExportSheet('ייצוא שקילות', 'הקובץ יורד כ-CSV (נפתח באקסל).', exportBodyCsv); }
+function openNutriDailyExportRange()   { openRangeExportSheet('ייצוא תזונה יומית', 'JSON מקוצר — קלוריות ומאקרו לכל יום.', exportNutritionDailyJson); }
+function openNutriDetailedExportRange(){ openRangeExportSheet('ייצוא תזונה מפורטת', 'JSON מלא — ארוחות, פריטים ומרכיבים.', exportNutritionDetailedJson); }
 
 function _blDownloadJson(payload, filename) {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
@@ -665,14 +715,14 @@ function _blDownloadJson(payload, filename) {
     URL.revokeObjectURL(a.href);
 }
 
-// (א) מקוצר — יום → קלוריות + מאקרו בלבד, לפי צ'יפי הטווח בארכיון
-function exportNutritionDailyJson() {
+// (א) מקוצר — יום → קלוריות + מאקרו בלבד, לפי הטווח שנבחר בבורר הייצוא
+function exportNutritionDailyJson(b) {
     const all = StorageManager.getNutritionDaily();
     if (!all || !all.length) { showAlert('אין נתוני תזונה לייצוא.'); return; }
-    const days = _arFilterByRange(all).slice().sort((a, b) => a.date < b.date ? -1 : 1)
+    const days = all.filter(d => (!b.from || d.date >= b.from) && (!b.to || d.date <= b.to))
+        .slice().sort((a, b2) => a.date < b2.date ? -1 : 1)
         .map(d => ({ date: d.date, calories: d.calories || 0, protein: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0 }));
     if (!days.length) { showAlert('אין נתוני תזונה בטווח שנבחר.'); return; }
-    const b = _nutritionRangeBounds();
     _blDownloadJson({
         app: 'GYMPRO ELITE', type: 'nutrition_daily',
         range: { label: b.label, from: b.from, to: b.to },
@@ -690,8 +740,7 @@ const _NUTRI_EXPORT_README = [
     'source:"summary" = קיים סיכום יומי בלבד (למשל Apple Health) — meals ריק, totals בלבד.',
     'nutrition_daily / totals הם שורה תחתונה בכוונה; לניתוח הרכב מזון השתמש ב-meals.'
 ];
-function exportNutritionDetailedJson() {
-    const b = _nutritionRangeBounds();
+function exportNutritionDetailedJson(b) {
     const days = _buildNutritionDetailed(b.from, b.to);
     if (!days.length) { showAlert('אין נתוני תזונה בטווח שנבחר.'); return; }
     _blDownloadJson({
@@ -1540,27 +1589,10 @@ function openUnifiedExportModal() {
 }
 function closeUnifiedExportModal() { document.getElementById('unified-export-modal').style.display = 'none'; }
 
-// ─── ייצוא CSV ──────────────────────────────────────────────────────────────
-function openBodyExportSheet() {
-    const today = _blTodayStr();
-    const s = document.getElementById('bl-export-start'), e = document.getElementById('bl-export-end');
-    if (s) s.max = today;
-    if (e) { e.max = today; e.value = today; }
-    document.getElementById('bl-export-modal').style.display = 'flex';
-}
-function closeBodyExportModal() { document.getElementById('bl-export-modal').style.display = 'none'; }
-
-function exportBodyCsv(range) {
-    let log = StorageManager.getBodyLog().slice().sort((a, b) => a.date < b.date ? -1 : 1);
-    if (range === 7 || range === 30) {
-        const cutoff = _blCutoff(range);
-        log = log.filter(e => e.date >= cutoff);
-    } else if (range === 'custom') {
-        const s = document.getElementById('bl-export-start').value;
-        const en = document.getElementById('bl-export-end').value;
-        if (!s || !en) { showAlert('בחר תאריך התחלה וסיום.'); return; }
-        log = log.filter(e => e.date >= s && e.date <= en);
-    }
+// ─── ייצוא CSV — לפי הטווח שנבחר בבורר הייצוא ───────────────────────────────
+function exportBodyCsv(b) {
+    const log = StorageManager.getBodyLog().slice().sort((a, b2) => a.date < b2.date ? -1 : 1)
+        .filter(e => (!b.from || e.date >= b.from) && (!b.to || e.date <= b.to));
     if (!log.length) { showAlert('אין נתונים לייצוא בטווח שנבחר.'); return; }
 
     const header = ['תאריך', 'משקל (ק"ג)', 'אחוז שומן', 'מצב תזונתי', 'מקור', 'הערות'];
@@ -1575,9 +1607,8 @@ function exportBodyCsv(range) {
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM — תאימות עברית באקסל
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `gympro_weights_${_blTodayStr()}.csv`;
+    a.download = `gympro_weights_${b.slug}_${_blTodayStr()}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
-    closeBodyExportModal();
     haptic('success');
 }

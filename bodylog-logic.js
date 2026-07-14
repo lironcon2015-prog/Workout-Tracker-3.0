@@ -648,14 +648,12 @@ function toggleNutriListExpand() { _blNutriExpanded = !_blNutriExpanded; _render
 // ─── ייצוא תזונה (JSON) — מקוצר + מפורט, מכבדי בורר-טווח ──────────────────────
 const _nR = v => Math.round((Number(v) || 0) * 10) / 10;   // עיגול ל-decimal אחד
 
-// _nutritionRangeBounds — ממיר את הבורר הנוכחי (7/30/90/custom/all) ל-{from,to,slug,label}
+// _nutritionRangeBounds — ממיר את צ'יפי הטווח של הארכיון (7/30/90/all) ל-{from,to,slug,label}.
+// הייצוא נפתח מתת-מסך התזונה בארכיון — לכן הטווח נקרא מ-_arRange (הצ'יפים שעל אותו מסך),
+// לא מ-_blRange של גרפי Composition.
 function _nutritionRangeBounds() {
-    const today = _blTodayStr();
-    if (_blRange === 'all') return { from: null, to: null, slug: 'all', label: 'הכל' };
-    if (_blRange === 'custom') {
-        return { from: _blCustom.from || null, to: _blCustom.to || today, slug: 'custom', label: 'טווח מותאם' };
-    }
-    return { from: _blCutoff(_blRange), to: today, slug: _blRange + 'd', label: _blRange + ' ימים' };
+    if (_arRange === 'all') return { from: null, to: null, slug: 'all', label: 'הכל' };
+    return { from: _blCutoff(_arRange), to: _blTodayStr(), slug: _arRange + 'd', label: _arRange + ' ימים' };
 }
 
 function _blDownloadJson(payload, filename) {
@@ -667,11 +665,11 @@ function _blDownloadJson(payload, filename) {
     URL.revokeObjectURL(a.href);
 }
 
-// (א) מקוצר — יום → קלוריות + מאקרו בלבד, לפי הבורר הנוכחי
+// (א) מקוצר — יום → קלוריות + מאקרו בלבד, לפי צ'יפי הטווח בארכיון
 function exportNutritionDailyJson() {
     const all = StorageManager.getNutritionDaily();
     if (!all || !all.length) { showAlert('אין נתוני תזונה לייצוא.'); return; }
-    const days = _blFilter(all).slice().sort((a, b) => a.date < b.date ? -1 : 1)
+    const days = _arFilterByRange(all).slice().sort((a, b) => a.date < b.date ? -1 : 1)
         .map(d => ({ date: d.date, calories: d.calories || 0, protein: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0 }));
     if (!days.length) { showAlert('אין נתוני תזונה בטווח שנבחר.'); return; }
     const b = _nutritionRangeBounds();

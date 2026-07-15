@@ -112,10 +112,16 @@ function getSubstitutes(exName) {
     return group ? group.filter(n => n !== exName) : [];
 }
 
-function isExOrVariationDone(originalName) {
+function isExOrVariationDone(originalName, plannedNames = null) {
     if (state.completedExInSession.includes(originalName)) return true;
     const group = substituteGroups.find(g => g.includes(originalName));
-    if (group) return group.some(varName => state.completedExInSession.includes(varName));
+    // וריאציה שהושלמה "מכסה" את התרגיל רק אם היא לא תרגיל מתוכנן בפני עצמו באימון —
+    // אחרת אימון שכולל שני תרגילים מאותה קבוצת תחליפים ידלג על השני
+    if (group) return group.some(varName =>
+        varName !== originalName &&
+        state.completedExInSession.includes(varName) &&
+        (!plannedNames || !plannedNames.includes(varName))
+    );
     return false;
 }
 
@@ -1846,10 +1852,16 @@ function selectWorkout(t) {
 function checkFlow() {
     const workoutList = state.workouts[state.type];
 
+    // כל שמות התרגילים המתוכננים באימון (כולל תרגילי קלאסטר) —
+    // כדי שהשלמת תרגיל מתוכנן לא תדלג על וריאציה שלו שמתוכננת גם היא
+    const plannedNames = workoutList.flatMap(item =>
+        item.type === 'cluster' ? (item.exercises || []).map(e => e.name) : [item.name]
+    );
+
     while (
         state.exIdx < workoutList.length &&
         workoutList[state.exIdx].type !== 'cluster' &&
-        isExOrVariationDone(workoutList[state.exIdx].name)
+        isExOrVariationDone(workoutList[state.exIdx].name, plannedNames)
     ) {
         state.exIdx++;
     }

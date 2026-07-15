@@ -322,6 +322,156 @@ function computeTDEE() {
     return res;
 }
 
+// ─── ייצוא TDEE גולמי — שכבת ביקורת מעל computeTDEE (לא נוגעת בחישוב עצמו) ───
+// מוציא JSON עם הסדרות המלאות + סימון חלונות מזוהמים, לבדיקת אמינות ידנית.
+// ספי הזיהוי — קבועים לכיול עתידי, אסור להטמיע ערכים קשיחים בלוגיקה למטה.
+const _TDEE_EXPORT_CFG = {
+    PHASE_TRANSITION_DAYS: 18,      // ימי ריבאונד גליקוגן לסימון אחרי כל גבול פאזה
+    LOW_INTAKE_PCT: 0.60,           // צריכה מתחת לאחוז זה מממוצע החלון = מחלה/תת-אכילה
+    WEIGHT_SPIKE_KG_PER_DAY: 0.8,   // קצב שינוי משקל יומי מעל זה = מים/מלח, לא אנרגיה
+    ROLLING_AVG_DAYS: 7,            // חלון הממוצע הנע לסדרת המשקל (זהה לגרף)
+    MIN_CLEAN_DAYS: 10              // מינימום ימים בחלון נקי לחישוב back-calc מנוקה
+};
+// שמות פאזות לייצוא — 'surplus' הפנימי הוא 'bulk' במינוח המקובל
+const _TDEE_PHASE_NAME = { cut: 'cut', maintenance: 'maintenance', surplus: 'bulk' };
+
+function buildTdeeRawExport() {
+    const t = computeTDEE();
+    if (!t) return null;
+    const cfg = _TDEE_EXPORT_CFG;
+    const today = _blTodayStr();
+    const from = t.effectiveStart || t.startDate;
+    const to = today;
+    const winDays = Math.round((_blDTs(to) - _blDTs(from)) / 86400000) + 1;
+
+    // סדרת המשקל המלאה בחלון + ממוצע נע נגרר (אותה שיטה כמו בגרף המשקל)
+    const weights = (StorageManager.getBodyLog() || [])
+        .filter(e => e.date >= from && e.date <= to)
+        .slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    const weightSeries = weights.map((e, i) => {
+        const slice = weights.slice(Math.max(0, i - (cfg.ROLLING_AVG_DAYS - 1)), i + 1);
+        const avg = slice.reduce((s, x) => s + x.weight, 0) / slice.length;
+        return { date: e.date, raw_kg: e.weight, rolling_avg_kg: +avg.toFixed(2) };
+    });
+
+    // סדרת הצריכה — כל יום בחלון; יום ללא דיווח = kcal:null (לא ממציאים נתונים)
+    const dailyMap = {};
+    (StorageManager.getNutritionDaily() || []).forEach(d => { if (d && d.date) dailyMap[d.date] = d; });
+    const allDates = [];
+    for (let d = from; d <= to; d = _addDays(d, 1)) allDates.push(d);
+
+    // גבולות פאזה — מלוג המעברים הקיים (ישות הפאזה של המערכת)
+    const plog = StorageManager.getNutritionLog() || [];
+    const boundaries = [];
+    for (let i = 1; i < plog.length; i++) {
+        boundaries.push({
+            date: plog[i].startDate,
+            from_phase: _TDEE_PHASE_NAME[plog[i - 1].state] || plog[i - 1].state,
+            to_phase: _TDEE_PHASE_NAME[plog[i].state] || plog[i].state
+        });
+    }
+    // גבול רלוונטי = חלון המעבר שלו (N ימים) נוגע בחלון החישוב
+    const relBounds = boundaries.filter(b =>
+        b.date <= to && _addDays(b.date, cfg.PHASE_TRANSITION_DAYS - 1) >= from);
+
+    // ── סימון חלונות מזוהמים ──
+    const flags = [];
+    // (א) מעבר פאזה — N הימים הראשונים אחרי כל גבול (ריבאונד גליקוגן/מים)
+    relBounds.forEach(b => {
+        for (let i = 0; i < cfg.PHASE_TRANSITION_DAYS; i++) {
+            const d = _addDays(b.date, i);
+            if (d < from || d > to) continue;
+            flags.push({ date: d, type: 'phase_transition', trigger_value: i + 1,
+                note: `יום ${i + 1}/${cfg.PHASE_TRANSITION_DAYS} אחרי מעבר ${b.from_phase}→${b.to_phase} (${b.date})` });
+        }
+    });
+    // (ב) תת-אכילה/מחלה — צריכה מתחת לאחוז הסף מממוצע הימים המדווחים בחלון
+    const reported = allDates.map(d => dailyMap[d]).filter(x => x && x.calories > 0);
+    const meanKcal = reported.length ? reported.reduce((s, x) => s + x.calories, 0) / reported.length : null;
+    if (meanKcal) {
+        const floor = meanKcal * cfg.LOW_INTAKE_PCT;
+        reported.forEach(x => {
+            if (x.calories < floor) flags.push({ date: x.date, type: 'low_intake', trigger_value: Math.round(x.calories),
+                note: `צריכה ${Math.round(x.calories)} קק"ל — מתחת ל-${Math.round(cfg.LOW_INTAKE_PCT * 100)}% מממוצע החלון (${Math.round(meanKcal)})` });
+        });
+    }
+    // (ג) קפיצת משקל — קצב יומי בין שקילות עוקבות מעל הסף
+    for (let i = 1; i < weights.length; i++) {
+        const dDays = Math.max(1, Math.round((_blDTs(weights[i].date) - _blDTs(weights[i - 1].date)) / 86400000));
+        const rate = (weights[i].weight - weights[i - 1].weight) / dDays;
+        if (Math.abs(rate) > cfg.WEIGHT_SPIKE_KG_PER_DAY)
+            flags.push({ date: weights[i].date, type: 'weight_spike', trigger_value: +rate.toFixed(2),
+                note: `שינוי ${rate > 0 ? '+' : ''}${rate.toFixed(2)} ק"ג/יום מול השקילה הקודמת (${weights[i - 1].date})` });
+    }
+    flags.sort((a, b) => a.date < b.date ? -1 : 1);
+    const flaggedSet = new Set(flags.map(f => f.date));
+
+    // ── החלון הרציף הארוך ביותר ללא ימים מסומנים + back-calc מנוקה ──
+    let best = null, runStart = null;
+    allDates.forEach((d, i) => {
+        if (flaggedSet.has(d)) { runStart = null; return; }
+        if (runStart == null) runStart = i;
+        const len = i - runStart + 1;
+        if (!best || len > best.len) best = { from: allDates[runStart], to: d, len };
+    });
+    let clean = null;
+    if (best && best.len >= cfg.MIN_CLEAN_DAYS) {
+        const cw = weights.filter(e => e.date >= best.from && e.date <= best.to);
+        const ci = allDates.filter(d => d >= best.from && d <= best.to && d !== today)
+            .map(d => dailyMap[d]).filter(x => x && x.calories > 0);
+        if (cw.length >= 4 && ci.length >= 7) {
+            const t0 = _blDTs(cw[0].date);
+            const reg = _linReg(cw.map(e => ({ t: (_blDTs(e.date) - t0) / 86400000, v: e.weight })));
+            const avg = ci.reduce((s, x) => s + x.calories, 0) / ci.length;
+            if (reg) clean = { from: best.from, to: best.to, days: best.len,
+                tdee_clean: Math.round(avg - reg.slope * _KCAL_PER_KG) };
+        }
+    }
+    if (!clean) clean = best
+        ? { from: best.from, to: best.to, days: best.len, tdee_clean: null,
+            note: 'אין מספיק שקילות/ימי תזונה בחלון הנקי לחישוב back-calc אמין' }
+        : { from: null, to: null, days: 0, tdee_clean: null, note: 'לא נמצא חלון נקי רציף' };
+
+    const byName = n => { const m = t.methods.find(x => x.name.startsWith(n)); return m ? m.tdee : null; };
+    return {
+        meta: {
+            generated: new Date().toISOString(),
+            window: { from, to, days: winDays },
+            method: 'back-calc',
+            energy_coefficient_kcal_per_kg: _KCAL_PER_KG,
+            rolling_avg_window_days: cfg.ROLLING_AVG_DAYS,
+            thresholds: {
+                phase_transition_days: cfg.PHASE_TRANSITION_DAYS,
+                low_intake_pct: cfg.LOW_INTAKE_PCT,
+                weight_spike_kg_per_day: cfg.WEIGHT_SPIKE_KG_PER_DAY
+            },
+            results: {
+                back_calc_full: t.measuredOk ? t.best : null,
+                back_calc_clean: clean.tdee_clean,
+                katch_mcardle: byName('Katch-McArdle'),
+                cunningham: byName('Cunningham'),
+                mifflin_st_jeor: byName('Mifflin-St Jeor')
+            }
+        },
+        weight_series: weightSeries,
+        intake_series: allDates.map(d => ({
+            date: d,
+            kcal: (dailyMap[d] && dailyMap[d].calories > 0) ? Math.round(dailyMap[d].calories) : null,
+            flagged: flaggedSet.has(d)
+        })),
+        phase_boundaries: relBounds,
+        contamination_flags: flags,
+        clean_window: clean
+    };
+}
+
+function exportTdeeRawJson() {
+    const payload = buildTdeeRawExport();
+    if (!payload) { showAlert('אין מספיק נתונים לייצוא חישוב TDEE.'); return; }
+    _blDownloadJson(payload, `gympro_tdee_raw_${_blTodayStr()}.json`);
+    haptic('light');
+}
+
 // מצב הרחבת כרטיס המאזן — ברירת מחדל מקופל (hero + קצב נוכחי בלבד)
 let _blTdeeExpanded = false;
 function toggleTdeeExpand() { _blTdeeExpanded = !_blTdeeExpanded; _renderTdeeCard(); haptic('light'); }
@@ -367,7 +517,11 @@ function _renderTdeeCard() {
             <div><span>ירידה ~0.5/שב'</span><b>${fmt(cut)}</b></div>
             <div><span>עלייה ~0.25/שב'</span><b>${fmt(bulk)}</b></div>
         </div>
-        <div class="bl-nutri-foot">${t.note}</div>`;
+        <div class="bl-nutri-foot">${t.note}</div>
+        <button class="bl-tdee-export" onclick="exportTdeeRawJson()">
+            <span class="material-symbols-outlined">download</span>
+            <span>ייצוא חישוב גולמי (JSON)</span>
+        </button>`;
     card.innerHTML = `
         <div class="bl-chart-title">מאזן אנרגיה · TDEE <small>— ביטחון ${t.confidence} · ${t.source}</small></div>
         <div class="bl-tdee-hero">${fmt(t.best)}<span class="bl-tdee-unit">קק"ל/יום</span></div>

@@ -5568,6 +5568,15 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     align-self: flex-start;
 }
 .bl-tdee-toggle .material-symbols-outlined { font-size: var(--fs-xl); }
+/* כפתור ייצוא חישוב TDEE גולמי — נראה רק כשהפירוט מורחב, דיסקרטי כמו ה-toggle */
+.bl-tdee-export {
+    display: inline-flex; align-items: center; gap: 4px; margin-top: 10px;
+    background: transparent; border: none; color: var(--text-dim);
+    font-size: var(--fs-sm); font-weight: 700; font-family: inherit; cursor: pointer;
+    align-self: flex-start;
+}
+.bl-tdee-export .material-symbols-outlined { font-size: var(--fs-xl); }
+.bl-tdee-export:active { color: var(--text); }
 /* גיבוי/ייצוא בתחתית מסך הארכיון */
 .archive-backup-bottom { margin-top: 28px; }
 

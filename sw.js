@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 17.36
+ * Version: 17.37
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v17.36';
+const CACHE_VERSION = 'gympro-v17.37';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [

@@ -2338,6 +2338,7 @@
         <video id="pp-cam-video" class="pp-cam-video" muted playsinline webkit-playsinline></video>
         <img id="pp-ghost" class="pp-ghost" alt="" style="display:none;">
         <div id="pp-countdown" class="pp-countdown" style="display:none;"></div>
+        <div id="pp-flash" class="pp-flash"></div>
         <div class="pp-cam-top">
             <button class="pp-cam-chip" id="pp-ghost-btn" onclick="ppToggleGhost()">רפאים: פעיל</button>
             <button class="pp-cam-chip" id="pp-face-btn" onclick="ppSwitchCamera()">מצלמה: קדמית</button>
@@ -2347,13 +2348,14 @@
         </div>
         <div class="pp-cam-msg" id="pp-cam-msg" style="display:none;"></div>
         <div class="pp-cam-actions">
-            <button class="fd-live-btn pp-shoot" onclick="ppCapture()">צלם</button>
+            <button id="pp-shoot-btn" class="fd-live-btn pp-shoot" onclick="ppCapture()">צלם</button>
             <button class="fd-live-btn fd-live-close" onclick="ppCloseCamera()">סגור</button>
         </div>
     </div>
 
     <!-- תצוגה מלאה של תמונת התקדמות -->
     <div id="pp-viewer" class="pp-viewer" onclick="ppCloseViewer()">
+        <div id="pp-viewer-loading" class="pp-viewer-loading" style="display:none;">טוען תמונה...</div>
         <img id="pp-viewer-img" alt="">
         <div class="pp-viewer-bar" onclick="event.stopPropagation()">
             <span id="pp-viewer-date"></span>

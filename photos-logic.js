@@ -533,7 +533,11 @@ async function ppOpenViewer(date) {
     document.getElementById('pp-viewer-date').textContent = _ppListDate(date);
     const img = document.getElementById('pp-viewer-img');
     img.removeAttribute('src');
+    // חיווי טעינה — משיכה מהדרייב יכולה לקחת כמה שניות
+    const loading = document.getElementById('pp-viewer-loading');
+    if (loading) loading.style.display = '';
     const blob = await ppGetPhotoBlob(date).catch(() => null);
+    if (loading) loading.style.display = 'none';
     if (!blob) { if (_ppViewerDate === date) { ppCloseViewer(); showAlert('התמונה לא נמצאה מקומית ולא בדרייב.'); } return; }
     if (_ppViewerDate !== date) return;   // נסגר/הוחלף בזמן הטעינה
     if (_ppViewerUrl) { try { URL.revokeObjectURL(_ppViewerUrl); } catch (e) {} }
@@ -544,6 +548,8 @@ async function ppOpenViewer(date) {
 function ppCloseViewer() {
     const ov = document.getElementById('pp-viewer');
     if (ov) ov.style.display = 'none';
+    const loading = document.getElementById('pp-viewer-loading');
+    if (loading) loading.style.display = 'none';
     if (_ppViewerUrl) { try { URL.revokeObjectURL(_ppViewerUrl); } catch (e) {} _ppViewerUrl = null; }
     _ppViewerDate = null;
 }
@@ -555,6 +561,7 @@ function ppDeleteCurrent() {
         await ppDeletePhoto(date);
         ppCloseViewer();
         _renderBodyPhotos();
+        if (typeof showCloudToast === 'function') showCloudToast('🗑️ התמונה נמחקה', true);
     });
 }
 
@@ -721,9 +728,24 @@ function ppCycleTimer() {
 }
 
 function ppCapture() {
-    if (_ppCountdownTimer) return;   // ספירה כבר רצה
+    if (_ppCountdownTimer) {   // לחיצה במהלך ספירה — ביטול הספירה
+        clearInterval(_ppCountdownTimer); _ppCountdownTimer = null;
+        const el = document.getElementById('pp-countdown');
+        if (el) el.style.display = 'none';
+        haptic('light');
+        return;
+    }
     if (_ppTimerSec > 0) _ppRunCountdown(_ppTimerSec, _ppDoCapture);
     else _ppDoCapture();
+}
+
+// פלאש לבן קצר ברגע הלכידה — פידבק מיידי שהצילום נקלט
+function _ppFlash() {
+    const el = document.getElementById('pp-flash');
+    if (!el) return;
+    el.classList.remove('on');
+    void el.offsetWidth;   // restart של האנימציה
+    el.classList.add('on');
 }
 
 function _ppRunCountdown(sec, done) {
@@ -756,12 +778,15 @@ async function _ppDoCapture() {
     const raw = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
     if (!raw) { _ppCamMsg('הצילום נכשל — נסה שוב.'); return; }
     haptic('medium');
+    _ppFlash();
     // נורמליזציית כיוון: פריים גולמי מ-getUserMedia אינו mirrored גם במצלמה
     // קדמית (ה-mirror הוא קונבנציית תצוגה בלבד, ב-CSS) — לכן קדמית ואחורית
     // כבר באותו כיוון ואסור להפוך בלכידה. יכולת ה-flip נשארת במכווץ למקרה עתידי.
     const today = _ppTodayStr();
     const exists = StorageManager.getPhotoIndex().some(e => e.date === today);
     const doSave = async () => {
+        const btn = document.getElementById('pp-shoot-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'שומר...'; }
         try {
             await ppStorePhoto(raw, {});
             ppCloseCamera();
@@ -771,6 +796,8 @@ async function _ppDoCapture() {
         } catch (e) {
             console.error('GymPro photos: store failed', e);
             _ppCamMsg('השמירה נכשלה: ' + (e && e.message ? e.message : 'שגיאה'));
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'צלם'; }
         }
     };
     if (exists) showConfirm('כבר צולמה תמונה היום — להחליף אותה?', doSave);

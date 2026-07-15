@@ -900,7 +900,7 @@ function renderSelectorList() {
         const matchesFilter = managerState.selectorFilter === 'all' || ex.muscles.includes(managerState.selectorFilter);
         const matchesSearch = ex.name.toLowerCase().includes(searchVal);
         return matchesFilter && matchesSearch;
-    });
+    }).sort((a, b) => a.name.localeCompare(b.name));
 
     filtered.forEach(ex => {
         const row = document.createElement('div');

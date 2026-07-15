@@ -3499,7 +3499,9 @@ function _renderSwapMenu(searchVal) {
     const findEx = (name) => state.exercises.find(e => e.name === name);
 
     // ── מומלצים: וריאציות מהקבוצות הקיימות ──
-    const variations = getSubstitutes(state.currentExName).filter(name => !state.completedExInSession.includes(name));
+    const variations = getSubstitutes(state.currentExName)
+        .filter(name => !state.completedExInSession.includes(name))
+        .sort((a, b) => a.localeCompare(b));
     if (variations.length > 0) {
         const titleVar = document.createElement('div');
         titleVar.className = "ex-section-label";

@@ -357,7 +357,8 @@ function _renderBodyPhotos() {
 
 /* ─── תזכורת צילום — 10+ ימים בלי תמונה ─────────────────────────────────────
  * שתי שכבות: banner בטאב התמונות (ניתן לדחייה ל-3 ימים, מקומי למכשיר)
- * + dot על טאב Composition (נעלם רק כשמצלמים). אין תמונות כלל = שקט. */
+ * + dot על טאב Composition (נעלם רק כשמצלמים). אין תמונות כלל = תזכורת
+ * "תמונה ראשונה" עד הצילום הראשון (החלטת מוצר — נדחסת גם היא ב-X). */
 const _PP_REMIND_DAYS = 10;
 const _PP_SNOOZE_DAYS = 3;
 const _PP_SNOOZE_KEY = 'gympro_pp_remind_snooze';
@@ -369,7 +370,7 @@ function _ppDaysSinceLast() {
 
 function _ppReminderDue() {
     const days = _ppDaysSinceLast();
-    return days != null && days >= _PP_REMIND_DAYS;
+    return days == null || days >= _PP_REMIND_DAYS;   // null = אין תמונה ראשונה — מסומן עד הצילום הראשון
 }
 
 function _ppReminderSnoozed() {
@@ -393,7 +394,10 @@ function _ppRenderReminder() {
         el.style.display = show ? '' : 'none';
         if (show) {
             const txt = document.getElementById('pp-reminder-txt');
-            if (txt) txt.textContent = 'עברו ' + _ppDaysSinceLast() + ' ימים מהתמונה האחרונה';
+            const days = _ppDaysSinceLast();
+            if (txt) txt.textContent = days == null
+                ? 'עדיין אין תמונת התקדמות ראשונה'
+                : 'עברו ' + days + ' ימים מהתמונה האחרונה';
         }
     }
     const tab = document.getElementById('tabbtn-bodylog');

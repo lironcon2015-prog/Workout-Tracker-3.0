@@ -316,7 +316,10 @@ async function ppReconcileFromDrive() {
 
 // ─── טריגרים: פתיחת אפליקציה + חזרת רשת ─────────────────────────────────────
 window.addEventListener('online', () => _ppKickUploads());
-document.addEventListener('DOMContentLoaded', () => setTimeout(_ppKickUploads, 4000));
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(_ppKickUploads, 4000);
+    _ppRenderReminder();   // ה-dot על הטאב צריך להופיע כבר בפתיחה, לא רק בכניסה לטאב
+});
 
 /* ════════ UI — תת-טאב "תמונות" במסך Composition ════════ */
 
@@ -348,7 +351,53 @@ function _renderBodyPhotos() {
     _ppRenderAnalysisCard();
     _ppRenderCompareCard(index);
     _ppRenderGallery(index);
+    _ppRenderReminder();
     if (typeof _ppMaybeAutoAnalyze === 'function') _ppMaybeAutoAnalyze();
+}
+
+/* ─── תזכורת צילום — 10+ ימים בלי תמונה ─────────────────────────────────────
+ * שתי שכבות: banner בטאב התמונות (ניתן לדחייה ל-3 ימים, מקומי למכשיר)
+ * + dot על טאב Composition (נעלם רק כשמצלמים). אין תמונות כלל = שקט. */
+const _PP_REMIND_DAYS = 10;
+const _PP_SNOOZE_DAYS = 3;
+const _PP_SNOOZE_KEY = 'gympro_pp_remind_snooze';
+
+function _ppDaysSinceLast() {
+    const index = _ppIndexDesc();
+    return index.length ? _ppDaysBetween(index[0].date, _ppTodayStr()) : null;
+}
+
+function _ppReminderDue() {
+    const days = _ppDaysSinceLast();
+    return days != null && days >= _PP_REMIND_DAYS;
+}
+
+function _ppReminderSnoozed() {
+    try { return (localStorage.getItem(_PP_SNOOZE_KEY) || '') > _ppTodayStr(); }
+    catch (e) { return false; }
+}
+
+function ppSnoozeReminder() {
+    const until = new Date();
+    until.setDate(until.getDate() + _PP_SNOOZE_DAYS);
+    try { localStorage.setItem(_PP_SNOOZE_KEY, _ppLocalDateStr(until)); } catch (e) {}
+    _ppRenderReminder();
+    haptic('light');
+}
+
+function _ppRenderReminder() {
+    const due = _ppReminderDue();
+    const el = document.getElementById('pp-reminder');
+    if (el) {
+        const show = due && !_ppReminderSnoozed();
+        el.style.display = show ? '' : 'none';
+        if (show) {
+            const txt = document.getElementById('pp-reminder-txt');
+            if (txt) txt.textContent = 'עברו ' + _ppDaysSinceLast() + ' ימים מהתמונה האחרונה';
+        }
+    }
+    const tab = document.getElementById('tabbtn-bodylog');
+    if (tab) tab.classList.toggle('has-dot', due);
 }
 
 // ─── כרטיס ניתוח AI אחרון ───────────────────────────────────────────────────

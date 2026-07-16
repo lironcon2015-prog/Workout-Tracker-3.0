@@ -6604,6 +6604,34 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
 /* ════════ תמונות התקדמות (Progress Photos) ════════ */
 
 /* שורת פעולות עליונה */
+/* תזכורת צילום — 10+ ימים בלי תמונה */
+.pp-reminder {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface-4); border-radius: var(--r-pill);
+    padding: 8px 16px 8px 8px; margin: 4px 0 12px;
+    font-size: var(--fs-sm); font-weight: 700; color: var(--text);
+}
+.pp-reminder span { flex: 1; }
+.pp-reminder-cta {
+    border: none; border-radius: var(--r-pill); padding: 8px 16px;
+    background: var(--accent); color: #0a0a0a; font-family: inherit;
+    font-size: var(--fs-sm); font-weight: 900; cursor: pointer;
+}
+.pp-reminder-cta:active { transform: scale(0.97); }
+.pp-reminder-x {
+    border: none; background: none; color: var(--text-dim);
+    font-size: var(--fs-md); font-weight: 700; cursor: pointer;
+    padding: 6px 8px; font-family: inherit;
+}
+/* dot תזכורת על טאב Composition — נשאר עד שמצלמים (לא מושפע מדחיית ה-banner) */
+.tab-btn.has-dot { position: relative; }
+.tab-btn.has-dot::after {
+    content: ''; position: absolute;
+    top: 5px; right: calc(50% - 16px);
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+}
+
 .pp-actions { display: flex; gap: 10px; margin: 4px 0 14px; }
 .pp-cta {
     flex: 1; padding: 14px 18px; border: none; border-radius: var(--r-pill);

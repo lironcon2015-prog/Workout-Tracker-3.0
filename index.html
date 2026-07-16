@@ -1901,6 +1901,11 @@
 
                 <!-- ========== תצוגת תמונות התקדמות ========== -->
                 <div id="bl-view-photos" style="display:none;">
+                    <div id="pp-reminder" class="pp-reminder" style="display:none;">
+                        <span id="pp-reminder-txt"></span>
+                        <button class="pp-reminder-cta" onclick="ppOpenCamera()">צלם</button>
+                        <button class="pp-reminder-x" onclick="ppSnoozeReminder()" aria-label="דחה ל-3 ימים">✕</button>
+                    </div>
                     <div class="pp-actions">
                         <button class="pp-cta" onclick="ppOpenCamera()">צלם תמונת התקדמות</button>
                         <button class="pp-secondary" id="pp-analyze-btn" onclick="ppAnalyzeNow()">נתח עכשיו</button>

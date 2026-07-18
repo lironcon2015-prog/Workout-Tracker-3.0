@@ -619,6 +619,12 @@ const StorageManager = {
             return Promise.resolve(false);
         }
         if (!force && Date.now() - this.getBackupLast() < WEEK_MS) return Promise.resolve(false);
+        // אידמפוטנטיות: הגשר שולח את המייל גם כשהתגובה לא חוזרת ללקוח (סגירת
+        // האפליקציה/מעבר לרקע באמצע ה-fetch). לכן החותמת נרשמת לפני השליחה,
+        // ומגולגלת אחורה רק בכשל מאומת — כך כשל אמיתי עדיין ינוסה בפתיחה הבאה,
+        // אבל תגובה שאבדה לא תגרור מייל כפול.
+        const prevLast = this.getBackupLast();
+        localStorage.setItem(this.KEY_BACKUP_LAST, String(Date.now()));
         const payload = this.buildFullBackup();
         const body = {
             token,
@@ -630,12 +636,12 @@ const StorageManager = {
             .then(r => r.json())
             .then(res => {
                 if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
-                localStorage.setItem(this.KEY_BACKUP_LAST, String(Date.now()));
                 if (typeof showCloudToast === 'function') showCloudToast('📧 גיבוי שבועי נשלח לאימייל', true);
                 if (force) showAlert('הגיבוי נשלח לאימייל בהצלחה!');
                 return true;
             })
             .catch(e => {
+                localStorage.setItem(this.KEY_BACKUP_LAST, String(prevLast));
                 console.warn('GymPro: weekly backup send failed', e);
                 if (force) showAlert('שליחת הגיבוי נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. בדוק את ה-URL, ה-token ופריסת הסקריפט.');
                 return false;

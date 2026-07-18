@@ -3381,13 +3381,16 @@ body::before {
 .stg-cloud-row--last { border-bottom: none; }
 .stg-cloud-label { font-size: var(--fs-sm); font-weight: 700; color: rgba(255,255,255,0.4); }
 .stg-cloud-btns { display: flex; gap: 8px; }
+/* פילים בשפת bridge-btn: גבה = accent שקוף, שחזר = ירוק שקוף, טקסט בלבד */
 .stg-cloud-btn {
-    flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
-    padding: 8px 12px;
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07);
-    border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: 700; color: #fff;
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    height: 36px; padding: 0 12px;
+    background: rgba(255,255,255,0.05); border: none;
+    border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 900; color: #fff;
     font-family: inherit; cursor: pointer; transition: background var(--dur-1) var(--ease);
 }
+.stg-cloud-btn--up { background: rgba(var(--accent-rgb),0.12); color: var(--accent); }
+.stg-cloud-btn--dl { background: rgba(var(--success-rgb),0.12); color: var(--success); }
 .stg-cloud-btn:active { background: rgba(255,255,255,0.12); }
 
 .stg-ai-bento { padding: 20px; display: flex; flex-direction: column; gap: 12px; background: linear-gradient(135deg, #1a1919, #1e1e30) !important; border-color: rgba(100,100,255,0.1) !important; }
@@ -3418,6 +3421,8 @@ body::before {
 .bridge-btn--save { background: var(--accent-gradient); color: #fff; box-shadow: 0 3px 12px rgba(var(--accent-rgb),0.2); }
 .bridge-btn--go   { background: rgba(var(--success-rgb),0.12); color: var(--success); }
 .bridge-btn--alt  { background: rgba(var(--warn-rgb),0.10); color: var(--warn); }
+.bridge-btn--dim    { background: var(--surface-4); color: #fff; }
+.bridge-btn--danger { background: rgba(var(--danger-rgb),0.10); color: var(--danger); }
 
 .stg-ai-save {
     width: 100%; height: 52px;

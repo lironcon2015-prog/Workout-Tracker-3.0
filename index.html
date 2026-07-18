@@ -689,10 +689,9 @@
                         </div>
                     </div>
 
-                    <button class="stg-reset-btn" onclick="resetToFactorySettings()">
-                        <span class="material-symbols-outlined">restart_alt</span>
-                        איפוס להגדרות יצרן
-                    </button>
+                    <div class="bridge-btn-row" style="margin-top:12px;">
+                        <button class="bridge-btn bridge-btn--danger" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
+                    </div>
                 </div>
 
                 <!-- ════════ פאנל: אימון ════════ -->
@@ -792,9 +791,11 @@
                                 <label class="stg-ai-label">MODELS</label>
                                 <input type="text" id="ai-models-input" class="stg-ai-input" placeholder="gemini-3-flash-preview, gemini-3.1-flash-lite, gemini-2.5-flash, gemini-2.5-flash-lite">
                             </div>
-                            <button class="stg-ai-save" onclick="saveAISettings()">שמור הגדרות AI</button>
-                            <button class="cloud-btn full-w" style="margin-top:4px;border-radius:12px;" onclick="openCoachPromptsSheet()">ערוך פרומפטים של סיכום</button>
-                            <button class="cloud-btn full-w" style="margin-top:4px;color:var(--danger);border-color:rgba(255,69,58,0.3);background:rgba(255,69,58,0.06);border-radius:12px;" onclick="clearAIHistory()">מחק היסטוריית שיחות</button>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="saveAISettings()">שמור הגדרות</button>
+                                <button class="bridge-btn bridge-btn--dim" onclick="openCoachPromptsSheet()">ערוך פרומפטים</button>
+                                <button class="bridge-btn bridge-btn--danger" onclick="clearAIHistory()">מחק היסטוריה</button>
+                            </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">המפתח נשמר מקומית במכשיר זה בלבד ולא מועלה לענן. מומלץ להגביל אותו ל-GitHub Pages שלך ב-Google Cloud Console.</div>
                     </div>
@@ -807,7 +808,9 @@
                                 <label class="stg-ai-label">USDA FoodData Central API KEY</label>
                                 <input type="password" id="usda-key-input" class="stg-ai-input" placeholder="הדבק מפתח (חינמי) מ-fdc.nal.usda.gov" autocomplete="off">
                             </div>
-                            <button class="stg-ai-save" onclick="saveUsdaKey()">שמור מפתח USDA</button>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="saveUsdaKey()">שמור מפתח USDA</button>
+                            </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">שכבת חיפוש נוספת לחומרי גלם וגנריים (מעבר ל-Open Food Facts). מפתח חינמי מ-<strong>fdc.nal.usda.gov/api-key-signup.html</strong>. נשמר מקומית בלבד. ללא מפתח — החיפוש ממשיך לעבוד עם Open Food Facts והמאגר המובנה.</div>
                     </div>
@@ -842,7 +845,9 @@
                                     <option value="extra">קיצוני (1.9)</option>
                                 </select>
                             </div>
-                            <button class="stg-ai-save" onclick="saveBodyProfileSettings()">שמור פרופיל גוף</button>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="saveBodyProfileSettings()">שמור פרופיל גוף</button>
+                            </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">משמש לחישוב TDEE (נוסחת Mifflin ומכפיל פעילות). Katch-McArdle והמדידה בפועל עובדים גם בלי זה — לפי משקל, אחוז שומן ותזונה.</div>
                     </div>
@@ -863,45 +868,27 @@
                                 <span class="material-symbols-outlined" style="color:var(--accent);font-size:2rem;font-variation-settings:'FILL' 0,'wght' 300">cloud_done</span>
                             </button>
                             <div class="stg-cloud-upload">
-                                <button class="cloud-btn upload full-w" style="border-radius:12px;" onclick="FirebaseManager.uploadAllToCloud()">⬆ העלה הכל לענן (ראשוני)</button>
+                                <button class="bridge-btn bridge-btn--go" onclick="FirebaseManager.uploadAllToCloud()">העלה הכל לענן (ראשוני)</button>
                             </div>
                             <div class="stg-cloud-row">
                                 <span class="stg-cloud-label">היסטוריה</span>
                                 <div class="stg-cloud-btns">
-                                    <button class="stg-cloud-btn" onclick="manualBackupArchive()">
-                                        <span class="material-symbols-outlined" style="color:var(--accent);font-size:0.95rem;">backup</span>
-                                        <span>גבה</span>
-                                    </button>
-                                    <button class="stg-cloud-btn" onclick="FirebaseManager.loadArchiveFromCloud()">
-                                        <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
-                                        <span>שחזר</span>
-                                    </button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--up" onclick="manualBackupArchive()">גבה</button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--dl" onclick="FirebaseManager.loadArchiveFromCloud()">שחזר</button>
                                 </div>
                             </div>
                             <div class="stg-cloud-row">
                                 <span class="stg-cloud-label">קונפיגורציה</span>
                                 <div class="stg-cloud-btns">
-                                    <button class="stg-cloud-btn" onclick="manualBackupConfig()">
-                                        <span class="material-symbols-outlined" style="color:var(--accent);font-size:0.95rem;">backup</span>
-                                        <span>גבה</span>
-                                    </button>
-                                    <button class="stg-cloud-btn" onclick="FirebaseManager.loadConfigFromCloud()">
-                                        <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
-                                        <span>שחזר</span>
-                                    </button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--up" onclick="manualBackupConfig()">גבה</button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--dl" onclick="FirebaseManager.loadConfigFromCloud()">שחזר</button>
                                 </div>
                             </div>
                             <div class="stg-cloud-row stg-cloud-row--last">
                                 <span class="stg-cloud-label">שיחות AI</span>
                                 <div class="stg-cloud-btns">
-                                    <button class="stg-cloud-btn" onclick="FirebaseManager.saveAIHistoryToCloud().then(ok=>showAlert(ok?'היסטוריה גובתה לענן!':'שגיאה בגיבוי.'))">
-                                        <span class="material-symbols-outlined" style="color:var(--accent);font-size:0.95rem;">backup</span>
-                                        <span>גבה</span>
-                                    </button>
-                                    <button class="stg-cloud-btn" onclick="FirebaseManager.loadAIHistoryFromCloud()">
-                                        <span class="material-symbols-outlined" style="color:#30D158;font-size:0.95rem;">restore</span>
-                                        <span>שחזר</span>
-                                    </button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--up" onclick="FirebaseManager.saveAIHistoryToCloud().then(ok=>showAlert(ok?'היסטוריה גובתה לענן!':'שגיאה בגיבוי.'))">גבה</button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--dl" onclick="FirebaseManager.loadAIHistoryFromCloud()">שחזר</button>
                                 </div>
                             </div>
                         </div>

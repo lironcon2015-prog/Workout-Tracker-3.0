@@ -528,11 +528,17 @@ const StorageManager = {
     // ביט-לביט של מצב האפליקציה, כולל סודות. עמיד לעתיד: מפתח חדש נכנס אוטומטית.
     // ⚠️ הקובץ מכיל את כל ה-API keys והטוקנים — לשמור במקום בטוח.
 
+    // _isAppKey — שתי קידומות היסטוריות: 'gympro_' (רוב המפתחות) ו-'gympro-'
+    // (בחירות רקע: gympro-bg-choices-v2). בלעדי המקף — בחירות הרקע אבדו בשחזור.
+    _isAppKey(k) {
+        return !!k && (k.indexOf('gympro_') === 0 || k.indexOf('gympro-') === 0);
+    },
+
     buildFullBackup() {
         const keys = {};
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && k.indexOf('gympro_') === 0) keys[k] = localStorage.getItem(k);
+            if (this._isAppKey(k)) keys[k] = localStorage.getItem(k);
         }
         return {
             type: 'gympro_full_backup',
@@ -565,12 +571,12 @@ const StorageManager = {
             const toRemove = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
-                if (k && k.indexOf('gympro_') === 0) toRemove.push(k);
+                if (this._isAppKey(k)) toRemove.push(k);
             }
             toRemove.forEach(k => localStorage.removeItem(k));
             try {
                 Object.keys(payload.keys).forEach(k => {
-                    if (k.indexOf('gympro_') === 0) localStorage.setItem(k, String(payload.keys[k]));
+                    if (this._isAppKey(k)) localStorage.setItem(k, String(payload.keys[k]));
                 });
             } catch (e) {
                 console.error('GymPro: full backup restore error', e);

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מוקאפ — כפתורי גשרים קומפקטיים</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg: #070708;
+        --surface-2: #161619;
+        --surface-4: #26262c;
+        --accent: #0A84FF;
+        --accent-rgb: 10, 132, 255;
+        --accent-gradient: linear-gradient(135deg, #0A84FF, #0056b3);
+        --success: #30D158;
+        --success-rgb: 48, 209, 88;
+        --warn: #FFD60A;
+        --warn-rgb: 255, 214, 10;
+        --text-dim: #8E8E93;
+        --r-md: 20px;
+        --r-pill: 9999px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        background: var(--bg); color: #fff;
+        font-family: 'Heebo', -apple-system, sans-serif;
+        padding: 24px 16px 64px; max-width: 430px; margin: 0 auto;
+    }
+    h1 { font-size: 1.3rem; font-weight: 900; margin-bottom: 4px; }
+    .sub { color: var(--text-dim); font-size: .8rem; margin-bottom: 28px; }
+
+    .opt-title {
+        font-size: 1.05rem; font-weight: 900; margin: 36px 0 2px;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .opt-badge {
+        background: var(--accent-gradient); color: #fff; font-size: .72rem;
+        font-weight: 900; padding: 2px 12px; border-radius: var(--r-pill);
+    }
+    .opt-desc { color: var(--text-dim); font-size: .78rem; margin-bottom: 14px; line-height: 1.5; }
+
+    /* ─── בנטו גשר (נאמן לאפליקציה) ─── */
+    .bento {
+        background: linear-gradient(135deg, #1a1919, #1e1e30);
+        border: 1px solid rgba(100,100,255,0.1);
+        border-radius: var(--r-md); padding: 20px;
+        display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px;
+    }
+    .grp-label { font-size: .72rem; font-weight: 900; letter-spacing: .1em; color: var(--text-dim); margin-bottom: 6px; }
+    .status { font-size: .82rem; }
+    .status b { color: #47e266; font-weight: 700; }
+    .status span { color: var(--text-dim); font-weight: 400; }
+    .switch-row { display: flex; align-items: center; justify-content: space-between; font-size: .9rem; font-weight: 700; }
+    .sw { width: 46px; height: 28px; background: var(--accent); border-radius: var(--r-pill); position: relative; flex-shrink: 0; }
+    .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; background: #fff; border-radius: 50%; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: .65rem; font-weight: 900; letter-spacing: .13em; color: #8888dd; }
+    .field .inp {
+        height: 44px; background: rgba(0,0,0,0.4); border-radius: var(--r-md);
+        padding: 0 16px; display: flex; align-items: center;
+        color: var(--text-dim); font-size: .78rem; direction: ltr;
+        white-space: nowrap; overflow: hidden;
+    }
+
+    /* ─── הכפתור הנוכחי (לייחוס) ─── */
+    .btn-current {
+        width: 100%; height: 52px; background: var(--accent-gradient);
+        border: none; border-radius: var(--r-pill); color: #fff;
+        font-weight: 900; font-size: 1.05rem; font-family: inherit;
+        box-shadow: 0 4px 20px rgba(var(--accent-rgb),0.25); margin-top: 4px;
+    }
+
+    /* ─── אפשרות A: שורה אחידה ─── */
+    .row-a { display: flex; gap: 8px; margin-top: 4px; }
+    .btn-a {
+        flex: 1; height: 44px; border-radius: var(--r-pill); border: none;
+        font-family: inherit; font-weight: 900; font-size: .8rem; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 5px;
+        white-space: nowrap; padding: 0 6px;
+    }
+    .btn-a.save { background: var(--accent-gradient); color: #fff; box-shadow: 0 4px 16px rgba(var(--accent-rgb),0.22); }
+    .btn-a.act-green { background: rgba(var(--success-rgb),0.12); color: var(--success); border: 1px solid rgba(var(--success-rgb),0.35); }
+    .btn-a.act-amber { background: rgba(var(--warn-rgb),0.10); color: var(--warn); border: 1px solid rgba(var(--warn-rgb),0.30); }
+
+    /* ─── אפשרות B: ראשי רחב + משני צר ─── */
+    .row-b { display: flex; gap: 8px; margin-top: 4px; }
+    .btn-b {
+        height: 48px; border-radius: var(--r-pill); border: none;
+        font-family: inherit; font-weight: 900; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 5px;
+        white-space: nowrap; padding: 0 10px;
+    }
+    .btn-b.save { flex: 2; background: var(--accent-gradient); color: #fff; font-size: .9rem; box-shadow: 0 4px 16px rgba(var(--accent-rgb),0.22); }
+    .btn-b.act-green { flex: 1; background: transparent; color: var(--success); border: 1.5px solid rgba(var(--success-rgb),0.5); font-size: .78rem; }
+    .btn-b.act-amber { flex: 1; background: transparent; color: var(--warn); border: 1.5px solid rgba(var(--warn-rgb),0.45); font-size: .78rem; }
+
+    /* ─── אפשרות C: צ'יפים קומפקטיים ─── */
+    .row-c { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .btn-c {
+        height: 36px; border-radius: var(--r-pill); border: none;
+        font-family: inherit; font-weight: 900; font-size: .78rem; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 5px; padding: 0 16px;
+    }
+    .btn-c.save { background: var(--accent-gradient); color: #fff; box-shadow: 0 3px 12px rgba(var(--accent-rgb),0.20); }
+    .btn-c.act-green { background: rgba(var(--success-rgb),0.12); color: var(--success); }
+    .btn-c.act-amber { background: rgba(var(--warn-rgb),0.10); color: var(--warn); }
+
+    .note { font-size: .72rem; color: var(--text-dim); line-height: 1.55; margin: -2px 0 4px; }
+    .note b { color: #ccc; }
+    hr { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 30px 0 0; }
+</style>
+</head>
+<body>
+    <h1>כפתורי גשרים — 3 חלופות</h1>
+    <div class="sub">כל חלופה מוצגת על שני המקרים: גשר עם 2 כפתורים (גיבוי שבועי) וגשר עם 3 (תמונות התקדמות). מצב נוכחי לייחוס בתחתית.</div>
+
+    <!-- ═══ אפשרות A ═══ -->
+    <div class="opt-title"><span class="opt-badge">A</span> שורה אחידה</div>
+    <div class="opt-desc">כל הכפתורים בשורה אחת, רוחב שווה, גובה 44px. "שמור" מלא בכחול accent; פעולות ב-ghost צבעוני — ירוק לשליחה/בדיקה, ענבר לסריקה. חוסך ~60% גובה.</div>
+    <div class="bento">
+        <div class="grp-label">גיבוי שבועי לאימייל</div>
+        <div class="status"><b>&#9679; גשר מוגדר</b><span> · נשלח לאחרונה 18.7.2026 18:06</span></div>
+        <div class="switch-row"><span>הפעל גיבוי שבועי</span><span class="sw"></span></div>
+        <div class="field"><label>BRIDGE URL (Apps Script)</label><div class="inp">https://script.google.com/macros/s/…/exec</div></div>
+        <div class="field"><label>SECRET TOKEN</label><div class="inp">••••••••••</div></div>
+        <div class="row-a">
+            <button class="btn-a save">💾 שמור הגדרות</button>
+            <button class="btn-a act-green">📧 שלח עכשיו</button>
+        </div>
+    </div>
+    <div class="bento">
+        <div class="grp-label">תמונות התקדמות (GOOGLE DRIVE)</div>
+        <div class="switch-row"><span>הפעל גיבוי תמונות לדרייב</span><span class="sw"></span></div>
+        <div class="field"><label>BRIDGE URL (Apps Script)</label><div class="inp">https://script.google.com/macros/s/…/exec</div></div>
+        <div class="row-a">
+            <button class="btn-a save">💾 שמור</button>
+            <button class="btn-a act-green">בדוק חיבור</button>
+            <button class="btn-a act-amber">סרוק דרייב</button>
+        </div>
+    </div>
+    <div class="note"><b>יתרון:</b> מבנה אחיד וצפוי בכל הגשרים. <b>חיסרון:</b> ב-3 כפתורים הטקסט חייב להתקצר ("סרוק דרייב" במקום "סרוק את הדרייב").</div>
+
+    <hr>
+
+    <!-- ═══ אפשרות B ═══ -->
+    <div class="opt-title"><span class="opt-badge">B</span> ראשי רחב + משני צר</div>
+    <div class="opt-desc">"שמור" נשאר דומיננטי (⅔ רוחב, 48px) והפעולות המשניות ב-outline דק וצר. היררכיה ברורה — הפעולה העיקרית בולטת.</div>
+    <div class="bento">
+        <div class="grp-label">גיבוי שבועי לאימייל</div>
+        <div class="status"><b>&#9679; גשר מוגדר</b><span> · נשלח לאחרונה 18.7.2026 18:06</span></div>
+        <div class="switch-row"><span>הפעל גיבוי שבועי</span><span class="sw"></span></div>
+        <div class="field"><label>BRIDGE URL (Apps Script)</label><div class="inp">https://script.google.com/macros/s/…/exec</div></div>
+        <div class="field"><label>SECRET TOKEN</label><div class="inp">••••••••••</div></div>
+        <div class="row-b">
+            <button class="btn-b save">💾 שמור הגדרות גשר</button>
+            <button class="btn-b act-green">📧 שלח עכשיו</button>
+        </div>
+    </div>
+    <div class="bento">
+        <div class="grp-label">תמונות התקדמות (GOOGLE DRIVE)</div>
+        <div class="switch-row"><span>הפעל גיבוי תמונות לדרייב</span><span class="sw"></span></div>
+        <div class="field"><label>BRIDGE URL (Apps Script)</label><div class="inp">https://script.google.com/macros/s/…/exec</div></div>
+        <div class="row-b">
+            <button class="btn-b save">💾 שמור</button>
+            <button class="btn-b act-green">בדוק</button>
+            <button class="btn-b act-amber">סרוק</button>
+        </div>
+    </div>
+    <div class="note"><b>יתרון:</b> "שמור" שומר על נוכחות. <b>חיסרון:</b> ב-3 כפתורים הפעולות המשניות נהיות צרות מאוד — טקסט של מילה אחת בלבד.</div>
+
+    <hr>
+
+    <!-- ═══ אפשרות C ═══ -->
+    <div class="opt-title"><span class="opt-badge">C</span> צ'יפים קומפקטיים</div>
+    <div class="opt-desc">כפתורי pill קטנים (36px) ברוחב תוכן, מיושרים לימין — כמו כפתורי ה-pill בשאר האפליקציה. הכי חסכוני במקום; בלי גבולות, רק מילוי צבעוני שקוף.</div>
+    <div class="bento">
+        <div class="grp-label">גיבוי שבועי לאימייל</div>
+        <div class="status"><b>&#9679; גשר מוגדר</b><span> · נשלח לאחרונה 18.7.2026 18:06</span></div>
+        <div class="switch-row"><span>הפעל גיבוי שבועי</span><span class="sw"></span></div>
+        <div class="field"><label>BRIDGE URL (Apps Script)</label><div class="inp">https://script.google.com/macros/s/…/exec</div></div>
+        <div class="field"><label>SECRET TOKEN</label><div class="inp">••••••••••</div></div>
+        <div class="row-c">
+            <button class="btn-c save">💾 שמור הגדרות</button>
+            <button class="btn-c act-green">📧 שלח עכשיו</button>
+        </div>
+    </div>
+    <div class="bento">
+        <div class="grp-label">תמונות התקדמות (GOOGLE DRIVE)</div>
+        <div class="switch-row"><span>הפעל גיבוי תמונות לדרייב</span><span class="sw"></span></div>
+        <div class="field"><label>BRIDGE URL (Apps Script)</label><div class="inp">https://script.google.com/macros/s/…/exec</div></div>
+        <div class="row-c">
+            <button class="btn-c save">💾 שמור הגדרות</button>
+            <button class="btn-c act-green">בדוק חיבור</button>
+            <button class="btn-c act-amber">סרוק דרייב</button>
+        </div>
+    </div>
+    <div class="note"><b>יתרון:</b> חיסכון מקסימלי + תואם לשפת ה-pill הקיימת; הטקסט המלא נשמר. <b>חיסרון:</b> שטח מגע קטן יותר (36px מול 44px המומלץ ב-iOS).</div>
+
+    <hr>
+
+    <!-- ═══ מצב נוכחי ═══ -->
+    <div class="opt-title"><span class="opt-badge" style="background:var(--surface-4);">היום</span> מצב נוכחי (לייחוס)</div>
+    <div class="opt-desc">כל כפתור 52px ברוחב מלא, אחד מתחת לשני — בגשר התמונות: 3 × 52px + מרווחים ≈ 170px של כפתורים.</div>
+    <div class="bento">
+        <div class="grp-label">תמונות התקדמות (GOOGLE DRIVE)</div>
+        <div class="switch-row"><span>הפעל גיבוי תמונות לדרייב</span><span class="sw"></span></div>
+        <div class="field"><label>BRIDGE URL (Apps Script)</label><div class="inp">https://script.google.com/macros/s/…/exec</div></div>
+        <button class="btn-current">שמור הגדרות גשר</button>
+        <button class="btn-current" style="margin-top:0;">בדוק חיבור</button>
+        <button class="btn-current" style="margin-top:0;">סרוק את הדרייב (שחזור אינדקס)</button>
+    </div>
+</body>
+</html>

@@ -71,6 +71,8 @@
     --danger-soft-rgb: 255, 107, 107;
     --success: #30D158;           /* P2: ירוק סמנטי אחד (היו 3: 30D158/32D74B/47e266) */
     --success-rgb: 48, 209, 88;
+    --warn: #FFD60A;              /* ענבר סמנטי — פעולות משניות "זהירות" (סריקה/שחזור) */
+    --warn-rgb: 255, 214, 10;
     --glass: blur(40px) saturate(180%);
     /* Mockup primary palette */
     --primary: #aac7ff;
@@ -3403,6 +3405,20 @@ body::before {
 }
 .stg-ai-input::placeholder { color: #555; }
 .stg-ai-input:focus { box-shadow: 0 0 0 2px rgba(var(--accent-rgb),0.4); }
+/* צ'יפי פעולה של גשרים — פילים קומפקטיים ברוחב תוכן, טקסט בלבד (בלי אייקונים).
+   save = accent מלא; go = ירוק שקוף (שליחה/בדיקה); alt = ענבר שקוף (סריקה/שחזור) */
+.bridge-btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.bridge-btn {
+    height: 36px; padding: 0 16px; border: none; border-radius: var(--r-pill);
+    font-family: inherit; font-weight: 900; font-size: var(--fs-md); cursor: pointer;
+    display: inline-flex; align-items: center;
+    transition: transform var(--dur-1) var(--ease);
+}
+.bridge-btn:active { transform: scale(0.95); }
+.bridge-btn--save { background: var(--accent-gradient); color: #fff; box-shadow: 0 3px 12px rgba(var(--accent-rgb),0.2); }
+.bridge-btn--go   { background: rgba(var(--success-rgb),0.12); color: var(--success); }
+.bridge-btn--alt  { background: rgba(var(--warn-rgb),0.10); color: var(--warn); }
+
 .stg-ai-save {
     width: 100%; height: 52px;
     background: var(--accent-gradient);

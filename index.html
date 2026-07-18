@@ -962,8 +962,10 @@
                                 <label class="stg-ai-label">SECRET TOKEN</label>
                                 <input type="password" id="backup-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
                             </div>
-                            <button class="stg-ai-save" onclick="saveBackupBridgeSettings()">שמור הגדרות גשר</button>
-                            <button class="stg-ai-save" style="margin-top:6px;" onclick="sendBackupNow()">שלח גיבוי עכשיו</button>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="saveBackupBridgeSettings()">שמור הגדרות</button>
+                                <button class="bridge-btn bridge-btn--go" onclick="sendBackupNow()">שלח גיבוי עכשיו</button>
+                            </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">בכל פתיחת אפליקציה נבדק אם עברו 7 ימים מהגיבוי האחרון — ואם כן, קובץ הגיבוי המלא נשלח לאימייל שלך דרך הגשר (docs/backup-bridge.gs, רץ בחשבון ה-Gmail שלך). ⚠️ המייל מכיל את כל המפתחות — הוא נשלח מחשבונך לעצמך בלבד.</div>
                     </div>
@@ -985,8 +987,10 @@
                                 <label class="stg-ai-label">SECRET TOKEN</label>
                                 <input type="password" id="widget-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
                             </div>
-                            <button class="stg-ai-save" onclick="saveWidgetBridgeSettings()">שמור הגדרות גשר</button>
-                            <button class="stg-ai-save" style="margin-top:6px;" onclick="pushWidgetNow()">דחוף snapshot עכשיו</button>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="saveWidgetBridgeSettings()">שמור הגדרות</button>
+                                <button class="bridge-btn bridge-btn--go" onclick="pushWidgetNow()">דחוף snapshot עכשיו</button>
+                            </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">האפליקציה דוחפת לגשר (docs/widget-bridge.gs) תמונת מצב: תזונה היום + מאקרו, משקל ומגמה, האימון האחרון — בכל פתיחה וביציאה. ווידג'ט Scriptable (docs/widget-scriptable.js) מושך ומציג על מסך הבית. לחיצה על הווידג'ט פותחת את האפליקציה.</div>
                     </div>
@@ -1008,9 +1012,11 @@
                                 <label class="stg-ai-label">SECRET TOKEN</label>
                                 <input type="password" id="photo-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
                             </div>
-                            <button class="stg-ai-save" onclick="savePhotoBridgeSettings()">שמור הגדרות גשר</button>
-                            <button class="stg-ai-save" style="margin-top:6px;" onclick="testPhotoBridgeNow()">בדוק חיבור</button>
-                            <button class="stg-ai-save" style="margin-top:6px;" onclick="scanPhotoDriveNow()">סרוק את הדרייב (שחזור אינדקס)</button>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="savePhotoBridgeSettings()">שמור הגדרות</button>
+                                <button class="bridge-btn bridge-btn--go" onclick="testPhotoBridgeNow()">בדוק חיבור</button>
+                                <button class="bridge-btn bridge-btn--alt" onclick="scanPhotoDriveNow()">סרוק דרייב</button>
+                            </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">תמונות ההתקדמות נשמרות בתיקייה פרטית בדרייב שלך דרך הגשר (docs/photo-bridge.gs) — מקור האמת; במכשיר נשמר רק cache. ⚠️ פרטיות: ניתוח ה-AI שולח את התמונות ל-Gemini API — ב-free tier גוגל רשאית להשתמש בקלט לשיפור מודלים; במסלול בתשלום לא.</div>
                     </div>
@@ -1032,7 +1038,9 @@
                                 <label class="stg-ai-label">SECRET TOKEN</label>
                                 <input type="password" id="mfp-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
                             </div>
-                            <button class="stg-ai-save" onclick="saveMfpBridgeSettings()">שמור הגדרות גשר</button>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="saveMfpBridgeSettings()">שמור הגדרות</button>
+                            </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">הגשר רץ בחשבון ה-Gmail שלך (Google Apps Script) ומושך את ייצוא ה-MyFitnessPal האחרון. ה-token נשמר מקומית בלבד. הכפתור לייבוא נמצא במסך Composition.</div>
                     </div>
@@ -1054,7 +1062,9 @@
                                 <label class="stg-ai-label">SECRET TOKEN</label>
                                 <input type="password" id="health-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
                             </div>
-                            <button class="stg-ai-save" onclick="saveHealthBridgeSettings()">שמור הגדרות גשר</button>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="saveHealthBridgeSettings()">שמור הגדרות</button>
+                            </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">קיצור דרך דוחף תזונה יומית מ-Apple Health לגשר (3-4 פעמים ביום), והאפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. MFP נשאר מקור האמת — ייבוא MFP דורס ימי Health. ראה docs/health-shortcut-recipe.md.</div>
                     </div>
@@ -1075,7 +1085,9 @@
                                 <label class="stg-ai-label">SECRET TOKEN</label>
                                 <input type="password" id="watch-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
                             </div>
-                            <button class="stg-ai-save" onclick="saveWatchBridgeSettings()">שמור הגדרות גשר</button>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="saveWatchBridgeSettings()">שמור הגדרות</button>
+                            </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">מתעד אימון מ-Apple Watch (דרך Shortcuts) ל-Firestore, והטלפון מסכם בסוף. דורש Firebase מחובר. ה-token נשמר מקומית. ראה docs/watch-shortcut-recipe.md.</div>
                     </div>

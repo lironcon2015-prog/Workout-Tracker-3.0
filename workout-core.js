@@ -5598,7 +5598,8 @@ function updateBackupBridgeStatus() {
     if (!el) return;
     if (url) {
         const last = StorageManager.getBackupLast();
-        const lastTxt = last ? ' · נשלח לאחרונה ' + new Date(last).toLocaleDateString('he-IL') : ' · טרם נשלח';
+        const lastTxt = last ? ' · נשלח לאחרונה ' + new Date(last).toLocaleDateString('he-IL') + ' ' +
+            new Date(last).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : ' · טרם נשלח';
         el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span><span style="color:var(--text-dim);">' + lastTxt + '</span>';
         const ui = document.getElementById('backup-bridge-url-input');
         const ti = document.getElementById('backup-bridge-token-input');

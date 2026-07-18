@@ -3389,6 +3389,9 @@ body::before {
 .stg-cloud-btn:active { background: rgba(255,255,255,0.12); }
 
 .stg-ai-bento { padding: 20px; display: flex; flex-direction: column; gap: 12px; background: linear-gradient(135deg, #1a1919, #1e1e30) !important; border-color: rgba(100,100,255,0.1) !important; }
+/* גשר כבוי מקופל — בבנטו נשארת רק שורת הטוגל, וההערה מוסתרת (חיסכון במקום) */
+.settings-group.bridge-off .stg-ai-bento > :not(.stg-switch-row),
+.settings-group.bridge-off .ai-security-note { display: none; }
 .stg-ai-field { display: flex; flex-direction: column; gap: 4px; }
 .stg-ai-label { font-size: var(--fs-xs); font-weight: 900; letter-spacing: 0.13em; text-transform: uppercase; color: #8888dd; padding: 0 2px; }
 .stg-ai-input {

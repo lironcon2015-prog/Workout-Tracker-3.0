@@ -1243,6 +1243,14 @@ function saveProfileName(value) {
     renderUserAvatar();
 }
 
+// גשר כבוי מוצג מקופל (שורת טוגל בלבד) — רץ בפתיחת ההגדרות ובכל שינוי טוגל גשר
+function _syncBridgeCollapse() {
+    document.querySelectorAll('.bridge-toggle').forEach(t => {
+        const grp = t.closest('.settings-group');
+        if (grp) grp.classList.toggle('bridge-off', !t.checked);
+    });
+}
+
 function openSettings() {
     navigate('ui-settings');
     renderUserAvatar();
@@ -1254,6 +1262,7 @@ function openSettings() {
     if (typeof updateBackupBridgeStatus === 'function') updateBackupBridgeStatus();
     if (typeof updateWidgetBridgeStatus === 'function') updateWidgetBridgeStatus();
     if (typeof updatePhotoBridgeStatus === 'function') updatePhotoBridgeStatus();
+    _syncBridgeCollapse();
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
     _renderMainTMSettings();

@@ -952,7 +952,7 @@
                             <div id="backup-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
                             <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span>הפעל גיבוי שבועי</span>
-                                <span class="stg-switch"><input type="checkbox" id="backup-bridge-toggle" onchange="saveBackupBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                                <span class="stg-switch"><input type="checkbox" id="backup-bridge-toggle" class="bridge-toggle" onchange="saveBackupBridgeSettings();_syncBridgeCollapse()"><span class="stg-switch-slider"></span></span>
                             </label>
                             <div class="stg-ai-field">
                                 <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
@@ -975,7 +975,7 @@
                             <div id="widget-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
                             <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span>הפעל דחיפה לווידג'ט</span>
-                                <span class="stg-switch"><input type="checkbox" id="widget-bridge-toggle" onchange="saveWidgetBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                                <span class="stg-switch"><input type="checkbox" id="widget-bridge-toggle" class="bridge-toggle" onchange="saveWidgetBridgeSettings();_syncBridgeCollapse()"><span class="stg-switch-slider"></span></span>
                             </label>
                             <div class="stg-ai-field">
                                 <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
@@ -998,7 +998,7 @@
                             <div id="photo-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
                             <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span>הפעל גיבוי תמונות לדרייב</span>
-                                <span class="stg-switch"><input type="checkbox" id="photo-bridge-toggle" onchange="savePhotoBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                                <span class="stg-switch"><input type="checkbox" id="photo-bridge-toggle" class="bridge-toggle" onchange="savePhotoBridgeSettings();_syncBridgeCollapse()"><span class="stg-switch-slider"></span></span>
                             </label>
                             <div class="stg-ai-field">
                                 <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
@@ -1022,7 +1022,7 @@
                             <div id="mfp-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
                             <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span>הפעל גשר MFP</span>
-                                <span class="stg-switch"><input type="checkbox" id="mfp-bridge-toggle" onchange="saveMfpBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                                <span class="stg-switch"><input type="checkbox" id="mfp-bridge-toggle" class="bridge-toggle" onchange="saveMfpBridgeSettings();_syncBridgeCollapse()"><span class="stg-switch-slider"></span></span>
                             </label>
                             <div class="stg-ai-field">
                                 <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
@@ -1044,7 +1044,7 @@
                             <div id="health-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
                             <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span>הפעל גשר Health</span>
-                                <span class="stg-switch"><input type="checkbox" id="health-bridge-toggle" onchange="saveHealthBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                                <span class="stg-switch"><input type="checkbox" id="health-bridge-toggle" class="bridge-toggle" onchange="saveHealthBridgeSettings();_syncBridgeCollapse()"><span class="stg-switch-slider"></span></span>
                             </label>
                             <div class="stg-ai-field">
                                 <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>
@@ -1065,7 +1065,7 @@
                         <div class="stg-bento stg-ai-bento">
                             <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span>הפעל גשר שעון</span>
-                                <span class="stg-switch"><input type="checkbox" id="watch-bridge-toggle" onchange="saveWatchBridgeSettings()"><span class="stg-switch-slider"></span></span>
+                                <span class="stg-switch"><input type="checkbox" id="watch-bridge-toggle" class="bridge-toggle" onchange="saveWatchBridgeSettings();_syncBridgeCollapse()"><span class="stg-switch-slider"></span></span>
                             </label>
                             <div class="stg-ai-field">
                                 <label class="stg-ai-label">BRIDGE URL (Apps Script)</label>

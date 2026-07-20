@@ -1817,6 +1817,7 @@
                     <div class="segment-wrapper" id="bl-subtab">
                         <button class="seg-btn active" data-tab="weight" onclick="setBodyTab('weight')">שקילה</button>
                         <button class="seg-btn" data-tab="nutrition" onclick="setBodyTab('nutrition')">תזונה</button>
+                        <button class="seg-btn" data-tab="sleep" onclick="setBodyTab('sleep')">שינה</button>
                         <button class="seg-btn" data-tab="photos" onclick="setBodyTab('photos')">תמונות</button>
                     </div>
                 </div>
@@ -1916,6 +1917,9 @@
                     <div id="pp-gallery"></div>
                 </div>
 
+                <!-- ========== תצוגת שינה / התאוששות ========== -->
+                <div id="bl-view-sleep" style="display:none;"></div>
+
                 <input type="file" id="bl-camera-input" accept="image/*" capture="environment" style="display:none;" onchange="_onBodyPhotoSelected(this.files[0]); this.value='';">
                 <input type="file" id="bl-csv-input" accept=".csv,.xlsx,.xls,text/csv" style="display:none;" onchange="_onBodyFileSelected(this.files[0]); this.value='';">
             </div><!-- /ui-bodylog -->
@@ -1974,7 +1978,7 @@
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 20h16"/><path d="M5 20a7 7 0 0 1 14 0"/><line x1="12" y1="13" x2="15" y2="10"/>
             </svg>
-            <span class="tab-label">Composition</span>
+            <span class="tab-label">בריאות</span>
         </button>
         <button class="tab-btn" id="tabbtn-analytics" onclick="switchMainTab('analytics')">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

@@ -1778,7 +1778,10 @@ function exportBodyCsv(b) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 let _slRange = 7;   // טווח גרפי השינה: 7 | 30
-const SLEEP_NEED_MIN = 480;  // צורך שינה בסיסי (8ש') — יוחלף בהעדפה בהמשך
+const SLEEP_NEED_MIN = 480;  // ברירת-מחדל/עוגן עליון (8ש') — fallback עד שיש בסיס אישי
+const SLEEP_ADEQ_MIN = 450;  // עוגן מספיקות מוחלט (7.5ש') לציון ההתאוששות — NSF/AASM 7–9ש'
+const SLEEP_FLOOR_MIN = 420; // רצפה בריאותית (7ש', AASM) — הצורך האישי לא יורד מתחתיה
+const SLEEP_CAP_MIN = 540;   // תקרה (9ש', NSF) — הצורך האישי לא עולה מעליה
 
 function _slFmtDur(min) {
     if (min == null || isNaN(min)) return '—';
@@ -1851,6 +1854,19 @@ function _recoveryBaseline(nights, idx, key, win = 28) {
     return { med, spread: Math.max((mad || 0) * 1.4826, 1e-6), n: vals.length };
 }
 
+// _sleepNeed — צורך שינה אישי לתצוגה: החציון ההיסטורי שלך, חתוך לטווח הבריאותי המומלץ
+// (7–9ש', NSF/AASM). מונע נרמול גירעון (רצפה 7ש') ודרישת-יתר (תקרה 9ש'). fallback 8ש'
+// עד שנצבר בסיס. שונה מעוגן המספיקות בציון (SLEEP_ADEQ_MIN) — זה יעד תצוגה מציאותי.
+function _sleepNeed(nights, idx) {
+    const b = _recoveryBaseline(nights, idx, 'asleepMin');
+    if (b.med == null) return SLEEP_NEED_MIN;
+    return Math.max(SLEEP_FLOOR_MIN, Math.min(SLEEP_CAP_MIN, b.med));
+}
+
+// _clampZ — חיתוך z-score ל-±3 (winsorizing). מונע שלילה יחידה עם שונות זעירה מלפוצץ
+// את הקומפוזיט, ומגביל תרומת לילה בודד ל-~3 סטיות-תקן — היגיינה סטטיסטית תקנית.
+const _clampZ = z => Math.max(-3, Math.min(3, z));
+
 // computeReadiness — ציון 0–100 מ-z-score מול baseline. מחזיר building עד 14 לילות.
 function computeReadiness(nights, idx) {
     const n = nights[idx];
@@ -1863,7 +1879,7 @@ function computeReadiness(nights, idx) {
         if (val == null) return;
         const b = _recoveryBaseline(nights, idx, key);
         if (b.med == null) return;
-        let z = (val - b.med) / b.spread;
+        let z = _clampZ((val - b.med) / b.spread);
         let contrib;
         if (dir === 'sym') contrib = -Math.abs(z);           // סטייה לכל כיוון = רע
         else contrib = (dir === 'inv' ? -z : z);
@@ -1874,11 +1890,22 @@ function computeReadiness(nights, idx) {
     push('hrv', 0.35, n.hrv, 'pos', 'HRV', 'ms', false);
     push('rhr', 0.20, n.rhr, 'inv', 'דופק מנוחה', '', true);
     push('respRate', 0.08, n.respRate, 'sym', 'נשימה', '', true);
-    // שינה — ציון משוכלל (משך מול צורך + יעילות), ממורכז
+    // שינה — מדד משולב: 60% סטייה מהבסיס האישי (התאוששות יחסית — כמו שאר המדדים) +
+    // 40% מספיקות מוחלטת מול עוגן מומלץ (NSF/AASM ~7.5ש', בלי בונוס על שינת-יתר). כך לא
+    // מנרמלים גירעון כרוני מצד אחד, ולא נענשים קבוע על שינה סבירה מצד שני. יעילות = מקדם
+    // משני מול הבסיס האישי. המשקלים (60/40, 0.85/0.15) = כוונון הנדסי, לא נוסחה מאומתת.
     if (n.asleepMin != null) {
-        const sleepScore = Math.min(1.1, n.asleepMin / SLEEP_NEED_MIN) * 0.7 + (n.efficiency || 0.85) * 0.3;
-        const z = (sleepScore - 0.85) / 0.14;
-        parts.push({ w: 0.30, contrib: z, label: 'שינה', delta: _slFmtDur(n.asleepMin), dir: n.asleepMin >= SLEEP_NEED_MIN ? 'up' : 'down', z });
+        const bSleep = _recoveryBaseline(nights, idx, 'asleepMin');
+        const sSpread = Math.max(bSleep.spread || 0, 20);    // רצפת spread ~20 דק' — שינה יציבה לא תפוצץ z
+        const zPers = bSleep.med != null ? _clampZ((n.asleepMin - bSleep.med) / sSpread) : 0;
+        let zAdeq = (n.asleepMin - SLEEP_ADEQ_MIN) / 60;      // ~60 דק' ליחידת z
+        zAdeq = Math.max(-2.5, Math.min(0.3, zAdeq));         // קנס מתגבר על גירעון, בלי בונוס
+        const zDur = 0.6 * zPers + 0.4 * zAdeq;
+        const bEff = _recoveryBaseline(nights, idx, 'efficiency');
+        const eSpread = Math.max(bEff.spread || 0, 0.03);     // רצפת spread ~3% — יעילות יציבה לא תפוצץ z
+        const zEff = (n.efficiency != null && bEff.med != null) ? _clampZ((n.efficiency - bEff.med) / eSpread) : 0;
+        const z = bEff.med != null ? 0.85 * zDur + 0.15 * zEff : zDur;
+        parts.push({ w: 0.30, contrib: z, label: 'שינה', delta: _slFmtDur(n.asleepMin), dir: z >= 0 ? 'up' : 'down', z });
     }
     // טמפרטורת עור — סטייה מוחלטת רעה
     if (n.wristTempDev != null) {
@@ -1927,7 +1954,8 @@ function _slStagesBar(n) {
 
 function _slDurChart(nights) {
     const data = nights.slice(-_slRange);
-    const W = 320, H = 110, pad = 6, need = SLEEP_NEED_MIN;
+    const need = _sleepNeed(nights, nights.length);   // יעד אישי (חציון חתוך ל-7–9ש')
+    const W = 320, H = 110, pad = 6;
     const bw = (W - pad * 2) / data.length;
     const max = Math.max(need, ...data.map(d => d.asleepMin || 0)) * 1.08;
     const y = v => H - (v / max) * (H - 14);
@@ -1993,6 +2021,7 @@ function renderSleepView() {
     const idx = nights.length - 1;
     const n = nights[idx];
     const rd = computeReadiness(nights, idx);
+    const need = _sleepNeed(nights, idx);   // יעד שינה אישי (חציון חתוך ל-7–9ש')
 
     const b = (key) => _recoveryBaseline(nights, idx, key).med;
     const dlt = (val, base, invGood, unit) => {
@@ -2044,7 +2073,7 @@ function renderSleepView() {
         </div>
       </div>
       <div class="sl-mgrid">
-        ${_slMetric(_slFmtDur(n.asleepMin), '', 'זמן שינה', n.asleepMin >= SLEEP_NEED_MIN ? 'מעל היעד' : 'מתחת ליעד', n.asleepMin >= SLEEP_NEED_MIN ? 'up' : 'down')}
+        ${_slMetric(_slFmtDur(n.asleepMin), '', 'זמן שינה', n.asleepMin >= need ? 'מעל היעד' : 'מתחת ליעד', n.asleepMin >= need ? 'up' : 'down')}
         ${_slMetric(Math.round((n.efficiency || 0) * 100), '%', 'יעילות', (n.efficiency || 0) >= 0.88 ? 'טובה' : 'בינונית', (n.efficiency || 0) >= 0.88 ? 'up' : 'flat')}
         ${_slMetric(n.hrv ?? '—', ' ms', 'HRV', ...hrvD)}
         ${_slMetric(n.rhr ?? '—', ' bpm', 'דופק מנוחה', ...rhrD)}
@@ -2063,7 +2092,7 @@ function renderSleepView() {
     </div>
 
     <div class="bl-chart-card">
-      <div class="sl-chart-head"><div class="sl-card-title" style="margin:0">משך שינה <small style="color:var(--warn);font-weight:700;font-size:.7rem">· יעד 8ש׳</small></div>
+      <div class="sl-chart-head"><div class="sl-card-title" style="margin:0">משך שינה <small style="color:var(--warn);font-weight:700;font-size:.7rem">· יעד אישי ${_slFmtDur(need)}</small></div>
         <div class="sl-range">
           <button class="${_slRange === 7 ? 'on' : ''}" onclick="setSleepRange(7)">7 ימים</button>
           <button class="${_slRange === 30 ? 'on' : ''}" onclick="setSleepRange(30)">30 יום</button>

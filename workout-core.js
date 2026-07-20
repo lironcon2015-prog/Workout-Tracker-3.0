@@ -4922,6 +4922,45 @@ function _buildTdeeAIContext(slim) {
     return s;
 }
 
+// _buildSleepAIContext — סיכום שינה + התאוששות ל-AI (רק נתונים אמיתיים, לא דמה).
+// מאפשר למאמן לשקלל התאוששות בהמלצות (autoregulation).
+function _buildSleepAIContext(slim) {
+    const nights = (typeof StorageManager.getSleepDaily === 'function') ? StorageManager.getSleepDaily() : [];
+    if (!nights || !nights.length) return '';   // אין נתוני שינה אמיתיים → לא מזריקים דמה ל-AI
+    const idx = nights.length - 1;
+    const n = nights[idx];
+    const avg = (key, win) => {
+        const arr = nights.slice(-win).map(d => d[key]).filter(x => x != null && !isNaN(x));
+        return arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+    };
+    const fmtH = m => m == null ? '—' : `${Math.floor(m / 60)}:${String(Math.round(m) % 60).padStart(2, '0')}`;
+
+    let s = `\n=== שינה והתאוששות (Apple Health) ===\n`;
+    s += `לילה אחרון (${n.date}): שינה ${fmtH(n.asleepMin)}`;
+    if (n.efficiency != null) s += ` | יעילות ${Math.round(n.efficiency * 100)}%`;
+    if (n.deepMin != null) s += ` | עמוקה ${fmtH(n.deepMin)} · REM ${fmtH(n.remMin)}`;
+    if (n.hrv != null) s += ` | HRV ${n.hrv}ms`;
+    if (n.rhr != null) s += ` | דופק מנוחה ${n.rhr}`;
+    if (n.respRate != null) s += ` | נשימה ${n.respRate}`;
+    if (n.wristTempDev != null) s += ` | סטיית טמפ׳ ${n.wristTempDev > 0 ? '+' : ''}${n.wristTempDev}°`;
+    s += `\n`;
+
+    // ציון התאוששות (Readiness) — מ-computeReadiness אם זמין
+    if (typeof computeReadiness === 'function') {
+        const rd = computeReadiness(nights, idx);
+        if (rd.building) s += `ציון התאוששות: בונה baseline (${rd.have}/14 לילות) — טרם זמין.\n`;
+        else if (rd.score != null) s += `ציון התאוששות: ${rd.score}/100 (${rd.band}).\n`;
+    }
+    const a7 = avg('asleepMin', 7), hrv7 = avg('hrv', 7), rhr7 = avg('rhr', 7);
+    if (a7 != null) s += `ממוצע 7 ימים: שינה ${fmtH(a7)}${hrv7 != null ? ` · HRV ${hrv7}ms` : ''}${rhr7 != null ? ` · דופק מנוחה ${rhr7}` : ''}.\n`;
+    if (!slim) {
+        const hrv30 = avg('hrv', 30), rhr30 = avg('rhr', 30);
+        if (hrv30 != null) s += `Baseline ~30 יום: HRV ${hrv30}ms · דופק מנוחה ${rhr30}.\n`;
+    }
+    s += `שקלל התאוששות בהמלצות: התאוששות נמוכה / HRV מתחת ל-baseline / חוסר שינה מצטבר → עדיפות לשימור, כבד RIR, שקול ירידת נפח; התאוששות גבוהה עקבית → חלון לדחיפה. בסס על הנתונים כאן, אל תמציא.\n`;
+    return s;
+}
+
 // ─── ג1: נתוני מערכת חיים ל-System Prompt (פרופיל גוף + תוכנית אימונים) ──────
 
 // _buildBodyProfileLine — שורת פרופיל גוף מ-getBodyProfile() (המקור לחישוב ה-TDEE).
@@ -5030,6 +5069,7 @@ function buildSystemPrompt(opts = {}) {
     prompt += _buildFoodDiaryAIContext(slim);
     prompt += _buildBodylogAIContext(slim);
     prompt += _buildTdeeAIContext(slim);
+    prompt += _buildSleepAIContext(slim);
 
     // מצב נוכחי
     prompt += `\n=== מצב נוכחי ===\n`;
@@ -5876,6 +5916,8 @@ function saveHealthBridgeSettings() {
     if (!urlInput || !tokenInput) return;
     const on = !!(document.getElementById('health-bridge-toggle') || {}).checked;
     StorageManager.saveHealthBridge(on, urlInput.value.trim(), tokenInput.value.trim());
+    const pullNutri = !!(document.getElementById('health-pull-nutrition-toggle') || {}).checked;
+    StorageManager.setHealthPullNutrition(pullNutri);
     updateHealthBridgeStatus();
     showAlert('הגדרות גשר ה-Health נשמרו!');
     if (on) syncHealthNutrition(true); // משיכה מיידית — פידבק מהיר שהחיבור עובד (רק אם דלוק)
@@ -5885,6 +5927,8 @@ function updateHealthBridgeStatus() {
     const el = document.getElementById('health-bridge-status');
     const tg = document.getElementById('health-bridge-toggle');
     if (tg) tg.checked = StorageManager.isHealthBridgeOn();
+    const nt = document.getElementById('health-pull-nutrition-toggle');
+    if (nt) nt.checked = StorageManager.isHealthPullNutrition();
     if (!el) return;
     const { url, token } = StorageManager.getHealthBridge();
     if (url) {
@@ -5925,36 +5969,52 @@ async function syncHealthNutrition(manual = false, force = false) {
     }
     _healthSyncLast = now;
 
-    if (manual) showCloudToast('⏳ מושך תזונה מ-Health…', true);
+    if (manual) showCloudToast('⏳ מושך מ-Health…', true);
     try {
         const data = await _jsonpRequest(url, token, 30000);
         if (!data || data.ok !== true) {
             throw new Error(data && data.error === 'BAD_TOKEN' ? 'token שגוי — בדוק את ההגדרות.' : ((data && data.error) || 'שגיאה לא ידועה מהגשר.'));
         }
-        const days = Array.isArray(data.days) ? data.days : [];
-        if (!days.length) {
+        const days  = Array.isArray(data.days)  ? data.days  : [];   // תזונה (אופציונלי)
+        const sleep = Array.isArray(data.sleep) ? data.sleep : [];   // שינה (המקור העיקרי כעת)
+        if (!days.length && !sleep.length) {
             if (manual) showCloudToast('הגשר ריק — ודא שהקיצור רץ לפחות פעם אחת', true);
             return;
         }
-        StorageManager.setHealthLastSync(Date.now()); // משיכה מוצלחת עם נתונים — לחותמת בכרטיס היומי
-        const changed = StorageManager.mergeHealthNutritionDays(days);
+        StorageManager.setHealthLastSync(Date.now());
+
+        // שינה — תמיד נמשכת כשהגשר פעיל
+        let sleepChanged = 0;
+        if (sleep.length) sleepChanged = StorageManager.mergeSleepDays(sleep);
+
+        // תזונה — רק אם המתג "משוך גם תזונה" דלוק (כבוי כברירת מחדל)
+        let nutChanged = 0;
+        if (days.length && StorageManager.isHealthPullNutrition()) {
+            nutChanged = StorageManager.mergeHealthNutritionDays(days);
+        }
+        const changed = sleepChanged + nutChanged;
+
         if (changed > 0 || manual) {
             const blScreen = document.getElementById('ui-bodylog');
             if (typeof renderBodyLog === 'function' && blScreen && blScreen.classList.contains('active')) renderBodyLog();
+            if (typeof _refreshActiveView === 'function' && blScreen && blScreen.classList.contains('active')) _refreshActiveView();
             if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
         }
         if (changed > 0) {
             if (typeof FirebaseManager !== 'undefined') {
                 FirebaseManager.saveConfigToCloud()
-                    .then(ok => notifyCloudSaveFailure(ok, 'config', 'גיבוי תזונה לענן'))
+                    .then(ok => notifyCloudSaveFailure(ok, 'config', 'גיבוי בריאות לענן'))
                     .catch(() => {});
             }
-            showCloudToast(`✅ עודכנו ${changed} ימי תזונה מ-Health`, true);
+            const parts = [];
+            if (sleepChanged) parts.push(`${sleepChanged} לילות שינה`);
+            if (nutChanged)   parts.push(`${nutChanged} ימי תזונה`);
+            showCloudToast(`✅ עודכנו ${parts.join(' + ')} מ-Health`, true);
         } else if (manual) {
             showCloudToast('הנתונים כבר מעודכנים', true);
         }
     } catch (e) {
-        console.warn('GymPro: health nutrition sync failed', e);
+        console.warn('GymPro: health sync failed', e);
         if (manual) showCloudToast('⚠️ ' + e.message, false);
     }
 }

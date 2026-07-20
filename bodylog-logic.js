@@ -1929,9 +1929,9 @@ function _slDurChart(nights) {
         bars += `<rect x="${x + bw * 0.16}" y="${y(v)}" width="${bw * 0.68}" height="${H - y(v)}" rx="3" fill="${col}"/>`;
     });
     const ny = y(need);
+    // קו היעד בלבד — תווית "יעד 8ש׳" עברה לכותרת הכרטיס כדי לא לגלוש מגבולות ה-SVG (RTL)
     return `<svg class="sl-chart" viewBox="0 0 ${W} ${H + 4}">
-        <line x1="${pad}" x2="${W - pad}" y1="${ny}" y2="${ny}" stroke="var(--warn)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>
-        <text x="${W - pad}" y="${ny - 4}" text-anchor="end" font-size="8" fill="var(--warn)" opacity=".85">יעד 8ש׳</text>${bars}</svg>`;
+        <line x1="${pad}" x2="${W - pad}" y1="${ny}" y2="${ny}" stroke="var(--warn)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>${bars}</svg>`;
 }
 
 function _slDualChart(nights) {
@@ -2045,7 +2045,7 @@ function renderSleepView() {
     </div>
 
     <div class="bl-chart-card">
-      <div class="sl-chart-head"><div class="sl-card-title" style="margin:0">משך שינה</div>
+      <div class="sl-chart-head"><div class="sl-card-title" style="margin:0">משך שינה <small style="color:var(--warn);font-weight:700;font-size:.7rem">· יעד 8ש׳</small></div>
         <div class="sl-range">
           <button class="${_slRange === 7 ? 'on' : ''}" onclick="setSleepRange(7)">7 ימים</button>
           <button class="${_slRange === 30 ? 'on' : ''}" onclick="setSleepRange(30)">30 יום</button>

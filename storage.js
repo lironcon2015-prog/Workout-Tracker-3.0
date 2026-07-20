@@ -35,6 +35,7 @@ const StorageManager = {
     KEY_HEALTH_BRIDGE_URL:   'gympro_health_bridge_url',    // גשר תזונה Apple Health
     KEY_HEALTH_BRIDGE_TOKEN: 'gympro_health_bridge_token',  // token סודי לגשר ה-Health
     KEY_HEALTH_BRIDGE_ON:    'gympro_health_bridge_on',     // האם גשר Health פעיל (ברירת מחדל: דלוק)
+    KEY_HEALTH_PULL_NUTRITION: 'gympro_health_pull_nutrition', // משיכת תזונה מהגשר (כבוי כברירת מחדל; הגשר לשינה)
     KEY_HEALTH_LAST_SYNC:    'gympro_health_last_sync',     // timestamp משיכה מוצלחת אחרונה מהגשר
     KEY_WATCH_BRIDGE_URL:   'gympro_watch_bridge_url',    // Apps Script proxy לגשר השעון
     KEY_WATCH_BRIDGE_TOKEN: 'gympro_watch_bridge_token',  // SECRET_TOKEN לגשר השעון
@@ -430,6 +431,7 @@ const StorageManager = {
             this.KEY_HEALTH_BRIDGE_URL,
             this.KEY_HEALTH_BRIDGE_TOKEN,
             this.KEY_HEALTH_BRIDGE_ON,
+            this.KEY_HEALTH_PULL_NUTRITION,
             this.KEY_WATCH_BRIDGE_URL,
             this.KEY_WATCH_BRIDGE_TOKEN,
             this.KEY_WATCH_BRIDGE_ON,
@@ -536,6 +538,23 @@ const StorageManager = {
         return !!k && (k.indexOf('gympro_') === 0 || k.indexOf('gympro-') === 0);
     },
 
+    // _backupManifest — מקרא קריא-לאדם בראש קובץ הגיבוי: אילו נתונים יש בו וכמה.
+    _backupManifest() {
+        const n = (arr) => Array.isArray(arr) ? arr.length : 0;
+        let foodDays = 0;
+        try { foodDays = Object.keys(this.getFoodLog() || {}).length; } catch (e) {}
+        return {
+            '_מקרא': 'GYMPRO ELITE — גיבוי מלא. הקובץ מכיל את כל נתוני האפליקציה וההגדרות. פירוט:',
+            'אימונים בארכיון': n(this.getArchive()),
+            'שקילות (משקל/שומן)': n(this.getBodyLog()),
+            'ימי תזונה (סיכום יומי)': n(this.getNutritionDaily()),
+            'לילות שינה והתאוששות': n(this.getSleepDaily()),
+            'ימי יומן מזון': foodDays,
+            'מצבים תזונתיים (היסטוריה)': n(this.getNutritionLog()),
+            'כולל גם': 'פרופיל AI, פרומפטי מאמן, יעדים, פרופיל גוף, הגדרות, וחיבורי גשרים (URL/token)'
+        };
+    },
+
     buildFullBackup() {
         const keys = {};
         for (let i = 0; i < localStorage.length; i++) {
@@ -546,6 +565,7 @@ const StorageManager = {
             type: 'gympro_full_backup',
             version: (typeof window !== 'undefined' && window._gymproVersion) || 'unknown',
             date: new Date().toISOString(),
+            manifest: this._backupManifest(),
             keyCount: Object.keys(keys).length,
             keys
         };
@@ -1361,10 +1381,10 @@ const StorageManager = {
     // משיכת תזונה מהגשר — כבוי כברירת מחדל (הגשר משמש כעת לשינה בלבד).
     // נשאר בקוד כדי שאפשר יהיה לחזור ל-MFP בקליק אחד ללא גשר שני.
     isHealthPullNutrition() {
-        return localStorage.getItem('gympro_health_pull_nutrition') === '1';
+        return localStorage.getItem(this.KEY_HEALTH_PULL_NUTRITION) === '1';
     },
     setHealthPullNutrition(on) {
-        localStorage.setItem('gympro_health_pull_nutrition', on ? '1' : '0');
+        localStorage.setItem(this.KEY_HEALTH_PULL_NUTRITION, on ? '1' : '0');
     },
 
     getHealthLastSync() {

@@ -946,11 +946,14 @@ const StorageManager = {
         let changed = 0;
         (nights || []).forEach(d => {
             if (!d || !d.date) return;
-            const merged = Object.assign({}, map[d.date], d, { src: 'health' });
+            const existing = map[d.date];
+            const merged = Object.assign({}, existing, d, { src: 'health' });
             // יעילות שינה נגזרת אם לא סופקה (asleep/inbed)
             if (merged.efficiency == null && merged.inBedMin > 0 && merged.asleepMin != null) {
                 merged.efficiency = Math.round((merged.asleepMin / merged.inBedMin) * 100) / 100;
             }
+            // ספירת שינוי רק אם באמת השתנה משהו — מונע "עדכון" בכל משיכה של אותו לילה
+            if (existing && JSON.stringify(existing) === JSON.stringify(merged)) return;
             map[d.date] = merged;
             changed++;
         });

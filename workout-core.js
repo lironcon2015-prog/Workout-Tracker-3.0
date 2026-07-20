@@ -6006,10 +6006,13 @@ async function syncHealthNutrition(manual = false, force = false) {
                     .then(ok => notifyCloudSaveFailure(ok, 'config', 'גיבוי בריאות לענן'))
                     .catch(() => {});
             }
-            const parts = [];
-            if (sleepChanged) parts.push(`${sleepChanged} לילות שינה`);
-            if (nutChanged)   parts.push(`${nutChanged} ימי תזונה`);
-            showCloudToast(`✅ עודכנו ${parts.join(' + ')} מ-Health`, true);
+            // טוסט רק במשיכה ידנית — סנכרון אוטומטי (פתיחה/שעתי) שקט לחלוטין
+            if (manual) {
+                const parts = [];
+                if (sleepChanged) parts.push(`${sleepChanged} לילות שינה`);
+                if (nutChanged)   parts.push(`${nutChanged} ימי תזונה`);
+                showCloudToast(`✅ עודכנו ${parts.join(' + ')} מ-Health`, true);
+            }
         } else if (manual) {
             showCloudToast('הנתונים כבר מעודכנים', true);
         }

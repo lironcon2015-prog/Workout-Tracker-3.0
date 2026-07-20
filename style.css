@@ -6829,6 +6829,17 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
     color:var(--accent); font-size:.72rem; font-weight:700; text-align:center;
     padding:8px 12px; border-radius:var(--r-md); margin-bottom:12px;
 }
+/* שורת סנכרון עדינה — נקודה ירוקה + "עודכן HH:MM · הקש לרענון" */
+.sl-sync{
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    font-size:.7rem; font-weight:600; color:var(--text-dim);
+    padding:4px 6px 10px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.sl-sync::before{
+    content:""; width:7px; height:7px; border-radius:50%; background:var(--success);
+    box-shadow:0 0 6px rgba(var(--success-rgb),.5); flex-shrink:0;
+}
+.sl-sync:active{ color:var(--text); }
 .sl-hero-row{display:flex;align-items:center;gap:16px}
 .sl-ring{position:relative;width:112px;height:112px;flex-shrink:0}
 .sl-ring.sm{width:84px;height:84px}

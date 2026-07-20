@@ -946,6 +946,14 @@ const StorageManager = {
         let changed = 0;
         (nights || []).forEach(d => {
             if (!d || !d.date) return;
+            // דלג על לילה ריק לחלוטין (לילה בלי שעון) — אחרת אפסים (asleep/hrv/rhr=0)
+            // מרעילים את baseline ההתאוששות (0 נספר כערך אמיתי בחציון) ומציירים צלילה
+            // מזויפת בגרף. צוואר בקבוק יחיד: מכסה גם ימי-אפס עתידיים מהסנכרון היומי,
+            // לא רק את ה-backfill החד-פעמי. לילה חלקי (שינה בלי HRV וכד') כן נשמר.
+            const _hasSleep  = (d.asleepMin > 0) || (d.inBedMin > 0) ||
+                               (d.deepMin > 0) || (d.remMin > 0) || (d.coreMin > 0);
+            const _hasVitals = (d.hrv > 0) || (d.rhr > 0) || (d.respRate > 0);
+            if (!_hasSleep && !_hasVitals) return;
             const existing = map[d.date];
             const merged = Object.assign({}, existing, d, { src: 'health' });
             // ── מודל שלבי שינה (Apple Health) ──────────────────────────────

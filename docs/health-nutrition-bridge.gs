@@ -76,15 +76,18 @@ function doPost(e) {
     }
 
     if (incSleep.length) {
-      var sMap = _load(SLEEP_KEY), sStored = 0;
+      var sMap = _load(SLEEP_KEY), sStored = 0, dateUsed = '';
       incSleep.forEach(function (d) {
-        var date = _isoDate(d && d.date); if (!date) return;
+        // fallback: אם התאריך מהקיצור חסר/לא בפורמט yyyy-MM-dd — חותמים את תאריך
+        // השרת. הקיצור רץ בבוקר על שנת הלילה, כך ש"היום" הוא התאריך הנכון.
+        var date = _isoDate(d && d.date) || _todayIso();
         sMap[date] = [_n(d.asleep), _n(d.inbed), _n(d.deep), _n(d.rem), _n(d.core),
                       _n(d.awake), _n(d.rhr), _n(d.hrv), _f(d.resp), _f(d.temp)];
-        sStored++;
+        sStored++; dateUsed = date;
       });
       _save(SLEEP_KEY, sMap);
       out.sleep_stored = sStored;
+      out.date_used = dateUsed;   // שקיפות: איזה תאריך נשמר בפועל
     }
     return _json(out);
   } finally {
@@ -135,6 +138,10 @@ function _save(key, map) {
   var dates = Object.keys(map).sort();
   while (dates.length > MAX_DAYS) delete map[dates.shift()];
   PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(map));
+}
+
+function _todayIso() {  // תאריך היום לפי אזור-הזמן של הסקריפט (fallback לתאריך חסר)
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
 function _n(x) { return Math.round(Number(x) || 0); }         // מספר שלם

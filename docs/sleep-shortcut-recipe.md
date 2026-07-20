@@ -29,12 +29,13 @@
 8. **Get Contents of URL**:
    - URL: `URL` (מומלץ לכלול token ב-URL: `…/exec?token=TOKEN`)
    - Method: **POST** · Request Body: **JSON**
-   - `sleep` = **Array** → פריט **Dictionary** עם השדות:
-     `date`=TODAY (Text), `asleep`=ASLEEP, `rhr`=RHR, `hrv`=HVR, `resp`=RESP (Number)
+   - שדות פשוטים (פורמט שטוח — בלי מערך/מילון מקוננים):
+     `token`=TOKEN, `date`=Formatted Date, `asleep`=ASLEEP, `rhr`=RHR, `hrv`=HVR, `resp`=RESP
      ```json
-     { "token": TOKEN, "sleep": [ { "date": TODAY, "asleep": ASLEEP,
-       "rhr": RHR, "hrv": HVR, "resp": RESP } ] }
+     { "token": TOKEN, "date": TODAY, "asleep": ASLEEP,
+       "rhr": RHR, "hrv": HVR, "resp": RESP }
      ```
+     > הגשר מקבל לילה בודד ברמת השורש — אין צורך לבנות מערך.
 9. (בדיקה) **Show Result** → אמור להחזיר `{"ok":true,"sleep_stored":1}`.
 
 **אימות:** הרץ ידנית → פתח את ה-PWA → בריאות → שינה → הנתונים אמורים להחליף את הדמה.

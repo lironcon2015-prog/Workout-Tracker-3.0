@@ -948,14 +948,23 @@ const StorageManager = {
             if (!d || !d.date) return;
             const existing = map[d.date];
             const merged = Object.assign({}, existing, d, { src: 'health' });
-            // יעילות שינה נגזרת אם לא סופקה (asleep/inbed)
-            if (merged.efficiency == null && merged.inBedMin > 0 && merged.asleepMin != null) {
-                merged.efficiency = Math.round((merged.asleepMin / merged.inBedMin) * 100) / 100;
+            // ── גזירות שלבי שינה (מודל Apple Health) — הקיצור שולח שלבים + זמן במיטה,
+            // והאפליקציה משלימה את השאר. סדר הגזירה חשוב (שינה → core → ערות → יעילות).
+            // זמן שינה = סכום השלבים (אם לא סופק ישירות)
+            if (!merged.asleepMin && (merged.coreMin || merged.deepMin || merged.remMin)) {
+                merged.asleepMin = (merged.coreMin || 0) + (merged.deepMin || 0) + (merged.remMin || 0);
             }
-            // שינה בסיסית (Core) נגזרת אם לא סופקה: כוללת − עמוקה − REM.
-            // מאפשר לקיצור לשלוח רק Deep+REM, והאפליקציה משלימה את ה-Core.
+            // שינה בסיסית (Core) נגזרת אם חסרה: שינה − עמוקה − REM
             if (!merged.coreMin && merged.asleepMin && (merged.deepMin || merged.remMin)) {
                 merged.coreMin = Math.max(0, merged.asleepMin - (merged.deepMin || 0) - (merged.remMin || 0));
+            }
+            // ערות נגזרת: זמן במיטה − זמן שינה
+            if (!merged.awakeMin && merged.inBedMin > 0 && merged.asleepMin) {
+                merged.awakeMin = Math.max(0, merged.inBedMin - merged.asleepMin);
+            }
+            // יעילות = זמן שינה / זמן במיטה
+            if (merged.efficiency == null && merged.inBedMin > 0 && merged.asleepMin != null) {
+                merged.efficiency = Math.round((merged.asleepMin / merged.inBedMin) * 100) / 100;
             }
             // ספירת שינוי רק אם באמת השתנה משהו — מונע "עדכון" בכל משיכה של אותו לילה
             if (existing && JSON.stringify(existing) === JSON.stringify(merged)) return;

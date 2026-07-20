@@ -952,6 +952,11 @@ const StorageManager = {
             if (merged.efficiency == null && merged.inBedMin > 0 && merged.asleepMin != null) {
                 merged.efficiency = Math.round((merged.asleepMin / merged.inBedMin) * 100) / 100;
             }
+            // שינה בסיסית (Core) נגזרת אם לא סופקה: כוללת − עמוקה − REM.
+            // מאפשר לקיצור לשלוח רק Deep+REM, והאפליקציה משלימה את ה-Core.
+            if (!merged.coreMin && merged.asleepMin && (merged.deepMin || merged.remMin)) {
+                merged.coreMin = Math.max(0, merged.asleepMin - (merged.deepMin || 0) - (merged.remMin || 0));
+            }
             // ספירת שינוי רק אם באמת השתנה משהו — מונע "עדכון" בכל משיכה של אותו לילה
             if (existing && JSON.stringify(existing) === JSON.stringify(merged)) return;
             map[d.date] = merged;

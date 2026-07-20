@@ -948,22 +948,25 @@ const StorageManager = {
             if (!d || !d.date) return;
             const existing = map[d.date];
             const merged = Object.assign({}, existing, d, { src: 'health' });
-            // ── גזירות שלבי שינה (מודל Apple Health) — הקיצור שולח שלבים + זמן במיטה,
-            // והאפליקציה משלימה את השאר. סדר הגזירה חשוב (שינה → core → ערות → יעילות).
-            // זמן שינה = סכום השלבים (אם לא סופק ישירות)
-            if (!merged.asleepMin && (merged.coreMin || merged.deepMin || merged.remMin)) {
-                merged.asleepMin = (merged.coreMin || 0) + (merged.deepMin || 0) + (merged.remMin || 0);
-            }
-            // שינה בסיסית (Core) נגזרת אם חסרה: שינה − עמוקה − REM
-            if (!merged.coreMin && merged.asleepMin && (merged.deepMin || merged.remMin)) {
-                merged.coreMin = Math.max(0, merged.asleepMin - (merged.deepMin || 0) - (merged.remMin || 0));
-            }
-            // ערות נגזרת: זמן במיטה − זמן שינה
-            if (!merged.awakeMin && merged.inBedMin > 0 && merged.asleepMin) {
-                merged.awakeMin = Math.max(0, merged.inBedMin - merged.asleepMin);
-            }
-            // יעילות = זמן שינה / זמן במיטה
-            if (merged.efficiency == null && merged.inBedMin > 0 && merged.asleepMin != null) {
+            // ── מודל שלבי שינה (Apple Health) ──────────────────────────────
+            // הקיצור שולח פירוט שלבים (Deep/REM/Core) + סך כולל. אם יש שלבים:
+            //   זמן שינה אמיתי = סכום השלבים · ערות = הסך הכולל − השינה · יעילות = שינה/כולל.
+            // עובד בין אם הסך הכולל נשלח בשדה inbed ובין אם נשאר בשדה asleep.
+            const _stages = (merged.coreMin || 0) + (merged.deepMin || 0) + (merged.remMin || 0);
+            if (_stages > 0) {
+                // הסך הכולל (זמן במיטה): מ-inBedMin, או מ-asleepMin אם הוא ≥ סכום השלבים
+                let totalMin = merged.inBedMin;
+                if ((!totalMin || totalMin < _stages) && merged.asleepMin && merged.asleepMin >= _stages) {
+                    totalMin = merged.asleepMin;
+                }
+                merged.asleepMin = _stages;   // זמן שינה = סכום השלבים
+                if (totalMin) {
+                    merged.inBedMin  = totalMin;
+                    merged.awakeMin  = Math.max(0, totalMin - _stages);
+                    merged.efficiency = Math.round((_stages / totalMin) * 100) / 100;
+                }
+            } else if (merged.efficiency == null && merged.inBedMin > 0 && merged.asleepMin != null) {
+                // ללא פירוט שלבים — יעילות בסיסית מ-asleep/inbed
                 merged.efficiency = Math.round((merged.asleepMin / merged.inBedMin) * 100) / 100;
             }
             // ספירת שינוי רק אם באמת השתנה משהו — מונע "עדכון" בכל משיכה של אותו לילה

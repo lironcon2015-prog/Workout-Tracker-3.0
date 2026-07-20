@@ -926,7 +926,12 @@ const StorageManager = {
         let changed = 0;
         (nights || []).forEach(d => {
             if (!d || !d.date) return;
-            map[d.date] = Object.assign({}, map[d.date], d, { src: 'health' });
+            const merged = Object.assign({}, map[d.date], d, { src: 'health' });
+            // יעילות שינה נגזרת אם לא סופקה (asleep/inbed)
+            if (merged.efficiency == null && merged.inBedMin > 0 && merged.asleepMin != null) {
+                merged.efficiency = Math.round((merged.asleepMin / merged.inBedMin) * 100) / 100;
+            }
+            map[d.date] = merged;
             changed++;
         });
         if (!changed) return 0;
@@ -1351,6 +1356,15 @@ const StorageManager = {
     },
     isHealthBridgeOn() {
         return localStorage.getItem(this.KEY_HEALTH_BRIDGE_ON) !== '0';
+    },
+
+    // משיכת תזונה מהגשר — כבוי כברירת מחדל (הגשר משמש כעת לשינה בלבד).
+    // נשאר בקוד כדי שאפשר יהיה לחזור ל-MFP בקליק אחד ללא גשר שני.
+    isHealthPullNutrition() {
+        return localStorage.getItem('gympro_health_pull_nutrition') === '1';
+    },
+    setHealthPullNutrition(on) {
+        localStorage.setItem('gympro_health_pull_nutrition', on ? '1' : '0');
     },
 
     getHealthLastSync() {

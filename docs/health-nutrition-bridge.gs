@@ -1,22 +1,25 @@
 /**
- * GYMPRO ELITE — Apple Health Nutrition Bridge (Google Apps Script)
+ * GYMPRO ELITE — Apple Health Bridge (Google Apps Script)
  * ----------------------------------------------------------------------------
- * גשר עצמאי וקטן: קיצור דרך (iOS Shortcuts) דוחף אליו נתוני תזונה יומיים
- * מ-Apple Health (קלוריות + מאקרו), והאפליקציה מושכת ב-JSONP בכל כניסה/שעה.
+ * גשר עצמאי וקטן: קיצור דרך (iOS Shortcuts) דוחף אליו נתונים יומיים מ-Apple
+ * Health, והאפליקציה מושכת ב-JSONP בכל כניסה/שעה.
+ *
+ * נושא שני סוגי דאטה, שני property נפרדים, אותו token/URL:
+ *   • שינה + התאוששות (המקור העיקרי) — property 'sleep_days'
+ *   • תזונה (קלוריות + מאקרו, אופציונלי — אם חוזרים ל-MFP) — property 'health_days'
  *
  * אין תלות ב-Firestore או ב-Service Account — האחסון הוא PropertiesService
- * של הסקריפט עצמו (נתוני מאקרו יומיים זעירים; נשמרים ~120 ימים אחרונים).
- * MFP נשאר מקור האמת: האפליקציה לעולם לא דורסת יום MFP בנתוני Health.
+ * של הסקריפט עצמו (רשומות זעירות; נשמרים ~120 ימים אחרונים לכל סוג).
  *
- * ── פריסה (חד-פעמי, זהה לגשר ה-MFP) ────────────────────────────────────────
+ * ── פריסה (חד-פעמי) ────────────────────────────────────────────────────────
  * 1. היכנס ל-https://script.google.com → New project.
  * 2. הדבק את כל הקובץ הזה. שנה את SECRET_TOKEN לערך אקראי משלך.
  * 3. Deploy → New deployment → type: Web app.
  *      - Execute as:  Me
  *      - Who has access: Anyone (ה-token מגן על הגישה)
- * 4. העתק את "Web app URL" → הדבק בהגדרות GYMPRO ("גשר תזונה Apple Health")
+ * 4. העתק את "Web app URL" → הדבק בהגדרות GYMPRO ("גשר Apple Health (שינה)")
  *    יחד עם ה-SECRET_TOKEN.
- * 5. בנה את הקיצור לפי docs/health-shortcut-recipe.md.
+ * 5. בנה את הקיצור לפי docs/sleep-shortcut-recipe.md.
  *
  * בדיקה: פתח בדפדפן  <WebAppURL>?token=<SECRET_TOKEN>  ← אמור להחזיר JSON.
  * ==========================================================================*/
@@ -24,52 +27,66 @@
 // 🔐 שנה לערך אקראי משלך (אותיות/ספרות). העתק אותו גם להגדרות GYMPRO ולקיצור.
 const SECRET_TOKEN = 'CHANGE_ME_to_a_random_secret';
 
-const STORE_KEY = 'health_days';   // property שמחזיק את כל הימים
-const MAX_DAYS  = 120;             // שמירת ~4 חודשים אחרונים (מתחת למגבלת 9KB)
+const NUTRI_KEY = 'health_days';   // תזונה: [cal,prot,carb,fat]
+const SLEEP_KEY = 'sleep_days';    // שינה: [asleep,inbed,deep,rem,core,awake,rhr,hrv,resp,temp]
+const MAX_DAYS  = 120;             // שמירת ~4 חודשים אחרונים לכל סוג
 
 /* ─── קליטה מהקיצור (POST) ────────────────────────────────────────────────
- * Body (JSON): { "token": "...", "days": [
- *   { "date": "2026-06-11", "calories": 2450, "protein": 180, "carbs": 220, "fat": 80 }
- * ] }
- * date בפורמט YYYY-MM-DD. ימים קיימים נדרסים (העדכני מנצח — היום מתעדכן בכל דחיפה).
+ * גוף JSON יכול לכלול אחד או שניים:
+ *   שינה:  { "token":"...", "sleep":[ { "date":"2026-07-20", "asleep":434, "inbed":471,
+ *            "deep":82, "rem":98, "core":254, "awake":37, "rhr":47, "hrv":74,
+ *            "resp":13.7, "temp":-0.1 } ] }
+ *   תזונה: { "token":"...", "days":[ { "date":"2026-07-20", "calories":2450,
+ *            "protein":180, "carbs":220, "fat":80 } ] }
+ * date בפורמט YYYY-MM-DD. ימים קיימים נדרסים (העדכני מנצח).
  */
 function doPost(e) {
   var body;
   try { body = JSON.parse(e.postData.contents); }
   catch (err) { return _json({ ok: false, error: 'BAD_JSON' }); }
 
-  // הטוקן מתקבל מה-body או מה-URL ‏(?token=...) — נוח יותר לקיצורי דרך
   var tok = (body && body.token) || (e && e.parameter && e.parameter.token) || '';
   if (tok !== SECRET_TOKEN) return _json({ ok: false, error: 'BAD_TOKEN' });
-  var incoming = Array.isArray(body.days) ? body.days : [];
-  if (!incoming.length) return _json({ ok: false, error: 'NO_DAYS' });
 
-  // נעילה — שתי דחיפות במקביל לא ידרסו זו את זו
+  var incNutri = Array.isArray(body.days)  ? body.days  : [];
+  var incSleep = Array.isArray(body.sleep) ? body.sleep : [];
+  if (!incNutri.length && !incSleep.length) return _json({ ok: false, error: 'NO_DATA' });
+
   var lock = LockService.getScriptLock();
   lock.tryLock(10000);
   try {
-    var map = _load();
-    var stored = 0;
-    incoming.forEach(function (d) {
-      var date = _isoDate(d && d.date);
-      if (!date) return;
-      map[date] = [
-        Math.round(Number(d.calories) || 0),
-        Math.round(Number(d.protein)  || 0),
-        Math.round(Number(d.carbs)    || 0),
-        Math.round(Number(d.fat)      || 0)
-      ];
-      stored++;
-    });
-    _save(map);
-    return _json({ ok: true, stored: stored, total: Object.keys(map).length });
+    var out = { ok: true };
+
+    if (incNutri.length) {
+      var nMap = _load(NUTRI_KEY), nStored = 0;
+      incNutri.forEach(function (d) {
+        var date = _isoDate(d && d.date); if (!date) return;
+        nMap[date] = [_n(d.calories), _n(d.protein), _n(d.carbs), _n(d.fat)];
+        nStored++;
+      });
+      _save(NUTRI_KEY, nMap);
+      out.nutrition_stored = nStored;
+    }
+
+    if (incSleep.length) {
+      var sMap = _load(SLEEP_KEY), sStored = 0;
+      incSleep.forEach(function (d) {
+        var date = _isoDate(d && d.date); if (!date) return;
+        sMap[date] = [_n(d.asleep), _n(d.inbed), _n(d.deep), _n(d.rem), _n(d.core),
+                      _n(d.awake), _n(d.rhr), _n(d.hrv), _f(d.resp), _f(d.temp)];
+        sStored++;
+      });
+      _save(SLEEP_KEY, sMap);
+      out.sleep_stored = sStored;
+    }
+    return _json(out);
   } finally {
     lock.releaseLock();
   }
 }
 
 /* ─── שליפה לאפליקציה (GET, JSONP) ────────────────────────────────────────
- * <URL>?token=...&callback=cb  ←  cb({ ok:true, days:[{date,calories,protein,carbs,fat},…] })
+ * <URL>?token=...&callback=cb  →  cb({ ok:true, days:[…], sleep:[…] })
  */
 function doGet(e) {
   var p = (e && e.parameter) || {};
@@ -77,12 +94,21 @@ function doGet(e) {
   if (p.token !== SECRET_TOKEN) {
     result = { ok: false, error: 'BAD_TOKEN' };
   } else {
-    var map = _load();
-    var days = Object.keys(map).sort().map(function (date) {
-      var v = map[date];
+    var nMap = _load(NUTRI_KEY);
+    var days = Object.keys(nMap).sort().map(function (date) {
+      var v = nMap[date];
       return { date: date, calories: v[0], protein: v[1], carbs: v[2], fat: v[3] };
     });
-    result = { ok: true, days: days };
+    var sMap = _load(SLEEP_KEY);
+    var sleep = Object.keys(sMap).sort().map(function (date) {
+      var v = sMap[date];
+      return {
+        date: date, asleepMin: v[0], inBedMin: v[1],
+        deepMin: v[2], remMin: v[3], coreMin: v[4], awakeMin: v[5],
+        rhr: v[6], hrv: v[7], respRate: v[8], wristTempDev: v[9]
+      };
+    });
+    result = { ok: true, days: days, sleep: sleep };
   }
 
   var json = JSON.stringify(result);
@@ -93,18 +119,19 @@ function doGet(e) {
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
-/* ─── אחסון קומפקטי: { "YYYY-MM-DD": [cal,prot,carb,fat], … } ───────────── */
-function _load() {
-  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(STORE_KEY)) || {}; }
+/* ─── אחסון קומפקטי לפי סוג: { "YYYY-MM-DD": [..], … } ─────────────────── */
+function _load(key) {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(key)) || {}; }
   catch (e) { return {}; }
 }
-
-function _save(map) {
-  // גיזום לימים האחרונים — שומר את הערך מתחת למגבלת property
+function _save(key, map) {
   var dates = Object.keys(map).sort();
   while (dates.length > MAX_DAYS) delete map[dates.shift()];
-  PropertiesService.getScriptProperties().setProperty(STORE_KEY, JSON.stringify(map));
+  PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(map));
 }
+
+function _n(x) { return Math.round(Number(x) || 0); }         // מספר שלם
+function _f(x) { var v = Number(x); return isFinite(v) ? Math.round(v * 10) / 10 : null; } // עשרוני/null
 
 // מנרמל תאריך ל-YYYY-MM-DD; דוחה כל דבר אחר
 function _isoDate(s) {

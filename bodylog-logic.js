@@ -1786,6 +1786,16 @@ function _slFmtDur(min) {
     return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
 
+// _slSyncTime — חותמת סנכרון קריאה: "היום HH:MM" או "DD/MM HH:MM".
+function _slSyncTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const sameDay = d.toDateString() === new Date().toDateString();
+    return sameDay ? `היום ${hh}:${mm}` : `${d.getDate()}/${d.getMonth() + 1} ${hh}:${mm}`;
+}
+
 // _sleepDemoData — מייצר ~35 לילות דמה ריאליסטיים (דטרמיניסטי), לצפייה בלייב.
 function _sleepDemoData() {
     const out = [];
@@ -2002,6 +2012,13 @@ function renderSleepView() {
     const demoBanner = demo
         ? `<div class="sl-demo-banner">נתוני דמה להדגמה — חבר את גשר ה-Health כדי לראות את הנתונים שלך</div>` : '';
 
+    // שורת סנכרון אלגנטית (לא-דמה): "מסונכרן · עודכן HH:MM · הקש לרענון".
+    // מחליפה את הטוסט המציק — הסנכרון שקט, והמשתמש רואה שהכל עובד + יכול לרענן ידנית.
+    const lastSync = (typeof StorageManager.getHealthLastSync === 'function') ? StorageManager.getHealthLastSync() : 0;
+    const syncLine = (!demo && lastSync)
+        ? `<div class="sl-sync" onclick="if(typeof syncHealthNutrition==='function')syncHealthNutrition(true)">מסונכרן · עודכן ${_slSyncTime(lastSync)} · הקש לרענון</div>`
+        : '';
+
     const coachByBand = {
         'מוכן': 'התאוששות טובה — חלון לדחיפה. אפשר להעלות עצימות/נפח היום.',
         'בינוני': 'התאוששות בינונית — שמור על התוכנית, אל תעלה עומס משמעותית.',
@@ -2014,6 +2031,7 @@ function renderSleepView() {
 
     host.innerHTML = `
     ${demoBanner}
+    ${syncLine}
     <div class="bl-chart-card sl-hero">
       <div class="sl-hero-row">
         ${_slRing(rd)}

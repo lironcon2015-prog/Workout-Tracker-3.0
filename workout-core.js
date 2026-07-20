@@ -304,6 +304,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {}
     if (typeof renderHeroCard === 'function') renderHeroCard();
     renderUserAvatar();
+    // ג4: נקודת תזכורת על כפתור המאמן אם הפרופיל דורש בדיקה (מעבר פאזה / ≥21 יום)
+    if (typeof _refreshProfileReviewBadge === 'function') _refreshProfileReviewBadge();
     // מציג את הסקשן לפי ההעדפה (כרטיסי "היום" / גרף PR) ומרנדר את הפעיל
     if (typeof applyHomeSectionPref === 'function') applyHomeSectionPref();
     maybeShowCloudSyncBanner();
@@ -1290,6 +1292,8 @@ function _renderNutritionalToggle() {
     document.querySelectorAll('#nutri-toggle .nutri-pill').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.state === nutri.state);
     });
+    // ג4: מעבר פאזה מדליק מיד את נקודת התזכורת על כפתור המאמן (סעיף היעד בפרופיל דורש רענון)
+    if (typeof _refreshProfileReviewBadge === 'function') _refreshProfileReviewBadge();
     const metaEl = document.getElementById('nutri-meta');
     if (metaEl) metaEl.textContent = nutri.startDate
         ? `במצב מאז ${nutri.startDate} (${_daysInState(nutri.startDate)} ימים)`
@@ -1626,6 +1630,45 @@ function getNutritionalContext() {
         ctx += `, prev ${LBL[prev.state] || prev.state} ${prevDays}d`;
     }
     return ctx;
+}
+
+// getNutritionalContextVerbose — פורמט מפורש בעברית לסיכומי המאמן ולצ'אט (ב6א).
+// מדגיש שהמצב הנוכחי הוא מקור האמת, ושפאזה קודמת הסתיימה ואינה בתוקף —
+// כדי למנוע מהמודל לגלוש לתיאור פאזה שכבר הסתיימה (מקור טעות מרכזי).
+// הפורמט הדחוס (getNutritionalContext) נשאר לבאנר ה-UI ולפרומפט המלצת הסט.
+function getNutritionalContextVerbose() {
+    const LBL = { cut: 'CUT', maintenance: 'MAINTENANCE', surplus: 'SURPLUS' };
+    const n = StorageManager.getNutritionalState();
+    const label = LBL[n.state] || 'MAINTENANCE';
+    if (!n.startDate) return `מצב נוכחי: ${label}.`;
+    let out = `מצב נוכחי: ${label} — החל מ-${n.startDate} (יום ${_daysInState(n.startDate)} במצב זה).`;
+    const log = StorageManager.getNutritionLog();
+    if (log.length >= 2) {
+        const last = log[log.length - 1];
+        const prev = log[log.length - 2];
+        const prevDays = Math.max(0, Math.round((last.startTs - prev.startTs) / 86400000));
+        out += `\nפאזה קודמת: ${LBL[prev.state] || prev.state}, נמשכה ${prevDays} ימים — הסתיימה ב-${last.startDate} ואינה בתוקף.`;
+    }
+    return out;
+}
+
+// _phaseLabelForEntry — תווית פאזה לאימון היסטורי (ב6ב): קודם ה-snapshot שנשמר
+// ברשומה (nutritionalState), אחרת חישוב מהיומן לפי תאריך האימון, אחרת "לא תועד".
+function _phaseLabelForEntry(item) {
+    const LBL = { cut: 'CUT', maintenance: 'MAINTENANCE', surplus: 'SURPLUS' };
+    let st = item && item.nutritionalState;
+    if (!st && item && item.timestamp && typeof StorageManager.getNutritionStateOnDate === 'function') {
+        const d = new Date(item.timestamp);
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        st = StorageManager.getNutritionStateOnDate(iso);
+    }
+    return st ? (LBL[st] || String(st).toUpperCase()) : 'לא תועד';
+}
+
+// _taggedSummary — סיכום אימון היסטורי עם תיוג פאזה בראשו, להזרקה לפרומפטים.
+function _taggedSummary(item) {
+    if (!item || !item.summary) return '';
+    return `[מצב תזונתי בזמן האימון: ${_phaseLabelForEntry(item)}]\n${item.summary}`;
 }
 
 // _renderNutritionLog — מצייר את ציר הזמן התזונתי בתוך מודאל "במצב מאז".
@@ -2576,6 +2619,7 @@ Last sessions (newest first):
 ${history}
 
 Guidelines:
+- The nutritional state label above is authoritative for these rules. Do not infer the phase from history, persona, or anything else.
 - CUT: prioritize maintaining strength; avoid aggressive load increases. Volume preservation preferred.
 - SURPLUS: progressive overload preferred (+weight step or +1 rep when targets met).
 - MAINTENANCE: consistency; small sustainable gains.
@@ -2686,8 +2730,11 @@ async function _callGeminiOneShot(prompt, opts = {}) {
     const models = _geminiOrderedModels(config);
     const _markOk = _geminiMarkModelOk;
     const _thinkingConfig = _geminiThinkingConfig;
+    // ב5: temperature ניתן לשליטה פר-קריאה (סיכום/Refine מבקשים 0.35 לצמצום הזיה);
+    // ברירת מחדל 0.7 נשמרת לזיכרון המאמן ולפיצ'ר ה-AI בארכיון שמשתמשים באותה פונקציה.
+    const _freeTemp = (opts.temperature != null) ? opts.temperature : 0.7;
     const _genConfigFor = (modelName) => opts.freeText
-        ? { temperature: 0.7, maxOutputTokens: opts.maxTokens || 8192, thinkingConfig: _thinkingConfig(modelName) }
+        ? { temperature: _freeTemp, maxOutputTokens: opts.maxTokens || 8192, thinkingConfig: _thinkingConfig(modelName) }
         : { temperature: 0.35, maxOutputTokens: opts.maxTokens || 512, responseMimeType: 'application/json', thinkingConfig: _thinkingConfig(modelName) };
 
     // freeText — מאפשרים עד 3 סבבי המשך אם התשובה נחתכה (finishReason === 'MAX_TOKENS')
@@ -4064,31 +4111,36 @@ function _buildCoachSummaryPrompt(scope) {
     const archive = StorageManager.getArchive();
     const currentEntry = archive.find(a => a.timestamp === ts);
     const workoutText = (currentEntry && currentEntry.summary) || '';
-    const nutrition = (typeof getNutritionalContext === 'function' && getNutritionalContext()) || 'לא הוגדר';
+    // ב6א: מצב תזונתי מפורש (מדגיש שפאזה קודמת אינה בתוקף)
+    const nutrition = (typeof getNutritionalContextVerbose === 'function' && getNutritionalContextVerbose()) || 'לא הוגדר';
     const persona = (StorageManager.getAIPersona && StorageManager.getAIPersona()) || 'לא הוגדר';
 
     const ctx = (typeof buildBlockContext === 'function')
         ? buildBlockContext() : { current: [], previous: [], previous2: [] };
 
+    // ב6ב: כל אימון היסטורי מוזרק עם תיוג הפאזה בזמנו. ב1: האימון הנוכחי (ts)
+    // מסונן מ-weekWorkouts/blockWorkouts כדי שלא ייספר פעמיים (הוא כבר ב-workoutText).
     const recentWorkouts = archive
         .filter(a => a.timestamp !== ts && a.type === state.type && a.summary)
-        .slice(0, 3).map(a => a.summary).join('\n\n') || 'אין נתונים';
+        .slice(0, 3).map(_taggedSummary).join('\n\n') || 'אין נתונים';
 
     const weekWorkouts = ctx.current
-        .filter(a => a.week === state.week && a.summary)
-        .map(a => a.summary).join('\n\n') || 'אין נתונים';
+        .filter(a => a.timestamp !== ts && a.week === state.week && a.summary)
+        .map(_taggedSummary).join('\n\n') || 'אין נתונים';
 
     const parallelWorkout = ctx.previous
         .filter(a => a.week === state.week && a.type === state.type && a.summary)
-        .map(a => a.summary).join('\n\n') || 'אין נתונים מהבלוק הקודם';
+        .map(_taggedSummary).join('\n\n') || 'אין נתונים מהבלוק הקודם';
 
     const blockWorkouts = ctx.current
-        .filter(a => a.summary).map(a => a.summary).join('\n\n') || 'אין נתונים';
+        .filter(a => a.timestamp !== ts && a.summary).map(_taggedSummary).join('\n\n') || 'אין נתונים';
 
     const analytics = (typeof buildAnalyticsSnapshot === 'function' && buildAnalyticsSnapshot()) || 'אין נתונים';
 
+    const reliability = StorageManager.COACH_RELIABILITY_BLOCK || '';
+
     return _fillTemplate(StorageManager.getCoachPrompt(scope), {
-        workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics
+        reliability, workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics
     });
 }
 
@@ -4115,7 +4167,7 @@ function generateCoachSummary() {
     body.innerHTML = `<div class="coach-loading"><span class="coach-spinner"></span> המאמן מנתח את האימון…</div>`;
 
     const prompt = _buildCoachSummaryPrompt(scope);
-    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true })
+    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true, temperature: 0.35 })
         .then(text => {
             const clean = (text || '').trim();
             if (!clean) throw new Error('EMPTY_RESPONSE');
@@ -4176,6 +4228,9 @@ function refineCoachSummary(note) {
     const archive = StorageManager.getArchive();
     const entry = archive.find(a => a.timestamp === state.archivedTimestamp);
     const workoutText = (entry && entry.summary) || 'אין נתונים';
+    // ב4: הזרקת הקשר תזונתי ופרופיל כדי ש-Refine לא יתקן בעיוורון קביעות שנוגעות בהם
+    const nutrition = (typeof getNutritionalContextVerbose === 'function' && getNutritionalContextVerbose()) || 'לא הוגדר';
+    const persona = (StorageManager.getAIPersona && StorageManager.getAIPersona()) || 'לא הוגדר';
 
     const prompt = `אתה מאמן כוח. כתבת למתאמן את הסיכום הבא:
 ---
@@ -4183,13 +4238,20 @@ ${prev}
 ---
 נתוני האימון בפועל:
 ${workoutText}
+
+=== מצב תזונתי (מקור אמת יחיד) ===
+${nutrition}
+
+=== פרופיל המתאמן ===
+${persona}
+
 המתאמן מעיר/מתקן: "${note}"
-כתוב מחדש את הסיכום המלא בעברית בפורמט Markdown, באותו מבנה וכותרות, ותקן רק את מה שצריך לאור ההערה. החזר את הסיכום המתוקן בלבד, ללא הקדמות.`;
+כתוב מחדש את הסיכום המלא בעברית בפורמט Markdown, באותו מבנה וכותרות. תקן אך ורק את מה שההערה מתייחסת אליו, מעוגן בנתוני האימון והמצב התזונתי שלמעלה — אל תשנה קביעות אחרות ואל תמציא נתונים חדשים. המצב התזונתי הנוכחי הוא אך ורק "מצב נוכחי" שבמקטע התזונתי; פאזה קודמת אינה בתוקף. החזר את הסיכום המתוקן בלבד, ללא הקדמות.`;
 
     body.className = 'coach-card-body loading';
     body.innerHTML = `<div class="coach-loading"><span class="coach-spinner"></span> המאמן מעדכן את הסיכום…</div>`;
 
-    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true })
+    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true, temperature: 0.35 })
         .then(text => {
             const clean = (text || '').trim();
             if (!clean) throw new Error('EMPTY_RESPONSE');
@@ -4622,16 +4684,20 @@ function buildBlockContext() {
     const archive = StorageManager.getArchive();
     if (!archive.length) return { current: [], previous: [], previous2: [] };
 
+    // ב3: אימוני Freestyle שומרים שדה week מספרי (לרוב 1) ולכן עלולים להיחשב בטעות
+    // כגבול בלוק ולהזיז את ההשוואות. גבול בלוק חוקי = week===1 שאינו Freestyle.
+    const _isBlockWeek1 = (e) => e && e.week === 1 && e.type !== 'Freestyle';
+
     // מוצא את גבול הבלוק החל מ-startFrom (חדש→ישן). גבול = ה-Week-1 הישן ביותר ברצף Week-1 רצוף
     // (כי לשבוע 1 של בלוק יש לרוב כמה אימונים — Workout A, B, C — כולם week:1).
     // מחזיר -1 אם אין Week-1 מ-startFrom והלאה.
     function findBlockEnd(startFrom) {
         let i = startFrom;
-        // דלג על אימונים שאינם Week-1 (Week 2/3/deload של אותו בלוק, החדשים יותר)
-        while (i < archive.length && archive[i].week !== 1) i++;
+        // דלג על אימונים שאינם Week-1 חוקי (Week 2/3/deload/Freestyle, החדשים יותר)
+        while (i < archive.length && !_isBlockWeek1(archive[i])) i++;
         if (i >= archive.length) return -1;
-        // הרחב את הגבול כל עוד גם האימון הבא (הישן יותר) הוא Week-1 — אותו שבוע 1, workout אחר
-        while (i + 1 < archive.length && archive[i + 1].week === 1) i++;
+        // הרחב את הגבול כל עוד גם האימון הבא (הישן יותר) הוא Week-1 חוקי — אותו שבוע 1, workout אחר
+        while (i + 1 < archive.length && _isBlockWeek1(archive[i + 1])) i++;
         return i;
     }
 
@@ -4712,7 +4778,7 @@ function buildAnalyticsSnapshot() {
         .map(([m, n]) => `${m} ${n}סטים`)
         .join(' | ');
 
-    let snap = `=== אנליטיקה מצרפית ===\n`;
+    let snap = `=== אנליטיקה מצרפית (כלל התקופות — לא רק הבלוק) ===\n`;
     snap += `נפח כולל: ${(totalVol / 1000).toFixed(1)}t | אימונים: ${total} | ממוצע משך: ${avgMins}m`;
     if (avgGap) snap += ` | ממוצע ימים בין אימונים: ${avgGap}`;
     if (rmLines.length) snap += `\n1RM מחושב: ${rmLines.join(' | ')}`;
@@ -4856,6 +4922,61 @@ function _buildTdeeAIContext(slim) {
     return s;
 }
 
+// ─── ג1: נתוני מערכת חיים ל-System Prompt (פרופיל גוף + תוכנית אימונים) ──────
+
+// _buildBodyProfileLine — שורת פרופיל גוף מ-getBodyProfile() (המקור לחישוב ה-TDEE).
+function _buildBodyProfileLine() {
+    const p = StorageManager.getBodyProfile() || {};
+    const sexLbl = p.sex === 'male' ? 'זכר' : p.sex === 'female' ? 'נקבה' : '';
+    const actLbl = { sedentary: 'יושבני', light: 'קל', moderate: 'בינוני', very: 'גבוה', extra: 'גבוה מאוד' }[p.activity] || '';
+    const parts = [];
+    if (p.age) parts.push(`גיל ${p.age}`);
+    if (p.height) parts.push(`גובה ${p.height} ס"מ`);
+    if (sexLbl) parts.push(`מין ${sexLbl}`);
+    if (actLbl) parts.push(`רמת פעילות ${actLbl}`);
+    return parts.join(' | ');
+}
+
+// _buildWorkoutPlanSection — תוכנית האימונים הפעילה מ-state.workouts/state.exercises + TM.
+// מתעדכן אוטומטית מעורך התוכנית — כך שהמאמן לעולם לא עובד מול תוכנית מיושנת בפרופיל הידני.
+function _buildWorkoutPlanSection() {
+    if (!state.workouts || !Object.keys(state.workouts).length) return '';
+    const exByName = {};
+    (state.exercises || []).forEach(e => { exByName[e.name] = e; });
+    const tms = (typeof StorageManager.getAllExerciseTMs === 'function') ? StorageManager.getAllExerciseTMs() : {};
+    let out = '';
+    Object.keys(state.workouts).forEach(wName => {
+        const items = state.workouts[wName] || [];
+        if (!items.length) return;
+        out += `\n• ${wName}:\n`;
+        items.forEach(item => {
+            if (item.type === 'cluster') {
+                const names = (item.exercises || []).map(x => x.name).join(' / ');
+                out += `   - Cluster ×${item.rounds} סבבים: ${names}\n`;
+            } else if (item.isMain) {
+                const tm = tms[item.name];
+                out += `   - ${item.name} (Main${tm != null && tm !== '' ? `, TM ${tm}kg` : ''})\n`;
+            } else {
+                const ex = exByName[item.name];
+                const reps = ex && ex.sets && ex.sets[0] ? ex.sets[0].r : '?';
+                out += `   - ${item.name} — ${item.sets || '?'}×${reps}\n`;
+            }
+        });
+    });
+    return out;
+}
+
+// _buildSystemDataSection — מקטע "נתוני מערכת" המלא (מקור אמת, גובר על הפרופיל).
+function _buildSystemDataSection() {
+    const bodyLine = _buildBodyProfileLine();
+    const planSection = _buildWorkoutPlanSection();
+    if (!bodyLine && !planSection) return '';
+    let s = `\n=== נתוני מערכת (מקור אמת — גובר על הפרופיל) ===\n`;
+    if (bodyLine) s += `פרופיל גוף: ${bodyLine}\n`;
+    if (planSection) s += `\nתוכנית האימונים הפעילה (מתעדכנת אוטומטית מעורך התוכנית):${planSection}`;
+    return s;
+}
+
 /**
  * buildSystemPrompt — מרכיב את ה-System Instruction המלא לכל קריאת API.
  */
@@ -4877,23 +4998,32 @@ function buildSystemPrompt(opts = {}) {
 - הנתונים שלמטה הם מקור האמת על המתאמן. אם נדרש מידע שאינו מופיע — אמור זאת ובקש אותו, במקום לנחש.
 - אם נשאלת על תאריך, אימון, משקל או מספר שלא מופיעים מילולית בנתונים שלמטה — השב במפורש "הנתון לא קיים במידע שיש לי כרגע". אל תמציא ערכים ואל תסיק תאריכים מהקשר.
 - חריג: **מותר ומומלץ** לחשב חישובים אריתמטיים פשוטים מנתונים שכן מופיעים (חיבור/חיסור/ממוצע). בפרט — שאלות על הצריכה היומית ("כמה אכלתי היום", "כמה קלוריות נותרו") נענות מהשורה "צריכה שוטפת היום" שבמקטע התזונה (מתעדכנת במהלך היום, מקורה Apple Health או MyFitnessPal — שתיהן תקפות), וכמות הנותרת = יעד/TDEE פחות הצריכה השוטפת. אל תאמר שאין לך נתון יומי אם השורה "צריכה שוטפת היום" קיימת.
+- הפרופיל הכתוב ("פרופיל המתאמן") משמש רק למידע שאינו במערכת (מגבלות, העדפות, יעדים, עקרונות). בכל סתירה בין הפרופיל לנתוני המערכת (מצב תזונתי, משקל, TDEE, תוכנית האימונים, TM) — נתוני המערכת ("נתוני מערכת" / "מצב תזונתי" / "מצב נוכחי") גוברים; ציין את הסתירה בקצרה.
+- המצב התזונתי הנוכחי הוא אך ורק השורה "מצב נוכחי" שבמקטע "מצב תזונתי". פאזה קודמת המופיעה שם הסתיימה ואינה בתוקף — אל תתאר את המתאמן כנמצא בה. אימוני עבר בהיסטוריה מתויגים ב-[מצב תזונתי בזמן האימון: …] — נתח כל אימון לפי התיוג שלו.
 
 # מתודולוגיה
 - בהשוואה בין בלוקים: השווה תמיד שבועות מקבילים (שבוע N בבלוק הנוכחי מול שבוע N בבלוק קודם), לא מספרים מוחלטים מתקופות שונות.
 - התאם המלצות למצב התזונתי (Cut / Maintenance / Surplus): בגירעון — עדיפות לשימור כוח ולוויסות נפח ועייפות; בעודף — ניצול חלון לעלייה. ציין במפורש כשהמצב התזונתי משנה את ההמלצה.
+- אל תשווה ביצועים בין ציוד שונה: מוט ≠ משקולות יד ≠ מכונה ≠ כבל, וציוד מזדמן (מלון/נסיעה) ≠ הקבוע. השוואה חוצת-ציוד אינה בת-תוקף למגמת כוח — ציין זאת במקום להסיק רגרסיה/התקדמות.
+- הערת סט/אימון שמסבירה אנומליה (זווית, ספסל, אחיזה, ציוד, מחלה) גוברת על חישוב הנפח — אל תפרש ירידה מוסברת כרגרסיה.
+- אל תמליץ על שינוי Training Max (העלאה/הורדה/איפוס). מותר לציין שביצוע מצביע על מרווח, בלי להציע מספר חדש.
 - כל המלצה מעשית: מה לעשות, כמה, ולמה — מבוסס על נתוני המתאמן.\n`;
 
     // פרופיל אישי
     const persona = StorageManager.getAIPersona();
     if (persona) prompt += `\n=== פרופיל המתאמן ===\n${persona}\n`;
 
+    // ג1: נתוני מערכת (מקור אמת, גובר על הפרופיל) — פרופיל גוף + תוכנית אימונים חיה.
+    // כל נתון שהאפליקציה מתעדת נשאב מכאן, כדי שלא יתיישן בפרופיל הידני.
+    prompt += _buildSystemDataSection();
+
     // זיכרון מצטבר משיחות קודמות + ניתוחים קודמים של המאמן (קונטקסט ארוך-טווח, צד-קלט בלבד)
     prompt += _coachMemorySection();
     prompt += _buildCondensedCoachSummaries(2, 800);
 
-    // מצב תזונתי — משפיע ישירות על ההמלצות (Cut/Maintenance/Surplus)
-    const nutriCtx = getNutritionalContext();
-    if (nutriCtx) prompt += `\n=== מצב תזונתי ===\n${nutriCtx}\n`;
+    // מצב תזונתי — משפיע ישירות על ההמלצות (Cut/Maintenance/Surplus). פורמט מפורש (ב6א).
+    const nutriCtx = getNutritionalContextVerbose();
+    if (nutriCtx) prompt += `\n=== מצב תזונתי (מקור אמת יחיד) ===\n${nutriCtx}\n`;
 
     // נתוני תזונה בפועל (סיכום יומי + יומן מזון מפורט) + שקילות
     prompt += _buildNutritionAIContext(slim);
@@ -4915,13 +5045,13 @@ function buildSystemPrompt(opts = {}) {
             if (currentSets.length) prompt += `סטים שבוצעו: ${currentSets.join(', ')}\n`;
         }
 
-        // שבועות מקבילים מהבלוק הקודם — לעזור בהשוואה ישירה
+        // שבועות מקבילים מהבלוק הקודם — לעזור בהשוואה ישירה (Freestyle מוחרג — ב3)
         if (state.week && state.week !== 'deload' && !state.isFreestyle) {
             const { previous } = buildBlockContext();
-            const parallelWeek = previous.filter(item => item.week === state.week);
+            const parallelWeek = previous.filter(item => item.week === state.week && item.type !== 'Freestyle');
             if (parallelWeek.length) {
                 prompt += `\nשבוע ${state.week} בבלוק הקודם (לצורך השוואה ישירה):\n`;
-                parallelWeek.forEach(item => { if (item.summary) prompt += item.summary + '\n'; });
+                parallelWeek.forEach(item => { if (item.summary) prompt += _taggedSummary(item) + '\n'; });
             }
         }
     } else {
@@ -5394,6 +5524,7 @@ async function sendAIMessage() {
 function openAIPersonaSheet() {
     const textarea = document.getElementById('ai-persona-text');
     if (textarea) textarea.value = StorageManager.getAIPersona();
+    _renderProfileReviewRow();
     document.getElementById('ai-persona-overlay').style.display = 'block';
     document.getElementById('ai-persona-sheet').classList.add('open');
     haptic('light');
@@ -5408,8 +5539,45 @@ function saveAIPersona() {
     const textarea = document.getElementById('ai-persona-text');
     if (!textarea) return;
     StorageManager.saveAIPersona(textarea.value.trim());
+    StorageManager.markProfileReviewed();   // שמירה = אישור שהפרופיל מעודכן (ג4)
+    _refreshProfileReviewBadge();
     closeAIPersonaSheet();
     showAlert('הפרופיל נשמר!');
+}
+
+// ─── ג4: תזכורת בדיקת פרופיל ────────────────────────────────────────────────
+
+// _refreshProfileReviewBadge — מציג/מסתיר את הנקודה על כפתור המאמן לפי isProfileReviewDue.
+function _refreshProfileReviewBadge() {
+    const dot = document.getElementById('ai-review-dot');
+    if (!dot) return;
+    dot.hidden = !StorageManager.isProfileReviewDue();
+}
+
+// _renderProfileReviewRow — שורת הסטטוס בתוך מסך הפרופיל ("אושר לפני X ימים…").
+function _renderProfileReviewRow() {
+    const row = document.getElementById('ai-persona-review');
+    const txt = document.getElementById('ai-persona-review-text');
+    if (!row || !txt) return;
+    if (!StorageManager.isProfileReviewDue()) { row.hidden = true; return; }
+    const days = StorageManager.daysSinceProfileReview();
+    const phase = StorageManager.getProfileReview().phase;
+    const LBL = { cut: 'Cut', maintenance: 'Maintenance', surplus: 'Surplus' };
+    if (days == null) {
+        txt.textContent = 'ודא שהפרופיל מעודכן ומכיל רק מידע קבוע.';
+    } else {
+        const phaseStr = phase ? ` (פאזה בעת האישור: ${LBL[phase] || phase})` : '';
+        txt.textContent = `הפרופיל אושר לפני ${days} ימים${phaseStr}. ודא שהוא עדיין מעודכן.`;
+    }
+    row.hidden = false;
+}
+
+function confirmProfileReviewed() {
+    StorageManager.markProfileReviewed();
+    _refreshProfileReviewBadge();
+    _renderProfileReviewRow();
+    haptic('success');
+    if (typeof showCloudToast === 'function') showCloudToast('הפרופיל אושר כמעודכן', true);
 }
 
 // ─── COACH PROMPTS EDITOR ──────────────────────────────────────────────────

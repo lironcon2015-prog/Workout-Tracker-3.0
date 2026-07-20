@@ -63,14 +63,17 @@ function _applyTabVisibility() {
     const w = document.getElementById('bl-view-weight');
     const n = document.getElementById('bl-view-nutrition');
     const p = document.getElementById('bl-view-photos');
+    const s = document.getElementById('bl-view-sleep');
     if (w) w.style.display = _blTab === 'weight' ? '' : 'none';
     if (n) n.style.display = _blTab === 'nutrition' ? '' : 'none';
     if (p) p.style.display = _blTab === 'photos' ? '' : 'none';
-    // צ'יפי הטווח שייכים לגרפים בלבד — לא רלוונטיים לתמונות
+    if (s) s.style.display = _blTab === 'sleep' ? '' : 'none';
+    // צ'יפי הטווח שייכים לגרפי משקל/תזונה בלבד — תמונות ושינה מנהלים טווח בעצמם
+    const noChips = (_blTab === 'photos' || _blTab === 'sleep');
     const chips = document.getElementById('bl-range-chips');
-    if (chips) chips.style.display = _blTab === 'photos' ? 'none' : '';
+    if (chips) chips.style.display = noChips ? 'none' : '';
     const custom = document.getElementById('bl-custom-range');
-    if (custom) custom.style.display = (_blTab !== 'photos' && _blRange === 'custom') ? 'flex' : 'none';
+    if (custom) custom.style.display = (!noChips && _blRange === 'custom') ? 'flex' : 'none';
 }
 
 function setBodyTab(tab) {
@@ -83,6 +86,7 @@ function setBodyTab(tab) {
 function _refreshActiveView() {
     if (_blTab === 'weight') _renderBodyCharts(StorageManager.getBodyLog());
     else if (_blTab === 'photos') { if (typeof _renderBodyPhotos === 'function') _renderBodyPhotos(); }
+    else if (_blTab === 'sleep') { if (typeof renderSleepView === 'function') renderSleepView(); }
     else _renderNutritionView();
 }
 
@@ -1765,4 +1769,299 @@ function exportBodyCsv(b) {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
     haptic('success');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLEEP / RECOVERY — טאב "שינה" בתוך מסך הבריאות (v17.50)
+// שואב שינה + התאוששות מ-Apple Health (בקרוב דרך גשר ה-Health). כרגע: אם אין
+// נתונים אמיתיים — מוצגים נתוני דמה עם באנר, כדי לראות את המסך בלייב.
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _slRange = 7;   // טווח גרפי השינה: 7 | 30
+const SLEEP_NEED_MIN = 480;  // צורך שינה בסיסי (8ש') — יוחלף בהעדפה בהמשך
+
+function _slFmtDur(min) {
+    if (min == null || isNaN(min)) return '—';
+    const m = Math.round(min);
+    return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+}
+
+// _sleepDemoData — מייצר ~35 לילות דמה ריאליסטיים (דטרמיניסטי), לצפייה בלייב.
+function _sleepDemoData() {
+    const out = [];
+    const today = new Date();
+    const rnd = (seed) => { const x = Math.sin(seed * 12.9898) * 43758.5453; return x - Math.floor(x); };
+    for (let i = 34; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const bad = (i === 6 || i === 13 || i === 20);   // כמה לילות חלשים לגיוון
+        const s = rnd(i + 1);
+        const inbed = Math.round((bad ? 340 : 430) + (s - 0.5) * 70);
+        const eff = Math.min(0.97, Math.max(0.74, (bad ? 0.80 : 0.90) + (rnd(i + 2) - 0.5) * 0.06));
+        const asleep = Math.round(inbed * eff);
+        const awake = inbed - asleep;
+        const deep = Math.round(asleep * (0.17 + (rnd(i + 3) - 0.5) * 0.04));
+        const rem = Math.round(asleep * (0.22 + (rnd(i + 4) - 0.5) * 0.04));
+        const core = asleep - deep - rem;
+        out.push({
+            date: iso,
+            asleepMin: asleep, inBedMin: inbed, efficiency: Math.round(eff * 100) / 100,
+            deepMin: deep, remMin: rem, coreMin: core, awakeMin: awake,
+            hrv: Math.round((bad ? 58 : 72) + (rnd(i + 5) - 0.5) * 12),
+            rhr: Math.round((bad ? 54 : 47) + (rnd(i + 6) - 0.5) * 4),
+            respRate: Math.round(((bad ? 14.6 : 13.7) + (rnd(i + 7) - 0.5) * 0.6) * 10) / 10,
+            wristTempDev: Math.round(((bad ? 0.4 : 0) + (rnd(i + 8) - 0.5) * 0.3) * 10) / 10,
+            src: 'demo'
+        });
+    }
+    return out;
+}
+
+// _sleepData — מקור הנתונים: אמיתי אם קיים, אחרת דמה (עם דגל).
+function _sleepData() {
+    const real = StorageManager.getSleepDaily();
+    if (real && real.length) return { nights: real, demo: false };
+    return { nights: _sleepDemoData(), demo: true };
+}
+
+// _median / _recoveryBaseline — baseline אישי חזק (חציון + MAD) על חלון עוקב.
+function _slMedian(arr) {
+    const v = arr.filter(x => x != null && !isNaN(x)).sort((a, b) => a - b);
+    if (!v.length) return null;
+    const m = Math.floor(v.length / 2);
+    return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+function _recoveryBaseline(nights, idx, key, win = 28) {
+    const start = Math.max(0, idx - win);
+    const vals = [];
+    for (let i = start; i < idx; i++) { const v = nights[i] && nights[i][key]; if (v != null && !isNaN(v)) vals.push(v); }
+    const med = _slMedian(vals);
+    if (med == null) return { med: null, spread: null, n: 0 };
+    const mad = _slMedian(vals.map(v => Math.abs(v - med)));
+    return { med, spread: Math.max((mad || 0) * 1.4826, 1e-6), n: vals.length };
+}
+
+// computeReadiness — ציון 0–100 מ-z-score מול baseline. מחזיר building עד 14 לילות.
+function computeReadiness(nights, idx) {
+    const n = nights[idx];
+    if (!n) return { score: null, building: true, have: 0, need: 14 };
+    const baseCount = _recoveryBaseline(nights, idx, 'hrv').n;
+    if (baseCount < 14) return { score: null, building: true, have: baseCount, need: 14 };
+
+    const parts = [];   // {w, contrib, key, label, delta, dir}
+    const push = (key, w, val, dir, label, unit, invGood) => {
+        if (val == null) return;
+        const b = _recoveryBaseline(nights, idx, key);
+        if (b.med == null) return;
+        let z = (val - b.med) / b.spread;
+        let contrib;
+        if (dir === 'sym') contrib = -Math.abs(z);           // סטייה לכל כיוון = רע
+        else contrib = (dir === 'inv' ? -z : z);
+        const delta = Math.round((val - b.med) * 10) / 10;
+        const good = invGood ? delta < 0 : delta > 0;
+        parts.push({ w, contrib, label, delta: (delta > 0 ? '+' : '') + delta + unit, dir: good ? 'up' : 'down', z });
+    };
+    push('hrv', 0.35, n.hrv, 'pos', 'HRV', 'ms', false);
+    push('rhr', 0.20, n.rhr, 'inv', 'דופק מנוחה', '', true);
+    push('respRate', 0.08, n.respRate, 'sym', 'נשימה', '', true);
+    // שינה — ציון משוכלל (משך מול צורך + יעילות), ממורכז
+    if (n.asleepMin != null) {
+        const sleepScore = Math.min(1.1, n.asleepMin / SLEEP_NEED_MIN) * 0.7 + (n.efficiency || 0.85) * 0.3;
+        const z = (sleepScore - 0.85) / 0.14;
+        parts.push({ w: 0.30, contrib: z, label: 'שינה', delta: _slFmtDur(n.asleepMin), dir: n.asleepMin >= SLEEP_NEED_MIN ? 'up' : 'down', z });
+    }
+    // טמפרטורת עור — סטייה מוחלטת רעה
+    if (n.wristTempDev != null) {
+        parts.push({ w: 0.07, contrib: -Math.abs(n.wristTempDev) / 0.3, label: 'טמפ׳', delta: (n.wristTempDev > 0 ? '+' : '') + n.wristTempDev + '°', dir: Math.abs(n.wristTempDev) <= 0.2 ? 'up' : 'down', z: 0 });
+    }
+    if (!parts.length) return { score: null, building: true, have: baseCount, need: 14 };
+
+    const wsum = parts.reduce((a, p) => a + p.w, 0);
+    const composite = parts.reduce((a, p) => a + p.w * p.contrib, 0) / wsum;
+    const score = Math.max(1, Math.min(99, Math.round(50 + 22 * composite)));
+    const band = score >= 66 ? 'מוכן' : score >= 34 ? 'בינוני' : 'נמוך';
+    const color = score >= 66 ? 'var(--success)' : score >= 34 ? 'var(--warn)' : 'var(--danger)';
+    // drivers — 3 התורמים החזקים ביותר (לפי |w*contrib|)
+    const drivers = parts.slice().sort((a, b) => Math.abs(b.w * b.contrib) - Math.abs(a.w * a.contrib))
+        .slice(0, 3).map(p => ({ label: p.label, delta: p.delta, dir: p.dir }));
+    return { score, band, color, drivers, building: false };
+}
+
+// _slRing — טבעת SVG (או מקווקוות במצב building)
+function _slRing(rd, size) {
+    const C = 42, CIRC = 2 * Math.PI * C;
+    const cls = size === 'sm' ? 'sl-ring sm' : 'sl-ring';
+    if (rd.building) {
+        return `<div class="${cls} dashed"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="${C}"></circle>
+            <circle class="prog" cx="50" cy="50" r="${C}" stroke-dasharray="4 7" stroke-dashoffset="0"></circle></svg>
+            <div class="ctr"><div class="score" style="color:var(--text-dim)">—</div><div class="bnd">בונה</div></div></div>`;
+    }
+    const off = CIRC * (1 - rd.score / 100);
+    return `<div class="${cls}"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="${C}"></circle>
+        <circle class="prog" cx="50" cy="50" r="${C}" stroke="${rd.color}" stroke-dasharray="${CIRC}" stroke-dashoffset="${off}"
+        style="filter:drop-shadow(0 0 6px ${rd.color}55)"></circle></svg>
+        <div class="ctr"><div class="score" style="color:${rd.color}">${rd.score}</div><div class="bnd" style="color:${rd.color}">${rd.band}</div></div></div>`;
+}
+
+function _slStagesBar(n) {
+    const seg = (v, c) => `<span style="flex-grow:${Math.max(v, 0)};background:${c}"></span>`;
+    return `<div class="sl-stages-bar">
+        ${seg(n.deepMin, 'var(--st-deep)')}${seg(n.coreMin, 'var(--st-core)')}${seg(n.remMin, 'var(--st-rem)')}${seg(n.awakeMin, 'var(--st-awake)')}</div>
+    <div class="sl-legend">
+        <div class="li"><span class="sw" style="background:var(--st-deep)"></span>עמוקה <b>${_slFmtDur(n.deepMin)}</b></div>
+        <div class="li"><span class="sw" style="background:var(--st-core)"></span>בסיסית <b>${_slFmtDur(n.coreMin)}</b></div>
+        <div class="li"><span class="sw" style="background:var(--st-rem)"></span>REM <b>${_slFmtDur(n.remMin)}</b></div>
+        <div class="li"><span class="sw" style="background:var(--st-awake)"></span>ערנות <b>${_slFmtDur(n.awakeMin)}</b></div>
+    </div>`;
+}
+
+function _slDurChart(nights) {
+    const data = nights.slice(-_slRange);
+    const W = 320, H = 110, pad = 6, need = SLEEP_NEED_MIN;
+    const bw = (W - pad * 2) / data.length;
+    const max = Math.max(need, ...data.map(d => d.asleepMin || 0)) * 1.08;
+    const y = v => H - (v / max) * (H - 14);
+    let bars = '';
+    data.forEach((d, i) => {
+        const x = pad + i * bw, last = i === data.length - 1;
+        const v = d.asleepMin || 0;
+        const col = last ? (computeReadiness(nights, nights.length - 1).color || 'var(--accent)') : 'rgba(var(--accent-rgb),.5)';
+        bars += `<rect x="${x + bw * 0.16}" y="${y(v)}" width="${bw * 0.68}" height="${H - y(v)}" rx="3" fill="${col}"/>`;
+    });
+    const ny = y(need);
+    return `<svg class="sl-chart" viewBox="0 0 ${W} ${H + 4}">
+        <line x1="${pad}" x2="${W - pad}" y1="${ny}" y2="${ny}" stroke="var(--warn)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>
+        <text x="${W - pad}" y="${ny - 4}" text-anchor="end" font-size="8" fill="var(--warn)" opacity=".85">יעד 8ש׳</text>${bars}</svg>`;
+}
+
+function _slDualChart(nights) {
+    const data = nights.slice(-_slRange);
+    const W = 320, H = 96, pad = 8;
+    const line = (key, col, lo, hi) => {
+        const n = data.length, bw = (W - pad * 2) / Math.max(n - 1, 1);
+        let d = '', pts = '';
+        data.forEach((row, i) => {
+            const v = row[key]; if (v == null) return;
+            const x = pad + i * bw, yy = H - ((v - lo) / (hi - lo)) * (H - 18) - 9;
+            d += (d ? 'L' : 'M') + x.toFixed(1) + ' ' + yy.toFixed(1) + ' ';
+            pts += `<circle cx="${x.toFixed(1)}" cy="${yy.toFixed(1)}" r="${i === n - 1 ? 3.5 : 2}" fill="${col}"/>`;
+        });
+        return `<path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${pts}`;
+    };
+    const last = data[data.length - 1] || {};
+    return `<svg class="sl-chart" viewBox="0 0 ${W} ${H}">${line('hrv', '#64D2FF', 40, 90)}${line('rhr', '#FFB868', 42, 60)}</svg>
+    <div class="sl-legend" style="margin-top:8px">
+        <div class="li"><span class="sw" style="background:#64D2FF"></span>HRV <b>${last.hrv ?? '—'} ms</b></div>
+        <div class="li"><span class="sw" style="background:#FFB868"></span>דופק מנוחה <b>${last.rhr ?? '—'} bpm</b></div>
+    </div>`;
+}
+
+function _slMetric(v, unit, k, delta, dcls) {
+    return `<div class="sl-metric"><div class="v">${v}<small>${unit || ''}</small></div><div class="k">${k}</div>${delta ? `<div class="d ${dcls}">${delta}</div>` : ''}</div>`;
+}
+
+function _slAvg(nights, key, win) {
+    const arr = nights.slice(-win).map(d => d[key]).filter(x => x != null && !isNaN(x));
+    if (!arr.length) return null;
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function setSleepRange(r) {
+    _slRange = r;
+    renderSleepView();
+    if (typeof haptic === 'function') haptic('light');
+}
+
+function renderSleepView() {
+    const host = document.getElementById('bl-view-sleep');
+    if (!host) return;
+    const { nights, demo } = _sleepData();
+    if (!nights.length) {
+        host.innerHTML = `<div class="bl-chart-card" style="text-align:center;color:var(--text-dim)">אין עדיין נתוני שינה. חבר את גשר ה-Health כדי לשאוב מ-Apple Health.</div>`;
+        return;
+    }
+    const idx = nights.length - 1;
+    const n = nights[idx];
+    const rd = computeReadiness(nights, idx);
+
+    const b = (key) => _recoveryBaseline(nights, idx, key).med;
+    const dlt = (val, base, invGood, unit) => {
+        if (val == null || base == null) return ['', 'flat'];
+        const d = Math.round((val - base) * 10) / 10;
+        if (Math.abs(d) < 0.05) return ['≈ baseline', 'flat'];
+        const good = invGood ? d < 0 : d > 0;
+        return [`${d > 0 ? '+' : ''}${d} מול baseline`, good ? 'up' : 'down'];
+    };
+    const hrvD = dlt(n.hrv, b('hrv'), false, 'ms');
+    const rhrD = dlt(n.rhr, b('rhr'), true, '');
+    const respD = dlt(n.respRate, b('respRate'), true, '');
+
+    const drivers = (rd.drivers || []).map(d =>
+        `<span class="sl-chip ${d.dir}">${d.label} <span class="ar">${d.delta}</span></span>`).join('');
+
+    const demoBanner = demo
+        ? `<div class="sl-demo-banner">נתוני דמה להדגמה — חבר את גשר ה-Health כדי לראות את הנתונים שלך</div>` : '';
+
+    const coachByBand = {
+        'מוכן': 'התאוששות טובה — חלון לדחיפה. אפשר להעלות עצימות/נפח היום.',
+        'בינוני': 'התאוששות בינונית — שמור על התוכנית, אל תעלה עומס משמעותית.',
+        'נמוך': 'התאוששות נמוכה — כבד את ה-RIR, שקול ירידת נפח או אימון קל.'
+    };
+    const coachTxt = rd.building
+        ? `אוסף נתונים — הציון יופיע אחרי 14 לילות (נאספו ${rd.have}/14). הנתונים הגולמיים כבר מוצגים.`
+        : coachByBand[rd.band];
+    const coachCls = rd.building ? '' : (rd.band === 'מוכן' ? 'high' : rd.band === 'בינוני' ? 'mid' : 'low');
+
+    host.innerHTML = `
+    ${demoBanner}
+    <div class="bl-chart-card sl-hero">
+      <div class="sl-hero-row">
+        ${_slRing(rd)}
+        <div class="sl-hero-side">
+          <div class="sl-hero-title">${rd.building ? 'לילה אחרון' : 'התאוששות'}</div>
+          <div class="sl-hero-sub">${rd.building
+            ? `הנתונים נאספים — הציון יופיע אחרי 14 לילות (${rd.have}/14)`
+            : 'מבוסס על HRV, דופק מנוחה, שינה, נשימה וטמפרטורה מול ה-baseline שלך'}</div>
+          <div class="sl-drivers">${rd.building ? `<span class="sl-chip flat">baseline ${rd.have}/14</span>` : drivers}</div>
+        </div>
+      </div>
+      <div class="sl-mgrid">
+        ${_slMetric(_slFmtDur(n.asleepMin), '', 'זמן שינה', n.asleepMin >= SLEEP_NEED_MIN ? 'מעל היעד' : 'מתחת ליעד', n.asleepMin >= SLEEP_NEED_MIN ? 'up' : 'down')}
+        ${_slMetric(Math.round((n.efficiency || 0) * 100), '%', 'יעילות', (n.efficiency || 0) >= 0.88 ? 'טובה' : 'בינונית', (n.efficiency || 0) >= 0.88 ? 'up' : 'flat')}
+        ${_slMetric(n.hrv ?? '—', ' ms', 'HRV', ...hrvD)}
+        ${_slMetric(n.rhr ?? '—', ' bpm', 'דופק מנוחה', ...rhrD)}
+        ${_slMetric(n.respRate ?? '—', '', 'קצב נשימה', ...respD)}
+        ${_slMetric(n.wristTempDev == null ? '—' : (n.wristTempDev > 0 ? '+' : '') + n.wristTempDev, '°', 'טמפ׳ עור', n.wristTempDev == null ? '' : 'מול baseline', n.wristTempDev == null ? 'flat' : (Math.abs(n.wristTempDev) <= 0.2 ? 'up' : 'down'))}
+      </div>
+    </div>
+
+    <div class="bl-chart-card sl-coach ${coachCls}">
+      <div class="ci">AI</div><div class="ct"><b>המאמן:</b> ${coachTxt}</div>
+    </div>
+
+    <div class="bl-chart-card">
+      <div class="sl-card-title">שלבי שינה — הלילה</div>
+      ${_slStagesBar(n)}
+    </div>
+
+    <div class="bl-chart-card">
+      <div class="sl-chart-head"><div class="sl-card-title" style="margin:0">משך שינה</div>
+        <div class="sl-range">
+          <button class="${_slRange === 7 ? 'on' : ''}" onclick="setSleepRange(7)">7 ימים</button>
+          <button class="${_slRange === 30 ? 'on' : ''}" onclick="setSleepRange(30)">30 יום</button>
+        </div></div>
+      ${_slDurChart(nights)}
+    </div>
+
+    <div class="bl-chart-card">
+      <div class="sl-card-title">HRV ודופק מנוחה · ${_slRange} ימים</div>
+      ${_slDualChart(nights)}
+    </div>
+
+    <div class="sl-avg-row">
+      <div class="sl-avg"><div class="v">${_slFmtDur(_slAvg(nights, 'asleepMin', 7))}</div><div class="k">שינה · 7 ימים</div></div>
+      <div class="sl-avg"><div class="v">${Math.round((_slAvg(nights, 'efficiency', 7) || 0) * 100)}%</div><div class="k">יעילות</div></div>
+      <div class="sl-avg"><div class="v">${Math.round(b('hrv') || 0)}</div><div class="k">HRV baseline</div></div>
+      <div class="sl-avg"><div class="v">${Math.round(b('rhr') || 0)}</div><div class="k">RHR baseline</div></div>
+    </div>`;
 }

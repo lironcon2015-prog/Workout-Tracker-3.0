@@ -23,6 +23,7 @@ const StorageManager = {
     KEY_NUTRITION:    'gympro_nutrition',
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
     KEY_NUTRITION_DAILY: 'gympro_nutrition_daily',   // ייבוא MFP — קלוריות/מאקרו לפי יום
+    KEY_SLEEP_DAILY:     'gympro_sleep_daily',        // שינה + התאוששות לפי יום (Apple Health)
     KEY_NUTRITION_NOTES: 'gympro_nutrition_notes',   // הערה חופשית לפי יום — עצמאי מ-NUTRITION_DAILY
     KEY_TARGET_HISTORY:  'gympro_target_history',     // לוג יעדי קלוריות/מאקרו אפקטיבי-מתאריך (v16.91)
     KEY_NUTRITION_RAW:   'gympro_nutrition_raw',      // הקובץ הגולמי המקורי (שורה לכל ארוחה)
@@ -803,6 +804,7 @@ const StorageManager = {
             nutrition: this.getNutritionalState(),
             nutritionLog: this.getNutritionLog(),
             nutritionDaily: this.getNutritionDaily(),
+            sleepDaily: this.getSleepDaily(),
             nutritionNotes: this.getNutritionNotes(),
             targetHistory: this.getTargetHistory(),
             nutritionRaw: this.getNutritionRaw(),
@@ -866,6 +868,7 @@ const StorageManager = {
             if (data.nutrition)      this.saveData(this.KEY_NUTRITION, data.nutrition);
             if (data.nutritionLog)   this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) this.saveData(this.KEY_NUTRITION_DAILY, data.nutritionDaily);
+            if (data.sleepDaily)     this.saveData(this.KEY_SLEEP_DAILY, data.sleepDaily);
             if (data.nutritionNotes) this.saveData(this.KEY_NUTRITION_NOTES, data.nutritionNotes);
             if (data.targetHistory)  this.saveData(this.KEY_TARGET_HISTORY, data.targetHistory);
             if (data.nutritionRaw)   this.saveData(this.KEY_NUTRITION_RAW, data.nutritionRaw);
@@ -907,6 +910,29 @@ const StorageManager = {
     // ── MyFitnessPal Nutrition (ייבוא מ-Gmail דרך Apps Script) ───────────
     getNutritionDaily() {
         return this.getData(this.KEY_NUTRITION_DAILY) || [];
+    },
+
+    // ── Sleep / Recovery (שינה + התאוששות מ-Apple Health) ─────────────────
+    getSleepDaily() {
+        return this.getData(this.KEY_SLEEP_DAILY) || [];
+    },
+    saveSleepDaily(arr) {
+        this.saveData(this.KEY_SLEEP_DAILY, arr || []);
+    },
+    // mergeSleepDays — מיזוג לילות מגשר ה-Health (upsert לפי תאריך, src:'health').
+    mergeSleepDays(nights) {
+        const map = {};
+        this.getSleepDaily().forEach(d => { if (d && d.date) map[d.date] = d; });
+        let changed = 0;
+        (nights || []).forEach(d => {
+            if (!d || !d.date) return;
+            map[d.date] = Object.assign({}, map[d.date], d, { src: 'health' });
+            changed++;
+        });
+        if (!changed) return 0;
+        const merged = Object.values(map).sort((a, b) => a.date < b.date ? -1 : 1);
+        this.saveData(this.KEY_SLEEP_DAILY, merged);
+        return changed;
     },
 
     // clearNutrition — מוחק את כל נתוני התזונה (סיכום יומי + קובץ גולמי).
@@ -1993,6 +2019,7 @@ const FirebaseManager = {
                 nutrition:      StorageManager.getNutritionalState(),
                 nutritionLog:   StorageManager.getNutritionLog(),
                 nutritionDaily: StorageManager.getNutritionDaily(),
+                sleepDaily:     StorageManager.getSleepDaily(),
                 nutritionNotes: StorageManager.getNutritionNotes(),
                 targetHistory:  StorageManager.getTargetHistory(),
                 // v17.15: foodLog הוצא מכאן — גדל ללא גבול (רשומה ליום) והיה מוביל את
@@ -2138,6 +2165,7 @@ const FirebaseManager = {
         if (data.nutrition)      StorageManager.saveData(StorageManager.KEY_NUTRITION, data.nutrition);
         if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
         if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
+        if (data.sleepDaily)     StorageManager.saveData(StorageManager.KEY_SLEEP_DAILY, data.sleepDaily);
         if (data.nutritionNotes) StorageManager.saveData(StorageManager.KEY_NUTRITION_NOTES, data.nutritionNotes);
         if (data.targetHistory)  StorageManager.saveData(StorageManager.KEY_TARGET_HISTORY, data.targetHistory);
         if (data.foodLog)        StorageManager.saveData(StorageManager.KEY_FOOD_LOG, data.foodLog);

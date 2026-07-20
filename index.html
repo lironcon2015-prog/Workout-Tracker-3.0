@@ -436,6 +436,7 @@
                         <circle cx="9" cy="14" r="1" fill="currentColor" stroke="none"/>
                         <circle cx="15" cy="14" r="1" fill="currentColor" stroke="none"/>
                     </svg>
+                    <span id="ai-review-dot" class="ai-review-dot" hidden></span>
                 </button>
                 <button id="global-back" class="back-btn" style="display:none;visibility:visible;" onclick="handleBackClick()">
                     <div class="chevron-back"></div>
@@ -2493,7 +2494,11 @@
     <div id="ai-persona-sheet" class="bottom-sheet">
         <div class="sheet-handle"></div>
         <h3>ספר למאמן עליך</h3>
-        <p class="sub-text">נשמר ומוזרק לכל שיחה כהקשר קבוע. שנה בכל עת.</p>
+        <p class="sub-text">נשמר ומוזרק לכל שיחה כהקשר קבוע. נתונים דינמיים (משקל, מצב תזונתי, תוכנית, TM) נשאבים אוטומטית מהמערכת — כתוב כאן רק מידע קבוע (מגבלות, העדפות, יעדים, עקרונות).</p>
+        <div id="ai-persona-review" class="ai-persona-review" hidden>
+            <span id="ai-persona-review-text"></span>
+            <button class="btn-text ai-persona-review-btn" onclick="confirmProfileReviewed()">הפרופיל מעודכן ✓</button>
+        </div>
         <textarea id="ai-persona-text" class="ai-persona-textarea"
                   placeholder="למשל: מתאמן 3 פעמים בשבוע, מתמקד בכוח. יש לי רגישות בכתף ימין. המטרה שלי היא 140kg Bench..."></textarea>
         <button class="btn-main primary-gradient" onclick="saveAIPersona()">שמור פרופיל</button>
@@ -2505,7 +2510,7 @@
     <div id="coach-prompts-sheet" class="bottom-sheet" style="max-height:85vh;overflow-y:auto;">
         <div class="sheet-handle"></div>
         <h3>פרומפטים לסיכום מאמן</h3>
-        <p class="sub-text">נתונים זמינים: <code>{workoutText}</code> <code>{nutrition}</code> <code>{persona}</code> <code>{recentWorkouts}</code> <code>{weekWorkouts}</code> <code>{parallelWorkout}</code> <code>{blockWorkouts}</code> <code>{analytics}</code></p>
+        <p class="sub-text">נתונים זמינים: <code>{reliability}</code> <code>{workoutText}</code> <code>{nutrition}</code> <code>{persona}</code> <code>{recentWorkouts}</code> <code>{weekWorkouts}</code> <code>{parallelWorkout}</code> <code>{blockWorkouts}</code> <code>{analytics}</code>. שמור על <code>{reliability}</code> — הוא מזריק את כללי האמינות (אנטי-הזיה).</p>
         <label class="coach-prompt-label">סיכום אימון (כל אימון)</label>
         <textarea id="coach-prompt-workout" class="ai-persona-textarea coach-prompt-textarea"></textarea>
         <label class="coach-prompt-label">סיכום שבועי (סוף שבוע)</label>

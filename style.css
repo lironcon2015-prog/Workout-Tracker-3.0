@@ -3054,6 +3054,7 @@ body::before {
 
 /* v17.13: עיגול בקצה השמאלי — מאזן את ה-avatar שבקצה הימני (v17.14: הוגדל ל-36 מול avatar 56) */
 .ai-header-btn {
+    position: relative;
     width: 36px; height: 36px; padding: 0; flex-shrink: 0; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     color: var(--accent); background: rgba(var(--accent-rgb),0.12);
@@ -3061,6 +3062,23 @@ body::before {
 }
 .ai-header-btn svg { stroke: var(--accent); display: block; }
 .ai-header-btn:active { background: rgba(var(--accent-rgb),0.22); }
+/* ג4: נקודת תזכורת לבדיקת הפרופיל — פינה עליונה-שמאלית של כפתור המאמן */
+.ai-review-dot {
+    position: absolute; top: -2px; left: -2px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--danger); border: 2px solid var(--bg);
+    pointer-events: none;
+}
+.ai-review-dot[hidden] { display: none; }
+/* שורת סטטוס "אושר לפני X ימים" בתוך מסך הפרופיל */
+.ai-persona-review {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin: 0 0 10px; padding: 8px 12px; border-radius: var(--r-md, 12px);
+    background: rgba(var(--danger-rgb),0.10); border: 1px solid rgba(var(--danger-rgb),0.28);
+    font-size: 0.82rem; color: var(--danger-soft);
+}
+.ai-persona-review[hidden] { display: none; }
+.ai-persona-review-btn { margin-inline-start: auto; white-space: nowrap; }
 .ai-coach-overlay {
     align-items: flex-end; background: rgba(0,0,0,0.55);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);

@@ -50,6 +50,13 @@ function doPost(e) {
 
   var incNutri = Array.isArray(body.days)  ? body.days  : [];
   var incSleep = Array.isArray(body.sleep) ? body.sleep : [];
+  // תמיכה בפורמט שטוח: לילה בודד ברמת השורש (בלי מערך "sleep") — מקל מאוד על
+  // בניית הקיצור ב-iOS (אין צורך במערך/מילון מקוננים, רק שדות פשוטים).
+  if (!incSleep.length && body.date && (body.asleep != null || body.inbed != null ||
+      body.deep != null || body.rem != null || body.core != null || body.awake != null ||
+      body.hrv != null || body.rhr != null || body.resp != null || body.temp != null)) {
+    incSleep = [body];
+  }
   if (!incNutri.length && !incSleep.length) return _json({ ok: false, error: 'NO_DATA' });
 
   var lock = LockService.getScriptLock();

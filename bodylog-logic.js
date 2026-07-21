@@ -1881,6 +1881,21 @@ function _sleepNeed(nights, idx) {
     return Math.max(SLEEP_FLOOR_MIN, Math.min(SLEEP_CAP_MIN, b.med));
 }
 
+// _sleepDebt — חוב שינה שבועי מצטבר: סכום הגירעון מול עוגן 7.5ש' (450 דק') על 7 לילות אחרונים.
+// מדד מוחלט **לתצוגה בלבד** — לא נכנס לציון ההתאוששות (שנשאר יחסי-לנורמה). מחזיר דקות.
+function _sleepDebt(nights) {
+    let debt = 0;
+    nights.slice(-7).forEach(d => {
+        if (_validVital('asleepMin', d && d.asleepMin)) debt += Math.max(0, SLEEP_ADEQ_MIN - d.asleepMin);
+    });
+    return debt;
+}
+function _slSleepDebtLine(nights) {
+    const debt = _sleepDebt(nights);
+    if (debt <= 0) return `<div style="margin-top:8px;font-size:.78rem;color:var(--text-dim)">אין חוב שינה בשבוע האחרון</div>`;
+    return `<div style="margin-top:8px;font-size:.78rem;color:var(--warn);font-weight:600">חוב שינה (7 ימים): ${_slFmtDur(debt)} מתחת ליעד 7.5ש׳/לילה</div>`;
+}
+
 // _clampZ — חיתוך z-score ל-±3 (winsorizing). מונע שלילה יחידה עם שונות זעירה מלפוצץ
 // את הקומפוזיט, ומגביל תרומת לילה בודד ל-~3 סטיות-תקן — היגיינה סטטיסטית תקנית.
 const _clampZ = z => Math.max(-3, Math.min(3, z));
@@ -1900,6 +1915,7 @@ function computeReadiness(nights, idx) {
         let z = _clampZ((val - b.med) / b.spread);
         let contrib;
         if (dir === 'sym') contrib = -Math.abs(z);           // סטייה לכל כיוון = רע
+        else if (dir === 'rise') contrib = -Math.max(z, 0);  // רק עלייה נענשת (נשימה: עלייה=עומס/מחלה, ירידה ניטרלית)
         else contrib = (dir === 'inv' ? -z : z);
         const delta = Math.round((val - b.med) * 10) / 10;
         const good = invGood ? delta < 0 : delta > 0;
@@ -1907,18 +1923,18 @@ function computeReadiness(nights, idx) {
     };
     push('hrv', 0.35, n.hrv, 'pos', 'HRV', 'ms', false);
     push('rhr', 0.20, n.rhr, 'inv', 'דופק מנוחה', '', true);
-    push('respRate', 0.08, n.respRate, 'sym', 'נשימה', '', true);
-    // שינה — מדד משולב: 60% סטייה מהבסיס האישי (התאוששות יחסית — כמו שאר המדדים) +
-    // 40% מספיקות מוחלטת מול עוגן מומלץ (NSF/AASM ~7.5ש', בלי בונוס על שינת-יתר). כך לא
-    // מנרמלים גירעון כרוני מצד אחד, ולא נענשים קבוע על שינה סבירה מצד שני. יעילות = מקדם
-    // משני מול הבסיס האישי. המשקלים (60/40, 0.85/0.15) = כוונון הנדסי, לא נוסחה מאומתת.
+    push('respRate', 0.08, n.respRate, 'rise', 'נשימה', '', true);
+    // שינה — הרכיב בציון הוא בעיקר יחסי-לנורמה (התאוששות), כמו שאר המדדים: 85% סטייה מהבסיס
+    // האישי + 15% מספיקות מוחלטת מול עוגן (NSF/AASM ~7.5ש'). המספיקות נשארת כ"לחישה" בלבד כדי
+    // שהציון לא יתעוור לגמרי לגירעון כרוני; חוב-השינה המוחלט מוצג בנפרד ככרטיס (ראה _sleepDebt),
+    // ולא מכווץ את סקאלת הציון. יעילות = מקדם משני. המשקלים = כוונון הנדסי, לא נוסחה מאומתת.
     if (_validVital('asleepMin', n.asleepMin)) {
         const bSleep = _recoveryBaseline(nights, idx, 'asleepMin');
         const sSpread = Math.max(bSleep.spread || 0, 20);    // רצפת spread ~20 דק' — שינה יציבה לא תפוצץ z
         const zPers = bSleep.med != null ? _clampZ((n.asleepMin - bSleep.med) / sSpread) : 0;
         let zAdeq = (n.asleepMin - SLEEP_ADEQ_MIN) / 60;      // ~60 דק' ליחידת z
         zAdeq = Math.max(-2.5, Math.min(0.3, zAdeq));         // קנס מתגבר על גירעון, בלי בונוס
-        const zDur = 0.6 * zPers + 0.4 * zAdeq;
+        const zDur = 0.85 * zPers + 0.15 * zAdeq;   // אישי דומיננטי; מספיקות = לחישה בלבד
         const bEff = _recoveryBaseline(nights, idx, 'efficiency');
         const eSpread = Math.max(bEff.spread || 0, 0.03);     // רצפת spread ~3% — יעילות יציבה לא תפוצץ z
         const zEff = (n.efficiency != null && bEff.med != null) ? _clampZ((n.efficiency - bEff.med) / eSpread) : 0;
@@ -2119,6 +2135,7 @@ function renderSleepView() {
           <button class="${_slRange === 30 ? 'on' : ''}" onclick="setSleepRange(30)">30 יום</button>
         </div></div>
       ${_slDurChart(nights)}
+      ${_slSleepDebtLine(nights)}
     </div>
 
     <div class="bl-chart-card">

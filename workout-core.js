@@ -4942,7 +4942,14 @@ function _buildSleepAIContext(slim) {
     if (n.hrv != null) s += ` | HRV ${n.hrv}ms`;
     if (n.rhr != null) s += ` | דופק מנוחה ${n.rhr}`;
     if (n.respRate != null) s += ` | נשימה ${n.respRate}`;
-    if (n.wristTempDev != null) s += ` | סטיית טמפ׳ ${n.wristTempDev > 0 ? '+' : ''}${n.wristTempDev}°`;
+    // טמפ' עור: הערך מוחלט (°C) → מזריקים סטייה מ-baseline אישי, רק אחרי 14 לילות (אחרת לא מייצג)
+    if (typeof _recoveryBaseline === 'function' && n.wristTempDev != null) {
+        const bT = _recoveryBaseline(nights, idx, 'wristTempDev');
+        if (bT.med != null && bT.n >= (typeof TEMP_MIN_NIGHTS !== 'undefined' ? TEMP_MIN_NIGHTS : 14)) {
+            const dev = Math.round((n.wristTempDev - bT.med) * 10) / 10;
+            s += ` | סטיית טמפ׳ ${dev > 0 ? '+' : ''}${dev}°`;
+        }
+    }
     s += `\n`;
 
     // ציון התאוששות (Readiness) — מ-computeReadiness אם זמין

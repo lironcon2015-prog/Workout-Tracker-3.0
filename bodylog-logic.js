@@ -1783,6 +1783,24 @@ const SLEEP_ADEQ_MIN = 450;  // עוגן מספיקות מוחלט (7.5ש') לצ
 const SLEEP_FLOOR_MIN = 420; // רצפה בריאותית (7ש', AASM) — הצורך האישי לא יורד מתחתיה
 const SLEEP_CAP_MIN = 540;   // תקרה (9ש', NSF) — הצורך האישי לא עולה מעליה
 
+// _VITAL_RANGE — טווחים פיזיולוגיים סבירים לכל מדד. ערך מחוץ לטווח = "לא נמשך / תקלת
+// חיישן" (בעיקר 0 שנשלח כשהמדד חסר מ-Apple Health) → מטופל כ**חסר**: מנוטרל מהציון וגם
+// מה-baseline (כדי שלא יזהם חישובים עתידיים), והמשקלים של יתר המדדים מתנרמלים אוטומטית.
+// מכוון: לא מסננים לפי "סטייה יחסית" — HRV נמוך מאוד הוא אות אמיתי (מחלה/עומס), לא תקלה,
+// ואסור להסתיר אותו. טמפ' עור (סטייה) לא נכללת — 0 = "אין סטייה" הוא ערך תקין.
+const _VITAL_RANGE = {
+    hrv:        [5, 260],    // ms
+    rhr:        [25, 130],   // bpm
+    respRate:   [4, 45],     // נשימות/דקה
+    asleepMin:  [30, 900],   // דקות (0.5–15ש')
+    efficiency: [0.3, 1.01]  // יחס (מתחת ל-0.3 = תקלת חישוב)
+};
+function _validVital(key, v) {
+    if (v == null || isNaN(v)) return false;
+    const r = _VITAL_RANGE[key];
+    return r ? (v >= r[0] && v <= r[1]) : true;
+}
+
 function _slFmtDur(min) {
     if (min == null || isNaN(min)) return '—';
     const m = Math.round(min);
@@ -1847,7 +1865,7 @@ function _slMedian(arr) {
 function _recoveryBaseline(nights, idx, key, win = 28) {
     const start = Math.max(0, idx - win);
     const vals = [];
-    for (let i = start; i < idx; i++) { const v = nights[i] && nights[i][key]; if (v != null && !isNaN(v)) vals.push(v); }
+    for (let i = start; i < idx; i++) { const v = nights[i] && nights[i][key]; if (_validVital(key, v)) vals.push(v); }
     const med = _slMedian(vals);
     if (med == null) return { med: null, spread: null, n: 0 };
     const mad = _slMedian(vals.map(v => Math.abs(v - med)));
@@ -1876,7 +1894,7 @@ function computeReadiness(nights, idx) {
 
     const parts = [];   // {w, contrib, key, label, delta, dir}
     const push = (key, w, val, dir, label, unit, invGood) => {
-        if (val == null) return;
+        if (!_validVital(key, val)) return;   // מדד לא-תקין (0/מחוץ לטווח) → מנוטרל, המשקל מתנרמל
         const b = _recoveryBaseline(nights, idx, key);
         if (b.med == null) return;
         let z = _clampZ((val - b.med) / b.spread);
@@ -1894,7 +1912,7 @@ function computeReadiness(nights, idx) {
     // 40% מספיקות מוחלטת מול עוגן מומלץ (NSF/AASM ~7.5ש', בלי בונוס על שינת-יתר). כך לא
     // מנרמלים גירעון כרוני מצד אחד, ולא נענשים קבוע על שינה סבירה מצד שני. יעילות = מקדם
     // משני מול הבסיס האישי. המשקלים (60/40, 0.85/0.15) = כוונון הנדסי, לא נוסחה מאומתת.
-    if (n.asleepMin != null) {
+    if (_validVital('asleepMin', n.asleepMin)) {
         const bSleep = _recoveryBaseline(nights, idx, 'asleepMin');
         const sSpread = Math.max(bSleep.spread || 0, 20);    // רצפת spread ~20 דק' — שינה יציבה לא תפוצץ z
         const zPers = bSleep.med != null ? _clampZ((n.asleepMin - bSleep.med) / sSpread) : 0;
@@ -2031,9 +2049,11 @@ function renderSleepView() {
         const good = invGood ? d < 0 : d > 0;
         return [`${d > 0 ? '+' : ''}${d} מול baseline`, good ? 'up' : 'down'];
     };
-    const hrvD = dlt(n.hrv, b('hrv'), false, 'ms');
-    const rhrD = dlt(n.rhr, b('rhr'), true, '');
-    const respD = dlt(n.respRate, b('respRate'), true, '');
+    // מדד לא-תקין (0/מחוץ לטווח) מוצג כ"—" ובלי דלתא — לא כערך אמיתי מטעה
+    const _vv = (k) => _validVital(k, n[k]) ? n[k] : null;
+    const hrvD = dlt(_vv('hrv'), b('hrv'), false, 'ms');
+    const rhrD = dlt(_vv('rhr'), b('rhr'), true, '');
+    const respD = dlt(_vv('respRate'), b('respRate'), true, '');
 
     const drivers = (rd.drivers || []).map(d =>
         `<span class="sl-chip ${d.dir}">${d.label} <span class="ar">${d.delta}</span></span>`).join('');
@@ -2075,9 +2095,9 @@ function renderSleepView() {
       <div class="sl-mgrid">
         ${_slMetric(_slFmtDur(n.asleepMin), '', 'זמן שינה', n.asleepMin >= need ? 'מעל היעד' : 'מתחת ליעד', n.asleepMin >= need ? 'up' : 'down')}
         ${_slMetric(Math.round((n.efficiency || 0) * 100), '%', 'יעילות', (n.efficiency || 0) >= 0.88 ? 'טובה' : 'בינונית', (n.efficiency || 0) >= 0.88 ? 'up' : 'flat')}
-        ${_slMetric(n.hrv ?? '—', ' ms', 'HRV', ...hrvD)}
-        ${_slMetric(n.rhr ?? '—', ' bpm', 'דופק מנוחה', ...rhrD)}
-        ${_slMetric(n.respRate ?? '—', '', 'קצב נשימה', ...respD)}
+        ${_slMetric(_vv('hrv') ?? '—', ' ms', 'HRV', ...hrvD)}
+        ${_slMetric(_vv('rhr') ?? '—', ' bpm', 'דופק מנוחה', ...rhrD)}
+        ${_slMetric(_vv('respRate') ?? '—', '', 'קצב נשימה', ...respD)}
         ${_slMetric(n.wristTempDev == null ? '—' : (n.wristTempDev > 0 ? '+' : '') + n.wristTempDev, '°', 'טמפ׳ עור', n.wristTempDev == null ? '' : 'מול baseline', n.wristTempDev == null ? 'flat' : (Math.abs(n.wristTempDev) <= 0.2 ? 'up' : 'down'))}
       </div>
     </div>

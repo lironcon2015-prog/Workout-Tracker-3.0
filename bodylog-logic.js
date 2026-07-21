@@ -1997,18 +1997,19 @@ function _slDualChart(nights) {
         const n = data.length, bw = (W - pad * 2) / Math.max(n - 1, 1);
         let d = '', pts = '';
         data.forEach((row, i) => {
-            const v = row[key]; if (v == null) return;
+            const v = row[key]; if (!_validVital(key, v)) return;   // מדד לא-תקין (0) → מדלגים, הקו מגשר במקום להישבר
             const x = pad + i * bw, yy = H - ((v - lo) / (hi - lo)) * (H - 18) - 9;
             d += (d ? 'L' : 'M') + x.toFixed(1) + ' ' + yy.toFixed(1) + ' ';
             pts += `<circle cx="${x.toFixed(1)}" cy="${yy.toFixed(1)}" r="${i === n - 1 ? 3.5 : 2}" fill="${col}"/>`;
         });
         return `<path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${pts}`;
     };
-    const last = data[data.length - 1] || {};
+    // הערך האחרון התקין בחלון (מדלג על 0/מחוץ לטווח) — שומר על הקריאה האמיתית האחרונה
+    const lastVal = (key) => { for (let i = data.length - 1; i >= 0; i--) if (_validVital(key, data[i][key])) return data[i][key]; return null; };
     return `<svg class="sl-chart" viewBox="0 0 ${W} ${H}">${line('hrv', '#64D2FF', 40, 90)}${line('rhr', '#FFB868', 42, 60)}</svg>
     <div class="sl-legend" style="margin-top:8px">
-        <div class="li"><span class="sw" style="background:#64D2FF"></span>HRV <b>${last.hrv ?? '—'} ms</b></div>
-        <div class="li"><span class="sw" style="background:#FFB868"></span>דופק מנוחה <b>${last.rhr ?? '—'} bpm</b></div>
+        <div class="li"><span class="sw" style="background:#64D2FF"></span>HRV <b>${lastVal('hrv') ?? '—'} ms</b></div>
+        <div class="li"><span class="sw" style="background:#FFB868"></span>דופק מנוחה <b>${lastVal('rhr') ?? '—'} bpm</b></div>
     </div>`;
 }
 

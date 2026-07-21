@@ -956,6 +956,15 @@ const StorageManager = {
             if (!_hasSleep && !_hasVitals) return;
             const existing = map[d.date];
             const merged = Object.assign({}, existing, d, { src: 'health' });
+            // ── fill-only לוויטלים ליליים ──────────────────────────────────
+            // מדדי ההתאוששות (HRV/דופק/נשימה) הם ליליים. סנכרון במהלך היום מזהם אותם בערכי-
+            // ערוּת (HRV נמוך, דופק גבוה) ומוריד את הציון שלא בצדק. לכן: **ערך תקין קיים גובר**
+            // — סנכרון מאוחר רק **ממלא** מדד שהיה חסר בבוקר (בעיקר RHR שעדיין לא חושב), ואינו
+            // דורס ערכי-שינה תקינים. טמפ' לא נכללת — נמדדת רק בשינה, אינה מזוהמת.
+            if (existing) {
+                const _vitalOk = (k, v) => (typeof _validVital === 'function') ? _validVital(k, v) : (v > 0);
+                ['hrv', 'rhr', 'respRate'].forEach(k => { if (_vitalOk(k, existing[k])) merged[k] = existing[k]; });
+            }
             // ── מודל שלבי שינה (Apple Health) ──────────────────────────────
             // הקיצור שולח פירוט שלבים (Deep/REM/Core) + סך כולל. אם יש שלבים:
             //   זמן שינה אמיתי = סכום השלבים · ערות = הסך הכולל − השינה · יעילות = שינה/כולל.

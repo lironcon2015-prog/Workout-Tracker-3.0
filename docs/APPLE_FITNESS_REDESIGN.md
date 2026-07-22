@@ -129,8 +129,8 @@
 |---|------|------------------------|--------|
 | 1 | סיכום אימון (`ui-summary`) | `buildSummaryUI` (`workout-core.js`) | ✅ מוקאפ v2 · `docs/mockup-apple-fitness.html` |
 | 2 | מסך בית / dashboard (`ui-week`) + tab-bar גלובלי | `navigate`, `switchMainTab` | ✅ מוקאפ · `docs/mockup-apple-fitness-home.html` |
-| 3 | **מסך אימון פעיל (`ui-main`)** | `workout-core.js` (pickers, session strip) | ⏳ **הבא בתור** |
-| 4 | ארכיון (`switchMainTab` archive) | `archive-logic.js` | ⏳ |
+| 3 | מסך אימון פעיל (`ui-main`) | `workout-core.js` (pickers, session strip) | ✅ מוקאפ · `docs/mockup-apple-fitness-workout.html` |
+| 4 | **ארכיון (`switchMainTab` archive)** | `archive-logic.js` | ⏳ **הבא בתור** |
 | 5 | Composition (משקל/תזונה) | `bodylog-logic.js` | ⏳ |
 | 6 | עורך תוכנית / תפריט אימון | `renderWorkoutMenu` (`editor-logic.js`) | ⏳ |
 
@@ -162,5 +162,7 @@ html[data-theme="apple"]{
 ---
 
 ## גרסת מסמך
-v4 · מוקאפים: סיכום אימון ✅ + מסך בית/dashboard ✅. החלטות ליבה נסגרו (theme "apple" + ליים accent).
-**הבא:** מסך אימון פעיל (`ui-main`) — pickers + session strip.
+v5 · מוקאפים: סיכום אימון ✅ + בית/dashboard ✅ + אימון פעיל ✅. החלטות ליבה נסגרו (theme "apple" + ליים accent).
+**הבא:** ארכיון (`archive-logic.js`) — רשימת אימונים.
+
+> **כלל אחידות פיקרים:** יישום השינויים ב-ui-main חייב לחול גם על `live-edit-sheet` (מצב Live). ראה CLAUDE.md.

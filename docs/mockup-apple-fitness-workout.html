@@ -1,0 +1,295 @@
+<title>GYMPRO ELITE · מסך אימון פעיל בשפת Apple Fitness</title>
+<style>
+  :root{
+    --page-bg:#f5f5f7;--panel:#fff;--ink:#1d1d1f;--ink-2:#6e6e73;--ink-3:#8e8e93;
+    --hair:rgba(0,0,0,.10);--hair-2:rgba(0,0,0,.06);--link:#0071e3;--shadow:0 4px 24px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue","Heebo",system-ui,sans-serif;
+    --rounded:ui-rounded,"SF Pro Rounded","SF Compact Rounded",var(--sf);
+  }
+  @media (prefers-color-scheme:dark){:root{--page-bg:#000;--panel:#141416;--ink:#f5f5f7;--ink-2:rgba(235,235,245,.62);--ink-3:rgba(235,235,245,.4);--hair:rgba(255,255,255,.12);--hair-2:rgba(255,255,255,.07);--link:#0a84ff;--shadow:0 8px 40px rgba(0,0,0,.6)}}
+  :root[data-theme="light"]{--page-bg:#f5f5f7;--panel:#fff;--ink:#1d1d1f;--ink-2:#6e6e73;--ink-3:#8e8e93;--hair:rgba(0,0,0,.10);--hair-2:rgba(0,0,0,.06);--link:#0071e3;--shadow:0 4px 24px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06)}
+  :root[data-theme="dark"]{--page-bg:#000;--panel:#141416;--ink:#f5f5f7;--ink-2:rgba(235,235,245,.62);--ink-3:rgba(235,235,245,.4);--hair:rgba(255,255,255,.12);--hair-2:rgba(255,255,255,.07);--link:#0a84ff;--shadow:0 8px 40px rgba(0,0,0,.6)}
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page-bg);color:var(--ink);font-family:var(--sf);-webkit-font-smoothing:antialiased;direction:rtl;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:64px 24px 96px}
+  .eyebrow{font-size:13px;font-weight:600;letter-spacing:.06em;color:var(--link);text-transform:uppercase;margin:0 0 14px}
+  h1.page{font-size:clamp(32px,5vw,52px);font-weight:700;letter-spacing:-.022em;line-height:1.05;margin:0;text-wrap:balance}
+  .lede{font-size:19px;color:var(--ink-2);max-width:62ch;margin:18px 0 0}
+  .meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+  .chip{font-size:13px;font-weight:590;color:var(--ink-2);background:var(--panel);border:.5px solid var(--hair);padding:7px 13px;border-radius:980px;box-shadow:var(--shadow)}
+  .chip b{color:var(--ink);font-weight:680}
+  section{margin-top:64px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+  .sec-num{font:600 13px/1 var(--rounded);color:var(--ink-3)}
+  h2{font-size:28px;font-weight:680;letter-spacing:-.02em;margin:0}
+  .sec-sub{font-size:16px;color:var(--ink-2);margin:6px 0 0}
+
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:34px;align-items:start}
+  @media (max-width:900px){.stage{grid-template-columns:1fr;gap:56px}}
+  .phone-col{display:flex;flex-direction:column;align-items:center;gap:18px}
+  .phone-tag{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink-2)}
+  .phone-tag .dot{width:9px;height:9px;border-radius:50%}
+  .tag-now .dot{background:#8e8e93}.tag-new .dot{background:#b5ff2b}
+  .phone-tag .kicker{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--ink-3);border:.5px solid var(--hair);border-radius:980px;padding:3px 9px}
+
+  .device{width:340px;max-width:100%;border-radius:52px;padding:12px;background:#0a0a0c;box-shadow:0 2px 0 rgba(255,255,255,.06) inset,0 30px 70px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.4)}
+  .screen{position:relative;border-radius:42px;overflow:hidden;height:748px;background:#000;direction:rtl;font-family:var(--sf)}
+  .screen .scroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden}
+  .screen .scroll::-webkit-scrollbar{width:0}
+  .statusbar{position:relative;height:52px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;z-index:5;color:#fff;font-size:15px;font-weight:600;font-family:var(--rounded)}
+  .statusbar .r{display:flex;align-items:center;gap:6px}
+  .pill-notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:112px;height:32px;background:#000;border-radius:20px}
+  .sig{display:inline-block;width:17px;height:11px;background:currentColor;clip-path:polygon(0 70%,22% 70%,22% 100%,0 100%, 33% 45%,55% 45%,55% 100%,33% 100%, 66% 22%,88% 22%,88% 100%,66% 100%)}
+  .batt{width:24px;height:12px;border:1.5px solid rgba(255,255,255,.55);border-radius:3px;position:relative}
+  .batt::after{content:"";position:absolute;top:2px;bottom:2px;right:1.5px;width:60%;background:#fff;border-radius:1px}
+  .batt::before{content:"";position:absolute;top:3px;bottom:3px;left:-3px;width:1.5px;background:rgba(255,255,255,.55);border-radius:2px}
+
+  /* ============ APPLE FITNESS · ACTIVE WORKOUT ============ */
+  .af{--card:linear-gradient(180deg,#1f1f22 0%,#161618 100%);--sep:rgba(84,84,88,.42);
+    --w:#fff;--l2:rgba(235,235,245,.6);--l3:rgba(235,235,245,.32);
+    --lime:#b5ff2b;--pink:#ff2d55;--cyan:#22e0e8;--orange:#ff9f0a;--blue:#0a84ff;
+    background:#000;color:#fff;padding-bottom:30px}
+  .c-lime{color:var(--lime)}.c-cyan{color:var(--cyan)}.c-orange{color:var(--orange)}
+
+  /* live session strip */
+  .af .live-strip{display:flex;align-items:center;justify-content:space-between;margin:2px 18px 12px;
+    padding:9px 15px;border-radius:980px;background:rgba(181,255,43,.1);border:.5px solid rgba(181,255,43,.22)}
+  .af .live-strip .l{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--lime)}
+  .af .live-strip .l .d{width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 8px var(--lime);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .af .live-strip .r{font-size:13px;color:var(--l2);font-variant-numeric:tabular-nums}
+  .af .live-strip .r b{color:#fff;font-weight:600}
+
+  /* exercise header */
+  .af .exh{padding:2px 20px 8px}
+  .af .exh .badges{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .af .exh .setpill{font-size:12px;font-weight:700;color:#000;background:var(--lime);padding:4px 11px;border-radius:980px;letter-spacing:.02em}
+  .af .exh .dots{display:flex;gap:5px}
+  .af .exh .dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.22)}
+  .af .exh .dots i.done{background:var(--lime)}
+  .af .exh .dots i.cur{background:var(--lime);box-shadow:0 0 0 3px rgba(181,255,43,.25)}
+  .af .exh h1{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.06;margin:0}
+  .af .exh .hist{font-size:14px;color:var(--l2);margin-top:6px}
+  .af .exh .hist b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+
+  /* weight hero input */
+  .af .card{background:var(--card);border-radius:22px;box-shadow:inset 0 .5px 0 rgba(255,255,255,.07),0 1px 3px rgba(0,0,0,.35);margin:0 18px 12px}
+  .af .win{padding:16px 18px 18px}
+  .af .win .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .af .win .top .lbl{font-size:14px;font-weight:600;color:var(--l2)}
+  .af .win .top .mode{font-size:12px;font-weight:600;color:var(--lime);background:rgba(181,255,43,.12);padding:4px 11px;border-radius:980px}
+  .af .win .row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .af .win .val{font:700 60px/1 var(--rounded);font-variant-numeric:tabular-nums;letter-spacing:-2px;color:var(--lime)}
+  .af .win .val .u{font-size:20px;font-weight:700;color:var(--l2);letter-spacing:0;margin-inline-start:4px}
+  .af .step{display:flex;gap:10px}
+  .af .step button{width:52px;height:52px;border-radius:50%;border:0;background:rgba(118,118,128,.28);
+    color:#fff;font:300 28px/1 var(--sf);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 .5px 0 rgba(255,255,255,.1)}
+  .af .step button.plus{background:rgba(181,255,43,.16);color:var(--lime)}
+  .af .win .hint{font-size:11px;color:var(--l3);text-align:center;margin-top:8px;font-variant-numeric:tabular-nums}
+
+  /* reps + rir grid */
+  .af .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 18px 12px}
+  .af .mcard{background:var(--card);border-radius:22px;padding:14px 16px 16px;box-shadow:inset 0 .5px 0 rgba(255,255,255,.07),0 1px 3px rgba(0,0,0,.35)}
+  .af .mcard .lbl{font-size:14px;font-weight:600;color:var(--l2);margin-bottom:2px}
+  .af .mcard .val{font:700 46px/1 var(--rounded);font-variant-numeric:tabular-nums;letter-spacing:-1.5px}
+  .af .mcard .step{margin-top:12px;justify-content:space-between}
+  .af .mcard .step button{width:46px;height:46px;font-size:24px}
+
+  /* notes */
+  .af .notes{margin:0 18px 14px;height:46px;border-radius:14px;background:rgba(118,118,128,.16);
+    display:flex;align-items:center;padding:0 15px;font-size:14px;color:var(--l3)}
+
+  /* primary CTA */
+  .af .log{margin:0 18px 16px;height:56px;border-radius:980px;background:var(--lime);color:#000;
+    font-size:18px;font-weight:680;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em;
+    box-shadow:0 8px 26px rgba(181,255,43,.28)}
+
+  /* rest timer ring */
+  .af .timer{display:flex;flex-direction:column;align-items:center;margin:8px 0 14px}
+  .af .timer .ring{position:relative;width:150px;height:150px}
+  .af .timer .ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .af .timer .ring .c .t{font:700 40px/1 var(--rounded);font-variant-numeric:tabular-nums;letter-spacing:-1px}
+  .af .timer .ring .c .s{font-size:12px;font-weight:600;color:var(--l3);text-transform:uppercase;letter-spacing:.06em;margin-top:5px}
+  .af .timer .ctl{display:flex;gap:10px;margin-top:14px}
+  .af .timer .ctl button{font-size:13px;font-weight:600;color:var(--l2);background:rgba(118,118,128,.24);padding:8px 16px;border-radius:980px;border:0;font-variant-numeric:tabular-nums}
+
+  .af .foot-acts{display:flex;gap:10px;margin:6px 18px 0}
+  .af .foot-acts button{flex:1;background:transparent;border:0;font-size:14px;font-weight:600;color:var(--l2);padding:12px}
+  .af .foot-acts button.round{color:var(--orange)}
+
+  /* ============ CURRENT — Liquid Obsidian ============ */
+  .lo{--s2:#161619;--s4:#26262c;--acc:#0a84ff;--dim:#8e8e93;--hair:rgba(255,255,255,.06);
+    background:#070708;color:#e2e2e2;padding:6px 0 30px;font-family:"Heebo",var(--sf)}
+  .lo .exh{padding:8px 18px 4px}
+  .lo .exh .badge{display:inline-block;font-size:.6rem;font-weight:700;color:var(--acc);border:1px solid rgba(10,132,255,.4);border-radius:9999px;padding:3px 10px;letter-spacing:.05em}
+  .lo .exh h2{font-size:1.5rem;font-weight:900;color:#fff;margin:10px 0 0}
+  .lo .exh .hist{display:inline-block;font-size:.68rem;color:var(--dim);background:var(--s2);border:1px solid var(--hair);border-radius:9999px;padding:5px 12px;margin-top:8px}
+  .lo .igrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin:14px 18px 0}
+  .lo .sc{background:var(--s2);border:1px solid var(--hair);border-radius:16px;padding:10px 8px;text-align:center}
+  .lo .sc .l{font-size:.56rem;color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+  .lo .sc .l.tog{color:#c9c9cf}
+  .lo .sc .n{font-size:1.7rem;font-weight:800;color:#fff;margin:6px 0;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .lo .sc .pm{display:flex;gap:6px;justify-content:center}
+  .lo .sc .pm b{width:30px;height:30px;border-radius:9px;background:var(--s4);color:#fff;font-size:1.1rem;font-weight:400;display:flex;align-items:center;justify-content:center}
+  .lo .notes{margin:14px 18px 0;height:42px;background:#101013;border:1px solid var(--hair);border-radius:12px;display:flex;align-items:center;padding:0 13px;font-size:.74rem;color:var(--dim)}
+  .lo .logbtn{margin:14px 18px 0;height:52px;border-radius:16px;background:linear-gradient(135deg,#0a84ff,#0056b3);color:#fff;font-weight:800;font-size:.92rem;display:flex;align-items:center;justify-content:center;box-shadow:0 15px 40px rgba(10,132,255,.25)}
+  .lo .timer{display:flex;flex-direction:column;align-items:center;margin:22px 0 8px}
+  .lo .timer .ring{position:relative;width:130px;height:130px}
+  .lo .timer .ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .lo .timer .ring .c .s{font-size:.56rem;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+  .lo .timer .ring .c .t{font-size:1.8rem;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
+  .lo .skip{text-align:center;font-size:.74rem;color:var(--dim);margin-top:16px}
+
+  /* notes cards */
+  .takeaway{background:var(--panel);border:.5px solid var(--hair);border-radius:22px;padding:26px 28px;box-shadow:var(--shadow);margin-top:34px}
+  .takeaway ul{margin:0;padding:0;list-style:none;display:grid;gap:16px}
+  .takeaway li{display:flex;gap:14px;font-size:15.5px;color:var(--ink-2);line-height:1.5}
+  .takeaway li .b{flex:0 0 auto;width:26px;height:26px;border-radius:8px;background:rgba(120,180,0,.16);color:#5a8f00;font:700 13px/26px var(--rounded);text-align:center}
+  @media (prefers-color-scheme:dark){.takeaway li .b{color:#b5ff2b;background:rgba(181,255,43,.16)}}
+  :root[data-theme="dark"] .takeaway li .b{color:#b5ff2b;background:rgba(181,255,43,.16)}
+  :root[data-theme="light"] .takeaway li .b{color:#5a8f00;background:rgba(120,180,0,.16)}
+  .takeaway li b{color:var(--ink);font-weight:640}
+  .mono{font-family:var(--rounded);font-variant-numeric:tabular-nums}
+  .foot{margin-top:56px;padding-top:26px;border-top:.5px solid var(--hair);font-size:13px;color:var(--ink-3);line-height:1.6}
+  @media (prefers-reduced-motion:reduce){.af .live-strip .l .d{animation:none}}
+  @media (prefers-reduced-motion:no-preference){.device{animation:rise .7s cubic-bezier(.2,0,0,1) both}.phone-col:nth-child(2) .device{animation-delay:.08s}@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Design study · מסך אימון פעיל · #3</p>
+  <h1 class="page">מסך התיעוד, בשפת Apple.</h1>
+  <p class="lede">הליבה התפעולית של האפליקציה — תיעוד סט. אותם רכיבים (משקל/reps/RIR, LOG SET, טיימר מנוחה) מתורגמים לשפת Apple: ערכים ענקיים ב-SF Rounded וצבועים, סטפרים עגולים, כפתור capsule ליים, וטבעת מנוחה בסגנון Activity ring.</p>
+
+  <div class="meta-row">
+    <span class="chip">מסך: <b>ui-main (אימון פעיל)</b></span>
+    <span class="chip">היררכיה: <b>משקל = hero</b></span>
+    <span class="chip">CTA: <b>capsule ליים · טקסט שחור</b></span>
+    <span class="chip">טיימר: <b>Activity ring ליים</b></span>
+  </div>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>ההשוואה</h2></div>
+    <p class="sec-sub">משמאל — מסך התיעוד הנוכחי. מימין — ההצעה. גלול בתוך כל מכשיר.</p>
+
+    <div class="stage">
+
+      <!-- ===== CURRENT ===== -->
+      <div class="phone-col">
+        <div class="phone-tag tag-now"><span class="dot"></span> עכשיו · Liquid Obsidian <span class="kicker">נוכחי</span></div>
+        <div class="device"><div class="screen"><div class="scroll">
+          <div class="statusbar"><span class="pill-notch"></span><span>19:29</span><span class="r"><i class="sig"></i><span class="batt"></span></span></div>
+          <div class="lo">
+            <div class="exh">
+              <span class="badge">SET 2/3</span>
+              <h2>לחיצת חזה במוט</h2>
+              <div class="hist">אחרון: 85kg × 5 (RIR 2)</div>
+            </div>
+            <div class="igrid">
+              <div class="sc"><div class="l tog">Weight (kg) ⇄</div><div class="n">90</div><div class="pm"><b>−</b><b>+</b></div></div>
+              <div class="sc"><div class="l">Reps</div><div class="n">5</div><div class="pm"><b>−</b><b>+</b></div></div>
+              <div class="sc"><div class="l">RIR</div><div class="n">1</div><div class="pm"><b>−</b><b>+</b></div></div>
+            </div>
+            <div class="notes">הערות לסט (אופציונלי)</div>
+            <div class="logbtn">LOG SET&nbsp;&nbsp;→</div>
+            <div class="timer">
+              <div class="ring">
+                <svg width="130" height="130" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6"/>
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="#0a84ff" stroke-width="6" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="85" transform="rotate(-90 50 50)"/>
+                </svg>
+                <div class="c"><div class="s">Resting</div><div class="t">01:24</div></div>
+              </div>
+            </div>
+            <div class="skip">דלג על התרגיל</div>
+          </div>
+        </div></div></div>
+      </div>
+
+      <!-- ===== APPLE FITNESS ===== -->
+      <div class="phone-col">
+        <div class="phone-tag tag-new"><span class="dot"></span> הצעה · Apple Fitness <span class="kicker">מוקאפ</span></div>
+        <div class="device"><div class="screen"><div class="scroll">
+          <div class="statusbar"><span class="pill-notch"></span><span>19:29</span><span class="r"><i class="sig"></i><span class="batt"></span></span></div>
+          <div class="af">
+            <div class="live-strip">
+              <span class="l"><span class="d"></span>אימון פעיל</span>
+              <span class="r"><b>32:10</b> · דחיפה A · 6 סטים</span>
+            </div>
+
+            <div class="exh">
+              <div class="badges">
+                <span class="setpill">סט 2 מתוך 3</span>
+                <span class="dots"><i class="done"></i><i class="cur"></i><i></i></span>
+              </div>
+              <h1>לחיצת חזה במוט</h1>
+              <div class="hist">תרגיל 1 מתוך 5 · אחרון: <b>85 ק״ג × 5</b> (RIR 2)</div>
+            </div>
+
+            <!-- weight hero -->
+            <div class="card win">
+              <div class="top"><span class="lbl">משקל</span><span class="mode">ק״ג ⇄</span></div>
+              <div class="row">
+                <div class="val c-lime">90<span class="u">ק״ג</span></div>
+                <div class="step"><button>−</button><button class="plus">+</button></div>
+              </div>
+              <div class="hint">קפיצות של 2.5 ק״ג</div>
+            </div>
+
+            <!-- reps + rir -->
+            <div class="grid2">
+              <div class="mcard">
+                <div class="lbl">חזרות</div>
+                <div class="val c-cyan">5</div>
+                <div class="step"><button>−</button><button class="plus">+</button></div>
+              </div>
+              <div class="mcard">
+                <div class="lbl">RIR</div>
+                <div class="val c-orange">1</div>
+                <div class="step"><button>−</button><button class="plus">+</button></div>
+              </div>
+            </div>
+
+            <div class="notes">הערות לסט (אופציונלי)…</div>
+            <div class="log">רשום סט&nbsp;&nbsp;←</div>
+
+            <!-- rest timer ring -->
+            <div class="timer">
+              <div class="ring">
+                <svg width="150" height="150" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(181,255,43,.14)" stroke-width="8"/>
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="#b5ff2b" stroke-width="8" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="85" transform="rotate(-90 50 50)"/>
+                </svg>
+                <div class="c"><div class="t c-lime">01:24</div><div class="s">מנוחה</div></div>
+              </div>
+              <div class="ctl"><button>−15 שנ׳</button><button>+15 שנ׳</button><button>דלג</button></div>
+            </div>
+
+            <div class="foot-acts">
+              <button>דלג על התרגיל</button>
+              <button class="round">+ סט נוסף</button>
+            </div>
+          </div>
+        </div></div></div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>ההחלטות במסך הזה</h2></div>
+    <div class="takeaway">
+      <ul>
+        <li><span class="b">1</span><div><b>משקל = hero.</b> במקום 3 תאים שווים, המשקל מקבל כרטיס מלא עם מספר ענק (60px) וסטפרים עגולים גדולים; reps ו-RIR יורדים לשורה שנייה. היררכיית קלט ברורה.</div></li>
+        <li><span class="b">2</span><div><b>ערכים צבועים + עגולים.</b> משקל ליים · חזרות ציאן · RIR כתום, כולם ב-SF Rounded. הסטפרים הם עיגולים בסגנון Apple (− אפור, + בליים).</div></li>
+        <li><span class="b">3</span><div><b>הטיימר הפך ל-Activity ring.</b> טבעת מנוחה עבה בליים עם זמן ענק במרכז — במקום הטבעת הכחולה הדקה. מזוהה מיידית כ-Apple.</div></li>
+        <li><span class="b">4</span><div><b>CTA capsule ליים.</b> "רשום סט" הופך לכפתור גלולה מלא בליים עם טקסט שחור וזוהר עדין — הפעולה הראשית, הכי בולטת במסך.</div></li>
+        <li><span class="b">5</span><div><b>Session strip חי.</b> רצועת "אימון פעיל" עם נקודת ליים פולסת + זמן ונפח — הופכת את ההקשר של האימון הפעיל לגלוי, בשפת ה-live של Apple.</div></li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="foot">מוקאפ ויזואלי בלבד — לא קוד ייצור. נתונים לדוגמה. הטוקנים המלאים ב-<span class="mono">docs/APPLE_FITNESS_REDESIGN.md</span>. הפונט דרך מחסנית המערכת של Apple (SF Pro נייטיב באייפון). עיצוב בהשראת Apple Fitness — אינו נכס רשמי של Apple.<br>הערה: כל שינוי בפיקרים חייב לחול על שתי החזיתות (ui-main + live-edit-sheet) — כלל אחידות הפיקרים.</p>
+
+</div>

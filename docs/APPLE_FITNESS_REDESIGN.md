@@ -128,25 +128,39 @@
 | # | מסך | פונקציית רינדור עיקרית | סטטוס |
 |---|------|------------------------|--------|
 | 1 | סיכום אימון (`ui-summary`) | `buildSummaryUI` (`workout-core.js`) | ✅ מוקאפ v2 |
-| 2 | מסך אימון פעיל (`ui-main`) | `workout-core.js` (pickers, session strip) | ⏳ הבא בתור |
-| 3 | ארכיון (`switchMainTab` archive) | `archive-logic.js` | ⏳ |
-| 4 | Composition (משקל/תזונה) | `bodylog-logic.js` | ⏳ |
-| 5 | עורך תוכנית / תפריט אימון | `renderWorkoutMenu` (`editor-logic.js`) | ⏳ |
-| 6 | מסך בית / dashboard + tab-bar גלובלי | `navigate` (`workout-core.js`) | ⏳ |
+| 2 | **מסך בית / dashboard + tab-bar גלובלי** | `navigate` (`workout-core.js`) | ⏳ **הבא בתור** |
+| 3 | מסך אימון פעיל (`ui-main`) | `workout-core.js` (pickers, session strip) | ⏳ |
+| 4 | ארכיון (`switchMainTab` archive) | `archive-logic.js` | ⏳ |
+| 5 | Composition (משקל/תזונה) | `bodylog-logic.js` | ⏳ |
+| 6 | עורך תוכנית / תפריט אימון | `renderWorkoutMenu` (`editor-logic.js`) | ⏳ |
 
 **תהליך לכל מסך:** (1) לזהות פונקציית רינדור + מבנה HTML נוכחי → (2) מוקאפ השוואתי באותו
 `docs/mockup-apple-fitness.html` (או קובץ נפרד למסך) → (3) אישור כיוון → (4) יישום ב-CSS/HTML/JS + bump גרסה.
 
 ---
 
-## 8. החלטות פתוחות (לשאול לפני יישום)
+## 8. החלטות (נסגרו)
 
-1. **ערכת theme או ברירת מחדל?** — "Apple Fitness" כ-`data-theme` נוסף (המשתמש בוחר), או השפה החדשה של האפליקציה?
-2. **טאב-בר עם אייקונים?** — חריג לכלל "אין אייקונים", או טקסט בלבד?
-3. **ליים כ-accent גלובלי?** — האם `--accent` הכללי הופך לליים, או שהליים נשאר סמנטי (נפח/הצלחה) והכחול נשאר accent?
-4. **היקף** — כל האפליקציה, או מסכי הליבה בלבד?
+1. ✅ **שילוב כערכת theme נוספת** — Apple Fitness = `data-theme="apple"` חדש. המשתמש בוחר; **Liquid Obsidian
+   נשאר ברירת המחדל**. יתרון: אפס רגרסיה — כל הטוקנים נדרסים תחת ה-attribute בלבד, כמו שאר ה-themes.
+2. ✅ **ליים = accent גלובלי** — תחת theme "apple", `--accent` (ונגזרותיו `--accent-rgb`, `--accent-gradient`,
+   `--accent-soft`...) נדרסים ל-ליים `#B5FF2B`. כפתורים, טבעות, טאב פעיל — ליים. הכחול יורד לתפקיד משני
+   (מרחק/קישורים). **הערה:** ליים על טקסט לבן = ניגודיות נמוכה → על כפתורי ליים הטקסט **שחור** (כמו Apple).
+3. ⏳ **טאב-בר עם אייקונים?** — עדיין פתוח, יוכרע במסך ה-dashboard (הטאב-בר הגלובלי).
+4. **היקף** — מסך אחר מסך לפי ה-Roadmap (סעיף 7), החל ממסך הבית.
+
+### מימוש ה-theme (הנחיה ליישום)
+```css
+html[data-theme="apple"]{
+  --bg:#000; --surface-2:linear-gradient(180deg,#1f1f22,#161618); /* כרטיס גלאס */
+  --accent:#b5ff2b; --accent-rgb:181,255,43; --accent-text:#000; /* טקסט שחור על ליים */
+  --success:#b5ff2b; --danger:#ff2d55; /* ... שאר הטוקנים לפי סעיף 4 */
+}
+```
+> יש לוודא שכל מקום שמניח `--accent-text:#fff` עדיין קריא — תחת apple ה-accent בהיר, לכן טקסט שחור.
 
 ---
 
 ## גרסת מסמך
-v2 · מסך סיכום הושלם (מוקאפ) · הבא: מסך אימון פעיל (`ui-main`).
+v3 · מסך סיכום הושלם (מוקאפ) · החלטות ליבה נסגרו (theme "apple" + ליים accent).
+**הבא:** מסך בית / dashboard + טאב-בר גלובלי (`navigate` ב-`workout-core.js`).

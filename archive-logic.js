@@ -182,6 +182,13 @@ function createArchiveCard(item) {
     const metaLine = [weekLbl, item.date].filter(Boolean).join(' • ');
 
     card.setAttribute('onclick', `onArchiveCardClick(event, ${idx}, ${item.timestamp})`);
+    // לחיצה ארוכה → מצב-בחירה (touch + עכבר). תזוזה/שחרור מבטלים.
+    const ts = item.timestamp;
+    card.addEventListener('pointerdown', () => _archiveCardPressStart(ts, card));
+    card.addEventListener('pointerup', _archiveCardPressEnd);
+    card.addEventListener('pointermove', _archiveCardPressEnd);
+    card.addEventListener('pointercancel', _archiveCardPressEnd);
+    card.addEventListener('pointerleave', _archiveCardPressEnd);
     card.innerHTML = `
         <span class="archive-card-rail" style="background:${railColor};"></span>
         <span class="archive-card-check" aria-hidden="true">
@@ -213,6 +220,8 @@ function createArchiveCard(item) {
 
 // לחיצה על שורת אימון: במצב-בחירה → סימון/ביטול; אחרת → פתיחת פירוט
 function onArchiveCardClick(ev, idx, ts) {
+    // לחיצה ארוכה שכבר הפעילה מצב-בחירה — בולעים את ה-click שאחריה
+    if (_archiveLPFired) { _archiveLPFired = false; return; }
     if (archiveSelectMode) {
         if (ev) ev.stopPropagation();
         toggleArchiveSelection(ts);
@@ -282,10 +291,9 @@ function renderArchiveList() {
                 <span class="archive-month-hd-vollabel">נפח כולל</span>
             </div>`;
 
+        // ברירת מחדל: כל החודשים מקופלים (כולל הנוכחי) — פתיחה בלחיצה על הכותרת
         const itemsContainer = document.createElement('div');
-        itemsContainer.className = group.isCurrentMonth
-            ? 'archive-month-items'
-            : 'archive-month-items collapsed';
+        itemsContainer.className = 'archive-month-items collapsed';
         group.items.forEach(item => itemsContainer.appendChild(createArchiveCard(item)));
 
         header.addEventListener('click', () => {
@@ -304,15 +312,13 @@ function toggleArchiveSelection(id) {
     updateCopySelectedBtn();
 }
 
-// מצב-בחירה נסתר: כניסה/יציאה חושפת/מסתירה את הצ'קבוקסים ומצילה את השורה
-function toggleArchiveSelectMode() {
-    if (archiveSelectMode) { _exitArchiveSelectMode(); haptic('light'); return; }
+// מצב-בחירה נסתר: נכנסים אליו בלחיצה ארוכה על אימון (אין כפתור "בחר").
+// הכניסה חושפת את סרגל הפעולות (טווח/מסומנים/העתק הכל/ס.מאמן) ואת הצ'קבוקסים.
+function enterArchiveSelectMode() {
+    if (archiveSelectMode) return;
     archiveSelectMode = true;
     const sub = document.getElementById('archive-sub-workouts');
     if (sub) sub.classList.add('archive-selecting');
-    const btn = document.getElementById('btn-archive-select');
-    if (btn) btn.classList.add('archive-pill-accent');
-    haptic('light');
 }
 
 function _exitArchiveSelectMode() {
@@ -320,11 +326,28 @@ function _exitArchiveSelectMode() {
     archiveSelectMode = false;
     const sub = document.getElementById('archive-sub-workouts');
     if (sub) sub.classList.remove('archive-selecting');
-    const btn = document.getElementById('btn-archive-select');
-    if (btn) btn.classList.remove('archive-pill-accent');
     selectedArchiveIds.clear();
     updateCopySelectedBtn();
     if (state.archiveSubTab === 'workouts' && state.archiveView === 'list') renderArchiveList();
+}
+
+// ── לחיצה ארוכה על שורת אימון → כניסה למצב-בחירה + סימון האימון ──
+let _archiveLPTimer = null;
+let _archiveLPFired = false;
+function _archiveCardPressStart(ts, cardEl) {
+    _archiveLPFired = false;
+    _archiveLPTimer = setTimeout(() => {
+        _archiveLPFired = true;
+        enterArchiveSelectMode();
+        if (!selectedArchiveIds.has(ts)) toggleArchiveSelection(ts);
+        cardEl.classList.add('is-selected');
+        const cb = cardEl.querySelector('.archive-checkbox');
+        if (cb) cb.checked = true;
+        haptic('medium');
+    }, 500);
+}
+function _archiveCardPressEnd() {
+    if (_archiveLPTimer) { clearTimeout(_archiveLPTimer); _archiveLPTimer = null; }
 }
 
 function updateCopySelectedBtn() {
@@ -357,8 +380,9 @@ function _stripCoachFromSummary(text) {
 }
 
 // _archiveCopyText — טקסט להעתקה של רשומת ארכיון. מצרף סיכום מאמן אם המתג דלוק.
-function _archiveCopyText(item) {
-    const withCoach = _coachToggleState();
+// withCoachOverride — כשמוגדר (מסך הפירוט), גובר על מתג הרשימה.
+function _archiveCopyText(item, withCoachOverride) {
+    const withCoach = (typeof withCoachOverride === 'boolean') ? withCoachOverride : _coachToggleState();
     let txt = item.summary || '';
     if (!withCoach) txt = _stripCoachFromSummary(txt);
     if (withCoach && item.aiSummary) {
@@ -543,7 +567,7 @@ function buildArchiveDetailHTML(item) {
         });
     }
 
-    html += `<div style="text-align:center;padding:12px 0 4px;font-size:0.8em;color:var(--text-dim);">נפח כולל: ${totalVolStr}</div>`;
+    // "נפח כולל" הוסר מהתצוגה — הנפח עדיין נכלל בטקסט ההעתקה (שורות ה-Vol לכל תרגיל)
     return html;
 }
 
@@ -570,10 +594,14 @@ function openArchiveDetail(idx) {
     const copyBtn = document.getElementById('btn-archive-copy');
     const deleteBtn = document.getElementById('btn-archive-delete');
 
+    // צ'קבוק "כלול סיכומי מאמן" של הפירוט — ברירת מחדל מהמתג השמור
+    const detailCoach = document.getElementById('archive-detail-coach-toggle');
+    if (detailCoach) detailCoach.checked = StorageManager.getArchiveCopyCoach();
+
     editBtn.onclick = () => enterArchiveEditMode();
 
     copyBtn.onclick = () => {
-        const copyText = _archiveCopyText(item);
+        const copyText = _archiveCopyText(item, detailCoach ? detailCoach.checked : undefined);
         if (navigator.clipboard) {
             navigator.clipboard.writeText(copyText).then(() => {
                 haptic('success');
@@ -762,7 +790,7 @@ function _buildArchiveEditHTML_withLog(item) {
         }
     });
 
-    html += `<div style="text-align:center;padding:12px 0 4px;font-size:0.8em;color:var(--text-dim);">נפח כולל: ${totalVolStr}</div>`;
+    // "נפח כולל" הוסר מהתצוגה — הנפח עדיין נכלל בטקסט ההעתקה (שורות ה-Vol לכל תרגיל)
     return html;
 }
 
@@ -821,7 +849,7 @@ function _buildArchiveEditHTML_detailsOnly(item) {
         </div>`;
     });
 
-    html += `<div style="text-align:center;padding:12px 0 4px;font-size:0.8em;color:var(--text-dim);">נפח כולל: ${totalVolStr}</div>`;
+    // "נפח כולל" הוסר מהתצוגה — הנפח עדיין נכלל בטקסט ההעתקה (שורות ה-Vol לכל תרגיל)
     return html;
 }
 

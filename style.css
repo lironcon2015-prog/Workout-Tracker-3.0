@@ -2278,6 +2278,12 @@ body::before {
     color: var(--accent);
 }
 .archive-pill-btn.archive-pill-accent .material-symbols-outlined { color: var(--accent); }
+.archive-pill-btn.archive-pill-cancel { flex: 0 0 auto; background: transparent; color: var(--text-dim); }
+.archive-pill-btn.archive-pill-cancel .material-symbols-outlined { color: var(--text-dim); }
+
+/* סרגל הפעולות במסך האימונים — נסתר; מוצג רק במצב-בחירה (לחיצה ארוכה) */
+#archive-sub-workouts > .archive-action-pills { display: none; }
+#archive-sub-workouts.archive-selecting > .archive-action-pills { display: flex; }
 
 /* ── Archive header: תתי-מסכים + טוגל לוח שנה ── */
 .archive-header-row { display: flex; align-items: center; gap: 8px; max-width: 380px; margin: 0 auto; }
@@ -5507,12 +5513,24 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .wq-weekend-item.active .material-symbols-outlined { color: var(--secondary); }
 
 /* מתג "כלול סיכומי מאמן" בארכיון */
+/* "ס. מאמן" — טוגל בתוך פיל, בשורת הפעולות של הבחירה המרובה */
 .archive-coach-toggle {
-    display: flex; align-items: center; gap: 8px;
-    color: var(--text-dim); font-size: var(--fs-md); font-weight: 600;
-    cursor: pointer; padding: 4px 8px; white-space: nowrap;
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--surface-4); border-radius: var(--r-pill);
+    color: var(--text); font-size: var(--fs-sm); font-weight: 700;
+    cursor: pointer; padding: 10px 12px; white-space: nowrap;
+    font-family: 'Heebo', sans-serif;
 }
-.archive-coach-toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
+.archive-coach-toggle input { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; }
+
+/* "כלול סיכומי מאמן" — צ'קבוקס בתוך פירוט האימון, מעל כפתור ההעתקה */
+.archive-detail-coach {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    color: var(--text-dim); font-size: var(--fs-md); font-weight: 600;
+    cursor: pointer; padding: 6px 0 2px; white-space: nowrap;
+}
+.archive-detail-coach input { width: 17px; height: 17px; accent-color: var(--accent); margin: 0; }
 
 /* גיליון עריכת פרומפטים */
 .coach-prompt-label {

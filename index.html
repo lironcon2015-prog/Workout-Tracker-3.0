@@ -1478,14 +1478,15 @@
                 <div id="list-view-container">
                     <!-- תת-מסך: אימונים -->
                     <div id="archive-sub-workouts">
+                        <!-- סרגל פעולות — מוצג רק במצב-בחירה (לחיצה ארוכה על אימון) -->
                         <div class="archive-action-pills">
+                            <button class="archive-pill-btn archive-pill-cancel" onclick="_exitArchiveSelectMode()">
+                                <span class="material-symbols-outlined">close</span>
+                                <span>בטל</span>
+                            </button>
                             <button class="archive-pill-btn" onclick="openRangeSheet()">
                                 <span class="material-symbols-outlined">date_range</span>
                                 <span>טווח</span>
-                            </button>
-                            <button id="btn-archive-select" class="archive-pill-btn" onclick="toggleArchiveSelectMode()">
-                                <span class="material-symbols-outlined">checklist</span>
-                                <span>בחר</span>
                             </button>
                             <button id="btn-copy-selected" class="archive-pill-btn archive-pill-dim" onclick="copyBulkLog('selected')" disabled>
                                 <span class="material-symbols-outlined">check_box</span>
@@ -1497,7 +1498,7 @@
                             </button>
                             <label class="archive-coach-toggle" id="archive-coach-toggle-wrap">
                                 <input type="checkbox" id="archive-coach-toggle" onchange="toggleArchiveCopyCoach(this.checked)">
-                                <span>כלול סיכומי מאמן</span>
+                                <span>ס. מאמן</span>
                             </label>
                         </div>
                         <div id="archive-list" class="vertical-stack"></div>
@@ -1552,6 +1553,10 @@
                 </div>
                 <div id="archive-detail-actions" class="vertical-stack mt-lg">
                     <button class="btn-main primary-gradient" id="btn-archive-edit">ערוך אימון</button>
+                    <label class="archive-detail-coach">
+                        <input type="checkbox" id="archive-detail-coach-toggle">
+                        <span>כלול סיכומי מאמן</span>
+                    </label>
                     <button class="btn-main btn-quiet" id="btn-archive-copy">העתק סיכום</button>
                     <button class="btn-text color-danger" id="btn-archive-delete">מחק אימון מהארכיון</button>
                 </div>

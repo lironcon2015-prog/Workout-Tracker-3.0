@@ -1693,6 +1693,10 @@ function exportUnifiedData(range) {
     // תזונה מפורטת — ארוחות/מרכיבים (תיעוד ישיר גובר על MFP), לפי הטווח
     const nutritionDetailed = _buildNutritionDetailed(r.from, r.to);
 
+    // שינה + התאוששות — לילות מ-Apple Health (שינה, שלבים, HRV/RHR/נשימה/טמפ'), לפי YYYY-MM-DD
+    const sleepRecovery = StorageManager.getSleepDaily().filter(d => inRange(d.date))
+        .sort((a, b) => a.date < b.date ? -1 : 1);
+
     // אימונים — סינון לפי timestamp, הסרת aiSummary + ניקוי טקסט מאמן מוטמע
     const fromMs = r.from ? new Date(r.from + 'T00:00:00').getTime() : -Infinity;
     const toMs = r.to ? new Date(r.to + 'T23:59:59').getTime() : Infinity;
@@ -1709,22 +1713,24 @@ function exportUnifiedData(range) {
             return c;
         });
 
-    if (!weights.length && !nutritionDaily.length && !nutritionDetailed.length && !workouts.length) {
+    if (!weights.length && !nutritionDaily.length && !nutritionDetailed.length && !workouts.length && !sleepRecovery.length) {
         showAlert('אין נתונים לייצוא בטווח שנבחר.'); return;
     }
 
     const payload = {
         app: 'GYMPRO ELITE', type: 'unified_export',
         readme: _NUTRI_EXPORT_README.concat(
-            'הקובץ מכיל 4 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימונים).'
+            'הקובץ מכיל 5 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימונים), sleep_recovery (שינה + התאוששות).'
         ),
         generated: new Date().toISOString(),
         range: { label: r.label, from: r.from, to: r.to },
         counts: {
             weights: weights.length, nutrition_daily: nutritionDaily.length,
-            nutrition_detailed_days: nutritionDetailed.length, workouts: workouts.length
+            nutrition_detailed_days: nutritionDetailed.length, workouts: workouts.length,
+            sleep_recovery: sleepRecovery.length
         },
-        weights, nutrition_daily: nutritionDaily, nutrition_detailed: nutritionDetailed, workouts
+        weights, nutrition_daily: nutritionDaily, nutrition_detailed: nutritionDetailed, workouts,
+        sleep_recovery: sleepRecovery
     };
     const slug = range === 'custom' ? 'custom' : (range === 'all' ? 'all' : range + 'd');
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
@@ -1735,7 +1741,7 @@ function exportUnifiedData(range) {
     URL.revokeObjectURL(a.href);
     closeUnifiedExportModal();
     haptic('success');
-    showAlert(`קובץ מאוחד הורד · ${weights.length} שקילות · ${nutritionDaily.length} ימי תזונה · ${workouts.length} אימונים`);
+    showAlert(`קובץ מאוחד הורד · ${weights.length} שקילות · ${nutritionDaily.length} ימי תזונה · ${workouts.length} אימונים · ${sleepRecovery.length} לילות שינה`);
 }
 
 function openUnifiedExportModal() {

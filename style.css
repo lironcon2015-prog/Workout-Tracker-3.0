@@ -5654,7 +5654,6 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .bl-tdee-export .material-symbols-outlined { font-size: var(--fs-xl); }
 .bl-tdee-export:active { color: var(--text); }
 /* גיבוי/ייצוא בתחתית מסך הארכיון */
-.archive-backup-bottom { margin-top: 28px; }
 
 /* ── כרטיס TDEE / מאזן אנרגיה ── */
 .bl-tdee-hero { font-size: 2.1rem; font-weight: 900; color: var(--text); line-height: 1.05; margin-top: 4px; }

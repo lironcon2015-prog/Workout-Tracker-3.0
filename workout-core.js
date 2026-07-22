@@ -4139,9 +4139,17 @@ function _buildCoachSummaryPrompt(scope) {
 
     const reliability = StorageManager.COACH_RELIABILITY_BLOCK || '';
 
-    return _fillTemplate(StorageManager.getCoachPrompt(scope), {
-        reliability, workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics
+    // שינה + התאוששות — אותו מקטע שמוזרק לצ'אט המאמן (autoregulation). מאפשר לסיכום
+    // לשקלל התאוששות: לא לפרש ביצוע מופחת כרגרסיה כשההתאוששות בבוקר האימון הייתה נמוכה.
+    const recovery = (typeof _buildSleepAIContext === 'function' && _buildSleepAIContext(false)) || '';
+
+    const template = StorageManager.getCoachPrompt(scope);
+    const filled = _fillTemplate(template, {
+        reliability, workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics, recovery
     });
+    // תבנית מותאמת ישנה עשויה לא לכלול את ה-placeholder {recovery} — במקרה כזה מצרפים
+    // את מקטע ההתאוששות בסוף כדי שהמאמן תמיד יראה אותו (כשקיימים נתוני שינה אמיתיים).
+    return (recovery && !template.includes('{recovery}')) ? (filled + '\n' + recovery) : filled;
 }
 
 function generateCoachSummary() {

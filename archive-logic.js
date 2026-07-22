@@ -21,6 +21,7 @@ const MONTH_NAMES_HE = ['ינואר','פברואר','מרץ','אפריל','מא�
 const DEFAULT_MICRO_ORDER = ['Bench Press (Main)', 'Overhead Press (Main)', 'Leg Press'];
 
 let selectedArchiveIds = new Set();
+let archiveSelectMode = false;   // מצב-בחירה נסתר: צ'קבוקסים מוצגים רק כשהוא פעיל
 
 // ─── ARCHIVE THUMB + SETS HELPERS ─────────────────────────────────────────
 
@@ -49,6 +50,7 @@ function getWorkoutTotalSets(item) {
 
 function openArchive() {
     selectedArchiveIds = new Set();
+    _exitArchiveSelectMode();
     updateCopySelectedBtn();
     const coachToggle = document.getElementById('archive-coach-toggle');
     if (coachToggle) coachToggle.checked = StorageManager.getArchiveCopyCoach();
@@ -73,6 +75,7 @@ function switchArchiveView(view) {
 // ─── תתי-מסכים בארכיון: אימונים / שקילות / תזונה ─────────────────────────────
 function setArchiveTab(sub) {
     state.archiveSubTab = sub;
+    _exitArchiveSelectMode();   // יציאה ממצב-בחירה במעבר בין תתי-מסכים
     // בחירת תת-מסך תמיד מציגה רשימה — לוח השנה הוא תצוגה גלובלית נפרדת
     switchArchiveView('list');
     haptic('light');
@@ -162,6 +165,7 @@ function getMuscleSetCounts(archive, range) {
 function createArchiveCard(item) {
     const card = document.createElement('div');
     card.className = 'archive-list-card';
+    if (selectedArchiveIds.has(item.timestamp)) card.classList.add('is-selected');
 
     const vol = getWorkoutVolume(item);
     const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : vol + 'kg';
@@ -169,35 +173,59 @@ function createArchiveCard(item) {
     const thumbUrl = getWorkoutThumbUrl(item.type);
     const idx = StorageManager.getArchive().findIndex(a => a.timestamp === item.timestamp);
 
+    // פס-צבע לפי סוג האימון (אותו color של המטא) — רמז זהות עדין
+    const meta = state.workoutMeta && state.workoutMeta[item.type];
+    const railColor = (meta && meta.color) ? meta.color : 'var(--type-free)';
+    // מטא בשורה אחת: שבוע • תאריך (השעה נשמרת לפירוט) — nowrap, כרטיסים אחידים
+    const weekLbl = item.week && item.week !== 'deload' ? 'שבוע ' + item.week
+        : item.week === 'deload' ? 'דילואוד' : '';
+    const metaLine = [weekLbl, item.date].filter(Boolean).join(' • ');
+
+    card.setAttribute('onclick', `onArchiveCardClick(event, ${idx}, ${item.timestamp})`);
     card.innerHTML = `
-        <div class="archive-card-select-row">
-            <input type="checkbox" class="archive-checkbox" onchange="toggleArchiveSelection(${item.timestamp})"
+        <span class="archive-card-rail" style="background:${railColor};"></span>
+        <span class="archive-card-check" aria-hidden="true">
+            <input type="checkbox" class="archive-checkbox" tabindex="-1"
                 ${selectedArchiveIds.has(item.timestamp) ? 'checked' : ''}>
+        </span>
+        <div class="archive-card-thumb" style="background-image:url('${thumbUrl}');"></div>
+        <div class="archive-card-info">
+            <span class="archive-card-title">${escapeHtml(item.type)}</span>
+            <span class="archive-card-date">${metaLine}</span>
         </div>
-        <div class="archive-card-main" onclick="openArchiveDetail(${idx})">
-            <div class="archive-card-body">
-                <div class="archive-card-info">
-                    <span class="archive-card-title">${escapeHtml(item.type)}</span>
-                    <span class="archive-card-date">${item.week && item.week !== 'deload' ? 'שבוע ' + item.week + ' • ' : item.week === 'deload' ? 'דילואוד • ' : ''}${item.date || ''} • ${item.time || ''}</span>
-                </div>
-                <div class="archive-card-thumbnail" style="background-image:url('${thumbUrl}');"></div>
+        <div class="archive-card-stats">
+            <div class="archive-stat-cell">
+                <span class="archive-stat-value">${totalSets || '—'}</span>
+                <span class="archive-stat-label">סטים</span>
             </div>
-            <div class="archive-card-stats">
-                <div class="archive-stat-cell">
-                    <span class="archive-stat-label">סטים</span>
-                    <span class="archive-stat-value">${totalSets || '—'}</span>
-                </div>
-                <div class="archive-stat-cell">
-                    <span class="archive-stat-label">נפח</span>
-                    <span class="archive-stat-value">${volStr}</span>
-                </div>
-                <div class="archive-stat-cell">
-                    <span class="archive-stat-label">משך</span>
-                    <span class="archive-stat-value">${item.duration || 0} דק'</span>
-                </div>
+            <div class="archive-stat-cell">
+                <span class="archive-stat-value archive-stat-accent">${volStr}</span>
+                <span class="archive-stat-label">נפח</span>
             </div>
-        </div>`;
+            <div class="archive-stat-cell">
+                <span class="archive-stat-value">${item.duration || 0}′</span>
+                <span class="archive-stat-label">משך</span>
+            </div>
+        </div>
+        <span class="archive-card-chev">‹</span>`;
     return card;
+}
+
+// לחיצה על שורת אימון: במצב-בחירה → סימון/ביטול; אחרת → פתיחת פירוט
+function onArchiveCardClick(ev, idx, ts) {
+    if (archiveSelectMode) {
+        if (ev) ev.stopPropagation();
+        toggleArchiveSelection(ts);
+        const card = ev && ev.currentTarget;
+        if (card) {
+            const on = selectedArchiveIds.has(ts);
+            card.classList.toggle('is-selected', on);
+            const cb = card.querySelector('.archive-checkbox');
+            if (cb) cb.checked = on;
+        }
+        return;
+    }
+    openArchiveDetail(idx);
 }
 
 function renderArchiveList() {
@@ -274,6 +302,29 @@ function renderArchiveList() {
 function toggleArchiveSelection(id) {
     if (selectedArchiveIds.has(id)) selectedArchiveIds.delete(id); else selectedArchiveIds.add(id);
     updateCopySelectedBtn();
+}
+
+// מצב-בחירה נסתר: כניסה/יציאה חושפת/מסתירה את הצ'קבוקסים ומצילה את השורה
+function toggleArchiveSelectMode() {
+    if (archiveSelectMode) { _exitArchiveSelectMode(); haptic('light'); return; }
+    archiveSelectMode = true;
+    const sub = document.getElementById('archive-sub-workouts');
+    if (sub) sub.classList.add('archive-selecting');
+    const btn = document.getElementById('btn-archive-select');
+    if (btn) btn.classList.add('archive-pill-accent');
+    haptic('light');
+}
+
+function _exitArchiveSelectMode() {
+    if (!archiveSelectMode) return;
+    archiveSelectMode = false;
+    const sub = document.getElementById('archive-sub-workouts');
+    if (sub) sub.classList.remove('archive-selecting');
+    const btn = document.getElementById('btn-archive-select');
+    if (btn) btn.classList.remove('archive-pill-accent');
+    selectedArchiveIds.clear();
+    updateCopySelectedBtn();
+    if (state.archiveSubTab === 'workouts' && state.archiveView === 'list') renderArchiveList();
 }
 
 function updateCopySelectedBtn() {

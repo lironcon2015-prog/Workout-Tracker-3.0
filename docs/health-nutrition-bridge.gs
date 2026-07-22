@@ -8,6 +8,12 @@
  *   • שינה + התאוששות (המקור העיקרי) — property 'sleep_days'
  *   • תזונה (קלוריות + מאקרו, אופציונלי — אם חוזרים ל-MFP) — property 'health_days'
  *
+ * קולט שני פורמטים של שינה:
+ *   • קיצור iOS — פורמט שטוח ({date,asleep,…}) או {sleep:[…]}
+ *   • Health Auto Export (REST API) — { data:{ metrics:[…] } } (טוטלים יומיים
+ *     מעובדים, תואמים לאפליקציית Health). מומלץ — מדויק יותר מדגימות הגלם של הקיצור.
+ *     ב-HAE: הפעל Aggregate, שים את ה-token ב-URL (…/exec?token=…), פורמט JSON.
+ *
  * אין תלות ב-Firestore או ב-Service Account — האחסון הוא PropertiesService
  * של הסקריפט עצמו (רשומות זעירות; נשמרים ~120 ימים אחרונים לכל סוג).
  *
@@ -31,6 +37,10 @@ const NUTRI_KEY = 'health_days';   // תזונה: [cal,prot,carb,fat]
 const SLEEP_KEY = 'sleep_days';    // שינה: [asleep,inbed,deep,rem,core,awake,rhr,hrv,resp,temp]
 const MAX_DAYS  = 120;             // שמירת ~4 חודשים אחרונים לכל סוג
 
+// 🐞 דיבאג זמני: שולח את גוף ה-POST הגולמי למייל שלך (לאימות פורמט HAE בפעם
+//    הראשונה). אחרי שראית שהנתונים נכונים — שנה ל-false ופרוס מחדש.
+const DEBUG_EMAIL = true;
+
 /* ─── קליטה מהקיצור (POST) ────────────────────────────────────────────────
  * גוף JSON יכול לכלול אחד או שניים:
  *   שינה:  { "token":"...", "sleep":[ { "date":"2026-07-20", "asleep":434, "inbed":471,
@@ -48,8 +58,20 @@ function doPost(e) {
   var tok = (body && body.token) || (e && e.parameter && e.parameter.token) || '';
   if (tok !== SECRET_TOKEN) return _json({ ok: false, error: 'BAD_TOKEN' });
 
+  // דיבאג: שלח את ה-payload הגולמי למייל בעל-הסקריפט (פרטי לגמרי, בלי צד שלישי).
+  if (DEBUG_EMAIL) {
+    try {
+      MailApp.sendEmail(Session.getEffectiveUser().getEmail(),
+        'HAE bridge payload', String((e.postData && e.postData.contents) || '(empty)'));
+    } catch (err) {}
+  }
+
   var incNutri = Array.isArray(body.days)  ? body.days  : [];
   var incSleep = Array.isArray(body.sleep) ? body.sleep : [];
+  // Health Auto Export (REST API): { data:{ metrics:[…] } } — ממזג לפי תאריך.
+  if (!incSleep.length && body.data && Array.isArray(body.data.metrics)) {
+    incSleep = _parseHAE(body.data.metrics);
+  }
   // תמיכה בפורמט שטוח: לילה בודד ברמת השורש (בלי מערך "sleep") — מקל מאוד על
   // בניית הקיצור ב-iOS (אין צורך במערך/מילון מקוננים, רק שדות פשוטים).
   if (!incSleep.length && body.date && (body.asleep != null || body.inbed != null ||
@@ -127,6 +149,58 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ─── Health Auto Export (REST API) → מערך לילות בפורמט הפנימי ─────────────
+ * HAE שולח { data:{ metrics:[ {name,units,data:[…]} ] } }. שינה = מדד אחד עם
+ * טוטלים יומיים (core/deep/rem/awake/totalSleep/inBed); RHR/HRV/נשימה/טמפ' =
+ * מדדי qty נפרדים. ממזגים לפי תאריך. משכי שינה מומרים לדקות לפי היחידה (hr→×60).
+ * זיהוי מדד לפי מילות-מפתח בשם — עמיד לשינויי-שמות קלים בין גרסאות HAE. */
+function _parseHAE(metrics) {
+  var byDate = {};
+  function slot(d) { return (byDate[d] || (byDate[d] = {})); }
+
+  metrics.forEach(function (m) {
+    var name  = String((m && m.name)  || '').toLowerCase();
+    var units = String((m && m.units) || '').toLowerCase();
+    var rows  = (m && Array.isArray(m.data)) ? m.data : [];
+    var toMin = /\b(hr|hour|hours)\b/.test(units) ? 60 : 1;   // שעות→דקות; אחרת דקות
+
+    rows.forEach(function (r) {
+      var date = _isoDate(r && r.date); if (!date) return;
+      var s = slot(date);
+      if (name.indexOf('sleep') > -1 && (r.core != null || r.deep != null ||
+          r.rem != null || r.totalSleep != null || r.asleep != null)) {
+        if (r.core  != null) s.core  = _n(r.core  * toMin);
+        if (r.deep  != null) s.deep  = _n(r.deep  * toMin);
+        if (r.rem   != null) s.rem   = _n(r.rem   * toMin);
+        if (r.awake != null) s.awake = _n(r.awake * toMin);
+        var tot = (r.totalSleep != null) ? r.totalSleep : r.asleep;
+        if (tot   != null) s.asleep = _n(tot   * toMin);
+        if (r.inBed != null) s.inbed = _n(r.inBed * toMin);
+      } else if (name.indexOf('resting') > -1 && name.indexOf('heart') > -1) {
+        if (r.qty != null) s.rhr = _n(r.qty);
+      } else if (name.indexOf('variability') > -1 || name.indexOf('hrv') > -1 ||
+                 name.indexOf('sdnn') > -1) {
+        if (r.qty != null) s.hrv = _n(r.qty);
+      } else if (name.indexOf('respirator') > -1) {
+        if (r.qty != null) s.resp = _f(r.qty);
+      } else if (name.indexOf('wrist') > -1 && name.indexOf('temp') > -1) {
+        if (r.qty != null) s.temp = _f(r.qty);
+      }
+    });
+  });
+
+  return Object.keys(byDate).map(function (date) {
+    var s = byDate[date];
+    var stages = (s.core || 0) + (s.deep || 0) + (s.rem || 0);
+    if (s.asleep == null && stages) s.asleep = stages;               // שינה = סכום שלבים
+    if ((s.inbed == null || !s.inbed) && s.asleep != null)           // במיטה = שינה + ערות
+      s.inbed = _n((s.asleep || 0) + (s.awake || 0));
+    return { date: date, asleep: s.asleep, inbed: s.inbed, deep: s.deep,
+             rem: s.rem, core: s.core, awake: s.awake, rhr: s.rhr,
+             hrv: s.hrv, resp: s.resp, temp: s.temp };
+  });
 }
 
 /* ─── אחסון קומפקטי לפי סוג: { "YYYY-MM-DD": [..], … } ─────────────────── */

@@ -37,9 +37,11 @@ const NUTRI_KEY = 'health_days';   // תזונה: [cal,prot,carb,fat]
 const SLEEP_KEY = 'sleep_days';    // שינה: [asleep,inbed,deep,rem,core,awake,rhr,hrv,resp,temp]
 const MAX_DAYS  = 120;             // שמירת ~4 חודשים אחרונים לכל סוג
 
-// 🐞 דיבאג זמני: שולח את גוף ה-POST הגולמי למייל שלך (לאימות פורמט HAE בפעם
-//    הראשונה). אחרי שראית שהנתונים נכונים — שנה ל-false ופרוס מחדש.
-const DEBUG_EMAIL = true;
+// 🐞 דיבאג זמני: שומר את גוף ה-POST הגולמי האחרון, לשליפה בדפדפן דרך
+//    <URL>?token=…&raw=1 (לאימות פורמט HAE בפעם הראשונה — בלי מייל, הכל אצלך).
+//    אחרי שראית שהנתונים נכונים — שנה ל-false ופרוס מחדש.
+const DEBUG_RAW = true;
+const RAW_KEY   = 'last_raw';
 
 /* ─── קליטה מהקיצור (POST) ────────────────────────────────────────────────
  * גוף JSON יכול לכלול אחד או שניים:
@@ -58,12 +60,11 @@ function doPost(e) {
   var tok = (body && body.token) || (e && e.parameter && e.parameter.token) || '';
   if (tok !== SECRET_TOKEN) return _json({ ok: false, error: 'BAD_TOKEN' });
 
-  // דיבאג: שלח את ה-payload הגולמי למייל בעל-הסקריפט (פרטי לגמרי, בלי צד שלישי).
-  if (DEBUG_EMAIL) {
-    try {
-      MailApp.sendEmail(Session.getEffectiveUser().getEmail(),
-        'HAE bridge payload', String((e.postData && e.postData.contents) || '(empty)'));
-    } catch (err) {}
+  // דיבאג: שמור את ה-payload הגולמי האחרון לשליפה דרך doGet (?raw=1). בלי מייל.
+  if (DEBUG_RAW) {
+    try { PropertiesService.getScriptProperties()
+      .setProperty(RAW_KEY, String((e.postData && e.postData.contents) || '')); }
+    catch (err) {}
   }
 
   var incNutri = Array.isArray(body.days)  ? body.days  : [];
@@ -125,6 +126,9 @@ function doGet(e) {
   var result;
   if (p.token !== SECRET_TOKEN) {
     result = { ok: false, error: 'BAD_TOKEN' };
+  } else if (p.raw) {
+    // דיבאג: מחזיר את ה-payload הגולמי האחרון שהתקבל (לאימות פורמט HAE)
+    result = { ok: true, raw: PropertiesService.getScriptProperties().getProperty(RAW_KEY) || '' };
   } else {
     var nMap = _load(NUTRI_KEY);
     var days = Object.keys(nMap).sort().map(function (date) {

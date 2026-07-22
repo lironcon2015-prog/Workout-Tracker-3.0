@@ -2145,99 +2145,101 @@ body::before {
 }
 
 /* ── Archive List Cards (redesign) ── */
+/* ═══ שורת אימון בארכיון — שורה קומפקטית אחת (בשפת Live/סיכום) ═══ */
 .archive-list-card {
+    position: relative;
     background: var(--surface-2);
     border: 1px solid var(--hairline);
     border-top-color: var(--hairline-hi);
     box-shadow: var(--top-glint), var(--elev-2);
     border-radius: var(--r-lg);
-    padding: 16px 16px 16px;
+    padding: 12px 15px 12px 12px;
     margin-bottom: 10px;
     display: flex;
     flex-direction: row;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
     transition: background var(--dur-1) var(--ease);
 }
 .archive-list-card:active { background: var(--surface-3); }
+.archive-list-card.is-selected { background: rgba(var(--accent-rgb), 0.08); }
 
-.archive-card-select-row { padding-top: 2px; flex-shrink: 0; }
-
-.archive-card-main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    cursor: pointer;
+/* פס-צבע לפי סוג האימון — בקצה ההתחלה (ימין ב-RTL) */
+.archive-card-rail {
+    position: absolute;
+    top: 11px; bottom: 11px; right: 0;
+    width: 3px; border-radius: 3px 0 0 3px;
+    opacity: 0.9;
 }
 
-.archive-card-body {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
+/* צ'קבוקס — מוסתר; מוצג רק במצב-בחירה. משמש כאינדיקטור (השורה מסמנת) */
+.archive-card-check { display: none; flex: 0 0 auto; align-items: center; }
+.archive-selecting .archive-card-check { display: flex; }
+.archive-card-check .archive-checkbox {
+    width: 22px; height: 22px; margin: 0;
+    accent-color: var(--accent); pointer-events: none;
 }
 
-.archive-card-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex: 1;
-    min-width: 0;
+.archive-card-thumb {
+    width: 40px; height: 40px; border-radius: 50%;
+    flex: 0 0 auto;
+    background-color: var(--surface-4);
+    background-size: cover; background-position: center;
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.06);
 }
+
+.archive-card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 
 .archive-card-title {
     font-family: 'Heebo', 'Inter', sans-serif;
-    font-size: var(--fs-xl);
-    font-weight: 900;
-    color: #e5e2e1;
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    color: #e9e7e6;
+    letter-spacing: -0.01em;
     line-height: 1.2;
-    display: block;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 .archive-card-date {
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     font-weight: 600;
-    color: rgba(255,255,255,0.36);
-    display: block;
+    color: var(--text-dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.archive-card-thumbnail {
-    width: 64px;
-    height: 64px;
-    border-radius: var(--r-sm);
-    flex-shrink: 0;
-    background-color: var(--surface-4);
-    background-size: cover;
-    background-position: center;
-}
+.archive-card-stats { display: flex; flex: 0 0 auto; }
 
-.archive-card-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-    border-top: 1px solid rgba(255,255,255,0.05);
-    padding-top: 12px;
+.archive-stat-cell {
+    display: flex; flex-direction: column; gap: 3px;
+    text-align: center; padding: 0 9px;
+    border-left: 1px solid var(--hairline);
 }
+.archive-stat-cell:last-child { border-left: none; padding-left: 2px; }
 
-.archive-stat-cell { display: flex; flex-direction: column; gap: 4px; }
+.archive-stat-value {
+    font-family: 'Heebo', 'Inter', sans-serif;
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    color: #e9e7e6;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+.archive-stat-value.archive-stat-accent { color: var(--accent); }
 
 .archive-stat-label {
     font-size: var(--fs-xs);
     font-weight: 700;
-    color: rgba(255,255,255,0.3);
+    color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 0.09em;
+    letter-spacing: 0.05em;
 }
 
-.archive-stat-value {
-    font-family: 'Heebo', 'Inter', sans-serif;
-    font-size: var(--fs-xl);
-    font-weight: 900;
-    font-style: italic;
-    color: #e5e2e1;
-    line-height: 1;
+.archive-card-chev {
+    color: rgba(255,255,255,0.22);
+    font-size: 18px; font-weight: 700;
+    flex: 0 0 auto; margin-inline-start: -2px;
 }
 
 /* ── Archive Action Pills — שפת ה-pill של האפליקציה: surface-4, ללא italic/uppercase ── */
@@ -2270,6 +2272,12 @@ body::before {
 .archive-pill-btn:hover  { filter: brightness(1.15); }
 .archive-pill-btn:active { transform: scale(0.97); }
 .archive-pill-btn.archive-pill-dim { opacity: 0.4; cursor: default; }
+.archive-pill-btn.archive-pill-accent {
+    background: rgba(var(--accent-rgb), 0.16);
+    box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.35);
+    color: var(--accent);
+}
+.archive-pill-btn.archive-pill-accent .material-symbols-outlined { color: var(--accent); }
 
 /* ── Archive header: תתי-מסכים + טוגל לוח שנה ── */
 .archive-header-row { display: flex; align-items: center; gap: 8px; max-width: 380px; margin: 0 auto; }

@@ -1,0 +1,287 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GYMPRO ELITE · ליטוש מסך ארכיון</title>
+<style>
+  :root{
+    --page-bg:#f5f5f7;--panel:#fff;--ink:#1d1d1f;--ink-2:#6e6e73;--ink-3:#8e8e93;
+    --hair:rgba(0,0,0,.1);--hair-2:rgba(0,0,0,.06);--link:#0071e3;--shadow:0 4px 24px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);
+    --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){:root{--page-bg:#000;--panel:#141416;--ink:#f5f5f7;--ink-2:rgba(235,235,245,.62);--ink-3:rgba(235,235,245,.4);--hair:rgba(255,255,255,.12);--hair-2:rgba(255,255,255,.07);--link:#0a84ff;--shadow:0 8px 40px rgba(0,0,0,.6)}}
+  :root[data-theme="light"]{--page-bg:#f5f5f7;--panel:#fff;--ink:#1d1d1f;--ink-2:#6e6e73;--ink-3:#8e8e93;--hair:rgba(0,0,0,.1);--hair-2:rgba(0,0,0,.06);--link:#0071e3;--shadow:0 4px 24px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06)}
+  :root[data-theme="dark"]{--page-bg:#000;--panel:#141416;--ink:#f5f5f7;--ink-2:rgba(235,235,245,.62);--ink-3:rgba(235,235,245,.4);--hair:rgba(255,255,255,.12);--hair-2:rgba(255,255,255,.07);--link:#0a84ff;--shadow:0 8px 40px rgba(0,0,0,.6)}
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page-bg);color:var(--ink);font-family:var(--ui);-webkit-font-smoothing:antialiased;direction:rtl;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:64px 24px 96px}
+  .eyebrow{font-size:13px;font-weight:600;letter-spacing:.06em;color:var(--link);text-transform:uppercase;margin:0 0 14px}
+  h1.page{font-size:clamp(30px,5vw,48px);font-weight:700;letter-spacing:-.022em;line-height:1.05;margin:0}
+  .lede{font-size:18px;color:var(--ink-2);max-width:64ch;margin:16px 0 0}
+  section{margin-top:60px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+  .sec-num{font:600 13px/1 var(--ui);color:var(--ink-3)}
+  h2{font-size:26px;font-weight:680;letter-spacing:-.02em;margin:0}
+  .sec-sub{font-size:15px;color:var(--ink-2);margin:6px 0 0}
+
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;align-items:start;justify-items:center}
+  @media (max-width:900px){.stage{grid-template-columns:1fr;gap:52px}}
+  .phone-col{display:flex;flex-direction:column;align-items:center;gap:16px}
+  .phone-tag{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink-2)}
+  .phone-tag .dot{width:9px;height:9px;border-radius:50%}
+  .tag-now .dot{background:#8e8e93}.tag-new .dot{background:#0a84ff}
+  .phone-tag .kicker{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--ink-3);border:.5px solid var(--hair);border-radius:980px;padding:3px 9px}
+
+  .device{width:344px;max-width:100%;border-radius:52px;padding:12px;background:#0a0a0c;box-shadow:0 2px 0 rgba(255,255,255,.06) inset,0 30px 70px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.4)}
+  .screen{position:relative;border-radius:42px;overflow:hidden;height:720px;direction:rtl}
+  .screen .scroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden}
+  .screen .scroll::-webkit-scrollbar{width:0}
+
+  /* ===== app tokens (Liquid Obsidian) ===== */
+  .app{--bg:#070708;--s1:#101013;--s2:#161619;--s3:#1e1e22;--s4:#26262c;
+    --hairline:rgba(255,255,255,.06);--hairline-hi:rgba(255,255,255,.1);
+    --accent:#0a84ff;--text:#e2e2e2;--dim:#8e8e93;--success:#30d158;
+    --type-a:#0a84ff;--type-b:#47e266;--type-c:#ffb868;
+    --top-glint:inset 0 1px 0 rgba(255,255,255,.05);
+    --elev-1:0 1px 2px rgba(0,0,0,.45);--elev-2:0 2px 8px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.35);
+    font-family:"Heebo",var(--ui);background:#070708;color:var(--text);min-height:100%;padding-bottom:30px}
+  .statusbar{height:50px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 6px;color:#fff;font-size:14px;font-weight:600}
+  .statusbar .pill-notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:110px;height:30px;background:#000;border-radius:20px}
+
+  /* sticky header: segment + calendar */
+  .app .hdr{display:flex;align-items:center;gap:10px;padding:6px 16px 12px}
+  .app .seg{flex:1;display:flex;background:var(--s1);border:1px solid var(--hairline);border-radius:9999px;padding:3px}
+  .app .seg button{flex:1;border:0;background:transparent;color:var(--dim);font:800 .72rem "Heebo",var(--ui);padding:7px 0;border-radius:9999px}
+  .app .seg button.on{background:var(--s3);color:#fff;box-shadow:var(--elev-1)}
+  .app .cal{width:40px;height:40px;border-radius:9999px;background:var(--s1);border:1px solid var(--hairline);color:var(--dim);display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto}
+
+  /* action pills */
+  .app .pills{display:flex;gap:8px;padding:0 16px 14px;flex-wrap:wrap}
+  .app .pill{display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--hairline);border-top-color:var(--hairline-hi);border-radius:9999px;padding:8px 13px;font:700 .72rem "Heebo",var(--ui);color:var(--text)}
+  .app .pill .i{font-size:16px;opacity:.8}
+  .app .pill.dim{opacity:.45}
+  .app .pill.accent{background:rgba(10,132,255,.14);border-color:rgba(10,132,255,.3);color:#69b4ff}
+
+  /* month header */
+  .app .mhd{display:flex;justify-content:space-between;align-items:flex-end;border-right:4px solid var(--accent);padding:8px 12px 8px 0;margin:0 16px 14px}
+  .app .mhd .nm{font-size:1.4rem;font-weight:900;line-height:1;color:#e5e2e1}
+  .app .mhd .ct{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin-top:5px}
+  .app .mhd .vol{text-align:left}
+  .app .mhd .vol .n{font-size:1.3rem;font-weight:900;color:#e5e2e1;line-height:1}
+  .app .mhd .vol .l{font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-top:3px}
+
+  /* ==== CURRENT (clunky) card ==== */
+  .cur .mcard{background:var(--s2);border:1px solid var(--hairline);border-top-color:var(--hairline-hi);border-radius:28px;box-shadow:var(--top-glint),var(--elev-2);margin:0 16px;overflow:hidden}
+  .cur .row{display:flex;gap:8px;align-items:flex-start;padding:16px;border-bottom:1px solid var(--hairline)}
+  .cur .row:last-child{border-bottom:none}
+  .cur .cb{width:22px;height:22px;border-radius:6px;border:2px solid var(--dim);flex:0 0 auto;margin-top:2px}
+  .cur .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+  .cur .body{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .cur .info{min-width:0}
+  .cur .info .t{font-size:1.05rem;font-weight:900;color:#e5e2e1;line-height:1.2}
+  .cur .info .d{font-size:.72rem;font-weight:600;color:rgba(255,255,255,.36);margin-top:4px}
+  .cur .thumb{width:64px;height:64px;border-radius:14px;flex:0 0 auto;background:linear-gradient(135deg,#2a2f3a,#161619)}
+  .cur .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-top:1px solid rgba(255,255,255,.05);padding-top:12px}
+  .cur .st{display:flex;flex-direction:column;gap:4px}
+  .cur .st .l{font-size:.6rem;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.09em}
+  .cur .st .v{font-size:1.05rem;font-weight:900;font-style:italic;color:#e5e2e1;line-height:1}
+
+  /* ==== NEW (polished) card ==== */
+  .new .mcard{background:var(--s2);border:1px solid var(--hairline);border-top-color:var(--hairline-hi);border-radius:22px;box-shadow:var(--top-glint),var(--elev-2);margin:0 16px;overflow:hidden}
+  .new .row{display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid var(--hairline)}
+  .new .row:last-child{border-bottom:none}
+  .new .thumb{width:40px;height:40px;border-radius:50%;flex:0 0 auto;position:relative;
+    background:linear-gradient(135deg,#2a2f3a,#12141a);display:flex;align-items:center;justify-content:center}
+  .new .thumb::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.06)}
+  .new .thumb .g{width:18px;height:18px;opacity:.85}
+  .new .info{flex:1;min-width:0}
+  .new .info .t{font-size:.95rem;font-weight:800;color:#e9e7e6;letter-spacing:-.01em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .new .info .d{font-size:.68rem;font-weight:600;color:var(--dim);margin-top:3px}
+  .new .info .d .wk{color:#a9c0e8}
+  .new .stats{display:flex;flex:0 0 auto}
+  .new .st{text-align:center;padding:0 11px;border-left:1px solid var(--hairline)}
+  .new .st:last-child{border-left:none;padding-left:2px}
+  .new .st .v{font-size:.95rem;font-weight:800;color:#e9e7e6;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .new .st .v.acc{color:#5ca8ff}
+  .new .st .l{font-size:.52rem;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+  .new .chev{color:rgba(255,255,255,.22);font-size:16px;flex:0 0 auto;margin-inline-start:-2px}
+
+  /* type accent rail */
+  .new .row{position:relative}
+  .new .rail{position:absolute;top:10px;bottom:10px;right:0;width:3px;border-radius:3px}
+  .rail-a{background:var(--type-a)}.rail-b{background:var(--type-b)}.rail-c{background:var(--type-c)}
+
+  /* select-mode row */
+  .sel .row .selbox{width:22px;height:22px;border-radius:50%;border:2px solid var(--dim);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+  .sel .row.on .selbox{background:var(--accent);border-color:var(--accent);color:#fff;font-size:14px}
+  .sel .row.on{background:rgba(10,132,255,.07)}
+
+  .takeaway{background:var(--panel);border:.5px solid var(--hair);border-radius:22px;padding:24px 26px;box-shadow:var(--shadow);margin-top:30px}
+  .takeaway ul{margin:0;padding:0;list-style:none;display:grid;gap:15px}
+  .takeaway li{display:flex;gap:13px;font-size:15px;color:var(--ink-2);line-height:1.5}
+  .takeaway li .b{flex:0 0 auto;width:25px;height:25px;border-radius:7px;background:rgba(10,132,255,.14);color:var(--link);font:700 13px/25px var(--ui);text-align:center}
+  .takeaway li b{color:var(--ink);font-weight:640}
+  .mono{font-family:ui-monospace,monospace}
+  .foot{margin-top:52px;padding-top:24px;border-top:.5px solid var(--hair);font-size:13px;color:var(--ink-3);line-height:1.6}
+  @media (prefers-reduced-motion:no-preference){.device{animation:rise .7s cubic-bezier(.2,0,0,1) both}.phone-col:nth-child(2) .device{animation-delay:.08s}@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">ליטוש · מסך ארכיון · בשפה הקיימת</p>
+  <h1 class="page">ארכיון מלוטש.</h1>
+  <p class="lede">נשארים ב-Liquid Obsidian — בשפה של מסך ה-Live והסיכום. אותם נתונים, אבל השורה הופכת מ<b>שתי קומות עמוסות</b> (תמונה גדולה + גריד סטטים עם קו מפריד + מספרים נטויים) ל<b>שורה אחת סרוקה</b>: תמונה קטנה עגולה, כותרת נקייה, ואשכול סטטים זקוף.</p>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>ההשוואה</h2></div>
+    <p class="sec-sub">משמאל — הארכיון הנוכחי. מימין — ההצעה. אותם 3 אימונים.</p>
+
+    <div class="stage">
+
+      <!-- CURRENT -->
+      <div class="phone-col">
+        <div class="phone-tag tag-now"><span class="dot"></span> עכשיו <span class="kicker">מגושם</span></div>
+        <div class="device"><div class="screen"><div class="scroll">
+          <div class="app cur">
+            <div style="position:relative"><div class="pill-notch"></div><div class="statusbar"><span>19:29</span><span>●&nbsp;&nbsp;✦&nbsp;&nbsp;▮</span></div></div>
+            <div class="hdr">
+              <div class="seg"><button class="on">אימונים</button><button>שקילות</button><button>תזונה</button></div>
+              <div class="cal">▦</div>
+            </div>
+            <div class="pills">
+              <span class="pill"><span class="i">▤</span>טווח</span>
+              <span class="pill dim"><span class="i">☑</span>מסומנים</span>
+              <span class="pill"><span class="i">⧉</span>העתק הכל</span>
+            </div>
+            <div class="mhd"><div><div class="nm">יולי 2025</div><div class="ct">3 אימונים הושלמו</div></div>
+              <div class="vol"><div class="n">19.8t</div><div class="l">נפח כולל</div></div></div>
+            <div class="mcard">
+              <div class="row">
+                <div class="cb"></div>
+                <div class="main">
+                  <div class="body"><div class="info"><div class="t">דחיפה A</div><div class="d">שבוע 2 • 22.07 • 18:24</div></div><div class="thumb"></div></div>
+                  <div class="stats"><div class="st"><div class="l">סטים</div><div class="v">24</div></div><div class="st"><div class="l">נפח</div><div class="v">5.3t</div></div><div class="st"><div class="l">משך</div><div class="v">47′</div></div></div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="cb"></div>
+                <div class="main">
+                  <div class="body"><div class="info"><div class="t">משיכה A</div><div class="d">שבוע 2 • 20.07 • 19:10</div></div><div class="thumb"></div></div>
+                  <div class="stats"><div class="st"><div class="l">סטים</div><div class="v">22</div></div><div class="st"><div class="l">נפח</div><div class="v">6.1t</div></div><div class="st"><div class="l">משך</div><div class="v">52′</div></div></div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="cb"></div>
+                <div class="main">
+                  <div class="body"><div class="info"><div class="t">רגליים</div><div class="d">שבוע 1 • 18.07 • 17:30</div></div><div class="thumb"></div></div>
+                  <div class="stats"><div class="st"><div class="l">סטים</div><div class="v">20</div></div><div class="st"><div class="l">נפח</div><div class="v">8.4t</div></div><div class="st"><div class="l">משך</div><div class="v">58′</div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div></div></div>
+      </div>
+
+      <!-- NEW -->
+      <div class="phone-col">
+        <div class="phone-tag tag-new"><span class="dot"></span> הצעה <span class="kicker">מלוטש</span></div>
+        <div class="device"><div class="screen"><div class="scroll">
+          <div class="app new">
+            <div style="position:relative"><div class="pill-notch"></div><div class="statusbar"><span>19:29</span><span>●&nbsp;&nbsp;✦&nbsp;&nbsp;▮</span></div></div>
+            <div class="hdr">
+              <div class="seg"><button class="on">אימונים</button><button>שקילות</button><button>תזונה</button></div>
+              <div class="cal">▦</div>
+            </div>
+            <div class="pills">
+              <span class="pill"><span class="i">▤</span>טווח</span>
+              <span class="pill"><span class="i">☑</span>בחר</span>
+              <span class="pill"><span class="i">⧉</span>העתק הכל</span>
+            </div>
+            <div class="mhd"><div><div class="nm">יולי 2025</div><div class="ct">3 אימונים</div></div>
+              <div class="vol"><div class="n">19.8t</div><div class="l">נפח כולל</div></div></div>
+            <div class="mcard">
+              <div class="row">
+                <span class="rail rail-a"></span>
+                <div class="thumb"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="#7fb3ff" stroke-width="2" stroke-linecap="round"><path d="M4 12h2M18 12h2M6 8.5v7M17 8.5v7M9 7v10M15 7v10"/></svg></div>
+                <div class="info"><div class="t">דחיפה A</div><div class="d"><span class="wk">שבוע 2</span> • 22.07 • 18:24</div></div>
+                <div class="stats"><div class="st"><div class="v">24</div><div class="l">סטים</div></div><div class="st"><div class="v acc">5.3t</div><div class="l">נפח</div></div><div class="st"><div class="v">47′</div><div class="l">משך</div></div></div>
+                <span class="chev">‹</span>
+              </div>
+              <div class="row">
+                <span class="rail rail-b"></span>
+                <div class="thumb"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="#8fe6a0" stroke-width="2" stroke-linecap="round"><path d="M4 12h2M18 12h2M6 8.5v7M17 8.5v7M9 7v10M15 7v10"/></svg></div>
+                <div class="info"><div class="t">משיכה A</div><div class="d"><span class="wk">שבוע 2</span> • 20.07 • 19:10</div></div>
+                <div class="stats"><div class="st"><div class="v">22</div><div class="l">סטים</div></div><div class="st"><div class="v acc">6.1t</div><div class="l">נפח</div></div><div class="st"><div class="v">52′</div><div class="l">משך</div></div></div>
+                <span class="chev">‹</span>
+              </div>
+              <div class="row">
+                <span class="rail rail-c"></span>
+                <div class="thumb"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="#ffca8a" stroke-width="2" stroke-linecap="round"><path d="M4 12h2M18 12h2M6 8.5v7M17 8.5v7M9 7v10M15 7v10"/></svg></div>
+                <div class="info"><div class="t">רגליים</div><div class="d"><span class="wk">שבוע 1</span> • 18.07 • 17:30</div></div>
+                <div class="stats"><div class="st"><div class="v">20</div><div class="l">סטים</div></div><div class="st"><div class="v acc">8.4t</div><div class="l">נפח</div></div><div class="st"><div class="v">58′</div><div class="l">משך</div></div></div>
+                <span class="chev">‹</span>
+              </div>
+            </div>
+          </div>
+        </div></div></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- SELECT MODE -->
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>מצב בחירה (נסתר)</h2></div>
+    <p class="sec-sub">לחיצה על "בחר" (או לחיצה ארוכה על שורה) חושפת עיגולי סימון. בשאר הזמן — השורה נקייה.</p>
+    <div class="stage" style="grid-template-columns:1fr">
+      <div class="phone-col">
+        <div class="phone-tag tag-new"><span class="dot"></span> מצב בחירה פעיל</div>
+        <div class="device" style="width:344px"><div class="screen" style="height:360px"><div class="scroll">
+          <div class="app new sel">
+            <div class="pills" style="padding-top:16px">
+              <span class="pill accent"><span class="i">✓</span>2 נבחרו</span>
+              <span class="pill"><span class="i">⧉</span>העתק מסומנים</span>
+              <span class="pill dim">בטל</span>
+            </div>
+            <div class="mcard">
+              <div class="row on">
+                <span class="selbox">✓</span>
+                <div class="thumb"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="#7fb3ff" stroke-width="2" stroke-linecap="round"><path d="M4 12h2M18 12h2M6 8.5v7M17 8.5v7M9 7v10M15 7v10"/></svg></div>
+                <div class="info"><div class="t">דחיפה A</div><div class="d"><span class="wk">שבוע 2</span> • 22.07</div></div>
+                <div class="stats"><div class="st"><div class="v acc">5.3t</div><div class="l">נפח</div></div></div>
+              </div>
+              <div class="row on">
+                <span class="selbox">✓</span>
+                <div class="thumb"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="#8fe6a0" stroke-width="2" stroke-linecap="round"><path d="M4 12h2M18 12h2M6 8.5v7M17 8.5v7M9 7v10M15 7v10"/></svg></div>
+                <div class="info"><div class="t">משיכה A</div><div class="d"><span class="wk">שבוע 2</span> • 20.07</div></div>
+                <div class="stats"><div class="st"><div class="v acc">6.1t</div><div class="l">נפח</div></div></div>
+              </div>
+              <div class="row">
+                <span class="selbox"></span>
+                <div class="thumb"><svg class="g" viewBox="0 0 24 24" fill="none" stroke="#ffca8a" stroke-width="2" stroke-linecap="round"><path d="M4 12h2M18 12h2M6 8.5v7M17 8.5v7M9 7v10M15 7v10"/></svg></div>
+                <div class="info"><div class="t">רגליים</div><div class="d"><span class="wk">שבוע 1</span> • 18.07</div></div>
+                <div class="stats"><div class="st"><div class="v acc">8.4t</div><div class="l">נפח</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>מה השתנה</h2></div>
+    <div class="takeaway">
+      <ul>
+        <li><span class="b">1</span><div><b>שורה אחת במקום שתי קומות.</b> תמונה + כותרת + מטא + סטטים — הכול בשורה אחת מיושרת אנכית. פי-2 יותר אימונים במסך.</div></li>
+        <li><span class="b">2</span><div><b>תמונה קטנה עגולה (40×40).</b> נשארת כאיקון-זהות עדין במקום ריבוע 64 דומיננטי.</div></li>
+        <li><span class="b">3</span><div><b>סטטים זקופים ונקיים.</b> ביטול ה-<span class="mono">italic</span> וה-<span class="mono">border-top</span> הפנימי — אשכול קומפקטי עם מפרידים אנכיים דקים בלבד, כמו ב-<b>summary-stats</b>. הנפח מודגש ב-accent.</div></li>
+        <li><span class="b">4</span><div><b>צ'קבוקסים מוסתרים.</b> "בחר" חושף מצב-בחירה. בשאר הזמן אין עמודת סימון — השורה נושמת.</div></li>
+        <li><span class="b">5</span><div><b>פס-צבע לפי סוג אימון.</b> רמז דק בקצה (דחיפה/משיכה/רגליים) — סריקה מהירה בלי בלגן, בשפת ה-<span class="mono">is-current</span> הקיימת.</div></li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="foot">מוקאפ בשפת האפליקציה הקיימת (Liquid Obsidian) — טוקנים אמיתיים (<span class="mono">--surface-2, --accent, --r-lg</span>). הפונט Heebo מוצג אם מותקן; אחרת fallback מערכת. נתונים לדוגמה.</p>
+
+</div>

@@ -175,6 +175,16 @@
   .mono{font-family:var(--rounded);font-variant-numeric:tabular-nums}
   .foot{margin-top:56px;padding-top:26px;border-top:.5px solid var(--hair);font-size:13px;color:var(--ink-3);line-height:1.6}
   @media (prefers-reduced-motion:no-preference){.device{animation:rise .7s cubic-bezier(.2,0,0,1) both}.phone-col:nth-child(2) .device{animation-delay:.08s}@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}}
+
+  /* ─────────── polish pass ─────────── */
+  .af svg circle[stroke-linecap="round"]{filter:drop-shadow(0 1.5px 2.5px rgba(0,0,0,.55))}
+  .af .card,.af .cell,.af .prog:not(.on){border:.5px solid rgba(255,255,255,.05)}
+  .af .wtype{font-size:33px;letter-spacing:-.024em}
+  .af .rings .rv .n{letter-spacing:-.6px}
+  .af .rings .rh .t{font-size:21px}
+  .af-tabbar{padding:8px 7px;background:rgba(40,40,44,.6);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+  .af .prog.on{box-shadow:inset 0 0 0 1.5px rgba(181,255,43,.55),0 0 22px rgba(181,255,43,.09)}
+  .af .cell-h .live .d{box-shadow:0 0 7px var(--lime)}
 </style>
 
 <div class="wrap">

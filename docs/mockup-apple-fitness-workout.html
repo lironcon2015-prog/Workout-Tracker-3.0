@@ -49,10 +49,10 @@
   .batt::before{content:"";position:absolute;top:3px;bottom:3px;left:-3px;width:1.5px;background:rgba(255,255,255,.55);border-radius:2px}
 
   /* ============ APPLE FITNESS · ACTIVE WORKOUT ============ */
-  .af{--card:linear-gradient(180deg,#1f1f22 0%,#161618 100%);--sep:rgba(84,84,88,.42);
+  .af{--card:linear-gradient(180deg,#26262b 0%,#1b1b1f 100%);--sep:rgba(84,84,88,.42);
     --w:#fff;--l2:rgba(235,235,245,.6);--l3:rgba(235,235,245,.32);
     --lime:#b5ff2b;--pink:#ff2d55;--cyan:#22e0e8;--orange:#ff9f0a;--blue:#0a84ff;
-    background:#000;color:#fff;padding-bottom:30px}
+    background:radial-gradient(135% 40% at 50% -6%,rgba(255,255,255,.05),transparent 55%),#000;color:#fff;padding-bottom:30px}
   .c-lime{color:var(--lime)}.c-cyan{color:var(--cyan)}.c-orange{color:var(--orange)}
 
   /* live session strip */
@@ -272,8 +272,9 @@
             <div class="timer">
               <div class="ring">
                 <svg width="150" height="150" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(181,255,43,.14)" stroke-width="8"/>
-                  <circle cx="50" cy="50" r="45" fill="none" stroke="#b5ff2b" stroke-width="8" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="85" transform="rotate(-90 50 50)"/>
+                  <defs><linearGradient id="gtw" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#74d600"/><stop offset="1" stop-color="#cbff5c"/></linearGradient></defs>
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(181,255,43,.13)" stroke-width="9"/>
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="url(#gtw)" stroke-width="9" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="85" transform="rotate(-90 50 50)"/>
                 </svg>
                 <div class="c"><div class="t c-lime">01:24</div><div class="s">מנוחה</div></div>
               </div>

@@ -50,10 +50,11 @@
   .batt::before{content:"";position:absolute;top:3px;bottom:3px;left:-3px;width:1.5px;background:rgba(255,255,255,.55);border-radius:2px}
 
   /* ============ APPLE FITNESS HOME ============ */
-  .af{--card:linear-gradient(180deg,#1f1f22 0%,#161618 100%);--sep:rgba(84,84,88,.42);
+  .af{--card:linear-gradient(180deg,#26262b 0%,#1b1b1f 100%);--sep:rgba(84,84,88,.42);
     --w:#fff;--l2:rgba(235,235,245,.6);--l3:rgba(235,235,245,.32);
     --lime:#b5ff2b;--pink:#ff2d55;--cyan:#22e0e8;--purple:#cf8bff;--blue:#0a84ff;--orange:#ff9f0a;
-    --mp:#8fb0c9;--mc:#c3a874;--mf:#c594a6;background:#000;color:#fff;padding-bottom:96px}
+    --mp:#8fb0c9;--mc:#c3a874;--mf:#c594a6;
+    background:radial-gradient(135% 52% at 50% -8%,rgba(255,255,255,.05),transparent 55%),#000;color:#fff;padding-bottom:96px}
   .c-lime{color:var(--lime)}.c-pink{color:var(--pink)}.c-cyan{color:var(--cyan)}.c-purple{color:var(--purple)}.c-blue{color:var(--blue)}.c-orange{color:var(--orange)}
   .af .title-block{position:relative;padding:8px 20px 14px}
   .af .wtype{font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.04;margin:0}
@@ -281,14 +282,19 @@
               <div class="card rings">
                 <div class="rh"><span class="t">השבוע שלך</span><span class="chev">‹</span></div>
                 <div class="rrow">
-                  <svg width="122" height="122" viewBox="0 0 128 128">
-                    <g fill="none" stroke-width="13" stroke-linecap="round">
-                      <circle cx="64" cy="64" r="50" stroke="rgba(255,45,85,.2)"/>
-                      <circle cx="64" cy="64" r="50" stroke="#ff2d55" stroke-dasharray="314" stroke-dashoffset="53" transform="rotate(-90 64 64)"/>
-                      <circle cx="64" cy="64" r="35" stroke="rgba(181,255,43,.2)"/>
-                      <circle cx="64" cy="64" r="35" stroke="#b5ff2b" stroke-dasharray="220" stroke-dashoffset="55" transform="rotate(-90 64 64)"/>
-                      <circle cx="64" cy="64" r="20" stroke="rgba(34,224,232,.2)"/>
-                      <circle cx="64" cy="64" r="20" stroke="#22e0e8" stroke-dasharray="126" stroke-dashoffset="6" transform="rotate(-90 64 64)"/>
+                  <svg width="128" height="128" viewBox="0 0 128 128">
+                    <defs>
+                      <linearGradient id="gph" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#b80838"/><stop offset="1" stop-color="#ff5573"/></linearGradient>
+                      <linearGradient id="gpl" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#74d600"/><stop offset="1" stop-color="#cbff5c"/></linearGradient>
+                      <linearGradient id="gpc" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#079aa5"/><stop offset="1" stop-color="#66ecf3"/></linearGradient>
+                    </defs>
+                    <g fill="none" stroke-width="15">
+                      <circle cx="64" cy="64" r="50" stroke="rgba(255,45,85,.15)"/>
+                      <circle cx="64" cy="64" r="50" stroke="url(#gph)" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="53" transform="rotate(-90 64 64)"/>
+                      <circle cx="64" cy="64" r="34" stroke="rgba(181,255,43,.15)"/>
+                      <circle cx="64" cy="64" r="34" stroke="url(#gpl)" stroke-linecap="round" stroke-dasharray="214" stroke-dashoffset="53" transform="rotate(-90 64 64)"/>
+                      <circle cx="64" cy="64" r="18" stroke="rgba(34,224,232,.15)"/>
+                      <circle cx="64" cy="64" r="18" stroke="url(#gpc)" stroke-linecap="round" stroke-dasharray="113" stroke-dashoffset="6" transform="rotate(-90 64 64)"/>
                     </g>
                   </svg>
                   <div class="rvals">

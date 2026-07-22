@@ -37,10 +37,9 @@ const NUTRI_KEY = 'health_days';   // תזונה: [cal,prot,carb,fat]
 const SLEEP_KEY = 'sleep_days';    // שינה: [asleep,inbed,deep,rem,core,awake,rhr,hrv,resp,temp]
 const MAX_DAYS  = 120;             // שמירת ~4 חודשים אחרונים לכל סוג
 
-// 🐞 דיבאג זמני: שומר את גוף ה-POST הגולמי האחרון, לשליפה בדפדפן דרך
-//    <URL>?token=…&raw=1 (לאימות פורמט HAE בפעם הראשונה — בלי מייל, הכל אצלך).
-//    אחרי שראית שהנתונים נכונים — שנה ל-false ופרוס מחדש.
-const DEBUG_RAW = true;
+// 🐞 דיבאג: כשדלוק — שומר את גוף ה-POST הגולמי האחרון, לשליפה בדפדפן דרך
+//    <URL>?token=…&raw=1 (לאימות פורמט מקור חדש). ברירת מחדל כבוי; הדלק בעת הצורך.
+const DEBUG_RAW = false;
 const RAW_KEY   = 'last_raw';
 
 /* ─── קליטה מהקיצור (POST) ────────────────────────────────────────────────

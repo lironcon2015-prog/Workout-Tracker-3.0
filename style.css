@@ -5844,6 +5844,14 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 }
 .bgp-tile-add .material-symbols-outlined { font-size: var(--fs-2xl); margin-top: 10px; }
 
+/* אריח "בלי רקע" — משבצת בצבע רקע האפליקציה עם קו אלכסוני עדין (סימון "ריק") */
+.bgp-none-swatch {
+    position: relative; width: 100%; aspect-ratio: 4/3; display: block;
+    background: var(--bg);
+    background-image: linear-gradient(135deg, transparent 46%, rgba(255,255,255,0.14) 46%, rgba(255,255,255,0.14) 54%, transparent 54%);
+    box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
 /* OCR hint inside entry modal */
 .bl-ocr-hint { font-size: var(--fs-md); font-weight: 600; padding: 8px 12px; border-radius: var(--r-sm); margin-bottom: 14px; text-align: center; }
 .bl-ocr-hint--loading { background: rgba(var(--accent-rgb),0.12); color: #79bbff; }

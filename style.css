@@ -4060,16 +4060,14 @@ body::before {
 .summary-note-input::placeholder { color: rgba(255,255,255,0.4); }
 
 .obsidian-card {
-    background: var(--surface-2); border-radius: var(--r-lg); padding: 18px 20px 6px;
+    background: var(--surface-2); border-radius: var(--r-lg); padding: 20px;
     border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
     box-shadow: var(--top-glint), var(--elev-3);
-    display: flex; flex-direction: column;
+    display: flex; flex-direction: column; gap: 12px;
 }
-/* כותרת + נפח כתווית מתחתיה (במקום מספר ערום מרוחק ב-space-between) */
-.card-header { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; border-bottom: 1px solid var(--hairline); padding-bottom: 12px; margin-bottom: 2px; }
+.card-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px; }
 .card-title { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.02em; margin: 0; font-family: 'Heebo', sans-serif; }
-.card-vol { font-size: var(--fs-sm); font-weight: 700; color: var(--text-dim); }
-.card-vol b { color: var(--text); font-weight: 800; font-variant-numeric: tabular-nums; margin-inline-start: 3px; }
+.card-vol { font-size: var(--fs-md); font-weight: 700; color: var(--text-dim); }
 .card-tm-badge {
     display: inline-block; vertical-align: middle;
     font-size: var(--fs-xs); font-weight: 700; color: rgba(255,255,255,0.75);
@@ -4077,23 +4075,17 @@ body::before {
     padding: 4px 8px; letter-spacing: 0.2px; margin-inline-start: 8px;
 }
 
-/* שורת סט — טבלה מלוטשת עם מפרידי hairline וריווח אחיד (עקבי עם .slog-set-row) */
-.set-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--hairline); }
-.set-row:last-child { border-bottom: none; }
-.set-num { font-size: var(--fs-sm); font-weight: 700; color: var(--text-dim); width: 22px; flex-shrink: 0; text-align: center; font-variant-numeric: tabular-nums; }
-/* בלי flex:1 — הנתונים ו"ערוך" נצמדים יחד בצד ימין (RTL), בלי רווח ענק ביניהם */
-.set-details { font-size: var(--fs-lg); font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; direction: ltr; }
-.set-x { color: rgba(255,255,255,0.35); font-weight: 400; margin: 0 4px; }
-.set-rir { font-size: 0.78em; font-weight: 600; color: var(--text-dim); margin-inline-start: 10px; unicode-bidi: isolate; }
-.set-exname { display: block; direction: rtl; text-align: right; font-size: 0.78em; font-weight: 600; color: var(--text-dim); margin-bottom: 2px; }
+.set-row { display: flex; align-items: center; font-size: var(--fs-lg); color: #d1d1d6; padding: 4px 0; }
+.set-num { font-size: var(--fs-md); font-weight: 700; color: rgba(255,255,255,0.2); width: 30px; font-variant-numeric: tabular-nums; }
+.set-details { flex: 1; font-variant-numeric: tabular-nums; font-weight: 600; direction: ltr; text-align: right; }
 .set-edit-btn {
-    background: none; border: none; border-radius: var(--r-xs);
-    color: var(--accent); padding: 4px 8px; font-size: var(--fs-sm); font-weight: 600;
-    font-family: inherit; cursor: pointer; flex-shrink: 0; transition: opacity var(--dur-1) var(--ease);
+    background: rgba(255,255,255,0.05); border: none; border-radius: var(--r-xs);
+    color: var(--accent); padding: 4px 12px; font-size: var(--fs-sm); font-weight: 600;
+    font-family: inherit; cursor: pointer; transition: background var(--dur-1) var(--ease);
 }
-.set-edit-btn:active { opacity: 0.5; }
+.set-edit-btn:active { background: rgba(255,255,255,0.15); }
 
-.summary-cluster-title { font-size: var(--fs-sm); font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; margin: 12px 0 2px; }
+.summary-cluster-title { font-size: var(--fs-md); font-weight: 700; color: var(--type-free); margin: 6px 0 2px; }
 
 /* Settings screen — redesigned */
 .settings-group { margin-bottom: 8px; }

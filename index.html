@@ -2687,7 +2687,14 @@
         function archCalendar(){ var b = document.getElementById('btn-view-calendar'); return !!(b && b.classList.contains('active')); }
         function blNutrition(){ var b = document.querySelector('#bl-subtab .seg-btn.active'); return !!(b && b.getAttribute('data-tab') === 'nutrition'); }
 
-        function applySlot(imgId, slot){ setImg(imgId, resolveSrc(st()[slot], slot)); }
+        function applySlot(imgId, slot){
+            var el = document.getElementById(imgId);
+            if (!el) return;
+            var v = st()[slot];
+            if (v === 'none') { el.style.display = 'none'; return; }   // "בלי רקע" — מסתירים את התמונה, נשאר var(--bg) טהור
+            el.style.display = '';
+            setImg(imgId, resolveSrc(v, slot));
+        }
         function applyAnalytics(){ applySlot('ana-bg-img',     anaMicro()    ? 'ana-micro'         : 'ana-macro'); }
         function applyArchive(){   applySlot('archive-bg-img', archCalendar() ? 'archive-calendar'  : 'archive-list'); }
         function applyBodylog(){   applySlot('bodylog-bg-img', blNutrition()  ? 'bodylog-nutrition' : 'bodylog-weight'); }
@@ -2761,12 +2768,28 @@
                 .map(function(o, i){ return pickerTile(o, i, cur); }).join('');
             var builtin = pickerItems.slice(customLib.length)
                 .map(function(o, i){ return pickerTile(o, customLib.length + i, cur); }).join('');
+            // אריח "בלי רקע" — מבטל תמונת רקע למסך זה, משאיר רקע אפליקציה טהור (var(--bg))
+            var noneSel = (cur === 'none');
+            var noneTile = '<button class="bgp-tile bgp-tile-none' + (noneSel ? ' selected' : '') + '" onclick="bgPickerChooseNone()">' +
+                '<span class="bgp-none-swatch">' + (noneSel ? '<span class="bgp-check material-symbols-outlined">check_circle</span>' : '') + '</span>' +
+                '<span class="bgp-tile-name">בלי רקע</span></button>';
             document.getElementById('bg-picker-title').textContent = 'רקע: ' + t.label;
             document.getElementById('bg-picker-content').innerHTML =
                 '<div class="bgp-section-title">שלי</div><div class="bgp-grid">' + addTile + mine + '</div>' +
-                '<div class="bgp-section-title">מובנים</div><div class="bgp-grid">' + builtin + '</div>';
+                '<div class="bgp-section-title">מובנים</div><div class="bgp-grid">' + noneTile + builtin + '</div>';
             document.getElementById('bg-picker-overlay').style.display = 'block';
             document.getElementById('bg-picker-sheet').classList.add('open');
+        };
+        window.bgPickerChooseNone = function(){
+            if (!draft) return;
+            var t = active(); if (!t) return;
+            draft[t.slot] = 'none';
+            var el = document.getElementById(t.img);
+            if (el) el.style.display = 'none';
+            var b = document.getElementById('bg-lab');
+            if (b) b.textContent = t.label + ': בלי רקע';
+            window.closeBgPicker();
+            if (typeof haptic === 'function') haptic('light');
         };
         window.closeBgPicker = function(){
             document.getElementById('bg-picker-overlay').style.display = 'none';
@@ -2777,6 +2800,8 @@
             var t = active(); if (!t) return;
             var o = pickerItems[i]; if (!o) return;
             draft[t.slot] = o.s;
+            var el = document.getElementById(t.img);
+            if (el) el.style.display = '';   // שחזור אם המסך היה קודם "בלי רקע"
             setImg(t.img, resolveSrc(o.s, t.slot));
             var b = document.getElementById('bg-lab');
             if (b) b.textContent = t.label + ': ' + o.n;

@@ -3694,12 +3694,12 @@ function finish() {
     StorageManager.saveSessionState();
 }
 
-// נפח כ-HTML: מספר + יחידה מופרדת (span) ליישור נקי ולסגנון יחידה עדין
+// נפח כ-HTML: המספר מודגש (b) והיחידה עדינה — לשימוש בתווית "נפח" בכותרת הכרטיס
 function _volHtml(v) {
     const big = v >= 1000;
     const num = big ? (v / 1000).toFixed(1) : v;
     const unit = big ? 't' : 'kg';
-    return `${num}<span class="card-vol-unit">${unit}</span>`;
+    return `<b>${num}</b>${unit}`;
 }
 
 function buildSummaryUI() {
@@ -3746,12 +3746,12 @@ function buildSummaryUI() {
             seg.sets.forEach((s, i) => {
                 exVol += _setVol(s);
                 const realIdx = realSets.indexOf(s);
-                const noteStr = s.note ? ` · ${s.note}` : '';
+                const noteHtml = s.note ? ` · <bdi>${escapeHtml(s.note)}</bdi>` : '';
                 const rirStr = s.rir !== undefined ? s.rir : '—';
                 setRows += `
                 <div class="set-row">
                     <div class="set-num">${(i + 1).toString().padStart(2, '0')}</div>
-                    <div class="set-details">${_fmtW(s)}<span class="set-x">×</span>${s.r}<span class="set-rir">RIR ${rirStr}${noteStr}</span></div>
+                    <div class="set-details">${_fmtW(s)}<span class="set-x">×</span>${s.r}<span class="set-rir">RIR ${rirStr}${noteHtml}</span></div>
                     <button class="set-edit-btn" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
                 </div>`;
             });
@@ -3763,7 +3763,7 @@ function buildSummaryUI() {
             <div class="obsidian-card">
                 <div class="card-header">
                     <h3 class="card-title">${escapeHtml(seg.exName)}${tmBadgeHtml}</h3>
-                    <span class="card-vol">${_volHtml(exVol)}</span>
+                    <span class="card-vol">נפח ${_volHtml(exVol)}</span>
                 </div>
                 ${setRows}
             </div>`;
@@ -3783,12 +3783,12 @@ function buildSummaryUI() {
                 
                 roundSets.forEach((s, i) => {
                     const realIdx = realSets.indexOf(s);
-                    const noteStr = s.note ? ` · ${s.note}` : '';
+                    const noteHtml = s.note ? ` · <bdi>${escapeHtml(s.note)}</bdi>` : '';
                     const rirStr = s.rir !== undefined ? s.rir : '—';
                     roundRows += `
                     <div class="set-row">
                         <div class="set-num">${(i + 1).toString().padStart(2, '0')}</div>
-                        <div class="set-details"><span class="set-exname">${escapeHtml(s.exName)}</span>${_fmtW(s)}<span class="set-x">×</span>${s.r}<span class="set-rir">RIR ${rirStr}${noteStr}</span></div>
+                        <div class="set-details"><span class="set-exname">${escapeHtml(s.exName)}</span>${_fmtW(s)}<span class="set-x">×</span>${s.r}<span class="set-rir">RIR ${rirStr}${noteHtml}</span></div>
                         <button class="set-edit-btn" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
                     </div>`;
                 });
@@ -3800,7 +3800,7 @@ function buildSummaryUI() {
             <div class="obsidian-card">
                 <div class="card-header">
                     <h3 class="card-title">סבב: ${escapeHtml(exNames)}</h3>
-                    <span class="card-vol">${_volHtml(clusterVol)}</span>
+                    <span class="card-vol">נפח ${_volHtml(clusterVol)}</span>
                 </div>
                 ${roundRows}
             </div>`;

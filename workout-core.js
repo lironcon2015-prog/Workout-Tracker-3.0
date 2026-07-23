@@ -3694,14 +3694,6 @@ function finish() {
     StorageManager.saveSessionState();
 }
 
-// נפח כ-HTML: המספר מודגש (b) והיחידה עדינה — לשימוש בתווית "נפח" בכותרת הכרטיס
-function _volHtml(v) {
-    const big = v >= 1000;
-    const num = big ? (v / 1000).toFixed(1) : v;
-    const unit = big ? 't' : 'kg';
-    return `<b>${num}</b>${unit}`;
-}
-
 function buildSummaryUI() {
     const area = document.getElementById('summary-content-area');
     if (!area) return;
@@ -3746,16 +3738,17 @@ function buildSummaryUI() {
             seg.sets.forEach((s, i) => {
                 exVol += _setVol(s);
                 const realIdx = realSets.indexOf(s);
-                const noteHtml = s.note ? ` · <bdi>${escapeHtml(s.note)}</bdi>` : '';
+                const noteStr = s.note ? ` | ${s.note}` : '';
                 const rirStr = s.rir !== undefined ? s.rir : '—';
                 setRows += `
                 <div class="set-row">
                     <div class="set-num">${(i + 1).toString().padStart(2, '0')}</div>
-                    <div class="set-details">${_fmtW(s)}<span class="set-x">×</span>${s.r}<span class="set-rir">RIR ${rirStr}${noteHtml}</span></div>
+                    <div class="set-details">${_fmtW(s)} × ${s.r} <span style="opacity:0.5;font-size:0.85em">(RIR ${rirStr}${noteStr})</span></div>
                     <button class="set-edit-btn" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
                 </div>`;
             });
             totalVol += exVol;
+            const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
             const exTM = mainExNames.has(seg.exName) ? _displayTM(seg.exName) : null;
             const tmBadgeHtml = exTM != null ? `<span class="card-tm-badge">TM ${exTM}kg</span>` : '';
 
@@ -3763,7 +3756,7 @@ function buildSummaryUI() {
             <div class="obsidian-card">
                 <div class="card-header">
                     <h3 class="card-title">${escapeHtml(seg.exName)}${tmBadgeHtml}</h3>
-                    <span class="card-vol">נפח ${_volHtml(exVol)}</span>
+                    <span class="card-vol">${volStr}</span>
                 </div>
                 ${setRows}
             </div>`;
@@ -3783,24 +3776,28 @@ function buildSummaryUI() {
                 
                 roundSets.forEach((s, i) => {
                     const realIdx = realSets.indexOf(s);
-                    const noteHtml = s.note ? ` · <bdi>${escapeHtml(s.note)}</bdi>` : '';
+                    const noteStr = s.note ? ` | ${s.note}` : '';
                     const rirStr = s.rir !== undefined ? s.rir : '—';
                     roundRows += `
                     <div class="set-row">
                         <div class="set-num">${(i + 1).toString().padStart(2, '0')}</div>
-                        <div class="set-details"><span class="set-exname">${escapeHtml(s.exName)}</span>${_fmtW(s)}<span class="set-x">×</span>${s.r}<span class="set-rir">RIR ${rirStr}${noteHtml}</span></div>
+                        <div class="set-details">
+                            <span style="color:var(--text-dim);font-size:0.85em;margin-left:6px;">${s.exName}</span><br>
+                            ${_fmtW(s)} × ${s.r} <span style="opacity:0.5;font-size:0.85em">(RIR ${rirStr}${noteStr})</span>
+                        </div>
                         <button class="set-edit-btn" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
                     </div>`;
                 });
             });
             totalVol += clusterVol;
+            const clusterVolStr = clusterVol >= 1000 ? (clusterVol / 1000).toFixed(1) + 't' : clusterVol + 'kg';
             const exNames = [...new Set(seg.sets.map(s => s.exName))].join(' + ');
-
+            
             cardsHtml += `
             <div class="obsidian-card">
                 <div class="card-header">
                     <h3 class="card-title">סבב: ${escapeHtml(exNames)}</h3>
-                    <span class="card-vol">נפח ${_volHtml(clusterVol)}</span>
+                    <span class="card-vol">${clusterVolStr}</span>
                 </div>
                 ${roundRows}
             </div>`;

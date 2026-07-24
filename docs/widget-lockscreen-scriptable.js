@@ -189,27 +189,28 @@ function buildNoCreds(w, fam) {
 }
 
 // ═══════════════ פריסה 1: עיגול — טבעת קלוריות ═══════════════
-// הטבעת היא backgroundImage (DrawContext), והטקסט נערם מעליה במרכז.
-// ה-alpha של התמונה הוא מה ש-iOS ממסך — לכן track עמום ומילוי מלא נקראים היטב.
+// 🔴 הטבעת חייבת להיות תמונת foreground, לא backgroundImage.
+// מ-iOS 17 WidgetKit דורש containerBackground, ו**מסיר אותו לגמרי** בווידג'טי
+// accessory (מסך נעילה) — שם הרקע נקבע ע"י המערכת. widget.backgroundImage של
+// Scriptable ממופה לאותו container background, ולכן פשוט לא צויר: הטקסט הופיע
+// והטבעת נעלמה. הפתרון: הכל תמונה אחת (טבעת + טקסט) שנוספת ב-addImage.
+// תמונות foreground כן מרונדרות — ה-alpha שלהן משמש כמסכת vibrancy.
 function buildCircular(w, s) {
     const n = (s && s.nutrition) || {};
     const target = n.kcalTarget || 0;
     const kcal = n.calories || 0;
-    const pct = target > 0 ? kcal / target : 0;
+    const pct = target > 0 ? Math.min(1, kcal / target) : 0;
+    const big = s ? (target > 0 ? fmtNum(Math.abs(target - kcal)) : fmtNum(kcal)) : '—';
+    const lbl = !s ? 'אין נתונים' : target > 0 ? (kcal <= target ? 'נותרו' : 'מעל') : 'קק"ל';
 
-    w.backgroundImage = ringImage(Math.min(1, pct));
-
-    // מרכוז אנכי ואופקי של תוכן הטבעת
+    const SZ = circWidgetSize();
     w.addSpacer();
-    const big = centeredText(w, s ? (target > 0 ? fmtNum(Math.abs(target - kcal)) : fmtNum(kcal)) : '—');
-    big.font = Font.blackRoundedSystemFont(16);
-    big.textColor = w_(A.full);
-    big.minimumScaleFactor = 0.6;
-    big.lineLimit = 1;
-    const lbl = centeredText(w, !s ? 'אין נתונים' : target > 0 ? (kcal <= target ? 'נותרו' : 'מעל') : 'קק"ל');
-    lbl.font = Font.semiboldSystemFont(8);
-    lbl.textColor = w_(A.soft);
-    lbl.lineLimit = 1;
+    const row = w.addStack();
+    row.layoutHorizontally();
+    row.addSpacer();
+    const im = row.addImage(circularImage(pct, big, lbl));
+    im.imageSize = new Size(SZ, SZ);
+    row.addSpacer();
     w.addSpacer();
 }
 
@@ -367,14 +368,32 @@ function buildInline(w, s) {
 
 // ═══════════════ עזרים ═══════════════
 
-// טבעת התקדמות. Path ב-Scriptable חסר addArc, ו-strokePath משאיר קצוות חדים —
-// לכן הקשת מצוירת כשרשרת עיגולים מלאים בצפיפות (קצוות עגולים "בחינם").
-function ringImage(pct) {
-    const S = 300, LW = 26, R = (S - LW) / 2 - 4;
+// גודל ווידג'ט accessoryCircular (נקודות). 72 ברוב המכשירים, 76 בגדולים.
+// אם התמונה גדולה מהמסגרת iOS גוזר אותה למעגל — לכן הטבעת מוזחת פנימה בקנבס.
+function circWidgetSize() {
+    const sz = Device.screenSize();
+    return Math.min(sz.width, sz.height) >= 428 ? 76 : 72;
+}
+
+// טבעת + טקסט בתמונה אחת. Path ב-Scriptable חסר addArc, ו-strokePath משאיר
+// קצוות חדים — לכן הקשת מצוירת כשרשרת עיגולים מלאים בצפיפות (קצוות עגולים
+// "בחינם"). הקנבס הוא 3x מגודל התצוגה כדי שהכל ייצא חד.
+function circularImage(pct, big, lbl) {
+    const S = 228, LW = 16, R = (S - LW) / 2 - 5;
     const ctx = new DrawContext();
     ctx.size = new Size(S, S); ctx.opaque = false; ctx.respectScreenScale = false;
+
     strokeArc(ctx, S / 2, S / 2, R, LW, 360, w_(A.track));
     if (pct > 0) strokeArc(ctx, S / 2, S / 2, R, LW, 360 * pct, w_(A.full));
+
+    ctx.setTextAlignedCenter();
+    ctx.setFont(Font.blackRoundedSystemFont(48));
+    ctx.setTextColor(w_(A.full));
+    ctx.drawTextInRect(big, new Rect(6, 66, S - 12, 60));
+    ctx.setFont(Font.semiboldSystemFont(23));
+    ctx.setTextColor(w_(A.soft));
+    ctx.drawTextInRect(lbl, new Rect(6, 128, S - 12, 30));
+
     return ctx.getImage();
 }
 function strokeArc(ctx, cx, cy, r, width, sweepDeg, color) {

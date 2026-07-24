@@ -2,8 +2,11 @@
  * GYMPRO ELITE — ווידג'ט מסך הנעילה (Scriptable, iOS 16+)
  * ----------------------------------------------------------------------------
  * סקריפט נפרד מ-docs/widget-scriptable.js (ווידג'ט מסך הבית). מושך את אותו
- * snapshot מאותו גשר (docs/widget-bridge.gs) — אין צורך בהגדרה חדשה באפליקציה,
- * רק להדביק כאן את אותם URL ו-token.
+ * snapshot מאותו גשר (docs/widget-bridge.gs).
+ *
+ * ✅ אין מה לערוך — הסקריפט מאתר לבד את ה-URL וה-token מסקריפט הווידג'ט של
+ *    מסך הבית שכבר מוגדר אצלך ב-Scriptable, ושומר אותם ב-Keychain של המכשיר.
+ *    (רק אם אין סקריפט כזה — מלא ידנית את שתי השורות המסומנות למטה.)
  *
  * למה סקריפט נפרד: ווידג'טי מסך נעילה ("accessory") הם עולם רינדור אחר —
  *   • הם זעירים (עיגול ~72pt, מלבן ~160×72pt, שורה אחת מעל השעון);
@@ -11,18 +14,19 @@
  *     לכן אין כאן ירוק/אדום סמנטי, אין גרדיאנט וצבעי מאקרו — ההיררכיה נבנית
  *     מעוצמת שקיפות (מלא / בינוני / עמום) ומגודל פונט בלבד.
  *   • אין רקע — הווידג'ט שקוף מעל התמונה של מסך הנעילה.
- * העברה של פריסת מסך הבית לכאן פשוט לא נכנסת ולא נקראת. מכאן הפריסות החדשות.
  *
  * ── שלוש הפריסות (הסקריפט מזהה לבד לפי גודל הווידג'ט) ─────────────────────
  *   accessoryCircular    — טבעת התקדמות קלוריות + קק"ל שנותרו במרכז.
- *   accessoryRectangular — קק"ל/יעד + פס התקדמות + מאקרו ומשקל.
- *   accessoryInline      — שורת טקסט מעל השעון: קק"ל שנותרו · משקל.
+ *   accessoryRectangular — קק"ל/יעד + פס התקדמות + מאקרו מול היעדים.
+ *   accessoryInline      — שורת טקסט מעל השעון: קק"ל שנותרו · חלבון · משקל.
+ *
+ * המלבן הוא מסך תזונה טהור: מבט של חצי שנייה לא קורא שני תחומי דאטה, ולכן
+ * הרוחב מוקדש ליעדי המאקרו ("145/170" ולא "145"). המשקל חי בשורת ה-inline
+ * ובווידג'ט מסך הבית, שם הוא מקבל ספארקליין ומגמה שבועית.
  *
  * ── התקנה (חד-פעמי) ────────────────────────────────────────────────────────
- * 1. ודא שגשר הווידג'ט פרוס (docs/widget-bridge.gs) ושהאפליקציה דחפה snapshot
- *    (הגדרות → ווידג'ט אייפון → "דחוף snapshot עכשיו").
- * 2. Scriptable → + → הדבק את כל הקובץ הזה → שנה למטה את BRIDGE_URL ו-TOKEN
- *    (אותם ערכים כמו בווידג'ט מסך הבית). קרא לסקריפט "GYMPRO Lock".
+ * 1. Scriptable → + → הדבק את כל הקובץ הזה. קרא לסקריפט "GYMPRO Lock".
+ * 2. לחץ ▶ — התצוגה המקדימה תופיע והאישורים ייקלטו וייכנסו ל-Keychain.
  * 3. מסך הנעילה → לחיצה ארוכה → Customize → מסך הנעילה → הקש על אזור
  *    הווידג'טים (מתחת לשעון, או השורה הצרה מעליו) → בחר Scriptable.
  * 4. הקש על הווידג'ט שנוסף → Script: "GYMPRO Lock", When Interacting: Run Script.
@@ -31,9 +35,10 @@
  * iOS מרענן ווידג'טים כל ~15-30 דק'; הנתונים טריים כמו השימוש האחרון באפליקציה.
  * ==========================================================================*/
 
-// 🔐 הדבק את ה-URL וה-token של גשר הווידג'ט (אותם ערכים כמו בהגדרות GYMPRO)
-const BRIDGE_URL = 'PASTE_WEB_APP_URL_HERE';
-const TOKEN = 'PASTE_SECRET_TOKEN_HERE';
+// ⬇️ להשאיר ריק אם ווידג'ט מסך הבית כבר מוגדר — הסקריפט ימשוך משם לבד.
+//    למלא רק אם האיתור האוטומטי נכשל (הווידג'ט יגיד לך).
+const BRIDGE_URL = '';
+const TOKEN = '';
 
 // רקע מערכת לווידג'ט העגול (העיגול המעומעם של iOS). false = רק הטבעת שלנו.
 const ACCESSORY_BG = false;
@@ -50,13 +55,23 @@ const TAP_URL = '';
 const A = { full: 1, mid: 0.72, soft: 0.5, dim: 0.38, track: 0.2 };
 const w_ = a => new Color('#ffffff', a);
 
+// מפתחות ה-Keychain שבהם נשמרים אישורי הגשר אחרי איתור מוצלח.
+// חייבים להיות מוגדרים לפני קריאת resolveCreds() — const אינו hoisted (TDZ).
+const KC_URL = 'gympro_widget_bridge_url';
+const KC_TOK = 'gympro_widget_bridge_token';
+
+// ── אישורי הגשר ──
+const creds = await resolveCreds();
+
 // ── משיכת ה-snapshot מהגשר ──
 let snap = null;
-try {
-    const req = new Request(BRIDGE_URL + '?token=' + encodeURIComponent(TOKEN));
-    const j = await req.loadJSON();
-    if (j && j.ok) snap = j.snapshot;
-} catch (e) { /* אין רשת — תוצג הודעת שגיאה קצרה */ }
+if (creds) {
+    try {
+        const req = new Request(creds.url + '?token=' + encodeURIComponent(creds.token));
+        const j = await req.loadJSON();
+        if (j && j.ok) snap = j.snapshot;
+    } catch (e) { /* אין רשת — תוצג הודעת שגיאה קצרה */ }
+}
 
 const family = config.widgetFamily || 'accessoryRectangular';   // בעורך אין family
 const widget = new ListWidget();
@@ -65,7 +80,9 @@ widget.setPadding(0, 0, 0, 0);
 // בקשת רענון צפופה (5 דק') — iOS לא מתחייב אבל מתקרב אליה כשיש תקציב.
 widget.refreshAfterDate = new Date(Date.now() + 5 * 60000);
 
-if (family === 'accessoryCircular') {
+if (!creds) {
+    buildNoCreds(widget, family);
+} else if (family === 'accessoryCircular') {
     if (ACCESSORY_BG) widget.addAccessoryWidgetBackground = true;
     buildCircular(widget, snap);
 } else if (family === 'accessoryInline') {
@@ -86,6 +103,71 @@ if (config.runsInApp) {                       // ▶ בעורך = תצוגה מ�
     else widget.presentAccessoryRectangular();
 }
 Script.complete();
+
+// ═══════════════ איתור ה-URL וה-token ═══════════════
+// סדר: קבועים למעלה ← Keychain ← סריקת סקריפטי Scriptable אחרים במכשיר.
+// הסריקה מוצאת את ווידג'ט מסך הבית (או כל סקריפט GYMPRO אחר) וקוראת ממנו את
+// שני הערכים. בעורך סורקים תמיד — כך שינוי token בסקריפט המקורי נקלט מיד.
+// בהקשר הווידג'ט מעדיפים את ה-Keychain: גישה לקבצי iCloud שם אינה מובטחת.
+async function resolveCreds() {
+    if (BRIDGE_URL && TOKEN && BRIDGE_URL.indexOf('http') === 0) {
+        return cacheCreds({ url: BRIDGE_URL, token: TOKEN });
+    }
+    if (config.runsInApp) {
+        const fresh = await scanScripts();
+        if (fresh) return cacheCreds(fresh);
+    }
+    if (Keychain.contains(KC_URL) && Keychain.contains(KC_TOK)) {
+        return { url: Keychain.get(KC_URL), token: Keychain.get(KC_TOK) };
+    }
+    const found = await scanScripts();
+    return found ? cacheCreds(found) : null;
+}
+
+function cacheCreds(c) {
+    try { Keychain.set(KC_URL, c.url); Keychain.set(KC_TOK, c.token); } catch (e) {}
+    return c;
+}
+
+// סריקת תיקיית הסקריפטים של Scriptable אחר קובץ שמכיל URL של Apps Script + token.
+async function scanScripts() {
+    const RX_URL = /BRIDGE_URL\s*=\s*['"](https:\/\/script\.google\.com\/[^'"]+)['"]/;
+    const RX_TOK = /\bTOKEN\s*=\s*['"]([^'"]{6,})['"]/;
+    const managers = [];
+    try { managers.push(FileManager.iCloud()); } catch (e) {}
+    try { managers.push(FileManager.local()); } catch (e) {}
+
+    for (const fm of managers) {
+        let dir, names;
+        try { dir = fm.documentsDirectory(); names = fm.listContents(dir); }
+        catch (e) { continue; }
+        for (const name of names) {
+            if (!name.endsWith('.js')) continue;
+            const path = fm.joinPath(dir, name);
+            try {
+                if (fm.isFileStoredIniCloud(path) && !fm.isFileDownloaded(path)) {
+                    await fm.downloadFileFromiCloud(path);
+                }
+                const src = fm.readString(path);
+                const u = RX_URL.exec(src), t = RX_TOK.exec(src);
+                if (u && t && t[1].indexOf('PASTE_') !== 0) return { url: u[1], token: t[1] };
+            } catch (e) { /* קובץ לא קריא/לא זמין — ממשיכים לבא */ }
+        }
+    }
+    return null;
+}
+
+// ═══════════════ מצב: לא נמצאו אישורים ═══════════════
+function buildNoCreds(w, fam) {
+    if (fam === 'accessoryInline') { w.addText('GYMPRO — חסר חיבור לגשר'); return; }
+    w.addSpacer();
+    const t = centeredText(w, 'GYMPRO');
+    t.font = Font.blackSystemFont(fam === 'accessoryCircular' ? 10 : 12); t.textColor = w_(A.mid);
+    const m = centeredText(w, fam === 'accessoryCircular' ? 'הרץ ▶' : 'הרץ ▶ בעורך Scriptable');
+    m.font = Font.mediumSystemFont(fam === 'accessoryCircular' ? 8 : 9.5);
+    m.textColor = w_(A.soft); m.lineLimit = 2;
+    w.addSpacer();
+}
 
 // ═══════════════ פריסה 1: עיגול — טבעת קלוריות ═══════════════
 // הטבעת היא backgroundImage (DrawContext), והטקסט נערם מעליה במרכז.
@@ -112,7 +194,7 @@ function buildCircular(w, s) {
     w.addSpacer();
 }
 
-// ═══════════════ פריסה 2: מלבן — קלוריות + פס + מאקרו/משקל ═══════════════
+// ═══════════════ פריסה 2: מלבן — תזונה בלבד (קלוריות + מאקרו מול יעד) ═══════
 // כלל RTL ב-Scriptable: ה-stacks הם LTR; "יישור לימין" = spacer גמיש ראשון,
 // והרכיב הימני-ויזואלית נוסף אחרון.
 function buildRectangular(w, s) {
@@ -150,23 +232,15 @@ function buildRectangular(w, s) {
     addBar(w, pct);
     w.addSpacer(5);
 
-    // ── שורה 3: מאקרו מימין, משקל+מגמה משמאל ──
+    // ── שורה 3: מאקרו מול היעדים, מיושר לימין ──
     const bottom = w.addStack();
-    bottom.layoutHorizontally(); bottom.centerAlignContent();
-    if (s.weight) {
-        const wg = bottom.addStack();
-        wg.layoutHorizontally(); wg.centerAlignContent(); wg.spacing = 3;
-        const d = wg.addText(deltaText(s.weight.weekDelta));   // LTR: ראשון = שמאל
-        d.font = Font.semiboldRoundedSystemFont(9); d.textColor = w_(A.soft);
-        const v = wg.addText(String(s.weight.current));
-        v.font = Font.boldRoundedSystemFont(11); v.textColor = w_(A.mid);
-    }
+    bottom.layoutHorizontally(); bottom.bottomAlignContent();
     bottom.addSpacer();
     const macros = bottom.addStack();
-    macros.layoutHorizontally(); macros.spacing = 8; macros.bottomAlignContent();
-    addMacro(macros, 'F', n.fat);      // LTR: נוסף ראשון = שמאל קיצוני
-    addMacro(macros, 'C', n.carbs);
-    addMacro(macros, 'P', n.protein);
+    macros.layoutHorizontally(); macros.spacing = 7; macros.bottomAlignContent();
+    addMacro(macros, 'F', n.fat, n.fatTarget);          // LTR: נוסף ראשון = שמאל קיצוני
+    addMacro(macros, 'C', n.carbs, n.carbsTarget);
+    addMacro(macros, 'P', n.protein, n.proteinTarget);
 }
 
 // ═══════════════ פריסה 3: שורה מעל השעון ═══════════════
@@ -235,13 +309,21 @@ function rectWidgetWidth() {
     return Math.max(130, Math.min(175, Math.round(sw * 0.41)));
 }
 
-function addMacro(stack, tag, val) {
+// "145/170P" — ערך מלא, יעד עמום, אות המאקרו. אותו תחביר "ערך / יעד" של
+// שורת הקלוריות, כדי שהווידג'ט יקרא כסיפור אחד. בלי יעד מוגדר — רק הערך.
+function addMacro(stack, tag, val, target) {
     const st = stack.addStack();
-    st.layoutHorizontally(); st.spacing = 2; st.bottomAlignContent();
+    st.layoutHorizontally(); st.spacing = 1; st.bottomAlignContent();
     const v = st.addText(String(Math.round(val || 0)));
     v.font = Font.boldRoundedSystemFont(10); v.textColor = w_(A.mid);
-    const t = st.addText(tag);
-    t.font = Font.blackSystemFont(8); t.textColor = w_(A.dim);
+    v.lineLimit = 1; v.minimumScaleFactor = 0.8;
+    if (target > 0) {
+        const t = st.addText('/' + Math.round(target));
+        t.font = Font.mediumRoundedSystemFont(8); t.textColor = w_(A.dim);
+        t.lineLimit = 1; t.minimumScaleFactor = 0.8;
+    }
+    const g = st.addText(tag);
+    g.font = Font.blackSystemFont(8); g.textColor = w_(A.dim);
 }
 
 function centeredText(w, str) {
@@ -262,4 +344,3 @@ function fmtTime(iso) {
     const d = iso ? new Date(iso) : new Date();
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
-function deltaText(d) { return (d > 0 ? '▴' : d < 0 ? '▾' : '·') + Math.abs(d || 0).toFixed(1); }

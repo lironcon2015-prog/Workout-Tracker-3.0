@@ -1954,7 +1954,8 @@ function computeReadiness(nights, idx) {
         else contrib = (dir === 'inv' ? -z : z);
         const delta = Math.round((val - b.med) * 10) / 10;
         const good = invGood ? delta < 0 : delta > 0;
-        parts.push({ w, contrib, label, delta: (delta > 0 ? '+' : '') + delta + unit, dir: good ? 'up' : 'down', z });
+        const valFmt = Math.round(val * 10) / 10;   // ערך גולמי לתצוגה בפרומפט ("HRV 41ms")
+        parts.push({ w, contrib, label, val: valFmt, unit, delta: (delta > 0 ? '+' : '') + delta + unit, dir: good ? 'up' : 'down', z });
     };
     push('hrv', 0.35, n.hrv, 'pos', 'HRV', 'ms', false);
     push('rhr', 0.20, _carriedRHR(nights, idx), 'inv', 'דופק מנוחה', '', true);   // carry-forward: RHR של אתמול כשחסר בבוקר (תזמון Apple)
@@ -1997,8 +1998,13 @@ function computeReadiness(nights, idx) {
     const color = score >= 66 ? 'var(--success)' : score >= 34 ? 'var(--warn)' : 'var(--danger)';
     // drivers — 3 התורמים החזקים ביותר (לפי |w*contrib|)
     const drivers = parts.slice().sort((a, b) => Math.abs(b.w * b.contrib) - Math.abs(a.w * a.contrib))
-        .slice(0, 3).map(p => ({ label: p.label, delta: p.delta, dir: p.dir }));
-    return { score, band, color, drivers, building: false };
+        .slice(0, 3).map(p => ({ label: p.label, delta: p.delta, val: p.val, unit: p.unit, dir: p.dir }));
+    // usedCount/missingLabels — לצורך הזרקה מפורשת לפרומפט המאמן ("מבוסס על X מתוך 5 מדדים").
+    // תווית שנתפסה = כזו שנכנסה ל-parts (עברה validation ויש לה baseline). מה שאין = חסר.
+    const ALL_METRICS = ['HRV', 'דופק מנוחה', 'נשימה', 'שינה', 'טמפ׳'];
+    const usedLabels = parts.map(p => p.label);
+    const missingLabels = ALL_METRICS.filter(l => !usedLabels.includes(l));
+    return { score, band, color, drivers, building: false, usedCount: usedLabels.length, totalCount: ALL_METRICS.length, missingLabels };
 }
 
 // _slRing — טבעת SVG (או מקווקוות במצב building)

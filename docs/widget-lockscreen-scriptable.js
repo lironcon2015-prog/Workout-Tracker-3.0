@@ -46,6 +46,10 @@ const ACCESSORY_BG = false;
 // מעל כמה שעות ה-snapshot נחשב "ישן" ומוצגת שעת העדכון (מלבן בלבד).
 const STALE_HOURS = 6;
 
+// תצוגה מקדימה בעורך (▶) בלבד — בווידג'ט האמיתי הכל נקבע לפי הגודל וה-Parameter.
+// 'rect' (תזונה) | 'ring' (טבעת קלוריות) | 'weight' (ריבוע משקל) | 'inline'
+const PREVIEW = 'rect';
+
 // לחיצה על הווידג'ט: iOS אינו מאפשר לפתוח PWA מבחוץ (web clip אינו ברשימת
 // "Open App" של Shortcuts, וקישור לכתובת נפתח בספארי — אחסון נפרד!).
 // לכן הווידג'ט הוא תצוגה בלבד, כמו זה של מסך הבית.
@@ -73,7 +77,18 @@ if (creds) {
     } catch (e) { /* אין רשת — תוצג הודעת שגיאה קצרה */ }
 }
 
-const family = config.widgetFamily || 'accessoryRectangular';   // בעורך אין family
+// ── בחירת התוכן: לפי גודל הווידג'ט + שדה Parameter בהגדרות הווידג'ט ──
+// אותו סקריפט משרת את כל הריבועים; "weight" בשדה Parameter הופך את הריבוע
+// לריבוע משקל במקום טבעת הקלוריות. ריק/כל ערך אחר = תזונה.
+const param = (args.widgetParameter || '').trim().toLowerCase();
+let family = config.widgetFamily;
+let isWeight = (param === 'weight' || param === 'משקל');
+if (!family) {                                  // בעורך אין family — לפי PREVIEW
+    family = (PREVIEW === 'ring' || PREVIEW === 'weight') ? 'accessoryCircular'
+           : PREVIEW === 'inline' ? 'accessoryInline' : 'accessoryRectangular';
+    isWeight = (PREVIEW === 'weight');
+}
+
 const widget = new ListWidget();
 if (TAP_URL) widget.url = TAP_URL;
 widget.setPadding(0, 0, 0, 0);
@@ -83,8 +98,11 @@ widget.refreshAfterDate = new Date(Date.now() + 5 * 60000);
 if (!creds) {
     buildNoCreds(widget, family);
 } else if (family === 'accessoryCircular') {
-    if (ACCESSORY_BG) widget.addAccessoryWidgetBackground = true;
-    buildCircular(widget, snap);
+    if (isWeight) buildWeightCircular(widget, snap);
+    else {
+        if (ACCESSORY_BG) widget.addAccessoryWidgetBackground = true;
+        buildCircular(widget, snap);
+    }
 } else if (family === 'accessoryInline') {
     buildInline(widget, snap);
 } else {
@@ -93,7 +111,8 @@ if (!creds) {
         widget.backgroundColor = new Color('#161619');
         widget.setPadding(12, 14, 12, 14);
     }
-    buildRectangular(widget, snap);
+    if (isWeight) buildWeightRectangular(widget, snap);
+    else buildRectangular(widget, snap);
 }
 
 Script.setWidget(widget);
@@ -210,7 +229,12 @@ function buildRectangular(w, s) {
     const kcal = n.calories || 0;
     const pct = target > 0 ? Math.min(1, kcal / target) : 0;
 
+    w.addSpacer();   // מרכוז אנכי בתוך אזור ה-72pt
+
     // ── שורה 1: קק"ל/יעד מימין, שעת עדכון משמאל אם ה-snapshot ישן ──
+    // היחידה חייבת להיות מחוברת למחרוזת היעד ולא רכיב נפרד אחרי המספר הגדול:
+    // ב-RTL הרכיב הימני-ביותר נקרא ראשון, ו-"קק"ל" בסוף השורה גרם ל-
+    // "קק"ל 2,100 / 2,610". כך זה נקרא "2,100 / 2,610 קק"ל".
     const top = w.addStack();
     top.layoutHorizontally(); top.bottomAlignContent();
     if (isStale(s.generated)) {
@@ -218,15 +242,12 @@ function buildRectangular(w, s) {
         st.font = Font.mediumSystemFont(8); st.textColor = w_(A.dim);
     }
     top.addSpacer();
-    if (target > 0) {
-        const tgt = top.addText('/ ' + fmtNum(target));
-        tgt.font = Font.semiboldRoundedSystemFont(10); tgt.textColor = w_(A.soft);
-    }
+    const suffix = top.addText(target > 0 ? '/ ' + fmtNum(target) + ' קק"ל' : 'קק"ל');
+    suffix.font = Font.semiboldRoundedSystemFont(10); suffix.textColor = w_(A.soft);
+    suffix.lineLimit = 1;
     const big = top.addText(fmtNum(kcal));
     big.font = Font.blackRoundedSystemFont(15); big.textColor = w_(A.full);
     big.minimumScaleFactor = 0.7; big.lineLimit = 1;
-    const unit = top.addText(' קק"ל');
-    unit.font = Font.semiboldSystemFont(9); unit.textColor = w_(A.soft);
 
     w.addSpacer(4);
     addBar(w, pct);
@@ -241,6 +262,89 @@ function buildRectangular(w, s) {
     addMacro(macros, 'F', n.fat, n.fatTarget);          // LTR: נוסף ראשון = שמאל קיצוני
     addMacro(macros, 'C', n.carbs, n.carbsTarget);
     addMacro(macros, 'P', n.protein, n.proteinTarget);
+
+    w.addSpacer();
+}
+
+// ═══════════════ פריסה 4: ריבוע משקל (Parameter = weight) ═══════════════
+// המשקל שירד מהמלבן חוזר כאן — בריבוע משלו, עם ספארקליין שבועי שנותן את
+// המגמה במבט אחד. אין טבעת: למשקל אין יעד ב-snapshot, וטבעת בלי יעד היא שקר.
+// במקומה — רקע ה-accessory של המערכת, שנותן לריבוע צורה מוגדרת.
+function buildWeightCircular(w, s) {
+    w.addAccessoryWidgetBackground = true;
+    const wt = s && s.weight;
+    w.addSpacer();
+    if (!wt) {
+        const t = centeredText(w, '—');
+        t.font = Font.blackRoundedSystemFont(16); t.textColor = w_(A.mid);
+        const m = centeredText(w, 'אין שקילות');
+        m.font = Font.mediumSystemFont(8); m.textColor = w_(A.soft); m.lineLimit = 1;
+        w.addSpacer();
+        return;
+    }
+    // שורה 1: היחידה נוספת לפני המספר (LTR) → נקרא ב-RTL "82.4 ק"ג"
+    const r1 = w.addStack();
+    r1.layoutHorizontally(); r1.bottomAlignContent(); r1.spacing = 2;
+    r1.addSpacer();
+    const u = r1.addText('ק"ג');
+    u.font = Font.semiboldSystemFont(8); u.textColor = w_(A.soft);
+    const v = r1.addText(String(wt.current));
+    v.font = Font.blackRoundedSystemFont(17); v.textColor = w_(A.full);
+    v.lineLimit = 1; v.minimumScaleFactor = 0.6;
+    r1.addSpacer();
+
+    if ((wt.points || []).length >= 2) {
+        w.addSpacer(1);
+        const r2 = w.addStack();
+        r2.layoutHorizontally(); r2.addSpacer();
+        const im = r2.addImage(sparkline(wt.points, 138, 36));
+        im.imageSize = new Size(46, 12);
+        r2.addSpacer();
+    }
+
+    const d = centeredText(w, deltaText(wt.weekDelta));
+    d.font = Font.heavyRoundedSystemFont(9); d.textColor = w_(A.soft);
+    d.lineLimit = 1;
+    w.addSpacer();
+}
+
+// גרסת מלבן של המשקל — למי שמעדיף לתת לו את הרוחב המלא במקום לתזונה.
+function buildWeightRectangular(w, s) {
+    const wt = s && s.weight;
+    w.addSpacer();
+    if (!wt) {
+        const t = w.addText('אין שקילות');
+        t.font = Font.semiboldSystemFont(11); t.textColor = w_(A.mid);
+        w.addSpacer();
+        return;
+    }
+    const r1 = w.addStack();
+    r1.layoutHorizontally(); r1.bottomAlignContent(); r1.spacing = 3;
+    r1.addSpacer();
+    const u = r1.addText('ק"ג');
+    u.font = Font.semiboldSystemFont(10); u.textColor = w_(A.soft);
+    const v = r1.addText(String(wt.current));
+    v.font = Font.blackRoundedSystemFont(20); v.textColor = w_(A.full);
+    v.lineLimit = 1; v.minimumScaleFactor = 0.7;
+
+    if ((wt.points || []).length >= 2) {
+        w.addSpacer(3);
+        const r2 = w.addStack();
+        r2.layoutHorizontally();
+        const im = r2.addImage(sparkline(wt.points, 330, 60));
+        im.imageSize = new Size(110, 20);
+        r2.addSpacer();
+    }
+
+    w.addSpacer(3);
+    const r3 = w.addStack();
+    r3.layoutHorizontally(); r3.spacing = 4; r3.centerAlignContent();
+    r3.addSpacer();
+    const lbl = r3.addText('מגמה שבועית');       // LTR: נוסף ראשון = שמאל
+    lbl.font = Font.mediumSystemFont(8.5); lbl.textColor = w_(A.dim);
+    const d = r3.addText(deltaText(wt.weekDelta));
+    d.font = Font.heavyRoundedSystemFont(10); d.textColor = w_(A.soft);
+    w.addSpacer();
 }
 
 // ═══════════════ פריסה 3: שורה מעל השעון ═══════════════
@@ -302,12 +406,49 @@ function addBar(w, pct) {
     }
 }
 
-// רוחב ווידג'ט accessoryRectangular לפי רוחב המסך (נקודות) — הערכה למילוי הפס בלבד.
+// רוחב ווידג'ט accessoryRectangular (נקודות) — משמש למילוי הפס בלבד; ה-track
+// עצמו גמיש. נמדד מצילום מסך: 160pt במסך 440pt — כלומר iOS מקצה רוחב כמעט
+// קבוע, לא פרופורציה. הנוסחה הקודמת (sw*0.41 → 175) ניפחה את המילוי ב-9%
+// והפס נראה מלא ב-80% אמיתיים. עדיף לזלוג כלפי מטה: מילוי חסר קורא "עוד לא
+// סיימת", מילוי עודף משקר "סיימת".
 function rectWidgetWidth() {
     const sz = Device.screenSize();
     const sw = Math.min(sz.width, sz.height);
-    return Math.max(130, Math.min(175, Math.round(sw * 0.41)));
+    const map = { 440: 160, 430: 160, 428: 160, 414: 160, 402: 158, 393: 158, 390: 158, 375: 157, 360: 157, 320: 141 };
+    return map[sw] || Math.max(141, Math.min(160, Math.round(sw * 0.37)));
 }
+
+// ספארקליין מונוכרומטי — קו במגמה + נקודת קצה מלאה. ציר הזמן מימין לשמאל
+// (RTL): הנקודה הישנה מימין, העדכנית משמאל. מצויר ב-3x ומוצג מוקטן.
+function sparkline(points, W, H) {
+    const ctx = new DrawContext();
+    ctx.size = new Size(W, H); ctx.opaque = false; ctx.respectScreenScale = false;
+    if (points.length >= 2) {
+        const min = Math.min(...points), max = Math.max(...points);
+        const span = (max - min) || 1;
+        const PAD = Math.round(H * 0.2);
+        const x = i => PAD + (W - 2 * PAD) * (i / (points.length - 1));
+        const y = v => PAD + (H - 2 * PAD) * (1 - (v - min) / span);
+        const px = i => W - x(i);
+
+        const line = new Path();
+        points.forEach((v, i) => {
+            const pt = new Point(px(i), y(v));
+            i === 0 ? line.move(pt) : line.addLine(pt);
+        });
+        ctx.addPath(line);
+        ctx.setStrokeColor(w_(A.mid));
+        ctx.setLineWidth(Math.max(2, H * 0.11));
+        ctx.strokePath();
+
+        const r = Math.max(2.5, H * 0.1);
+        ctx.setFillColor(w_(A.full));
+        ctx.fillEllipse(new Rect(px(points.length - 1) - r, y(points[points.length - 1]) - r, r * 2, r * 2));
+    }
+    return ctx.getImage();
+}
+
+function deltaText(d) { return (d > 0 ? '▴' : d < 0 ? '▾' : '·') + Math.abs(d || 0).toFixed(1); }
 
 // "145/170P" — ערך מלא, יעד עמום, אות המאקרו. אותו תחביר "ערך / יעד" של
 // שורת הקלוריות, כדי שהווידג'ט יקרא כסיפור אחד. בלי יעד מוגדר — רק הערך.

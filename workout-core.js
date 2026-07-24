@@ -4960,19 +4960,42 @@ function _buildSleepAIContext(slim) {
     }
     s += `\n`;
 
-    // ציון התאוששות (Readiness) — מ-computeReadiness אם זמין
+    // ציון התאוששות (Readiness) — מ-computeReadiness אם זמין.
+    // פורמט מכוון: רצועה מפורשת + ספים גלויים (מונע מהמודל להמציא סקאלה משלו ולקרוא את הציון כאחוז),
+    // ציון "מבוסס על X מתוך 5 מדדים" כשחלקי, שורת מניעים, ושורת "שינה בלילה שלפני האימון" (המדד
+    // הרלוונטי לניתוח האימון — לא הממוצע השבועי / חוב השינה המצטבר, שאינם רכיב בציון וגם לא מוזרקים כאן).
     if (typeof computeReadiness === 'function') {
         const rd = computeReadiness(nights, idx);
-        if (rd.building) s += `ציון התאוששות: בונה baseline (${rd.have}/14 לילות) — טרם זמין.\n`;
-        else if (rd.score != null) s += `ציון התאוששות: ${rd.score}/100 (${rd.band}).\n`;
+        if (rd.building) {
+            s += `ציון התאוששות: בונה baseline (${rd.have}/14 לילות) — טרם זמין.\n`;
+        } else if (rd.score != null) {
+            s += `ציון התאוששות: ${rd.score}/100 — רצועה: ${rd.band} (ספים: <34 נמוך · 34–65 בינוני · ≥66 מוכן).\n`;
+            if (rd.usedCount != null && rd.totalCount != null && rd.usedCount < rd.totalCount) {
+                s += `מבוסס על ${rd.usedCount} מתוך ${rd.totalCount} מדדים (חסר: ${(rd.missingLabels || []).join(', ')}).\n`;
+            }
+            if (rd.drivers && rd.drivers.length) {
+                const driversStr = rd.drivers.map(d => {
+                    const raw = (d.val != null) ? `${d.val}${d.unit || ''}` : '';
+                    return raw ? `${d.label} ${raw} (${d.delta} מול baseline)` : `${d.label} ${d.delta}`;
+                }).join(', ');
+                s += `מניעים: ${driversStr}.\n`;
+            }
+            s += `שינה בלילה שלפני האימון: ${fmtH(n.asleepMin)}.\n`;
+        }
     }
-    const a7 = avg('asleepMin', 7), hrv7 = avg('hrv', 7), rhr7 = avg('rhr', 7);
-    if (a7 != null) s += `ממוצע 7 ימים: שינה ${fmtH(a7)}${hrv7 != null ? ` · HRV ${hrv7}ms` : ''}${rhr7 != null ? ` · דופק מנוחה ${rhr7}` : ''}.\n`;
+    // ממוצע 7 ימים ל-HRV/דופק מנוחה בלבד — נתונים ל-baseline יחסי. שינה 7 ימים אינה מוזרקת: חוב
+    // השינה המצטבר הוא נתון תצוגה עצמאי, לא רכיב בציון ההתאוששות, ולא רלוונטי לניתוח אימון בודד.
+    const hrv7 = avg('hrv', 7), rhr7 = avg('rhr', 7);
+    if (hrv7 != null || rhr7 != null) {
+        const bits = [];
+        if (hrv7 != null) bits.push(`HRV ${hrv7}ms`);
+        if (rhr7 != null) bits.push(`דופק מנוחה ${rhr7}`);
+        s += `ממוצע 7 ימים: ${bits.join(' · ')}.\n`;
+    }
     if (!slim) {
         const hrv30 = avg('hrv', 30), rhr30 = avg('rhr', 30);
         if (hrv30 != null) s += `Baseline ~30 יום: HRV ${hrv30}ms · דופק מנוחה ${rhr30}.\n`;
     }
-    s += `שקלל התאוששות בהמלצות: התאוששות נמוכה / HRV מתחת ל-baseline / חוסר שינה מצטבר → עדיפות לשימור, כבד RIR, שקול ירידת נפח; התאוששות גבוהה עקבית → חלון לדחיפה. בסס על הנתונים כאן, אל תמציא.\n`;
     return s;
 }
 

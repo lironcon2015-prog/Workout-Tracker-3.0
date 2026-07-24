@@ -1911,6 +1911,30 @@ function _slSleepDebtLine(nights) {
 // את הקומפוזיט, ומגביל תרומת לילה בודד ל-~3 סטיות-תקן — היגיינה סטטיסטית תקנית.
 const _clampZ = z => Math.max(-3, Math.min(3, z));
 
+// עד כמה לילות אחורה מותר לגרור RHR חסר. RHR נקרא כמגמה (לא נקודה יומית), ולכן ערך של
+// אתמול תקף להיום; החלון קטן מונע גרירת ערך מיושן מדי אחרי כמה לילות בלי שעון.
+const RHR_CARRY_MAX_GAP = 3;
+
+// _carriedRHR — RHR אפקטיבי לחישוב הציון בלבד: של הלילה עצמו אם תקין, אחרת הערך התקין
+// האחרון עד RHR_CARRY_MAX_GAP לילות אחורה.
+//   הבעיה: Apple מחשב RHR כמצרף יומי ומעדכן אותו רק סביב 12:00, אחרי סנכרון הבוקר (~07:08).
+//   לכן המדד חסר בבוקר, והציון היה מאבד רכיב בעל משקל 0.20 → המשקל האפקטיבי של HRV קפץ
+//   מ-0.35 ל-~0.48 (המדד הרועש ביותר הופך לקובע). גרירת "RHR של אתמול" מחזירה את המדד לכל
+//   בוקר. בטוח כי הערך הנגרר הוא אותו מצרף יומי של Apple — אותה סקאלה בדיוק (בניגוד ל-RHR
+//   לילי מחושב, שהיה בסקאלה נמוכה יותר ומחייב baseline נפרד). הערך הנגרר משמש רק כנקודה
+//   בחישוב ה-z, **אינו נשמר ואינו נכנס ל-baseline** — לכן אפס זיהום של הנורמה האישית.
+//   מגבלה מודעת: ביום עם אירוע חד (למשל צום) RHR ישפיע על הציון של מחר, לא של היום.
+function _carriedRHR(nights, idx) {
+    const own = nights[idx] && nights[idx].rhr;
+    if (_validVital('rhr', own)) return own;
+    const floor = Math.max(0, idx - RHR_CARRY_MAX_GAP);
+    for (let i = idx - 1; i >= floor; i--) {
+        const v = nights[i] && nights[i].rhr;
+        if (_validVital('rhr', v)) return v;
+    }
+    return own;   // אין ערך תקין בטווח — נשאר חסר, המדד ינוטרל והמשקלים יתנרמלו כרגיל
+}
+
 // computeReadiness — ציון 0–100 מ-z-score מול baseline. מחזיר building עד 14 לילות.
 function computeReadiness(nights, idx) {
     const n = nights[idx];
@@ -1933,7 +1957,7 @@ function computeReadiness(nights, idx) {
         parts.push({ w, contrib, label, delta: (delta > 0 ? '+' : '') + delta + unit, dir: good ? 'up' : 'down', z });
     };
     push('hrv', 0.35, n.hrv, 'pos', 'HRV', 'ms', false);
-    push('rhr', 0.20, n.rhr, 'inv', 'דופק מנוחה', '', true);
+    push('rhr', 0.20, _carriedRHR(nights, idx), 'inv', 'דופק מנוחה', '', true);   // carry-forward: RHR של אתמול כשחסר בבוקר (תזמון Apple)
     push('respRate', 0.08, n.respRate, 'rise', 'נשימה', '', true);
     // שינה — הרכיב בציון הוא בעיקר יחסי-לנורמה (התאוששות), כמו שאר המדדים: 85% סטייה מהבסיס
     // האישי + 15% מספיקות מוחלטת מול עוגן (NSF/AASM ~7.5ש'). המספיקות נשארת כ"לחישה" בלבד כדי

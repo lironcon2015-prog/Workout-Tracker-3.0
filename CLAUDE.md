@@ -192,6 +192,7 @@ version.json: { "version": "15.X" }
 | `docs/backup-bridge.gs` | Google Apps Script — גשר גיבוי שבועי: מקבל גיבוי מלא ושולח לאימייל (MailApp) |
 | `docs/widget-bridge.gs` | Google Apps Script — גשר ווידג'ט: האפליקציה דוחפת snapshot, ווידג'ט Scriptable מושך |
 | `docs/widget-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הבית ל-iOS (תזונה+מאקרו, משקל+מגמה, אימון אחרון) |
+| `docs/widget-lockscreen-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הנעילה ל-iOS (accessoryCircular/Rectangular/Inline). אותו גשר ו-snapshot; רינדור מונוכרומטי (vibrancy) — היררכיה ב-alpha בלבד |
 | `docs/photo-bridge.gs` | Google Apps Script — גשר תמונות התקדמות: upload/get/list/del מול תיקיית Drive פרטית |
 | `vendor/zbar.js` | ספריית ZBar (WASM) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |
 | `sw.js` | Service Worker |
@@ -211,7 +212,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-17.77
+17.78
 
 ---
 

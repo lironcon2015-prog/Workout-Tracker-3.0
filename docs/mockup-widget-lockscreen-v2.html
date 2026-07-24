@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GYMPRO — מוקאפ ווידג'ט נעילה: תיקון תצוגת המשקל</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+    :root { --bg:#070708; --text:#e2e2e2; --dim:#8E8E93; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Heebo', sans-serif; padding: 26px 16px 70px; }
+    h1 { font-size: 1.3rem; font-weight: 900; text-align: center; }
+    .sub { text-align: center; color: var(--dim); font-size: .8rem; margin: 8px auto 30px; max-width: 620px; line-height: 1.7; }
+
+    .cards { display: flex; flex-wrap: wrap; gap: 22px; justify-content: center; align-items: flex-start; }
+    .card { width: 430px; }
+    .card > h2 { font-size: .95rem; font-weight: 900; margin-bottom: 4px; }
+    .card > .why { font-size: .76rem; color: var(--dim); line-height: 1.7; margin-bottom: 12px; min-height: 62px; }
+    .card.bad > h2 { color: #ff6b62; }
+    .card.good > h2 { color: #6fe08a; }
+
+    /* מסגרת מסך נעילה — הווידג'ט ב-2.4× מהגודל האמיתי כדי שייראו הפרטים */
+    .stage {
+        border-radius: 26px; padding: 20px 18px;
+        background: linear-gradient(160deg, #1d2a3a 0%, #2c1f2e 55%, #101014 100%);
+        box-shadow: 0 0 0 1px rgba(255,255,255,.07), 0 14px 34px rgba(0,0,0,.55);
+        display: flex; justify-content: center;
+    }
+    .zoom { transform: scale(2.4); transform-origin: center; }
+
+    /* ── הווידג'ט עצמו: 160×72pt, לבן־שקוף (כך iOS מרנדר accessory) ── */
+    .rect {
+        width: 160px; height: 72px; color: #fff;
+        display: flex; flex-direction: column; justify-content: center;
+    }
+    .row  { display: flex; align-items: baseline; }
+    .kcal { font-size: 15px; font-weight: 900; line-height: 1.1; }
+    .tgt  { font-size: 10px; font-weight: 600; opacity: .5; margin-inline-start: 3px; }
+    .unit { font-size: 9px;  font-weight: 600; opacity: .5; margin-inline-start: 2px; }
+    .bar  { height: 5px; border-radius: 3px; background: rgba(255,255,255,.2); margin: 4px 0 5px; display: flex; }
+    .bar i { display: block; height: 100%; border-radius: 3px; background: #fff; }
+    .bot  { display: flex; align-items: center; }
+    .macros { display: flex; gap: 8px; }
+    .macro  { font-size: 10px; font-weight: 700; opacity: .72; white-space: nowrap; }
+    .macro em { font-style: normal; font-size: 8px; font-weight: 900; opacity: .55; margin-inline-start: 2px; }
+    .macro u  { text-decoration: none; font-size: 8px; font-weight: 600; opacity: .45; }
+
+    /* כיום — המשקל התלוש */
+    .stray { margin-inline-start: auto; font-size: 11px; font-weight: 700; opacity: .72; }
+    .stray span { font-size: 9px; font-weight: 600; opacity: .7; margin-inline-start: 3px; }
+
+    /* מוקאפ ב' — שתי עמודות עם מפריד */
+    .cols { display: flex; align-items: stretch; height: 100%; }
+    .col-main { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; }
+    .divider { width: 1px; background: rgba(255,255,255,.16); margin: 6px 9px; flex: 0 0 1px; }
+    .col-w { flex: 0 0 42px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+    .w-val { font-size: 14px; font-weight: 900; line-height: 1.1; }
+    .w-dlt { font-size: 9.5px; font-weight: 700; opacity: .6; line-height: 1.4; }
+    .w-lbl { font-size: 7.5px; font-weight: 600; opacity: .4; letter-spacing: .2px; }
+
+    /* פס אמיתי־לגודל */
+    .truth { margin: 46px auto 0; max-width: 700px; }
+    .truth h3 { font-size: .85rem; font-weight: 900; text-align: center; margin-bottom: 4px; }
+    .truth p  { font-size: .72rem; color: var(--dim); text-align: center; margin-bottom: 16px; }
+    .truth-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .truth-cell {
+        border-radius: 16px; padding: 10px 12px;
+        background: linear-gradient(160deg, #1d2a3a 0%, #2c1f2e 55%, #101014 100%);
+        box-shadow: 0 0 0 1px rgba(255,255,255,.07);
+    }
+    .truth-cell > div.lbl { font-size: .62rem; color: rgba(255,255,255,.45); text-align: center; margin-top: 6px; }
+
+    .note { max-width: 660px; margin: 40px auto 0; font-size: .78rem; color: var(--dim); line-height: 1.85; }
+    .note b { color: var(--text); }
+    .note h3 { color: var(--text); font-size: .88rem; font-weight: 900; margin: 18px 0 6px; }
+    .cap { text-align: center; font-size: .7rem; color: rgba(255,255,255,.4); margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>תיקון תצוגת המשקל — ווידג'ט מלבן, מסך נעילה</h1>
+<p class="sub">
+    <b>האבחנה:</b> בווידג'ט מסך הבית המשקל יושב בעמודה משלו עם מפריד אנכי, ספארקליין ותווית
+    "מגמה שבועית". במלבן של מסך הנעילה נשאר המספר בלבד — בלי יחידה, בלי תווית, בלי מסגרת,
+    וחולק שורה עם המאקרו. שני תחומי דאטה שונים באותה שורה, בלי שום דבר שמפריד ביניהם.
+</p>
+
+<div class="cards">
+
+    <!-- ───────────── כיום ───────────── -->
+    <div class="card bad">
+        <h2>כיום — המשקל תלוש</h2>
+        <div class="why">
+            <code>82.4 ▾0.6</code> נדחף לקצה השמאלי של שורת המאקרו. אין יחידה, אין תווית,
+            והחץ ▾ איבד את המשמעות שלו — ה-vibrancy הרג את הירוק/אדום הסמנטי, אז הוא מסמן
+            "ירד" בלי לומר אם זה טוב.
+        </div>
+        <div class="stage"><div class="zoom">
+            <div class="rect">
+                <div class="row">
+                    <span class="kcal">1,840</span><span class="tgt">/ 2,300</span><span class="unit">קק"ל</span>
+                </div>
+                <div class="bar"><i style="width:80%"></i></div>
+                <div class="bot">
+                    <div class="macros">
+                        <div class="macro">145<em>P</em></div>
+                        <div class="macro">190<em>C</em></div>
+                        <div class="macro">62<em>F</em></div>
+                    </div>
+                    <div class="stray">82.4<span>▾0.6</span></div>
+                </div>
+            </div>
+        </div></div>
+        <div class="cap">מוצג ב-2.4× מהגודל האמיתי</div>
+    </div>
+
+    <!-- ───────────── מוקאפ א' ───────────── -->
+    <div class="card good">
+        <h2>מוקאפ א' — תזונה בלבד (המשקל יורד)</h2>
+        <div class="why">
+            פותר בהסרה: המלבן נהיה מסך תזונה טהור. המקום שהתפנה הולך ל<b>יעדי המאקרו</b> —
+            <code>145/170</code> במקום <code>145</code>. אותו תחביר "ערך / יעד" של שורת הקלוריות
+            חוזר שלוש פעמים, והווידג'ט מספר סיפור אחד שלם.
+        </div>
+        <div class="stage"><div class="zoom">
+            <div class="rect">
+                <div class="row">
+                    <span class="kcal">1,840</span><span class="tgt">/ 2,300</span><span class="unit">קק"ל</span>
+                </div>
+                <div class="bar"><i style="width:80%"></i></div>
+                <div class="bot">
+                    <div class="macros" style="gap:9px;">
+                        <div class="macro">145<u>/170</u><em>P</em></div>
+                        <div class="macro">190<u>/230</u><em>C</em></div>
+                        <div class="macro">62<u>/70</u><em>F</em></div>
+                    </div>
+                </div>
+            </div>
+        </div></div>
+        <div class="cap">המשקל נשאר בשורת ה-inline ובווידג'ט מסך הבית</div>
+    </div>
+
+    <!-- ───────────── מוקאפ ב' ───────────── -->
+    <div class="card good">
+        <h2>מוקאפ ב' — שתי עמודות עם מפריד</h2>
+        <div class="why">
+            פותר במסגור: המשקל מקבל <b>עמודה משלו</b> — מפריד אנכי, מספר גדול, דלתא מתחתיו,
+            ותווית <code>ק"ג</code>. בדיוק הטיפול שהוא מקבל בווידג'ט מסך הבית, מה שגם יוצר
+            עקביות בין שני הווידג'טים. המחיר: היחידה <code>קק"ל</code> יורדת מהשורה העליונה
+            כדי לפנות רוחב — הפס והמאקרו מתחת מבהירים ממילא שמדובר בקלוריות.
+        </div>
+        <div class="stage"><div class="zoom">
+            <div class="rect">
+                <div class="cols">
+                    <div class="col-main">
+                        <div class="row">
+                            <span class="kcal">1,840</span><span class="tgt">/ 2,300</span>
+                        </div>
+                        <div class="bar"><i style="width:80%"></i></div>
+                        <div class="bot">
+                            <div class="macros">
+                                <div class="macro">145<em>P</em></div>
+                                <div class="macro">190<em>C</em></div>
+                                <div class="macro">62<em>F</em></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="col-w">
+                        <div class="w-val">82.4</div>
+                        <div class="w-dlt">▾0.6</div>
+                        <div class="w-lbl">ק"ג</div>
+                    </div>
+                </div>
+            </div>
+        </div></div>
+        <div class="cap">שומר את המשקל — אבל התזונה מאבדת ~25% מהרוחב</div>
+    </div>
+
+</div>
+
+<!-- ───────────── בדיקת מציאות בגודל אמיתי ───────────── -->
+<div class="truth">
+    <h3>בגודל האמיתי (160×72pt)</h3>
+    <p>ככה זה ייראה על המסך. הדיון על "תלוש" נסגר כאן, לא בזום.</p>
+    <div class="truth-row" id="truth-row"></div>
+</div>
+
+<div class="note">
+    <h3>ההמלצה שלי: א'</h3>
+    <p>מסך נעילה הוא <b>מבט של חצי שנייה</b>, ובחצי שנייה אף אחד לא קורא שני תחומי דאטה.
+    המשקל הוא מספר שמשתנה פעם ביום ואין עליו החלטה לקבל — הקלוריות והחלבון הם מה שמניע
+    פעולה בשעה הקרובה. מוקאפ א' מנצל את הרוחב שהתפנה כדי לתת למאקרו את מה שחסר להם היום:
+    <b>יעד</b>. <code>145P</code> לבד לא אומר כלום; <code>145/170P</code> אומר "עוד 25".</p>
+    <p>ובנוסף — המשקל ממילא לא נעלם: הוא בשורת ה-inline שמעל השעון, והוא מקבל טיפול מלא
+    בווידג'ט מסך הבית עם הספארקליין והמגמה השבועית. מוקאפ ב' משכפל אותו לשלישית.</p>
+
+    <h3>מתי לבחור ב'</h3>
+    <p>אם אתה בקאט או בסרפלוס פעיל והמשקל היומי הוא מדד שאתה באמת רודף אחריו כל בוקר —
+    ב' נותן לו מעמד אמיתי במקום הערת שוליים. זו בחירה לגיטימית; פשוט דע שהיא עולה
+    ברוחב לתזונה, ושהמאקרו יישארו בלי יעדים.</p>
+
+    <h3>מה לא משתנה בשתי האפשרויות</h3>
+    <p>הטבעת (accessoryCircular) ושורת ה-inline נשארות כפי שהן — הבעיה היא במלבן בלבד.
+    גם לא נוגעים בווידג'ט מסך הבית ולא ב-snapshot שהאפליקציה דוחפת; שני המוקאפים משתמשים
+    בדיוק באותם שדות שכבר קיימים (<code>proteinTarget</code>, <code>carbsTarget</code>,
+    <code>fatTarget</code> כבר נשלחים בגשר ופשוט לא בשימוש כרגע).</p>
+
+    <p style="margin-top:18px;"><b>שים לב:</b> המוקאפ הוא קירוב HTML. הרינדור האמיתי של iOS
+    מוסיף שכבת vibrancy שמושפעת מהטפט — הטקסט עשוי להיראות בהיר או עמום מעט יותר.</p>
+</div>
+
+<script>
+    // בדיקת המציאות: משכפל את שלושת הווידג'טים בגודל 1:1, בלי הזום
+    const labels = ['כיום', "מוקאפ א'", "מוקאפ ב'"];
+    document.querySelectorAll('.zoom > .rect').forEach((el, i) => {
+        const cell = document.createElement('div');
+        cell.className = 'truth-cell';
+        cell.appendChild(el.cloneNode(true));
+        const lbl = document.createElement('div');
+        lbl.className = 'lbl';
+        lbl.textContent = labels[i];
+        cell.appendChild(lbl);
+        document.getElementById('truth-row').appendChild(cell);
+    });
+</script>
+
+</body>
+</html>

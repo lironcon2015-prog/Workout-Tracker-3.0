@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GYMPRO — מוקאפ ווידג'ט מסך נעילה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+    :root { --bg:#070708; --text:#e2e2e2; --dim:#8E8E93; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Heebo', sans-serif; padding: 28px 16px 60px; }
+    h1 { font-size: 1.25rem; font-weight: 900; text-align: center; }
+    .sub { text-align: center; color: var(--dim); font-size: .8rem; margin: 6px 0 26px; line-height: 1.6; }
+    .wrap { display: flex; flex-wrap: wrap; gap: 26px; justify-content: center; align-items: flex-start; }
+
+    /* ── סימולציית מסך נעילה ── */
+    .phone {
+        width: 300px; border-radius: 40px; padding: 46px 22px 30px;
+        background: linear-gradient(160deg, #1d2a3a 0%, #2c1f2e 55%, #101014 100%);
+        box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 20px 50px rgba(0,0,0,.6);
+    }
+    .lock-date { text-align: center; color: rgba(255,255,255,.85); font-size: .85rem; font-weight: 500; }
+    .lock-clock { text-align: center; color: #fff; font-size: 4.6rem; font-weight: 500; line-height: 1.05; letter-spacing: -2px; font-family: -apple-system, 'Heebo', sans-serif; }
+    .inline-slot { text-align: center; color: rgba(255,255,255,.9); font-size: .82rem; font-weight: 500; margin-bottom: 2px; }
+    .widget-row { display: flex; gap: 12px; align-items: stretch; justify-content: center; margin-top: 14px; }
+
+    /* כל תוכן הווידג'ט לבן־שקוף — כך iOS מרנדר accessory widgets (vibrancy) */
+    .acc { color: #fff; }
+    .circ { width: 72px; height: 72px; position: relative; flex: 0 0 72px; }
+    .circ svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+    .circ-txt { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .circ-big { font-size: 16px; font-weight: 900; line-height: 1; }
+    .circ-lbl { font-size: 8px; font-weight: 600; opacity: .5; margin-top: 2px; }
+
+    .rect { flex: 1 1 auto; min-width: 160px; display: flex; flex-direction: column; justify-content: center; }
+    .rect-top { display: flex; align-items: baseline; gap: 3px; }
+    .rect-kcal { font-size: 15px; font-weight: 900; }
+    .rect-tgt { font-size: 10px; font-weight: 600; opacity: .5; }
+    .rect-unit { font-size: 9px; font-weight: 600; opacity: .5; }
+    .rect-stale { font-size: 8px; opacity: .38; margin-inline-start: auto; }
+    .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.2); margin: 4px 0 5px; overflow: hidden; display: flex; justify-content: flex-start; }
+    .bar i { display: block; height: 100%; border-radius: 3px; background: #fff; }
+    .rect-bot { display: flex; align-items: center; }
+    .macros { display: flex; gap: 8px; }
+    .macro { font-size: 10px; font-weight: 700; opacity: .72; }
+    .macro span { font-size: 8px; font-weight: 900; opacity: .53; margin-inline-start: 2px; }
+    .wgt { margin-inline-start: auto; font-size: 11px; font-weight: 700; opacity: .72; }
+    .wgt span { font-size: 9px; font-weight: 600; opacity: .7; margin-inline-start: 3px; }
+
+    .note { max-width: 660px; margin: 34px auto 0; font-size: .78rem; color: var(--dim); line-height: 1.8; }
+    .note b { color: var(--text); }
+    .cap { text-align: center; font-size: .72rem; color: var(--dim); margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>ווידג'ט מסך נעילה — GYMPRO ELITE</h1>
+<p class="sub">
+    שלוש הפריסות של <code>docs/widget-lockscreen-scriptable.js</code>, אותו סקריפט.<br>
+    iOS מרנדר ווידג'טי מסך נעילה ב־vibrancy מונוכרומטי — <b>צבע נזרק</b>, רק שקיפות נשמרת.
+</p>
+
+<div class="wrap">
+
+    <!-- מצב רגיל: 460 קק"ל נותרו מתוך 2,300 -->
+    <div class="phone">
+        <div class="lock-date">יום שישי, 24 ביולי</div>
+        <div class="lock-clock">9:41</div>
+        <div class="inline-slot acc">נותרו 460 קק"ל · 145 חלבון · 82.4 ק"ג</div>
+        <div class="widget-row">
+            <!-- accessoryCircular -->
+            <div class="circ acc">
+                <svg viewBox="0 0 72 72">
+                    <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="6"></circle>
+                    <circle cx="36" cy="36" r="30" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"
+                            stroke-dasharray="188.5" stroke-dashoffset="34.0"></circle>
+                </svg>
+                <div class="circ-txt">
+                    <div class="circ-big">460</div>
+                    <div class="circ-lbl">נותרו</div>
+                </div>
+            </div>
+            <!-- accessoryRectangular -->
+            <div class="rect acc">
+                <div class="rect-top">
+                    <span class="rect-kcal">1,840</span>
+                    <span class="rect-tgt">/ 2,300</span>
+                    <span class="rect-unit">קק"ל</span>
+                </div>
+                <div class="bar"><i style="width:80%"></i></div>
+                <div class="rect-bot">
+                    <div class="macros">
+                        <div class="macro">145<span>P</span></div>
+                        <div class="macro">190<span>C</span></div>
+                        <div class="macro">62<span>F</span></div>
+                    </div>
+                    <div class="wgt">82.4<span>▾0.6</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="cap">מצב רגיל — 80% מהיעד</div>
+    </div>
+
+    <!-- מצב חריגה + snapshot ישן -->
+    <div class="phone">
+        <div class="lock-date">יום שישי, 24 ביולי</div>
+        <div class="lock-clock">22:10</div>
+        <div class="inline-slot acc">מעל 180 קק"ל · 168 חלבון · 82.4 ק"ג</div>
+        <div class="widget-row">
+            <div class="circ acc">
+                <svg viewBox="0 0 72 72">
+                    <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="6"></circle>
+                    <circle cx="36" cy="36" r="30" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"
+                            stroke-dasharray="188.5" stroke-dashoffset="0"></circle>
+                </svg>
+                <div class="circ-txt">
+                    <div class="circ-big">180</div>
+                    <div class="circ-lbl">מעל</div>
+                </div>
+            </div>
+            <div class="rect acc">
+                <div class="rect-top">
+                    <span class="rect-kcal">2,480</span>
+                    <span class="rect-tgt">/ 2,300</span>
+                    <span class="rect-unit">קק"ל</span>
+                    <span class="rect-stale">14:05</span>
+                </div>
+                <div class="bar"><i style="width:100%"></i></div>
+                <div class="rect-bot">
+                    <div class="macros">
+                        <div class="macro">168<span>P</span></div>
+                        <div class="macro">255<span>C</span></div>
+                        <div class="macro">81<span>F</span></div>
+                    </div>
+                    <div class="wgt">82.4<span>▾0.6</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="cap">חריגה מהיעד + snapshot בן 8 שעות (שעת עדכון מוצגת)</div>
+    </div>
+
+</div>
+
+<div class="note">
+    <p><b>למה סקריפט נפרד ולא הרחבה של ווידג'ט מסך הבית:</b> ווידג'טי accessory הם משפחת רינדור אחרת —
+    ~72pt עיגול / ~160×72pt מלבן / שורת טקסט אחת, ללא רקע, וב־vibrancy מונוכרומטי. הגרדיאנט הכחול־ירוק,
+    צבעי המאקרו, הירוק/אדום הסמנטי של המגמה והספארקליין של ווידג'ט מסך הבית פשוט לא שורדים את המעבר.</p>
+    <p><b>מה נבחר להצגה ולמה:</b> קק"ל שנותרו הוא המדד היחיד ששווה מבט של חצי שנייה בלי לפתוח את הטלפון —
+    לכן הוא לבדו במרכז הטבעת ובשורת ה־inline. המלבן מוסיף מאקרו ומשקל, שהם מבט שני. האימון האחרון
+    ומגמת המשקל המפורטת נשארו בווידג'ט מסך הבית — אין להם מקום כאן.</p>
+    <p><b>היררכיה ללא צבע:</b> alpha 1.0 = ערך ראשי · 0.72 = משני · 0.5 = תווית · 0.38 = שולי · 0.2 = track.</p>
+    <p><b>שים לב:</b> המוקאפ הזה הוא קירוב HTML. הרינדור האמיתי של iOS מוסיף שכבת vibrancy שמושפעת
+    מהטפט — טקסט עלול להיראות בהיר או עמום יותר ממה שמוצג כאן.</p>
+</div>
+
+</body>
+</html>

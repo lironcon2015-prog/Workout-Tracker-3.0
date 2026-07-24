@@ -208,7 +208,7 @@ function buildCircular(w, s) {
     const row = w.addStack();
     row.layoutHorizontally();
     row.addSpacer();
-    const im = row.addImage(circularImage(pct, big, lbl));
+    const im = row.addImage(circularImage(pct, big, lbl, SZ));
     im.imageSize = new Size(SZ, SZ);
     row.addSpacer();
     w.addSpacer();
@@ -268,44 +268,36 @@ function buildRectangular(w, s) {
 }
 
 // ═══════════════ פריסה 4: ריבוע משקל (Parameter = weight) ═══════════════
-// המשקל שירד מהמלבן חוזר כאן — בריבוע משלו, עם ספארקליין שבועי שנותן את
-// המגמה במבט אחד. אין טבעת: למשקל אין יעד ב-snapshot, וטבעת בלי יעד היא שקר.
-// במקומה — רקע ה-accessory של המערכת, שנותן לריבוע צורה מוגדרת.
+// המשקל שירד מהמלבן חוזר כאן — בריבוע משלו. אין טבעת: למשקל אין יעד
+// ב-snapshot, וטבעת שמתמלאת בלי יעד היא קישוט שמעמיד פנים שהוא מדד. במקומה
+// רקע ה-accessory של המערכת, שנותן לריבוע צורה מוגדרת.
+//
+// הספארקליין ירד מכאן בכוונה: ב-46×12pt הוא היה קשקוש בלתי קריא, ושלושה
+// רכיבים זעירים שנלחמים על 72pt הם מה שגרם לריבוע להיראות חיוור ליד הטבעת.
+// שלוש שורות במקום ארבע → כל אחת גדלה, והמבנה נהיה זהה לטבעת (תווית, מספר
+// ראשי, ערך משני). המגמה לא אבדה — ▾0.7 *הוא* השינוי השבועי במספרים,
+// והעקומה המלאה חיה בווידג'ט מסך הבית.
 function buildWeightCircular(w, s) {
     w.addAccessoryWidgetBackground = true;
     const wt = s && s.weight;
     w.addSpacer();
     if (!wt) {
         const t = centeredText(w, '—');
-        t.font = Font.blackRoundedSystemFont(16); t.textColor = w_(A.mid);
+        t.font = Font.blackRoundedSystemFont(20); t.textColor = w_(A.mid);
         const m = centeredText(w, 'אין שקילות');
-        m.font = Font.mediumSystemFont(8); m.textColor = w_(A.soft); m.lineLimit = 1;
+        m.font = Font.mediumSystemFont(8.5); m.textColor = w_(A.soft); m.lineLimit = 1;
         w.addSpacer();
         return;
     }
-    // שורה 1: היחידה נוספת לפני המספר (LTR) → נקרא ב-RTL "82.4 ק"ג"
-    const r1 = w.addStack();
-    r1.layoutHorizontally(); r1.bottomAlignContent(); r1.spacing = 2;
-    r1.addSpacer();
-    const u = r1.addText('ק"ג');
-    u.font = Font.semiboldSystemFont(8); u.textColor = w_(A.soft);
-    const v = r1.addText(String(wt.current));
-    v.font = Font.blackRoundedSystemFont(17); v.textColor = w_(A.full);
-    v.lineLimit = 1; v.minimumScaleFactor = 0.6;
-    r1.addSpacer();
+    const lbl = centeredText(w, 'משקל');
+    lbl.font = Font.semiboldSystemFont(8.5); lbl.textColor = w_(A.soft); lbl.lineLimit = 1;
 
-    if ((wt.points || []).length >= 2) {
-        w.addSpacer(1);
-        const r2 = w.addStack();
-        r2.layoutHorizontally(); r2.addSpacer();
-        const im = r2.addImage(sparkline(wt.points, 138, 36));
-        im.imageSize = new Size(46, 12);
-        r2.addSpacer();
-    }
+    const v = centeredText(w, String(wt.current));
+    v.font = Font.blackRoundedSystemFont(21); v.textColor = w_(A.full);
+    v.lineLimit = 1; v.minimumScaleFactor = 0.5;
 
     const d = centeredText(w, deltaText(wt.weekDelta));
-    d.font = Font.heavyRoundedSystemFont(9); d.textColor = w_(A.soft);
-    d.lineLimit = 1;
+    d.font = Font.heavyRoundedSystemFont(10); d.textColor = w_(A.mid); d.lineLimit = 1;
     w.addSpacer();
 }
 
@@ -377,9 +369,18 @@ function circWidgetSize() {
 
 // טבעת + טקסט בתמונה אחת. Path ב-Scriptable חסר addArc, ו-strokePath משאיר
 // קצוות חדים — לכן הקשת מצוירת כשרשרת עיגולים מלאים בצפיפות (קצוות עגולים
-// "בחינם"). הקנבס הוא 3x מגודל התצוגה כדי שהכל ייצא חד.
-function circularImage(pct, big, lbl) {
-    const S = 228, LW = 16, R = (S - LW) / 2 - 5;
+// "בחינם").
+//
+// 🔴 הקנבס חייב להיות K פעמים גודל התצוגה, לא 1:1 מול פיקסלי המסך.
+// קנבס 228px לווידג'ט 76pt במסך @3x הוא בדיוק 228 פיקסלים — יחס 1:1 — אבל
+// כל היסט תת-פיקסלי במרכוז מכריח את iOS לדגום מחדש, והדגימה־מחדש בקנה מידה
+// ~1:1 מטשטשת. קנבס גדול פי 6 יורד תמיד *כלפי מטה*, והקטנה עם אנטי-אליאסינג
+// יוצאת חדה בכל היסט. כל המידות יחסיות ל-S כדי שהפרופורציות יישמרו.
+function circularImage(pct, big, lbl, SZ) {
+    const K = 6;                        // מכפיל הקנבס מעל גודל התצוגה
+    const S = SZ * K;
+    const LW = Math.round(S * 0.070);
+    const R = (S - LW) / 2 - Math.round(S * 0.020);
     const ctx = new DrawContext();
     ctx.size = new Size(S, S); ctx.opaque = false; ctx.respectScreenScale = false;
 
@@ -387,12 +388,12 @@ function circularImage(pct, big, lbl) {
     if (pct > 0) strokeArc(ctx, S / 2, S / 2, R, LW, 360 * pct, w_(A.full));
 
     ctx.setTextAlignedCenter();
-    ctx.setFont(Font.blackRoundedSystemFont(48));
+    ctx.setFont(Font.blackRoundedSystemFont(Math.round(S * 0.235)));
     ctx.setTextColor(w_(A.full));
-    ctx.drawTextInRect(big, new Rect(6, 66, S - 12, 60));
-    ctx.setFont(Font.semiboldSystemFont(23));
+    ctx.drawTextInRect(big, new Rect(S * 0.06, S * 0.285, S * 0.88, S * 0.30));
+    ctx.setFont(Font.semiboldSystemFont(Math.round(S * 0.105)));
     ctx.setTextColor(w_(A.soft));
-    ctx.drawTextInRect(lbl, new Rect(6, 128, S - 12, 30));
+    ctx.drawTextInRect(lbl, new Rect(S * 0.06, S * 0.590, S * 0.88, S * 0.15));
 
     return ctx.getImage();
 }

@@ -688,6 +688,24 @@ const StorageManager = {
         return parseInt(localStorage.getItem(this.KEY_BACKUP_LAST), 10) || 0;
     },
 
+    // _bridgeJson — פענוח תשובת Apps Script עם שגיאה **קריאה** (v17.84).
+    // ‏`r.json()` על תשובה שאינה JSON זורק הודעת דפדפן סתומה ("The string did
+    // not match the expected pattern" ב-Safari) שמסתירה את הסיבה האמיתית: דף
+    // התחברות של גוגל (הרשאת Anyone חסרה) או דף שגיאת סקריפט. כאן מחזירים את
+    // תחילת הגוף בפועל, כדי שההודעה למשתמש תגיד מה באמת קרה.
+    _bridgeJson(r) {
+        return r.text().then(txt => {
+            try { return JSON.parse(txt); }
+            catch (e) {
+                const head = String(txt || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+                const hint = /<!DOCTYPE|<html/i.test(txt)
+                    ? 'הגשר החזיר דף HTML במקום JSON — כנראה "Who has access" אינו "Anyone", או שגיאת סקריפט.'
+                    : 'תשובה לא צפויה מהגשר.';
+                throw new Error(`${hint} (HTTP ${r.status}) ${head}`);
+            }
+        });
+    },
+
     // ── גיבוי חיבורים אוטומטי לאימייל (v17.81) ──────────────────────────
     // המפתחות הסודיים אינם בענן **במכוון** (אין להעלות טוקנים ל-Firestore), ולכן
     // בין שינוי מפתח לבין המייל השבועי הבא נפתח חלון שבו אין לו שום גיבוי.
@@ -729,7 +747,7 @@ const StorageManager = {
             backup: payload
         };
         return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
-            .then(r => r.json())
+            .then(r => this._bridgeJson(r))
             .then(res => {
                 if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
                 localStorage.setItem(this.KEY_CONN_FP, fp);
@@ -771,7 +789,7 @@ const StorageManager = {
         };
         // Content-Type: text/plain — בקשה "פשוטה" בלי preflight; GAS מחזיר CORS פתוח
         return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
-            .then(r => r.json())
+            .then(r => this._bridgeJson(r))
             .then(res => {
                 if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
                 if (typeof showCloudToast === 'function') showCloudToast('📧 גיבוי שבועי נשלח לאימייל', true);
@@ -866,7 +884,7 @@ const StorageManager = {
         if (!force && Date.now() - this.getWidgetLastPush() < THROTTLE_MS) return Promise.resolve(false);
         const body = { token, snapshot: this.buildWidgetSnapshot() };
         return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
-            .then(r => r.json())
+            .then(r => this._bridgeJson(r))
             .then(res => {
                 if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
                 localStorage.setItem(this.KEY_WIDGET_LAST_PUSH, String(Date.now()));

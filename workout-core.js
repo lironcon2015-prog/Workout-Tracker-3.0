@@ -5947,66 +5947,148 @@ function _afterConnectionChange() {
     try { StorageManager.maybeBackupConnections(); } catch (e) {}
 }
 
-// ─── גשר תזונה MyFitnessPal (Apps Script) ────────────────────────────────────
-function toggleMfpBridge() {
-    _bridgeToggle('mfp-bridge-toggle', on => StorageManager.saveMfpBridge(on), updateMfpBridgeStatus);
-}
+// ─── תשתית הגשרים: טבלה אחת + שלוש פונקציות (v17.85) ────────────────────────
+// עד כאן היו שש שלישיות כמעט זהות (save/update/toggle × 6 ≈ 224 שורות). הכפילות
+// הזו עלתה ביוקר: כל תיקון בגשרים נגע בשש נקודות, ופספוס אחת מהן משאיר גשר אחד
+// עם הבאג — בדיוק הדפוס שייצר את באג מחיקת המפתחות. עכשיו: הבדלים בטבלה, לוגיקה
+// במקום אחד. גשר שביעי = ערך בטבלה.
+//
+// מה נשאר פר-גשר: התוויות, קריאות ה-StorageManager, ותוספות אופציונליות —
+//   statusExtra() → טקסט נוסף בשורת הסטטוס (למשל "נשלח לאחרונה")
+//   syncExtraUI() → סנכרון פקדים נוספים (תת-מתג משיכת התזונה ב-Health)
+//   extraSave()   → שמירת שדות נוספים
+//   apply(on)     → תופעת לוואי בהפעלה/כיבוי (העלאת תמונות, האזנת שעון, משיכה)
+const BRIDGES = {
+    mfp: {
+        savedMsg: 'הגדרות גשר התזונה נשמרו!', label: 'גשר התזונה',
+        get: () => StorageManager.getMfpBridge(),
+        save: (on, u, t) => StorageManager.saveMfpBridge(on, u, t)
+    },
+    backup: {
+        savedMsg: 'הגדרות גשר הגיבוי נשמרו!', label: 'גשר הגיבוי',
+        get: () => StorageManager.getBackupBridge(),
+        save: (on, u, t) => StorageManager.saveBackupBridge(on, u, t),
+        statusExtra: () => {
+            const last = StorageManager.getBackupLast();
+            return last ? ' · נשלח לאחרונה ' + new Date(last).toLocaleDateString('he-IL') + ' ' +
+                new Date(last).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
+                : ' · טרם נשלח';
+        }
+    },
+    widget: {
+        savedMsg: 'הגדרות גשר הווידג\'ט נשמרו!', label: 'גשר הווידג\'ט',
+        get: () => StorageManager.getWidgetBridge(),
+        save: (on, u, t) => StorageManager.saveWidgetBridge(on, u, t),
+        statusExtra: () => {
+            const last = StorageManager.getWidgetLastPush();
+            return last ? ' · נדחף לאחרונה ' + new Date(last).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
+                        : ' · טרם נדחף';
+        }
+    },
+    photo: {
+        savedMsg: 'הגדרות גשר התמונות נשמרו!', label: 'גשר התמונות',
+        get: () => StorageManager.getPhotoBridge(),
+        save: (on, u, t) => StorageManager.savePhotoBridge(on, u, t),
+        statusExtra: () => {
+            const pending = StorageManager.getPhotoIndex().filter(e => !e.driveId).length;
+            return pending ? ' · ' + pending + ' ממתינות להעלאה' : ' · הכל בענן';
+        },
+        apply: on => { if (on && typeof _ppKickUploads === 'function') _ppKickUploads(); }   // העלאת ממתינות מיד
+    },
+    health: {
+        savedMsg: 'הגדרות גשר ה-Health נשמרו!', label: 'גשר ה-Health',
+        get: () => StorageManager.getHealthBridge(),
+        save: (on, u, t) => StorageManager.saveHealthBridge(on, u, t),
+        syncExtraUI: () => {
+            const nt = document.getElementById('health-pull-nutrition-toggle');
+            if (nt) nt.checked = StorageManager.isHealthPullNutrition();
+        },
+        extraSave: () => {
+            const nt = document.getElementById('health-pull-nutrition-toggle');
+            StorageManager.setHealthPullNutrition(!!(nt || {}).checked);
+        },
+        apply: on => { if (on) syncHealthNutrition(true); }   // משיכה מיידית — פידבק שהחיבור עובד
+    },
+    watch: {
+        savedMsg: 'הגדרות גשר השעון נשמרו!', label: 'גשר השעון',
+        get: () => StorageManager.getWatchBridge(),
+        save: (on, u, t) => StorageManager.saveWatchBridge(on, u, t),
+        apply: on => {   // הפעלה/כיבוי מיידי של ההאזנה
+            try {
+                if (on && WatchBridge.enabled()) { WatchBridge.activate(); WatchBridge.forceAdopt(); }
+                else WatchBridge.stopListening();
+            } catch (e) {}
+        }
+    }
+};
 
-function saveMfpBridgeSettings() {
-    const urlInput   = document.getElementById('mfp-bridge-url-input');
-    const tokenInput = document.getElementById('mfp-bridge-token-input');
-    if (!urlInput || !tokenInput) return;
-    const on = !!(document.getElementById('mfp-bridge-toggle') || {}).checked;
-    const url = urlInput.value.trim(), token = tokenInput.value.trim();
-    const cur = StorageManager.getMfpBridge();
-    _bridgeConfirmClear('גשר התזונה', [
-        { name: 'כתובת', value: url, stored: cur.url },
-        { name: 'טוקן',  value: token, stored: cur.token }
-    ], () => {
-        StorageManager.saveMfpBridge(on, url, token);
-        updateMfpBridgeStatus();
-        showAlert('הגדרות גשר התזונה נשמרו!');
-        _afterConnectionChange();
-    }, updateMfpBridgeStatus);
-}
-
-function updateMfpBridgeStatus() {
-    const el = document.getElementById('mfp-bridge-status');
-    const tg = document.getElementById('mfp-bridge-toggle');
-    if (tg) tg.checked = StorageManager.isMfpBridgeOn();
+// updateBridgeStatus — שורת הסטטוס + אכלוס השדות מהאחסון.
+// האכלוס נשאר **בתוך** ענף ה-url הקיים: כשאין URL שמור אין מה למלא, ולא רוצים
+// לדרוס הקלדה של משתמש שמגדיר גשר חדש ועדיין לא שמר.
+function updateBridgeStatus(key) {
+    const b = BRIDGES[key]; if (!b) return;
+    const { on, url, token } = b.get();
+    const tg = document.getElementById(key + '-bridge-toggle');
+    if (tg) tg.checked = on;
+    if (b.syncExtraUI) b.syncExtraUI();
+    const el = document.getElementById(key + '-bridge-status');
     if (!el) return;
-    const { url, token } = StorageManager.getMfpBridge();
     if (url) {
-        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span>';
-        _bridgeFill('mfp-bridge-url-input', url);
-        _bridgeFill('mfp-bridge-token-input', token);
+        const extra = b.statusExtra ? b.statusExtra() : '';
+        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span>' +
+            (extra ? '<span style="color:var(--text-dim);">' + extra + '</span>' : '');
+        _bridgeFill(key + '-bridge-url-input', url);
+        _bridgeFill(key + '-bridge-token-input', token);
     } else {
         el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
     }
 }
 
-// ─── גשר גיבוי שבועי לאימייל (Apps Script) ──────────────────────────────────
-function toggleBackupBridge() {
-    _bridgeToggle('backup-bridge-toggle', on => StorageManager.saveBackupBridge(on), updateBackupBridgeStatus);
+// toggleBridge — מתג כותב **רק** את דגל ההפעלה (url/token נשארים undefined).
+function toggleBridge(key) {
+    const b = BRIDGES[key]; if (!b) return;
+    const on = !!(document.getElementById(key + '-bridge-toggle') || {}).checked;
+    b.save(on);
+    if (b.apply) b.apply(on);
+    updateBridgeStatus(key);
+    if (typeof _syncBridgeCollapse === 'function') _syncBridgeCollapse();
+    _afterConnectionChange();
 }
 
-function saveBackupBridgeSettings() {
-    const urlInput   = document.getElementById('backup-bridge-url-input');
-    const tokenInput = document.getElementById('backup-bridge-token-input');
+// saveBridgeSettings — שמירת URL/token, עם שער אישור מפני ריקון מקרי.
+function saveBridgeSettings(key) {
+    const b = BRIDGES[key]; if (!b) return;
+    const urlInput   = document.getElementById(key + '-bridge-url-input');
+    const tokenInput = document.getElementById(key + '-bridge-token-input');
     if (!urlInput || !tokenInput) return;
-    const on = !!(document.getElementById('backup-bridge-toggle') || {}).checked;
+    const on = !!(document.getElementById(key + '-bridge-toggle') || {}).checked;
     const url = urlInput.value.trim(), token = tokenInput.value.trim();
-    const cur = StorageManager.getBackupBridge();
-    _bridgeConfirmClear('גשר הגיבוי', [
-        { name: 'כתובת', value: url, stored: cur.url },
+    const cur = b.get();
+    _bridgeConfirmClear(b.label, [
+        { name: 'כתובת', value: url,   stored: cur.url },
         { name: 'טוקן',  value: token, stored: cur.token }
     ], () => {
-        StorageManager.saveBackupBridge(on, url, token);
-        updateBackupBridgeStatus();
-        showAlert('הגדרות גשר הגיבוי נשמרו!');
+        b.save(on, url, token);
+        if (b.extraSave) b.extraSave();
+        updateBridgeStatus(key);
         _afterConnectionChange();
-    }, updateBackupBridgeStatus);
+        showAlert(b.savedMsg);
+        if (b.apply) b.apply(on);
+    }, () => updateBridgeStatus(key));
 }
+
+// ─── גשר תזונה MyFitnessPal (Apps Script) ────────────────────────────────────
+function toggleMfpBridge()      { toggleBridge('mfp'); }
+function saveMfpBridgeSettings(){ saveBridgeSettings('mfp'); }
+function updateMfpBridgeStatus(){ updateBridgeStatus('mfp'); }
+
+
+
+// ─── גשר גיבוי שבועי לאימייל (Apps Script) ──────────────────────────────────
+function toggleBackupBridge()      { toggleBridge('backup'); }
+function saveBackupBridgeSettings(){ saveBridgeSettings('backup'); }
+function updateBackupBridgeStatus(){ updateBridgeStatus('backup'); }
+
 
 // שליחה ידנית — בניית הגיבוי + fetch לוקחות שנייה ויותר. בלי פידבק מיידי זה
 // נראה כאילו כלום לא קרה והמשתמש לוחץ שוב (ושולח מייל כפול). נעילת in-flight
@@ -6027,94 +6109,23 @@ function sendBackupNow() {
         });
 }
 
-function updateBackupBridgeStatus() {
-    const el = document.getElementById('backup-bridge-status');
-    const tg = document.getElementById('backup-bridge-toggle');
-    const { on, url, token } = StorageManager.getBackupBridge();
-    if (tg) tg.checked = on;
-    if (!el) return;
-    if (url) {
-        const last = StorageManager.getBackupLast();
-        const lastTxt = last ? ' · נשלח לאחרונה ' + new Date(last).toLocaleDateString('he-IL') + ' ' +
-            new Date(last).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : ' · טרם נשלח';
-        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span><span style="color:var(--text-dim);">' + lastTxt + '</span>';
-        _bridgeFill('backup-bridge-url-input', url);
-        _bridgeFill('backup-bridge-token-input', token);
-    } else {
-        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
-    }
-}
 
 // ─── גשר ווידג'ט אייפון (Apps Script + Scriptable) ──────────────────────────
-function toggleWidgetBridge() {
-    _bridgeToggle('widget-bridge-toggle', on => StorageManager.saveWidgetBridge(on), updateWidgetBridgeStatus);
-}
+function toggleWidgetBridge()      { toggleBridge('widget'); }
+function saveWidgetBridgeSettings(){ saveBridgeSettings('widget'); }
+function updateWidgetBridgeStatus(){ updateBridgeStatus('widget'); }
 
-function saveWidgetBridgeSettings() {
-    const urlInput   = document.getElementById('widget-bridge-url-input');
-    const tokenInput = document.getElementById('widget-bridge-token-input');
-    if (!urlInput || !tokenInput) return;
-    const on = !!(document.getElementById('widget-bridge-toggle') || {}).checked;
-    const url = urlInput.value.trim(), token = tokenInput.value.trim();
-    const cur = StorageManager.getWidgetBridge();
-    _bridgeConfirmClear('גשר הווידג\'ט', [
-        { name: 'כתובת', value: url, stored: cur.url },
-        { name: 'טוקן',  value: token, stored: cur.token }
-    ], () => {
-        StorageManager.saveWidgetBridge(on, url, token);
-        updateWidgetBridgeStatus();
-        showAlert('הגדרות גשר הווידג\'ט נשמרו!');
-        _afterConnectionChange();
-    }, updateWidgetBridgeStatus);
-}
 
 function pushWidgetNow() {
     StorageManager.maybePushWidgetSnapshot(true).then(ok => { if (ok) updateWidgetBridgeStatus(); });
 }
 
-function updateWidgetBridgeStatus() {
-    const el = document.getElementById('widget-bridge-status');
-    const tg = document.getElementById('widget-bridge-toggle');
-    const { on, url, token } = StorageManager.getWidgetBridge();
-    if (tg) tg.checked = on;
-    if (!el) return;
-    if (url) {
-        const last = StorageManager.getWidgetLastPush();
-        const lastTxt = last ? ' · נדחף לאחרונה ' + new Date(last).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : ' · טרם נדחף';
-        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span><span style="color:var(--text-dim);">' + lastTxt + '</span>';
-        _bridgeFill('widget-bridge-url-input', url);
-        _bridgeFill('widget-bridge-token-input', token);
-    } else {
-        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
-    }
-}
 
 // ─── גשר תמונות התקדמות (Apps Script → Google Drive) ────────────────────────
-function togglePhotoBridge() {
-    _bridgeToggle('photo-bridge-toggle', on => StorageManager.savePhotoBridge(on), on => {
-        updatePhotoBridgeStatus();
-        if (on && typeof _ppKickUploads === 'function') _ppKickUploads();   // העלאת ממתינות מיד עם ההפעלה
-    });
-}
+function togglePhotoBridge()      { toggleBridge('photo'); }
+function savePhotoBridgeSettings(){ saveBridgeSettings('photo'); }
+function updatePhotoBridgeStatus(){ updateBridgeStatus('photo'); }
 
-function savePhotoBridgeSettings() {
-    const urlInput   = document.getElementById('photo-bridge-url-input');
-    const tokenInput = document.getElementById('photo-bridge-token-input');
-    if (!urlInput || !tokenInput) return;
-    const on = !!(document.getElementById('photo-bridge-toggle') || {}).checked;
-    const url = urlInput.value.trim(), token = tokenInput.value.trim();
-    const cur = StorageManager.getPhotoBridge();
-    _bridgeConfirmClear('גשר התמונות', [
-        { name: 'כתובת', value: url, stored: cur.url },
-        { name: 'טוקן',  value: token, stored: cur.token }
-    ], () => {
-        StorageManager.savePhotoBridge(on, url, token);
-        updatePhotoBridgeStatus();
-        if (on && typeof _ppKickUploads === 'function') _ppKickUploads();   // העלאת ממתינות מיד עם ההפעלה
-        showAlert('הגדרות גשר התמונות נשמרו!');
-        _afterConnectionChange();
-    }, updatePhotoBridgeStatus);
-}
 
 function testPhotoBridgeNow() {
     if (typeof ppTestPhotoBridge !== 'function') return;
@@ -6133,68 +6144,13 @@ function scanPhotoDriveNow() {
         .catch(e => showAlert('הסריקה נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת')));
 }
 
-function updatePhotoBridgeStatus() {
-    const el = document.getElementById('photo-bridge-status');
-    const tg = document.getElementById('photo-bridge-toggle');
-    const { on, url, token } = StorageManager.getPhotoBridge();
-    if (tg) tg.checked = on;
-    if (!el) return;
-    if (url) {
-        const pending = StorageManager.getPhotoIndex().filter(e => !e.driveId).length;
-        const pendTxt = pending ? ' · ' + pending + ' ממתינות להעלאה' : ' · הכל בענן';
-        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span><span style="color:var(--text-dim);">' + pendTxt + '</span>';
-        _bridgeFill('photo-bridge-url-input', url);
-        _bridgeFill('photo-bridge-token-input', token);
-    } else {
-        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
-    }
-}
 
 // ─── גשר תזונה Apple Health (Shortcuts → Apps Script) ───────────────────────
-function toggleHealthBridge() {
-    _bridgeToggle('health-bridge-toggle', on => StorageManager.saveHealthBridge(on), on => {
-        updateHealthBridgeStatus();
-        if (on) syncHealthNutrition(true); // משיכה מיידית — פידבק מהיר שהחיבור עובד
-    });
-}
+function toggleHealthBridge()      { toggleBridge('health'); }
+function saveHealthBridgeSettings(){ saveBridgeSettings('health'); }
+function updateHealthBridgeStatus(){ updateBridgeStatus('health'); }
 
-function saveHealthBridgeSettings() {
-    const urlInput   = document.getElementById('health-bridge-url-input');
-    const tokenInput = document.getElementById('health-bridge-token-input');
-    if (!urlInput || !tokenInput) return;
-    const on = !!(document.getElementById('health-bridge-toggle') || {}).checked;
-    const url = urlInput.value.trim(), token = tokenInput.value.trim();
-    const cur = StorageManager.getHealthBridge();
-    _bridgeConfirmClear('גשר ה-Health', [
-        { name: 'כתובת', value: url, stored: cur.url },
-        { name: 'טוקן',  value: token, stored: cur.token }
-    ], () => {
-        StorageManager.saveHealthBridge(on, url, token);
-        const pullNutri = !!(document.getElementById('health-pull-nutrition-toggle') || {}).checked;
-        StorageManager.setHealthPullNutrition(pullNutri);
-        updateHealthBridgeStatus();
-        showAlert('הגדרות גשר ה-Health נשמרו!');
-        _afterConnectionChange();
-        if (on) syncHealthNutrition(true); // משיכה מיידית — פידבק מהיר שהחיבור עובד (רק אם דלוק)
-    }, updateHealthBridgeStatus);
-}
 
-function updateHealthBridgeStatus() {
-    const el = document.getElementById('health-bridge-status');
-    const tg = document.getElementById('health-bridge-toggle');
-    if (tg) tg.checked = StorageManager.isHealthBridgeOn();
-    const nt = document.getElementById('health-pull-nutrition-toggle');
-    if (nt) nt.checked = StorageManager.isHealthPullNutrition();
-    if (!el) return;
-    const { url, token } = StorageManager.getHealthBridge();
-    if (url) {
-        el.innerHTML = '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span>';
-        _bridgeFill('health-bridge-url-input', url);
-        _bridgeFill('health-bridge-token-input', token);
-    } else {
-        el.innerHTML = '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
-    }
-}
 
 /**
  * syncHealthNutrition — מושך ימי תזונה מגשר ה-Health וממזג ל-nutritionDaily.
@@ -6287,51 +6243,13 @@ function _scheduleHealthHourlySync() {
 }
 
 // ─── גשר אפל-ווטש ────────────────────────────────────────────────────────────
+function toggleWatchBridge()      { toggleBridge('watch'); }
+function saveWatchBridgeSettings(){ saveBridgeSettings('watch'); }
+function updateWatchBridgeStatus(){ updateBridgeStatus('watch'); }
 // הפעלה/כיבוי מיידי של ההאזנה — משותף למתג ולשמירת ההגדרות
-function _watchBridgeApply(on) {
-    try {
-        if (on && WatchBridge.enabled()) { WatchBridge.activate(); WatchBridge.forceAdopt(); }
-        else WatchBridge.stopListening();
-    } catch (e) {}
-}
 
-function toggleWatchBridge() {
-    _bridgeToggle('watch-bridge-toggle', on => StorageManager.saveWatchBridge(on), on => {
-        _watchBridgeApply(on);
-        updateWatchBridgeStatus();
-    });
-}
 
-function saveWatchBridgeSettings() {
-    const on    = !!(document.getElementById('watch-bridge-toggle') || {}).checked;
-    const url   = ((document.getElementById('watch-bridge-url-input')   || {}).value || '').trim();
-    const token = ((document.getElementById('watch-bridge-token-input') || {}).value || '').trim();
-    const cur = StorageManager.getWatchBridge();
-    _bridgeConfirmClear('גשר השעון', [
-        { name: 'כתובת', value: url, stored: cur.url },
-        { name: 'טוקן',  value: token, stored: cur.token }
-    ], () => {
-        StorageManager.saveWatchBridge(on, url, token);
-        _watchBridgeApply(on);
-        showAlert('הגדרות גשר השעון נשמרו!');
-        _afterConnectionChange();
-    }, updateWatchBridgeStatus);
-}
 
-function updateWatchBridgeStatus() {
-    const cfg = StorageManager.getWatchBridge();
-    const t = document.getElementById('watch-bridge-toggle');
-    if (t)  t.checked = cfg.on;
-    _bridgeFill('watch-bridge-url-input', cfg.url);
-    _bridgeFill('watch-bridge-token-input', cfg.token);
-    // שורת סטטוס — היה הגשר היחיד בלי אחת (v17.82)
-    const el = document.getElementById('watch-bridge-status');
-    if (el) {
-        el.innerHTML = cfg.url
-            ? '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span>'
-            : '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
-    }
-}
 
 // ─── פרופיל גוף (TDEE) ───────────────────────────────────────────────────────
 function saveBodyProfileSettings() {

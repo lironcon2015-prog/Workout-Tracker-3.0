@@ -67,15 +67,29 @@ const KC_TOK = 'gympro_widget_bridge_token';
 // ── אישורי הגשר ──
 const creds = await resolveCreds();
 
-// ── משיכת ה-snapshot מהגשר ──
+// ── משיכת ה-snapshot מהגשר, עם נפילה למטמון מקומי ──
+// בלי המטמון, כישלון רשת חד-פעמי מרוקן את הווידג'ט לגמרי עד הרענון הבא —
+// וזה בדיוק מה שקורה בבוקר, כשה-iPhone מרענן ווידג'טים אחרי לילה של רשת
+// רדומה. עדיף להציג נתוני אתמול עם חותמת זמן מאשר מסך ריק שמאשים את המשתמש.
 let snap = null;
+let netFail = false;
 if (creds) {
     try {
         const req = new Request(creds.url + '?token=' + encodeURIComponent(creds.token));
         const j = await req.loadJSON();
-        if (j && j.ok) snap = j.snapshot;
-    } catch (e) { /* אין רשת — תוצג הודעת שגיאה קצרה */ }
+        if (j && j.ok && j.snapshot) snap = j.snapshot;
+        else if (!j || !j.ok) netFail = true;      // BAD_TOKEN / תשובה לא תקינה
+    } catch (e) { netFail = true; }
 }
+if (snap) writeSnapCache(snap);
+else { const cached = readSnapCache(); if (cached) snap = cached; }
+snap = normalizeForToday(snap);
+
+// הודעת המצב הריק — מבדילה בין "אין חיבור" ל"אין נתונים בגשר".
+// הקוד הישן הציג "פתח את האפליקציה ודחוף snapshot" גם על כשל רשת, כלומר
+// שלח את המשתמש לפעולה שאינה מתקנת דבר.
+const EMPTY_MSG = netFail ? 'אין חיבור — ננסה ברענון הבא'
+                          : 'פתח את האפליקציה ודחוף snapshot';
 
 // ── בחירת התוכן: לפי גודל הווידג'ט + שדה Parameter בהגדרות הווידג'ט ──
 // אותו סקריפט משרת את כל הריבועים; "weight" בשדה Parameter הופך את הריבוע
@@ -219,10 +233,12 @@ function buildCircular(w, s) {
 // והרכיב הימני-ויזואלית נוסף אחרון.
 function buildRectangular(w, s) {
     if (!s) {
+        w.addSpacer();
         const t = w.addText('GYMPRO — אין נתונים');
         t.font = Font.semiboldSystemFont(11); t.textColor = w_(A.mid);
-        const m = w.addText('פתח את האפליקציה ודחוף snapshot');
+        const m = w.addText(EMPTY_MSG);
         m.font = Font.mediumSystemFont(9); m.textColor = w_(A.soft); m.lineLimit = 2;
+        w.addSpacer();
         return;
     }
     const n = s.nutrition || {};
@@ -343,7 +359,7 @@ function buildWeightRectangular(w, s) {
 // ═══════════════ פריסה 3: שורה מעל השעון ═══════════════
 // שורה אחת, ללא אייקון (כלל הפרויקט: בלי אייקונים דקורטיביים) וללא צבע.
 function buildInline(w, s) {
-    let txt = 'GYMPRO — אין נתונים';
+    let txt = 'GYMPRO — ' + (netFail ? 'אין חיבור' : 'אין נתונים');
     if (s) {
         const n = s.nutrition || {};
         const target = n.kcalTarget || 0;
@@ -496,8 +512,49 @@ function centeredText(w, str) {
     return t;
 }
 
+// ═══════════════ מטמון מקומי + גבול היום ═══════════════
+
+// המטמון יושב ב-libraryDirectory (מוסתר מהמשתמש, שורד הפעלות) ומשותף לשני
+// הווידג'טים — מסך הבית ומסך הנעילה. משיכה מוצלחת של אחד מהם מרעננת לשניהם.
+function snapCachePath() {
+    const fm = FileManager.local();
+    return fm.joinPath(fm.libraryDirectory(), 'gympro-widget-snapshot.json');
+}
+function readSnapCache() {
+    try {
+        const fm = FileManager.local(), p = snapCachePath();
+        return fm.fileExists(p) ? JSON.parse(fm.readString(p)) : null;
+    } catch (e) { return null; }
+}
+function writeSnapCache(s) {
+    try { FileManager.local().writeString(snapCachePath(), JSON.stringify(s)); } catch (e) {}
+}
+
+// 🔴 מספרי התזונה ב-snapshot שייכים ליום שבו הוא נוצר.
+// אחרי חצות הם כבר לא של היום — והצגתם משקרת בצורה משכנעת: ווידג'ט שמראה
+// "2,220 קק"ל" בשבע בבוקר גורם לך להאמין שכבר אכלת את זה היום. זה גרוע יותר
+// ממסך ריק, כי זה נראה אמין. לכן מאפסים את הנצרך ומשאירים את היעדים — מצב
+// שהוא גם נכון עובדתית (יום חדש התחיל) וגם בטוח בכיוון הנכון.
+// המשקל והאימון האחרון אינם תלויי-יום ונשארים כמו שהם.
+function normalizeForToday(s) {
+    if (!s || isSameDay(s.generated, new Date())) return s;
+    const n = Object.assign({}, s.nutrition || {});
+    n.calories = 0; n.protein = 0; n.carbs = 0; n.fat = 0;
+    return Object.assign({}, s, { nutrition: n, staleDay: true });
+}
+function isSameDay(iso, d) {
+    if (!iso) return false;
+    const a = new Date(iso);
+    return a.getFullYear() === d.getFullYear()
+        && a.getMonth() === d.getMonth()
+        && a.getDate() === d.getDate();
+}
+
+// "ישן" = עברו STALE_HOURS, או שה-snapshot כלל לא מהיום (גם אם נדחף ב-23:50
+// והשעה עכשיו 00:30 — הוא של אתמול, וזה מה שחשוב).
 function isStale(iso) {
     if (!iso) return true;
+    if (!isSameDay(iso, new Date())) return true;
     return (Date.now() - new Date(iso).getTime()) > STALE_HOURS * 3600000;
 }
 function fmtNum(v) { return (Math.round(v || 0)).toLocaleString('he-IL'); }

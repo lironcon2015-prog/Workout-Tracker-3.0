@@ -36,13 +36,21 @@ const C = {
 };
 const col = (h, a) => a === undefined ? new Color(h) : new Color(h, a);
 
-// ── משיכת ה-snapshot מהגשר ──
+// ── משיכת ה-snapshot מהגשר, עם נפילה למטמון מקומי ──
+// בלי המטמון, כישלון רשת חד-פעמי מרוקן את הווידג'ט עד הרענון הבא — וזה בדיוק
+// מה שקורה בבוקר, כשה-iPhone מרענן ווידג'טים אחרי לילה של רשת רדומה. ה-snapshot
+// לא נמחק מהגשר; רק הבקשה נכשלה. עדיף להציג נתוני אתמול עם חותמת זמן.
 let snap = null;
+let netFail = false;
 try {
     const req = new Request(BRIDGE_URL + '?token=' + encodeURIComponent(TOKEN));
     const j = await req.loadJSON();
-    if (j && j.ok) snap = j.snapshot;
-} catch (e) { /* אין רשת — הווידג'ט יציג הודעת שגיאה */ }
+    if (j && j.ok && j.snapshot) snap = j.snapshot;
+    else if (!j || !j.ok) netFail = true;      // BAD_TOKEN / תשובה לא תקינה
+} catch (e) { netFail = true; }
+if (snap) writeSnapCache(snap);
+else { const cached = readSnapCache(); if (cached) snap = cached; }
+snap = normalizeForToday(snap);
 
 const w = new ListWidget();
 w.backgroundColor = col(C.bg);
@@ -57,7 +65,11 @@ if (!snap) {
     const t = w.addText('GYMPRO ELITE');
     t.font = Font.blackSystemFont(12); t.textColor = col(C.dim); t.centerAlignText();
     w.addSpacer(6);
-    const m = w.addText('אין נתונים — פתח את האפליקציה ולחץ "דחוף snapshot עכשיו"');
+    // הבחנה בין כשל רשת לבין גשר ריק: הנוסח הישן שלח את המשתמש לדחוף snapshot
+    // גם כשהבעיה הייתה חיבור, כלומר לפעולה שאינה מתקנת דבר.
+    const m = w.addText(netFail
+        ? 'אין חיבור לגשר — הווידג\'ט ינסה שוב ברענון הבא'
+        : 'אין נתונים — פתח את האפליקציה ולחץ "דחוף snapshot עכשיו"');
     m.font = Font.mediumSystemFont(11); m.textColor = col(C.text); m.centerAlignText();
     w.addSpacer();
 } else {
@@ -79,7 +91,7 @@ function buildWidget(w, s) {
     // ── כותרת: שעה משמאל, לוגו מימין ──
     const head = w.addStack();
     head.layoutHorizontally(); head.centerAlignContent();
-    const time = head.addText('עודכן ' + fmtTime(s.generated));
+    const time = head.addText('עודכן ' + fmtStamp(s.generated));
     time.font = Font.mediumSystemFont(8); time.textColor = col(C.dim, 0.75);
     head.addSpacer();
     const title = head.addText('GYMPRO ELITE');
@@ -264,6 +276,54 @@ function fmtNum(v) { return (Math.round(v || 0)).toLocaleString('he-IL'); }
 function fmtTime(iso) {
     const d = iso ? new Date(iso) : new Date();
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+// חותמת העדכון בכותרת. שעה לבדה מטעה כשה-snapshot מאתמול — "עודכן 22:40"
+// נראה טרי. לכן היום מצוין במפורש כשהוא אינו היום.
+function fmtStamp(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso), now = new Date();
+    if (isSameDay(iso, now)) return fmtTime(iso);
+    const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    if (isSameDay(iso, yest)) return 'אתמול ' + fmtTime(iso);
+    return d.getDate() + '.' + (d.getMonth() + 1) + ' ' + fmtTime(iso);
+}
+
+// ═══════════════ מטמון מקומי + גבול היום ═══════════════
+
+// המטמון יושב ב-libraryDirectory (מוסתר מהמשתמש, שורד הפעלות) ומשותף לשני
+// הווידג'טים — מסך הבית ומסך הנעילה. משיכה מוצלחת של אחד מרעננת לשניהם.
+function snapCachePath() {
+    const fm = FileManager.local();
+    return fm.joinPath(fm.libraryDirectory(), 'gympro-widget-snapshot.json');
+}
+function readSnapCache() {
+    try {
+        const fm = FileManager.local(), p = snapCachePath();
+        return fm.fileExists(p) ? JSON.parse(fm.readString(p)) : null;
+    } catch (e) { return null; }
+}
+function writeSnapCache(s) {
+    try { FileManager.local().writeString(snapCachePath(), JSON.stringify(s)); } catch (e) {}
+}
+
+// 🔴 מספרי התזונה ב-snapshot שייכים ליום שבו הוא נוצר.
+// אחרי חצות הם כבר לא של היום — והצגתם משקרת בצורה משכנעת: ווידג'ט שמראה
+// "2,220 קק"ל" בשבע בבוקר גורם לך להאמין שכבר אכלת את זה היום. זה גרוע יותר
+// ממסך ריק, כי זה נראה אמין. לכן מאפסים את הנצרך ומשאירים את היעדים — מצב
+// שהוא גם נכון עובדתית (יום חדש התחיל) וגם בטוח בכיוון הנכון.
+// המשקל והאימון האחרון אינם תלויי-יום ונשארים כמו שהם.
+function normalizeForToday(s) {
+    if (!s || isSameDay(s.generated, new Date())) return s;
+    const n = Object.assign({}, s.nutrition || {});
+    n.calories = 0; n.protein = 0; n.carbs = 0; n.fat = 0;
+    return Object.assign({}, s, { nutrition: n, staleDay: true });
+}
+function isSameDay(iso, d) {
+    if (!iso) return false;
+    const a = new Date(iso);
+    return a.getFullYear() === d.getFullYear()
+        && a.getMonth() === d.getMonth()
+        && a.getDate() === d.getDate();
 }
 function agoText(ts) {
     if (!ts) return '';

@@ -868,53 +868,21 @@
                                 </div>
                                 <span class="material-symbols-outlined" style="color:var(--accent);font-size:2rem;font-variation-settings:'FILL' 0,'wght' 300">cloud_done</span>
                             </button>
-                            <div class="stg-cloud-upload">
-                                <button class="bridge-btn bridge-btn--go" onclick="FirebaseManager.uploadAllToCloud()">העלה הכל לענן (ראשוני)</button>
-                            </div>
-                            <div class="stg-cloud-row">
-                                <span class="stg-cloud-label">היסטוריה</span>
-                                <div class="stg-cloud-btns">
-                                    <button class="stg-cloud-btn stg-cloud-btn--up" onclick="manualBackupArchive()">גבה</button>
-                                    <button class="stg-cloud-btn stg-cloud-btn--dl" onclick="FirebaseManager.loadArchiveFromCloud()">שחזר</button>
-                                </div>
-                            </div>
-                            <div class="stg-cloud-row">
-                                <span class="stg-cloud-label">קונפיגורציה</span>
-                                <div class="stg-cloud-btns">
-                                    <button class="stg-cloud-btn stg-cloud-btn--up" onclick="manualBackupConfig()">גבה</button>
-                                    <button class="stg-cloud-btn stg-cloud-btn--dl" onclick="FirebaseManager.loadConfigFromCloud()">שחזר</button>
-                                </div>
-                            </div>
                             <div class="stg-cloud-row stg-cloud-row--last">
-                                <span class="stg-cloud-label">שיחות AI</span>
+                                <span class="stg-cloud-label">הכל</span>
                                 <div class="stg-cloud-btns">
-                                    <button class="stg-cloud-btn stg-cloud-btn--up" onclick="FirebaseManager.saveAIHistoryToCloud().then(ok=>showAlert(ok?'היסטוריה גובתה לענן!':'שגיאה בגיבוי.'))">גבה</button>
-                                    <button class="stg-cloud-btn stg-cloud-btn--dl" onclick="FirebaseManager.loadAIHistoryFromCloud()">שחזר</button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--up" onclick="backupAllToCloud()">גבה</button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--dl" onclick="restoreAllFromCloud()">שחזר</button>
                                 </div>
                             </div>
                         </div>
+                        <div class="ai-security-note" style="margin-top:6px;">הענן מגבה <b>נתונים</b>: אימונים, תוכניות, תזונה, שינה, שקילות, יומן מזון ושיחות AI — הכל יחד. <b>מפתחות, טוקנים, פרסונת ה-AI והעדפות אינם בענן</b> (במכוון — אין להעלות סודות ל-Firestore); הם נשמרים בגיבוי המלא ובקובץ החיבורים שנשלח לאימייל בכל שינוי מפתח.</div>
                     </div>
 
-                    <!-- גיבוי מקומי (קובץ) -->
+                    <!-- גיבוי לקובץ -->
                     <div class="settings-group">
-                        <div class="settings-group-label">גיבוי מקומי (קובץ)</div>
+                        <div class="settings-group-label">גיבוי לקובץ</div>
                         <div class="stg-bento">
-                            <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportConfiguration()">
-                                <span class="stg-row-title">ייצוא תבנית</span>
-                                <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">file_upload</span>
-                            </button>
-                            <button class="stg-nav-row stg-nav-row--plain" onclick="triggerConfigImport()">
-                                <span class="stg-row-title">ייבוא תבנית</span>
-                                <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">file_download</span>
-                            </button>
-                            <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportConnections()">
-                                <span class="stg-row-title">ייצוא חיבורים (Firebase / API / גשרים)</span>
-                                <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">key</span>
-                            </button>
-                            <button class="stg-nav-row stg-nav-row--plain" onclick="triggerConnectionsImport()">
-                                <span class="stg-row-title">ייבוא חיבורים</span>
-                                <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">key</span>
-                            </button>
                             <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportFullBackup()">
                                 <span class="stg-row-title">גיבוי מלא (כל הנתונים והמפתחות)</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">shield_lock</span>
@@ -923,12 +891,12 @@
                                 <span class="stg-row-title">שחזור גיבוי מלא</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">settings_backup_restore</span>
                             </button>
-                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="openUnifiedExportModal()">
-                                <span class="stg-row-title">ייצוא קובץ מאוחד (לקלוד)</span>
-                                <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">database</span>
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="openAdvancedIOSheet()">
+                                <span class="stg-row-title">ייצוא/ייבוא מתקדם</span>
+                                <span class="material-symbols-outlined stg-chevron">chevron_left</span>
                             </button>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">תבנית = תוכניות ותרגילים. חיבורים = Firebase, מפתח Gemini, גשרי MFP/שעון והעדפות. גיבוי מלא = צילום מדויק של כל האפליקציה — שחזורו מחזיר אותה בדיוק למצב של מועד הגיבוי. ⚠️ קובצי החיבורים והגיבוי המלא מכילים מפתחות אישיים — לשמור במקום בטוח.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">גיבוי מלא = צילום מדויק של כל האפליקציה, כולל המפתחות — שחזורו מחזיר אותה בדיוק למצב של מועד הגיבוי. לפני כל שחזור מוחק יורד אוטומטית גיבוי של המצב הנוכחי. ⚠️ הקובץ מכיל מפתחות אישיים — לשמור במקום בטוח.</div>
                         <input type="file" id="import-connections-file" class="d-none" accept=".json,application/json" onchange="processConnectionsImport(this)">
                         <input type="file" id="import-full-backup-file" class="d-none" accept=".json,application/json" onchange="processFullBackupImport(this)">
                     </div>
@@ -955,7 +923,7 @@
                                 <button id="backup-send-btn" class="bridge-btn bridge-btn--go" onclick="sendBackupNow()">שלח גיבוי עכשיו</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">בכל פתיחת אפליקציה נבדק אם עברו 7 ימים מהגיבוי האחרון — ואם כן, קובץ הגיבוי המלא נשלח לאימייל שלך דרך הגשר (docs/backup-bridge.gs, רץ בחשבון ה-Gmail שלך). ⚠️ המייל מכיל את כל המפתחות — הוא נשלח מחשבונך לעצמך בלבד.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">בכל פתיחת אפליקציה נבדק אם עברו 7 ימים מהגיבוי האחרון — ואם כן, קובץ הגיבוי המלא נשלח לאימייל שלך דרך הגשר (docs/backup-bridge.gs, רץ בחשבון ה-Gmail שלך). בנוסף, <b>בכל שינוי של מפתח חיבור נשלח מיד קובץ חיבורים מעודכן</b> — כך שלמפתח חדש אף פעם אין חלון בלי גיבוי. ⚠️ המייל מכיל את כל המפתחות — הוא נשלח מחשבונך לעצמך בלבד.</div>
                     </div>
 
                     <!-- ווידג'ט אייפון (Scriptable) -->
@@ -1035,7 +1003,7 @@
 
                     <!-- גשר Apple Health (Shortcuts) — שינה + תזונה אופציונלית -->
                     <div class="settings-group">
-                        <div class="settings-group-label">גשר Apple Health (שינה)</div>
+                        <div class="settings-group-label">גשר Apple Health (שינה והתאוששות)</div>
                         <div class="stg-bento stg-ai-bento">
                             <div id="health-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
                             <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
@@ -1058,7 +1026,7 @@
                                 <button class="bridge-btn bridge-btn--save" onclick="saveHealthBridgeSettings()">שמור הגדרות</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">קיצור דרך דוחף שינה + התאוששות מ-Apple Health (Ultra 3), והאפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. ה-token נשמר מקומית בלבד. "משוך גם תזונה" כבוי כברירת מחדל — הדלק רק אם חזרת ל-MFP. ראה docs/sleep-shortcut-recipe.md.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">המקור המומלץ הוא <b>Health Auto Export</b> (טוטלים יומיים מעובדים, תואמים לאפליקציית Health), שנדחף לגשר בתזמון דטרמיניסטי דרך קיצורי דרך; האפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. ה-token נשמר מקומית בלבד. "משוך גם תזונה" כבוי כברירת מחדל — הדלק רק אם חזרת ל-MFP. ראה docs/hae-automation-recipe.md.</div>
                     </div>
 
                     <!-- גשר אפל-ווטש (אימון חי) -->
@@ -2542,6 +2510,54 @@
         <button class="btn-text" onclick="closeTargetHistorySheet()">סגור</button>
     </div>
 
+    <!-- ייצוא/ייבוא מתקדם — פעולות כירורגיות שאינן חלק מהגיבוי היומיומי -->
+    <div id="advanced-io-overlay" class="bottom-sheet-overlay" onclick="closeAdvancedIOSheet()"></div>
+    <div id="advanced-io-sheet" class="bottom-sheet" style="max-height:80vh;overflow-y:auto;">
+        <div class="sheet-handle"></div>
+        <h3 style="margin:0 0 4px;">ייצוא/ייבוא מתקדם</h3>
+        <p class="sub-text" style="margin-bottom:16px;">פעולות ממוקדות על מקטע יחיד. לגיבוי ושחזור רגילים השתמש ב"גיבוי מלא".</p>
+
+        <div class="settings-group-label" style="margin-top:4px;">תוכניות ותרגילים (תבנית)</div>
+        <div class="stg-bento">
+            <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportConfiguration()">
+                <span class="stg-row-title">ייצוא תבנית</span>
+                <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">file_upload</span>
+            </button>
+            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="triggerConfigImport()">
+                <span class="stg-row-title">ייבוא תבנית</span>
+                <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">file_download</span>
+            </button>
+        </div>
+        <div class="ai-security-note" style="margin-top:6px;">ייבוא תבנית <b>ממזג</b> תוכניות ותרגילים בלי למחוק נתונים — לכן הוא שימושי לשיתוף תוכנית, לא כגיבוי.</div>
+
+        <div class="settings-group-label" style="margin-top:16px;">חיבורים ומפתחות</div>
+        <div class="stg-bento">
+            <button class="stg-nav-row stg-nav-row--plain" onclick="StorageManager.exportConnections()">
+                <span class="stg-row-title">ייצוא חיבורים (Firebase / API / גשרים)</span>
+                <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">key</span>
+            </button>
+            <button class="stg-nav-row stg-nav-row--plain" onclick="triggerConnectionsImport()">
+                <span class="stg-row-title">ייבוא חיבורים</span>
+                <span class="material-symbols-outlined stg-chevron" style="color:#30D158;">key</span>
+            </button>
+            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="StorageManager.maybeBackupConnections(true)">
+                <span class="stg-row-title">שלח חיבורים לאימייל עכשיו</span>
+                <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">outgoing_mail</span>
+            </button>
+        </div>
+        <div class="ai-security-note" style="margin-top:6px;">משחזר מפתחות <b>בלי לגעת בנתונים</b>. קובץ חיבורים מעודכן נשלח לאימייל אוטומטית בכל שינוי מפתח (דורש שגשר הגיבוי השבועי יהיה דלוק).</div>
+
+        <div class="settings-group-label" style="margin-top:16px;">ניתוח</div>
+        <div class="stg-bento">
+            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="closeAdvancedIOSheet();openUnifiedExportModal()">
+                <span class="stg-row-title">ייצוא קובץ מאוחד (לניתוח)</span>
+                <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">database</span>
+            </button>
+        </div>
+
+        <button class="btn-text" onclick="closeAdvancedIOSheet()" style="margin-top:16px;">סגור</button>
+    </div>
+
     <!-- Thumb Manage Sheet -->
     <div id="thumb-manage-overlay" class="bottom-sheet-overlay" onclick="closeThumbManageSheet()"></div>
     <div id="thumb-manage-sheet" class="bottom-sheet" style="max-height:80vh;">
@@ -2583,7 +2599,7 @@
     <div id="cloud-sync-banner" class="cloud-sync-banner">
         <span class="csb-icon material-symbols-outlined">cloud_off</span>
         <span class="csb-text">הגיבוי האחרון לענן נכשל. הנתונים נשמרו במכשיר אך לא בענן.</span>
-        <button class="csb-action" onclick="manualBackupArchive()">גבה עכשיו</button>
+        <button class="csb-action" onclick="backupAllToCloud()">גבה עכשיו</button>
         <button class="csb-close" onclick="dismissCloudSyncBanner()" aria-label="סגור">&times;</button>
     </div>
 

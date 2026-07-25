@@ -340,6 +340,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => StorageManager.maybeSendWeeklyBackup(false), 4000);
     // ווידג'ט אייפון — דחיפת snapshot שקטה בפתיחה (throttle 10 דק')
     setTimeout(() => StorageManager.maybePushWidgetSnapshot(false), 5000);
+    // רשת ביטחון לגיבוי החיבורים: תופסת שינוי שנעשה בלי לעבור בנקודת שמירה
+    // מוכרת (ייבוא חיבורים, שחזור, מפתח שיתווסף בעתיד) — ושליחה שנכשלה קודם.
+    setTimeout(() => _afterConnectionChange(), 6000);
 });
 
 // חזרה לאפליקציה מהרקע (PWA ב-iOS נשאר בזיכרון) = "כניסה" — משיכת Health שקטה.
@@ -347,7 +350,10 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { syncHealthNutrition(false, true); _refreshSettingsIfOpen(); }
     // ביציאה מהאפליקציה — דחיפת snapshot טרי לווידג'ט (beacon, שורד סגירת דף)
-    if (document.visibilityState === 'hidden') StorageManager.pushWidgetSnapshotBeacon();
+    if (document.visibilityState === 'hidden') {
+        StorageManager.pushWidgetSnapshotBeacon();
+        _afterConnectionChange();   // שינוי חיבורים שנעשה בסשן — לא יוצאים בלי גיבוי
+    }
 });
 // iOS PWA: שחזור מ-bfcache לא תמיד יורה visibilitychange — pageshow מכסה את המקרה
 window.addEventListener('pageshow', (e) => {
@@ -1468,6 +1474,65 @@ function openTargetHistorySheet() {
 function closeTargetHistorySheet() {
     document.getElementById('target-history-overlay').style.display = 'none';
     document.getElementById('target-history-sheet').classList.remove('open');
+}
+
+// ─── ייצוא/ייבוא מתקדם ───────────────────────────────────────────────────────
+function openAdvancedIOSheet() {
+    document.getElementById('advanced-io-overlay').style.display = 'block';
+    document.getElementById('advanced-io-sheet').classList.add('open');
+    haptic('light');
+}
+
+function closeAdvancedIOSheet() {
+    document.getElementById('advanced-io-overlay').style.display = 'none';
+    document.getElementById('advanced-io-sheet').classList.remove('open');
+}
+
+// ─── גיבוי/שחזור ענן מאוחדים ─────────────────────────────────────────────────
+// עד v17.81 היו כאן שלושה כפתורי "גבה" נפרדים (היסטוריה/קונפיג/AI) + "העלה הכל",
+// כשבפועל **כל אחד מהם** כבר גיבה את ארבעת המסמכים — כפילות משאריות גרסאות.
+// ובצד השחזור היה הפוך: שלושה שחזורים חלקיים ואף כפתור אחד ל-restoreAllFromCloud
+// שכבר הייתה כתובה. עכשיו: כפתור אחד לכל כיוון.
+function backupAllToCloud() {
+    if (!FirebaseManager.isConfigured()) { showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.'); return; }
+    // הגנת ענן (הועברה לכאן מ-uploadAllToCloud שהוסרה): לא מעלים ממכשיר ריק —
+    // אחרת התקנה טרייה הייתה דורסת גיבוי ענן קיים. מכשיר עם דאטה = מקור אמת.
+    const hasData = (StorageManager.getArchive().length > 0) || (StorageManager.getBodyLog().length > 0) ||
+                    (StorageManager.getFoodDb().length > 0) || (StorageManager.getNutritionDaily().length > 0);
+    if (!hasData) { showAlert('אין נתונים מקומיים להעלאה — בוטל כדי לא לדרוס את הגיבוי בענן.'); return; }
+    FirebaseManager._armSync();
+    showCloudToast('⏳ מגבה לענן…', true);
+    Promise.all([
+        FirebaseManager.saveArchiveToCloud(),
+        FirebaseManager.saveConfigToCloud(),
+        FirebaseManager.saveNutritionRawToCloud(),
+        FirebaseManager.saveAIHistoryToCloud()
+    ]).then(results => {
+        const ok = results.every(Boolean);
+        if (ok && typeof dismissCloudSyncBanner === 'function') dismissCloudSyncBanner();
+        if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
+        showAlert(ok ? 'כל הנתונים גובו לענן!'
+                     : 'חלק מהנתונים לא גובו. בדוק חיבור רשת ונסה שוב.');
+    });
+}
+
+function restoreAllFromCloud() {
+    if (!FirebaseManager.isConfigured()) { showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.'); return; }
+    showConfirm('לשחזר את כל הנתונים מהענן? הנתונים במכשיר יוחלפו בגרסה שבענן.\n\nגיבוי של המצב הנוכחי יירד אוטומטית לפני כן.', () => {
+        // רשת ביטחון: צילום המצב הנוכחי לקובץ לפני שדורסים אותו
+        try { StorageManager.exportFullBackup(); } catch (e) {}
+        showCloudToast('⏳ מושך מהענן…', true);
+        FirebaseManager.restoreAllFromCloud().then(res => {
+            const parts = [];
+            if (res.archive) parts.push(`${res.archive} אימונים`);
+            if (res.config)  parts.push('תזונה, שינה ושקילה');
+            if (res.ai)      parts.push('שיחות AI');
+            const summary = parts.length ? ' (' + parts.join(', ') + ')' : '';
+            showAlert('הנתונים שוחזרו מהענן' + summary + '!', () => { window.location.reload(); });
+        }).catch(e => {
+            showAlert('השחזור מהענן נכשל: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. הנתונים במכשיר לא השתנו.');
+        });
+    });
 }
 
 function _renderTargetHistoryList() {
@@ -5854,6 +5919,15 @@ function _bridgeToggle(toggleId, save, after) {
     save(on);
     if (typeof after === 'function') after(on);
     if (typeof _syncBridgeCollapse === 'function') _syncBridgeCollapse();
+    _afterConnectionChange();
+}
+
+// _afterConnectionChange — כל שינוי במפתחות החיבור מפעיל גיבוי חיבורים לאימייל.
+// המפתחות אינם בענן, ולכן זה הגיבוי היחיד שנוצר ברגע השינוי (המייל השבועי
+// עלול לאחר בעד 7 ימים). ‏maybeBackupConnections שקטה ואידמפוטנטית —
+// אם שום דבר לא השתנה בפועל, היא לא שולחת.
+function _afterConnectionChange() {
+    try { StorageManager.maybeBackupConnections(); } catch (e) {}
 }
 
 // ─── גשר תזונה MyFitnessPal (Apps Script) ────────────────────────────────────
@@ -5875,6 +5949,7 @@ function saveMfpBridgeSettings() {
         StorageManager.saveMfpBridge(on, url, token);
         updateMfpBridgeStatus();
         showAlert('הגדרות גשר התזונה נשמרו!');
+        _afterConnectionChange();
     }, updateMfpBridgeStatus);
 }
 
@@ -5912,6 +5987,7 @@ function saveBackupBridgeSettings() {
         StorageManager.saveBackupBridge(on, url, token);
         updateBackupBridgeStatus();
         showAlert('הגדרות גשר הגיבוי נשמרו!');
+        _afterConnectionChange();
     }, updateBackupBridgeStatus);
 }
 
@@ -5971,6 +6047,7 @@ function saveWidgetBridgeSettings() {
         StorageManager.saveWidgetBridge(on, url, token);
         updateWidgetBridgeStatus();
         showAlert('הגדרות גשר הווידג\'ט נשמרו!');
+        _afterConnectionChange();
     }, updateWidgetBridgeStatus);
 }
 
@@ -6018,6 +6095,7 @@ function savePhotoBridgeSettings() {
         updatePhotoBridgeStatus();
         if (on && typeof _ppKickUploads === 'function') _ppKickUploads();   // העלאת ממתינות מיד עם ההפעלה
         showAlert('הגדרות גשר התמונות נשמרו!');
+        _afterConnectionChange();
     }, updatePhotoBridgeStatus);
 }
 
@@ -6079,6 +6157,7 @@ function saveHealthBridgeSettings() {
         StorageManager.setHealthPullNutrition(pullNutri);
         updateHealthBridgeStatus();
         showAlert('הגדרות גשר ה-Health נשמרו!');
+        _afterConnectionChange();
         if (on) syncHealthNutrition(true); // משיכה מיידית — פידבק מהיר שהחיבור עובד (רק אם דלוק)
     }, updateHealthBridgeStatus);
 }
@@ -6218,6 +6297,7 @@ function saveWatchBridgeSettings() {
         StorageManager.saveWatchBridge(on, url, token);
         _watchBridgeApply(on);
         showAlert('הגדרות גשר השעון נשמרו!');
+        _afterConnectionChange();
     }, updateWatchBridgeStatus);
 }
 
@@ -6443,6 +6523,7 @@ function saveUsdaKey() {
     const el = document.getElementById('usda-key-input');
     if (!el) return;
     StorageManager.saveUsdaKey(el.value);
+    _afterConnectionChange();
     haptic('light');
     showAlert(el.value.trim() ? 'מפתח USDA נשמר. חיפוש המזון יכלול עכשיו חומרי גלם מ-USDA.' : 'מפתח USDA נמחק.');
 }

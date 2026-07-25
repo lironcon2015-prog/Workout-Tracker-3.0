@@ -6,6 +6,8 @@
 > **המקור המומלץ כיום: Health Auto Export (REST API)** — מייצא טוטלים יומיים **מעובדים**
 > שתואמים לאפליקציית Health לדקה. הגשר (`health-nutrition-bridge.gs`) קולט את פורמט
 > HAE (`{data:{metrics}}`) אוטומטית. השאר את המתכון הזה רק כגיבוי או אם אין לך HAE.
+> **המתכון הפעיל: [`hae-automation-recipe.md`](hae-automation-recipe.md)** — כולל תזמון
+> דטרמיניסטי דרך Shortcuts (המתזמן הפנימי של HAE אינו רץ בזמן).
 
 
 

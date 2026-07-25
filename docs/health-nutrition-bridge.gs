@@ -13,6 +13,7 @@
  *   • Health Auto Export (REST API) — { data:{ metrics:[…] } } (טוטלים יומיים
  *     מעובדים, תואמים לאפליקציית Health). מומלץ — מדויק יותר מדגימות הגלם של הקיצור.
  *     ב-HAE: הפעל Aggregate, שים את ה-token ב-URL (…/exec?token=…), פורמט JSON.
+ *     מתכון מלא (כולל תזמון דטרמיניסטי דרך Shortcuts): docs/hae-automation-recipe.md
  *
  * אין תלות ב-Firestore או ב-Service Account — האחסון הוא PropertiesService
  * של הסקריפט עצמו (רשומות זעירות; נשמרים ~120 ימים אחרונים לכל סוג).
@@ -69,8 +70,21 @@ function doPost(e) {
   var incNutri = Array.isArray(body.days)  ? body.days  : [];
   var incSleep = Array.isArray(body.sleep) ? body.sleep : [];
   // Health Auto Export (REST API): { data:{ metrics:[…] } } — ממזג לפי תאריך.
+  var haeDiag = null;
   if (!incSleep.length && body.data && Array.isArray(body.data.metrics)) {
-    incSleep = _parseHAE(body.data.metrics);
+    haeDiag  = { sleepRows: 0, skipped: 0, unaggregated: false };
+    incSleep = _parseHAE(body.data.metrics, haeDiag);
+    // כשל שקט הוא האויב: אם HAE שלחה מדדים ולא יצא מהם ולו לילה אחד — מחזירים
+    // שגיאה מפורשת עם רמז, במקום NO_DATA גנרי שנראה כמו "אין נתונים".
+    if (!incSleep.length && !incNutri.length) {
+      return _json({ ok: false,
+        error: haeDiag.unaggregated ? 'HAE_NOT_AGGREGATED' : 'HAE_NO_USABLE_ROWS',
+        hint: haeDiag.unaggregated
+          ? 'הפעל Aggregate ("Summarize Data") באוטומציה של Health Auto Export — ' +
+            'הגשר מקבל טוטלים יומיים מעובדים בלבד, לא דגימות גלם.'
+          : 'לא נמצאו שורות עם תאריך תקין. ודא שנבחרו מדדי שינה/דופק באוטומציה.',
+        diag: haeDiag });
+    }
   }
   // תמיכה בפורמט שטוח: לילה בודד ברמת השורש (בלי מערך "sleep") — מקל מאוד על
   // בניית הקיצור ב-iOS (אין צורך במערך/מילון מקוננים, רק שדות פשוטים).
@@ -158,9 +172,18 @@ function doGet(e) {
  * HAE שולח { data:{ metrics:[ {name,units,data:[…]} ] } }. שינה = מדד אחד עם
  * טוטלים יומיים (core/deep/rem/awake/totalSleep/inBed); RHR/HRV/נשימה/טמפ' =
  * מדדי qty נפרדים. ממזגים לפי תאריך. משכי שינה מומרים לדקות לפי היחידה (hr→×60).
- * זיהוי מדד לפי מילות-מפתח בשם — עמיד לשינויי-שמות קלים בין גרסאות HAE. */
-function _parseHAE(metrics) {
+ * זיהוי מדד לפי מילות-מפתח בשם — עמיד לשינויי-שמות קלים בין גרסאות HAE.
+ *
+ * ⚠️ ייחוס תאריך הלילה: האפליקציה מייחסת שינה ל**תאריך הבוקר** (היקיצה). ב-HAE
+ * שדה `date` של שורת שינה הוא היום שבו הלילה **התחיל** — לילה שהתחיל ב-23:30
+ * היה נשמר על אתמול, והמסך היה נראה כאילו "לא התעדכן". לכן לשורות שינה מעדיפים
+ * את התאריך של `sleepEnd` (רגע היקיצה), ורק בהיעדרו נופלים ל-`date`/`endDate`.
+ *
+ * diag (אופציונלי) מתמלא לצורכי אבחון: כמה שורות שינה נקלטו, כמה נזרקו, והאם
+ * המקור נראה לא-מצטבר (בלי Aggregate) — אז חובה להחזיר שגיאה, לא שקט. */
+function _parseHAE(metrics, diag) {
   var byDate = {};
+  var d0 = diag || {};
   function slot(d) { return (byDate[d] || (byDate[d] = {})); }
 
   metrics.forEach(function (m) {
@@ -168,12 +191,27 @@ function _parseHAE(metrics) {
     var units = String((m && m.units) || '').toLowerCase();
     var rows  = (m && Array.isArray(m.data)) ? m.data : [];
     var toMin = /\b(hr|hour|hours)\b/.test(units) ? 60 : 1;   // שעות→דקות; אחרת דקות
+    // 'sleep' לבדו לא מספיק: השם apple_sleeping_wrist_temperature מכיל אותו,
+    // והוא מדד qty רגיל — לא שורת שינה.
+    var isSleep = name.indexOf('sleep') > -1 && name.indexOf('temp') === -1;
 
     rows.forEach(function (r) {
-      var date = _isoDate(r && r.date); if (!date) return;
+      var aggregated = !!(r && (r.core != null || r.deep != null || r.rem != null ||
+                                r.totalSleep != null || r.asleep != null || r.qty != null));
+      // דגימת שינה גולמית (startDate/endDate בלי טוטלים) — Aggregate כבוי ב-HAE.
+      // לא מסכמים אותה בכוונה: סכימת גלם היא בדיוק הבאג שבגללו עברנו ל-HAE
+      // (מקורות כפולים בהיסטוריית הצימודים → דגימות חופפות).
+      if (isSleep && !aggregated && r && (r.startDate || r.endDate)) {
+        d0.unaggregated = true; d0.skipped = (d0.skipped || 0) + 1; return;
+      }
+      // ייחוס לתאריך היקיצה לשורות שינה; שאר המדדים — לפי היום שלהם.
+      var date = (isSleep ? _isoDate(r && r.sleepEnd) : null) ||
+                 _isoDate(r && r.date) || _isoDate(r && r.endDate) || _isoDate(r && r.startDate);
+      if (!date) { d0.skipped = (d0.skipped || 0) + 1; return; }
       var s = slot(date);
-      if (name.indexOf('sleep') > -1 && (r.core != null || r.deep != null ||
+      if (isSleep && (r.core != null || r.deep != null ||
           r.rem != null || r.totalSleep != null || r.asleep != null)) {
+        d0.sleepRows = (d0.sleepRows || 0) + 1;
         if (r.core  != null) s.core  = _n(r.core  * toMin);
         if (r.deep  != null) s.deep  = _n(r.deep  * toMin);
         if (r.rem   != null) s.rem   = _n(r.rem   * toMin);

@@ -29,14 +29,22 @@
 
 | שדה | ערך |
 |------|------|
-| **Name** | `GymPro Sleep` — שם קבוע; הקיצור בוחר אותו לפי שם |
+| **Name** | שם קבוע (למשל `GymPro export`) — הקיצור בוחר אותו לפי שם |
 | **Automation Type** | **REST API** |
 | **URL** | `https://script.google.com/macros/s/…/exec?token=YOUR_SECRET_TOKEN` |
-| **Method** | POST · **Data Format: JSON** |
-| **Aggregate / Summarize Data** | **דלוק — קריטי** (ראה למטה) |
-| **Period / Date Range** | **Today** (או Last 2 Days — מיזוג לפי תאריך, אין נזק) |
-| **Sync Interval** | **Manual / כבוי** — התזמון מגיע מ-Shortcuts |
+| **Data Type** | **Health Metrics** |
+| **Export Format** | **JSON** |
+| **Export Version** | **v2** (נתמך; ראה "סכמת v2" למטה) |
+| **Summarize Data** | **דלוק — קריטי** (ראה למטה) |
+| **Date Range** | **Today** או Last 2 Days. אין נזק בטווח רחב — מיזוג לפי תאריך |
+| **Time Grouping** | **Daily** (לא Hourly — ראה למטה) |
+| **Batch Requests** | כבוי |
+| **Sync Cadence** | אין "כבוי" בגרסאות החדשות — השאר 30 דקות כרשת ביטחון. התזמון האמיתי מגיע מ-Shortcuts |
 | **Health Metrics** | **רק חמישה** (ראה למטה) |
+
+> **Time Grouping:** אם תיבחר Hourly, מדדי ה-qty (RHR/HRV/נשימה) יגיעו כדליים
+> שעתיים — הגשר שומר את האחרון לכל תאריך, כלומר תקבל את השעה האחרונה במקום את
+> הערך היומי. Daily הוא הנכון.
 
 ### המדדים — בדיוק אלה, לא יותר
 
@@ -45,6 +53,20 @@
 
 בחירת "הכל" היא סיבה מתועדת לכישלון — payload גדול נהרג ע"י iOS. אלה חמשת
 המדדים היחידים שהגשר קורא; כל השאר נזרק ממילא.
+
+### סכמת v2 — הבאג ההיסטורי
+
+ב-**Export Version v2** שורת `sleep_analysis` נראית כך:
+
+```
+startDate, endDate, totalSleep, asleep, core, deep, rem,
+sleepStart, sleepEnd, inBed, inBedStart, inBedEnd
+```
+
+**אין בה שדה `date`.** הגשר הישן עשה `_isoDate(r.date)` והחזיר null — ולכן
+**כל שורה נזרקה בשקט**, הייצוא "הצליח" והאפליקציה נשארה ריקה. זה היה הבאג
+האמיתי, לא Summarize. כעת שורות שינה מיוחסות לפי `sleepEnd` (רגע היקיצה), עם
+נפילה ל-`date`/`endDate`/`startDate`.
 
 ### למה Aggregate חייב להיות דלוק
 
@@ -59,8 +81,11 @@
 
 ### בדיקה ידנית לפני שממשיכים
 
-ב-HAE → האוטומציה → **Run / Sync Now**. אחר כך פתח בדפדפן:
-`…/exec?token=YOUR_SECRET_TOKEN` — אמור להופיע `sleep` עם לילה בתאריך של **היום**.
+ב-HAE → האוטומציה → **Manual Export** (בתחתית המסך, "Export Existing Data").
+אחר כך:
+1. **View Activity Logs** באותו מסך — מראה הצלחה/כישלון לכל ריצה, כולל ריצות רקע.
+2. בדפדפן: `…/exec?token=YOUR_SECRET_TOKEN` — אמור להופיע `sleep` עם לילה
+   בתאריך של **היום** (תאריך היקיצה, לא של אתמול).
 
 ---
 
@@ -118,10 +143,15 @@ Apple Watch → Apple Health → HAE (Run Automation) → health-nutrition-bridg
 
 ## ייחוס תאריך הלילה — המלכודת שנפתרה
 
-האפליקציה מייחסת לילה ל**תאריך הבוקר**. שדה ה-`date` של HAE הוא היום שבו הלילה
-**התחיל** — לילה שהתחיל ב-23:30 היה נשמר על **אתמול**, והמסך נראה כאילו "לא
-התעדכן" למרות שהייצוא הצליח. הגשר מייחס כעת שורות שינה לפי **`sleepEnd`** (רגע
-היקיצה), ורק בהיעדרו נופל ל-`date`/`endDate`/`startDate`.
+האפליקציה מייחסת לילה ל**תאריך הבוקר**. שני מצבי כשל, שניהם סגורים:
+
+1. **v2 — אין `date` בכלל** (רק `startDate`/`endDate`). הגשר הישן החזיר null
+   וזרק כל שורה **בשקט**. זה היה הבאג בפועל.
+2. **v1 — `date` קיים אך שגוי לצרכינו**: הוא היום שבו הלילה **התחיל**. לילה
+   שהתחיל ב-23:30 נשמר על **אתמול**.
+
+הגשר מייחס כעת שורות שינה לפי **`sleepEnd`** (רגע היקיצה), ורק בהיעדרו נופל
+ל-`date`/`endDate`/`startDate` — נכון לשתי הגרסאות.
 
 ---
 
@@ -134,6 +164,8 @@ Apple Watch → Apple Health → HAE (Run Automation) → health-nutrition-bridg
 | `BAD_TOKEN` | ה-token ב-URL של HAE ≠ `SECRET_TOKEN` בסקריפט |
 | `NO_DATA` | ה-payload הגיע ריק — בדוק ש-Period מכסה יום עם נתונים |
 | הייצוא רץ אבל האפליקציה לא משתנה | פתח `…/exec?token=…` בדפדפן: אם הלילה שם — הבעיה בצד ה-PWA (ודא שהגשר **דלוק** בהגדרות); אם אינו שם — הבעיה בצד HAE |
+| רוצה לדעת אם ריצת רקע הצליחה | HAE → האוטומציה → **View Activity Logs** — רישום הצלחה/כישלון לכל ריצה |
+| RHR/HRV נראים כמו ערך של שעה בודדת | Time Grouping = Hourly — העבר ל-Daily |
 | הכול נראה תקין אך התיקון בסקריפט לא משפיע | Apps Script: **Deploy → New version**. עריכת הקוד לבדה אינה מעדכנת את הפריסה |
 | רוצה לראות מה HAE שלחה בפועל | בסקריפט: `DEBUG_RAW = true` → פרוס גרסה חדשה → הרץ → `…/exec?token=…&raw=1`. **כבה אחרי הבדיקה** |
 | שינה 0 / שלבים חסרים | השעון לא נענד בלילה, או ש-`sleep_analysis` לא נבחר באוטומציה |

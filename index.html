@@ -1033,6 +1033,7 @@
                     <div class="settings-group">
                         <div class="settings-group-label">גשר אפל-ווטש (אימון חי)</div>
                         <div class="stg-bento stg-ai-bento">
+                            <div id="watch-bridge-status" style="min-height:18px;font-size:0.82em;"></div>
                             <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span>הפעל גשר שעון</span>
                                 <span class="stg-switch"><input type="checkbox" id="watch-bridge-toggle" class="bridge-toggle" onchange="toggleWatchBridge()"><span class="stg-switch-slider"></span></span>
@@ -1053,7 +1054,6 @@
                     </div>
                 </div>
 
-                <input type="file" id="import-config-file" class="d-none" onchange="processConfigImport(this)">
             </div>
 
             <!-- EXERCISE DATABASE -->
@@ -2555,6 +2555,7 @@
             </button>
         </div>
 
+        <input type="file" id="import-config-file" class="d-none" onchange="processConfigImport(this)">
         <button class="btn-text" onclick="closeAdvancedIOSheet()" style="margin-top:16px;">סגור</button>
     </div>
 

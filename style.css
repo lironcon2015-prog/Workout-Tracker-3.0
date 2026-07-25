@@ -3408,8 +3408,6 @@ body::before {
 }
 .stg-firebase-row:active { background: rgba(255,255,255,0.06); }
 
-.stg-cloud-upload { padding: 8px 20px 4px;  }
-
 .stg-cloud-row {
     display: grid; grid-template-columns: 4fr 8fr;
     align-items: center; gap: 12px;

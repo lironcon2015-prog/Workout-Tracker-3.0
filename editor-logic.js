@@ -944,33 +944,6 @@ function selectExerciseFromList(exName) {
 
 // ─── IMPORT / EXPORT ───────────────────────────────────────────────────────
 
-function exportData() {
-    const data = StorageManager.getAllData();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `gympro_backup_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-}
-
-function triggerImport() { document.getElementById('import-file').click(); }
-
-function importData(input) {
-    const file = input.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-        try {
-            const data = JSON.parse(e.target.result);
-            StorageManager.restoreData(data);
-            showAlert("הנתונים יובאו בהצלחה!", () => { window.location.reload(); });
-        } catch (err) {
-            showAlert("שגיאה בקריאת הקובץ");
-        }
-    };
-    reader.readAsText(file);
-    input.value = "";
-}
-
 function triggerConfigImport() { document.getElementById('import-config-file').click(); }
 
 function processConfigImport(input) {
@@ -1166,6 +1139,7 @@ function saveFirebaseConfig() {
     }
 
     FirebaseManager.saveFirebaseConfig(cfg);
+    if (typeof _afterConnectionChange === 'function') _afterConnectionChange();
     FirebaseManager._initialized = false;
     FirebaseManager._db = null;
     closeFirebaseConfigModal();
@@ -1176,6 +1150,7 @@ function saveFirebaseConfig() {
 function confirmClearFirebase() {
     showConfirm('לנתק את Firebase ולמחוק את פרטי החיבור?', () => {
         FirebaseManager.clearFirebaseConfig();
+        if (typeof _afterConnectionChange === 'function') _afterConnectionChange();
         closeFirebaseConfigModal();
         updateFirebaseStatus();
     });
@@ -1213,45 +1188,6 @@ function updateFirebaseStatus() {
 
 // ─── גיבוי ידני (מקומי + ענן) ────────────────────────────────────────────────
 
-function manualBackupArchive() {
-    // גיבוי מקומי
-    const data = StorageManager.getAllData();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `gympro_backup_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    // גיבוי ענן — v17.15: כל ארבעת המסלולים, לא רק הארכיון (הכפתור משמש גם את
-    // באנר "גבה עכשיו" שנדלק על כשל בכל אחד מהם)
-    if (FirebaseManager.isConfigured()) {
-        Promise.all([
-            FirebaseManager.saveArchiveToCloud(),
-            FirebaseManager.saveConfigToCloud(),
-            FirebaseManager.saveNutritionRawToCloud(),
-            FirebaseManager.saveAIHistoryToCloud()
-        ]).then(results => {
-            const ok = results.every(Boolean);
-            if (ok && typeof dismissCloudSyncBanner === 'function') dismissCloudSyncBanner();
-            if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
-            showAlert(ok ? 'גיבוי הורד + הכל הועלה לענן!' : 'גיבוי הורד. חלק מהשמירה לענן נכשל — בדוק סטטוס בהגדרות.');
-        });
-    } else {
-        showAlert('גיבוי הורד מקומית! (Firebase לא מוגדר)');
-    }
-}
-
-function manualBackupConfig() {
-    // גיבוי מקומי (קונפיג)
-    StorageManager.exportConfiguration();
-    // גיבוי ענן
-    if (FirebaseManager.isConfigured()) {
-        FirebaseManager.saveConfigToCloud().then(ok => {
-            showAlert(ok ? 'קונפיג הורד + הועלה לענן!' : 'קונפיג הורד. שגיאה בשמירה לענן — ' + FirebaseManager.describeSyncFailure('config') + '.');
-        });
-    } else {
-        showAlert('קונפיג הורד מקומית! (Firebase לא מוגדר)');
-    }
-}
 
 function saveWorkoutManagerToCloud() {
     if (!FirebaseManager.isConfigured()) {

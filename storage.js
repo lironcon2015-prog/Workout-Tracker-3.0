@@ -52,6 +52,8 @@ const StorageManager = {
     KEY_BACKUP_BRIDGE_TOKEN: 'gympro_backup_bridge_token',  // token סודי לגשר הגיבוי
     KEY_BACKUP_BRIDGE_ON:    'gympro_backup_bridge_on',     // האם גיבוי שבועי פעיל (ברירת מחדל: כבוי — דורש הקמת גשר)
     KEY_BACKUP_LAST:         'gympro_backup_last',          // timestamp שליחת גיבוי מוצלחת אחרונה
+    KEY_CONN_FP:             'gympro_conn_fp',              // טביעת אצבע של מפתחות החיבור — לזיהוי שינוי
+    KEY_CONN_FP_AT:          'gympro_conn_fp_at',           // timestamp גיבוי חיבורים אוטומטי אחרון
     KEY_WIDGET_BRIDGE_URL:   'gympro_widget_bridge_url',    // גשר ווידג'ט אייפון (Apps Script + Scriptable)
     KEY_WIDGET_BRIDGE_TOKEN: 'gympro_widget_bridge_token',  // token סודי לגשר הווידג'ט
     KEY_WIDGET_BRIDGE_ON:    'gympro_widget_bridge_on',     // האם דחיפת snapshot לווידג'ט פעילה (ברירת מחדל: כבוי)
@@ -396,21 +398,7 @@ const StorageManager = {
 
     // ── Backup / Restore ────────────────────────────────────────────────
 
-    getAllData() {
-        return {
-            weights: this.getData(this.KEY_WEIGHTS),
-            rms: this.getData(this.KEY_RM),
-            exerciseTMs: this.getData(this.KEY_EXERCISE_TM),
-            archive: this.getArchive()
-        };
-    },
 
-    restoreData(dataObj) {
-        if (dataObj.weights) this.saveData(this.KEY_WEIGHTS, dataObj.weights);
-        if (dataObj.rms) this.saveData(this.KEY_RM, dataObj.rms);
-        if (dataObj.exerciseTMs) this.saveData(this.KEY_EXERCISE_TM, dataObj.exerciseTMs);
-        if (dataObj.archive) this.saveData(this.KEY_ARCHIVE, dataObj.archive);
-    },
 
     // ── Connections Export / Import (v15.97.2) ──────────────────────────
     // קובץ חיבורים: Firebase, Gemini, גשרי MFP/שעון והעדפות — לשחזור מערכת
@@ -450,22 +438,24 @@ const StorageManager = {
         ];
     },
 
-    exportConnections() {
+    // _connectionsPayload — גוף קובץ החיבורים. משותף לייצוא הידני ולגיבוי
+    // האוטומטי לאימייל, כדי ששניהם יהיו זהים לבית האחרון.
+    _connectionsPayload() {
         const data = {};
         this._connectionKeys().forEach(k => {
             // העתקה גולמית של הערך — בלי parse, עמיד לכל פורמט אחסון
             const raw = localStorage.getItem(k);
             if (raw !== null) data[k] = raw;
         });
-        if (!Object.keys(data).length) {
+        return { type: 'gympro_connections', date: new Date().toISOString(), data };
+    },
+
+    exportConnections() {
+        const payload = this._connectionsPayload();
+        if (!Object.keys(payload.data).length) {
             showAlert('אין עדיין חיבורים שמורים לייצוא.');
             return;
         }
-        const payload = {
-            type: 'gympro_connections',
-            date: new Date().toISOString(),
-            data
-        };
         const json = JSON.stringify(payload, null, 2);
         const fileName = `gympro_connections_${new Date().toISOString().slice(0, 10)}.json`;
 
@@ -598,7 +588,18 @@ const StorageManager = {
         const count = Object.keys(payload.keys).length;
         if (!count) { showAlert('קובץ הגיבוי ריק.'); return; }
         const when = payload.date ? payload.date.slice(0, 10) : 'לא ידוע';
-        showConfirm(`שחזור גיבוי מלא מ-${when} (${count} מפתחות). כל הנתונים וההגדרות הנוכחיים יידרסו והאפליקציה תחזור בדיוק למצב של מועד הגיבוי. להמשיך?`, () => {
+
+        // בדיקת שפיות: קובץ עם הרבה פחות מפתחות מהקיים במכשיר = חלקי/פגום.
+        // בלי האזהרה הזו שחזור כזה מוחק הכל ומחזיר רק חלק — בשקט.
+        let curCount = 0;
+        for (let i = 0; i < localStorage.length; i++) if (this._isAppKey(localStorage.key(i))) curCount++;
+        const warn = (curCount > 10 && count < curCount * 0.7)
+            ? `\n\n⚠️ הקובץ מכיל ${count} מפתחות בלבד, ובמכשיר יש ${curCount}. ייתכן שהוא חלקי או פגום.`
+            : '';
+
+        showConfirm(`שחזור גיבוי מלא מ-${when} (${count} מפתחות). כל הנתונים וההגדרות הנוכחיים יידרסו והאפליקציה תחזור בדיוק למצב של מועד הגיבוי.${warn}\n\nגיבוי של המצב הנוכחי יירד אוטומטית לפני כן. להמשיך?`, () => {
+            // רשת ביטחון אוטומטית — צילום המצב הנוכחי לפני שדורסים אותו
+            try { this.exportFullBackup(); } catch (e) { console.warn('GymPro: pre-restore backup failed', e); }
             // מחיקת כל מפתחות האפליקציה הקיימים — שחזור מדויק, בלי שאריות
             const toRemove = [];
             for (let i = 0; i < localStorage.length; i++) {
@@ -685,6 +686,64 @@ const StorageManager = {
     },
     getBackupLast() {
         return parseInt(localStorage.getItem(this.KEY_BACKUP_LAST), 10) || 0;
+    },
+
+    // ── גיבוי חיבורים אוטומטי לאימייל (v17.81) ──────────────────────────
+    // המפתחות הסודיים אינם בענן **במכוון** (אין להעלות טוקנים ל-Firestore), ולכן
+    // בין שינוי מפתח לבין המייל השבועי הבא נפתח חלון שבו אין לו שום גיבוי.
+    // הפתרון: טביעת אצבע על ערכי `_connectionKeys()`. כשהיא משתנה — נשלח קובץ
+    // חיבורים לאימייל דרך גשר הגיבוי הקיים.
+    //
+    // למה טביעת אצבע ולא hook בכל נקודת שמירה: נקודות השמירה מתרבות (כל גשר חדש
+    // מוסיף עוד אחת), ו-hook שנשכח = מפתח בלי גיבוי. בדיקה מרכזית תופסת **כל**
+    // שינוי, כולל של מפתחות שיתווספו בעתיד.
+    //
+    // ה-hash אינו מכיל את הסודות עצמם — רק ערך נגזר ואורך.
+    _connectionsFingerprint() {
+        const s = this._connectionKeys()
+            .map(k => k + '=' + (localStorage.getItem(k) || ''))
+            .join('|');
+        let h = 5381;
+        for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+        return (h >>> 0) + '.' + s.length;
+    },
+
+    // maybeBackupConnections — שולח קובץ חיבורים אם טביעת האצבע השתנתה.
+    // שקט לחלוטין: כשל אינו מעדכן את טביעת האצבע, ולכן ינוסה שוב בטריגר הבא
+    // (פתיחת אפליקציה / יציאה ממנה) — אין מצב של שינוי שנשאר בלי גיבוי.
+    maybeBackupConnections(force) {
+        const { on, url, token } = this.getBackupBridge();
+        if (!on || !url) return Promise.resolve(false);   // גשר כבוי — אין לאן לשלוח
+        const fp = this._connectionsFingerprint();
+        if (!force && localStorage.getItem(this.KEY_CONN_FP) === fp) return Promise.resolve(false);
+        // דיבאונס: שמירות רצופות (שינוי URL ואז token) לא יציפו את התיבה.
+        // דילוג אינו אובדן — טביעת האצבע לא מתעדכנת, והשליחה תקרה בטריגר הבא.
+        const lastAt = Number(localStorage.getItem(this.KEY_CONN_FP_AT) || 0);
+        if (!force && Date.now() - lastAt < 120000) return Promise.resolve(false);
+
+        const payload = this._connectionsPayload();
+        if (!Object.keys(payload.data).length) return Promise.resolve(false);
+        const body = {
+            token,
+            filename: `gympro_connections_${new Date().toISOString().slice(0, 10)}.json`,
+            backup: payload
+        };
+        return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+            .then(r => r.json())
+            .then(res => {
+                if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
+                localStorage.setItem(this.KEY_CONN_FP, fp);
+                localStorage.setItem(this.KEY_CONN_FP_AT, String(Date.now()));
+                if (typeof showCloudToast === 'function') showCloudToast('🔑 גיבוי חיבורים נשלח לאימייל', true);
+                return true;
+            })
+            .catch(e => {
+                console.warn('GymPro: connections backup failed', e);
+                if (force && typeof showAlert === 'function') {
+                    showAlert('שליחת גיבוי החיבורים נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת'));
+                }
+                return false;
+            });
     },
 
     // maybeSendWeeklyBackup — נקרא בפתיחת האפליקציה (וידנית עם force).
@@ -976,6 +1035,7 @@ const StorageManager = {
         localStorage.setItem(this.KEY_GEMINI_KEY, apiKey.trim());
         const models = modelsString.split(',').map(s => s.trim()).filter(Boolean);
         localStorage.setItem(this.KEY_AI_MODELS, models.join(','));
+        if (typeof _afterConnectionChange === 'function') _afterConnectionChange();
     },
 
     // ── MyFitnessPal Nutrition (ייבוא מ-Gmail דרך Apps Script) ───────────
@@ -2313,32 +2373,6 @@ const FirebaseManager = {
         if (data.photoTrend && Object.keys(data.photoTrend).length) StorageManager.savePhotoTrend(data.photoTrend);
     },
 
-    // ── Upload All (העלאה ראשונית) ────────────────────────────────────────────
-
-    async uploadAllToCloud() {
-        if (!await this._ensureReady()) {
-            showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.');
-            return;
-        }
-        // הגנה: אל תעלה (תדרוס את הענן) ממכשיר ריק. רק אם יש דאטה מקומית.
-        const has = (StorageManager.getArchive().length > 0) || (StorageManager.getBodyLog().length > 0) ||
-                    (StorageManager.getFoodDb().length > 0) || (StorageManager.getNutritionDaily().length > 0);
-        if (!has) { showAlert('אין נתונים מקומיים להעלאה — בוטל כדי לא לדרוס את הגיבוי בענן.'); return; }
-        this._armSync();   // העלאה מפורשת ממכשיר עם דאטה — מזיינים סנכרון
-        try {
-            const archiveOk = await this.saveArchiveToCloud();
-            const configOk  = await this.saveConfigToCloud();
-            const rawOk     = await this.saveNutritionRawToCloud();
-            const aiOk      = await this.saveAIHistoryToCloud();   // v17.15: גיבוי מלא כולל שיחות AI
-            if (archiveOk && configOk && rawOk && aiOk) {
-                showAlert('כל הנתונים הועלו לענן בהצלחה!');
-            } else {
-                showAlert('חלק מהנתונים לא הועלו. בדוק חיבור ונסה שוב.');
-            }
-        } catch(e) {
-            showAlert('שגיאה בהעלאה: ' + e.message);
-        }
-    },
 
     // ── AI History ───────────────────────────────────────────────────────────
 

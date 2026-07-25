@@ -41,24 +41,45 @@ function doPost(e) {
   var tok = (body && body.token) || (e && e.parameter && e.parameter.token) || '';
   if (tok !== SECRET_TOKEN) return _json({ ok: false, error: 'BAD_TOKEN' });
 
+  // שני סוגי מטען, אותו גשר:
+  //   gympro_full_backup  — הגיבוי השבועי המלא (keys של כל האפליקציה)
+  //   gympro_connections  — קובץ חיבורים בלבד, נשלח **בכל שינוי מפתח**. המפתחות
+  //     אינם בענן במכוון, ובלי זה נפתח חלון של עד שבוע שבו למפתח חדש אין גיבוי.
   var backup = body && body.backup;
-  if (!backup || backup.type !== 'gympro_full_backup' || !backup.keys) {
+  var isConn = backup && backup.type === 'gympro_connections' && backup.data;
+  var isFull = backup && backup.type === 'gympro_full_backup'  && backup.keys;
+  if (!isConn && !isFull) {
     return _json({ ok: false, error: 'BAD_BACKUP' });
   }
 
-  var filename = String(body.filename || 'gympro_full_backup.json').replace(/[^\w.\-]/g, '_');
+  var defName = isConn ? 'gympro_connections.json' : 'gympro_full_backup.json';
+  var filename = String(body.filename || defName).replace(/[^\w.\-]/g, '_');
   var json = JSON.stringify(backup, null, 2);
-  var keyCount = backup.keyCount || Object.keys(backup.keys).length;
+  var keyCount = isConn ? Object.keys(backup.data).length
+                        : (backup.keyCount || Object.keys(backup.keys).length);
   var sizeKb = Math.round(json.length / 1024);
   var to = Session.getEffectiveUser().getEmail();   // בעל הסקריפט — אתה
 
+  var subject = isConn
+    ? 'GYMPRO ELITE — עדכון חיבורים (' + new Date().toLocaleDateString('he-IL') + ')'
+    : 'GYMPRO ELITE — גיבוי שבועי (' + new Date().toLocaleDateString('he-IL') + ')';
+
+  var intro = isConn
+    ? 'מפתח חיבור השתנה באפליקציה — מצורף קובץ החיבורים המעודכן.\n' +
+      'שמור את המייל האחרון מסוג זה; הוא מחזיר את כל החיבורים בלי לגעת בנתונים.\n\n'
+    : 'מצורף קובץ הגיבוי המלא של GYMPRO ELITE.\n\n';
+
+  var howTo = isConn
+    ? 'שחזור: הגדרות ← ייצוא/ייבוא מתקדם ← "ייבוא חיבורים" ← בחר את הקובץ המצורף.\n'
+    : 'שחזור: הגדרות ← גיבוי לקובץ ← "שחזור גיבוי מלא" ← בחר את הקובץ המצורף.\n';
+
   try {
-    MailApp.sendEmail(to, 'GYMPRO ELITE — גיבוי שבועי (' + new Date().toLocaleDateString('he-IL') + ')',
-      'מצורף קובץ הגיבוי המלא של GYMPRO ELITE.\n\n' +
+    MailApp.sendEmail(to, subject,
+      intro +
       'גרסת אפליקציה: ' + (backup.version || '?') + '\n' +
       'מועד הגיבוי: ' + (backup.date || '?') + '\n' +
       'מפתחות: ' + keyCount + ' · גודל: ~' + sizeKb + 'KB\n\n' +
-      'שחזור: הגדרות ← גיבוי מקומי (קובץ) ← "שחזור גיבוי מלא" ← בחר את הקובץ המצורף.\n' +
+      howTo +
       '⚠️ הקובץ מכיל את כל המפתחות והטוקנים — אל תעביר אותו הלאה.',
       { attachments: [Utilities.newBlob(json, 'application/json', filename)], name: 'GYMPRO ELITE' });
   } catch (err) {

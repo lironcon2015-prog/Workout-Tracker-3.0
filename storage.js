@@ -605,8 +605,49 @@ const StorageManager = {
                 showAlert('שגיאה בכתיבת הגיבוי (ייתכן שהאחסון מלא). המצב עשוי להיות חלקי — טען את הקובץ שוב.');
                 return;
             }
-            showAlert('הגיבוי שוחזר בהצלחה!', () => { window.location.reload(); });
+            this._afterFullRestore(payload);
         });
+    },
+
+    _fmtWhen(ts) {
+        if (!ts) return 'תאריך לא ידוע';
+        const d = new Date(ts);
+        return d.toLocaleDateString('he-IL') + ' ' +
+               d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    // _afterFullRestore — קובץ הגיבוי המלא נושא **גם מפתחות וגם דאטה**. ברגע
+    // שהמפתחות שוחזרו ייתכן שהחיבור לענן חי, ושהענן מעודכן יותר מהקובץ (למשל
+    // גיבוי שבועי בן ימים). לכן שואלים מה למשוך, ומציגים את שני התאריכים כדי
+    // שההחלטה תהיה מושכלת. בחירה ב"קובץ" משאירה את המכשיר עם נתוני הקובץ —
+    // והשמירה הבאה לענן תדרוס אותו, וזו בדיוק משמעות הבחירה.
+    _afterFullRestore(payload) {
+        const done = (msg) => showAlert(msg, () => { window.location.reload(); });
+        if (typeof FirebaseManager === 'undefined') { done('הגיבוי שוחזר בהצלחה!'); return; }
+        // מפתח הקונפיג הוחלף זה עתה — איפוס מצב המנהל, אחרת נעבוד מול חיבור ישן
+        FirebaseManager._initialized = false;
+        FirebaseManager._db = null;
+        FirebaseManager._authReady = null;
+        if (!FirebaseManager.isConfigured()) { done('הגיבוי שוחזר בהצלחה!'); return; }
+
+        const fileWhen = this._fmtWhen(payload.date ? new Date(payload.date).getTime() : 0);
+        FirebaseManager.cloudConfigUpdatedAt().then(cloudTs => {
+            if (!cloudTs) { done('הגיבוי שוחזר מהקובץ בהצלחה!'); return; }
+            showConfirm(
+                `הגיבוי שוחזר מהקובץ (${fileWhen}).\nבענן יש נתונים מ-${this._fmtWhen(cloudTs)}.\n\n` +
+                'למשוך את הנתונים העדכניים מהענן? ביטול = להישאר עם נתוני הקובץ.',
+                () => {
+                    FirebaseManager.restoreAllFromCloud().then(res => {
+                        const parts = [];
+                        if (res.archive) parts.push(`${res.archive} אימונים`);
+                        if (res.config)  parts.push('תזונה, שינה ושקילה');
+                        if (res.ai)      parts.push('שיחות AI');
+                        done('הנתונים עודכנו מהענן' + (parts.length ? ' (' + parts.join(', ') + ')' : '') + '!');
+                    }).catch(() => done('המשיכה מהענן נכשלה — נשארת עם נתוני הקובץ. אפשר לנסות שוב מההגדרות.'));
+                },
+                () => done('הגיבוי שוחזר מהקובץ בהצלחה!')
+            );
+        }).catch(() => done('הגיבוי שוחזר מהקובץ בהצלחה!'));
     },
 
     // ── גשר גיבוי שבועי לאימייל (Apps Script) — כבוי כברירת מחדל ──────────
@@ -2340,6 +2381,17 @@ const FirebaseManager = {
     // ── Restore All (משיכה אוטומטית אחרי ייבוא קובץ חיבורים) ───────────────────
     // משיכה מלאה שקטה: ארכיון + קונפיג (תזונה/שקילה/יומן מזון/העדפות) + היסטוריית AI.
     // ללא pop-ups ביניים; מחזיר סיכום { archive, config, ai }. זורק אם Firebase לא מוכן.
+    // חותמת העדכון של מסמך הקונפיג בענן — להשוואה מול תאריך קובץ גיבוי מלא.
+    // מחזיר null בכל תקלה (אין חיבור/אין מסמך), והקורא נופל לנתוני הקובץ.
+    async cloudConfigUpdatedAt() {
+        try {
+            if (!await this._ensureReady()) return null;
+            const doc = await this._db.collection('gympro_data').doc('config').get();
+            const d = (doc && doc.exists) ? doc.data() : null;
+            return (d && d.updatedAt) || null;
+        } catch (e) { return null; }
+    },
+
     async restoreAllFromCloud() {
         if (!await this._ensureReady()) throw new Error('FIREBASE_NOT_READY');
         const result = { archive: 0, config: false, ai: false };

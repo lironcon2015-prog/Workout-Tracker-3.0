@@ -1713,24 +1713,28 @@ function exportUnifiedData(range) {
             return c;
         });
 
-    if (!weights.length && !nutritionDaily.length && !nutritionDetailed.length && !workouts.length && !sleepRecovery.length) {
+    // תיבת זיכרון וניסיון — כללים קבועים שאין להם תאריך, מיוצאים תמיד במלואם
+    const memoryBox = StorageManager.getMemoryBox();
+
+    if (!weights.length && !nutritionDaily.length && !nutritionDetailed.length && !workouts.length && !sleepRecovery.length && !memoryBox.length) {
         showAlert('אין נתונים לייצוא בטווח שנבחר.'); return;
     }
 
     const payload = {
         app: 'GYMPRO ELITE', type: 'unified_export',
         readme: _NUTRI_EXPORT_README.concat(
-            'הקובץ מכיל 5 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימונים), sleep_recovery (שינה + התאוששות).'
+            'הקובץ מכיל 6 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימונים), sleep_recovery (שינה + התאוששות), memory_box (כללים מאושרים לתיבת זיכרון המאמן — אין להם תאריך, נכללים במלואם בכל טווח).'
         ),
         generated: new Date().toISOString(),
         range: { label: r.label, from: r.from, to: r.to },
         counts: {
             weights: weights.length, nutrition_daily: nutritionDaily.length,
             nutrition_detailed_days: nutritionDetailed.length, workouts: workouts.length,
-            sleep_recovery: sleepRecovery.length
+            sleep_recovery: sleepRecovery.length,
+            memory_box: memoryBox.length
         },
         weights, nutrition_daily: nutritionDaily, nutrition_detailed: nutritionDetailed, workouts,
-        sleep_recovery: sleepRecovery
+        sleep_recovery: sleepRecovery, memory_box: memoryBox
     };
     const slug = range === 'custom' ? 'custom' : (range === 'all' ? 'all' : range + 'd');
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });

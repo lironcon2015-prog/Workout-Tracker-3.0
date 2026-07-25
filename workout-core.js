@@ -5922,6 +5922,23 @@ function _bridgeToggle(toggleId, save, after) {
     _afterConnectionChange();
 }
 
+// שליחה ידנית של קובץ החיבורים — אותה בעיה שתוקנה ב-sendBackupNow: בניית
+// המטען + fetch לוקחות שנייה ויותר, ובלי פידבק מיידי זה נראה כמו no-op.
+let _connSending = false;
+function sendConnectionsNow() {
+    if (_connSending) return;
+    const btn = document.getElementById('conn-send-btn');
+    _connSending = true;
+    if (btn) { btn.disabled = true; btn.querySelector('.stg-row-title').textContent = 'שולח…'; }
+    if (typeof showCloudToast === 'function') showCloudToast('⏳ שולח חיבורים לאימייל…', true);
+    StorageManager.maybeBackupConnections(true)
+        .catch(() => {})
+        .then(() => {
+            _connSending = false;
+            if (btn) { btn.disabled = false; btn.querySelector('.stg-row-title').textContent = 'שלח חיבורים לאימייל עכשיו'; }
+        });
+}
+
 // _afterConnectionChange — כל שינוי במפתחות החיבור מפעיל גיבוי חיבורים לאימייל.
 // המפתחות אינם בענן, ולכן זה הגיבוי היחיד שנוצר ברגע השינוי (המייל השבועי
 // עלול לאחר בעד 7 ימים). ‏maybeBackupConnections שקטה ואידמפוטנטית —

@@ -19,6 +19,7 @@ const StorageManager = {
     KEY_AI_PERSONA:   'gympro_ai_persona',
     KEY_AI_HISTORY:   'gympro_ai_history',
     KEY_COACH_MEMORY: 'gympro_coach_memory',
+    KEY_MEMORY_BOX:   'gympro_memory_box',            // תיבת זיכרון וניסיון — כללים מאושרים שהמאמן מבקש והמשתמש מאשר
     KEY_AI_DISPLAY_CUTOFF: 'gympro_ai_display_cutoff',
     KEY_NUTRITION:    'gympro_nutrition',
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
@@ -1784,6 +1785,68 @@ const StorageManager = {
         catch(e) { console.error('GymPro: coach memory write error', e); }
     },
 
+    // ── תיבת זיכרון וניסיון (v17.86) ─────────────────────────────────────
+    // כללים קבועים שהוסכמו: המאמן מציע דרך <propose-memory>, המשתמש מאשר,
+    // הכלל מוזרק ל-system prompt של כל קריאה עתידית. שורד מחיקת היסטוריה.
+    // תקרות כדי לא לנפח את הפרומפט: 30 רשומות או 3,000 תווים סה"כ.
+    MEMORY_BOX_MAX_ENTRIES: 30,
+    MEMORY_BOX_MAX_CHARS:   3000,
+    MEMORY_BOX_CATEGORIES:  ['biomechanics', 'nutrition', 'preference', 'protocol', 'other'],
+
+    getMemoryBox() {
+        const arr = this.getData(this.KEY_MEMORY_BOX);
+        return Array.isArray(arr) ? arr : [];
+    },
+
+    saveMemoryBox(arr) {
+        this.saveData(this.KEY_MEMORY_BOX, Array.isArray(arr) ? arr : []);
+    },
+
+    // addMemoryBoxEntry — מחזיר { ok, reason?, entry? }. reason: 'full' אם מעל תקרה.
+    addMemoryBoxEntry(text, category, source) {
+        const t = String(text || '').trim();
+        if (!t) return { ok: false, reason: 'empty' };
+        const cat = this.MEMORY_BOX_CATEGORIES.includes(category) ? category : 'other';
+        const src = (source === 'ai_proposed' || source === 'user_added') ? source : 'user_added';
+        const box = this.getMemoryBox();
+        const totalChars = box.reduce((s, e) => s + (e.text ? e.text.length : 0), 0);
+        if (box.length >= this.MEMORY_BOX_MAX_ENTRIES || totalChars + t.length > this.MEMORY_BOX_MAX_CHARS) {
+            return { ok: false, reason: 'full' };
+        }
+        const entry = {
+            id: 'mb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            timestamp: Date.now(),
+            category: cat,
+            text: t,
+            source: src
+        };
+        box.push(entry);
+        this.saveMemoryBox(box);
+        return { ok: true, entry };
+    },
+
+    updateMemoryBoxEntry(id, patch) {
+        const box = this.getMemoryBox();
+        const i = box.findIndex(e => e && e.id === id);
+        if (i < 0) return false;
+        if (patch.text != null)     box[i].text = String(patch.text).trim();
+        if (patch.category != null && this.MEMORY_BOX_CATEGORIES.includes(patch.category)) {
+            box[i].category = patch.category;
+        }
+        box[i].updatedAt = Date.now();
+        this.saveMemoryBox(box);
+        return true;
+    },
+
+    removeMemoryBoxEntry(id) {
+        const box = this.getMemoryBox().filter(e => e && e.id !== id);
+        this.saveMemoryBox(box);
+    },
+
+    resetMemoryBox() {
+        localStorage.removeItem(this.KEY_MEMORY_BOX);
+    },
+
     // נקודת חיתוך לתצוגת AI Coach — הודעות עם timestamp לפני הערך הזה לא יוצגו
     getAIDisplayCutoff() {
         const v = localStorage.getItem(this.KEY_AI_DISPLAY_CUTOFF);
@@ -2238,6 +2301,7 @@ const FirebaseManager = {
                 bodyProfile:    StorageManager.getBodyProfile(),
                 bodylog:        StorageManager.getBodyLog(),
                 coachPrompts:   StorageManager.getData(StorageManager.KEY_COACH_PROMPTS) || {},
+                memoryBox:      StorageManager.getMemoryBox(),
                 // v17.12: TM/משקלים אחרונים/היסטוריית 1RM/תמונות מוסתרות — בלעדיהם שחזור
                 // מכשיר מהענן איבד בשקט את ה-TM, ה-prefill והעדפות בוחר התמונות
                 exerciseTM:     StorageManager.getData(StorageManager.KEY_EXERCISE_TM) || {},
@@ -2383,6 +2447,7 @@ const FirebaseManager = {
         if (data.bodyProfile)    StorageManager.saveData(StorageManager.KEY_BODY_PROFILE, data.bodyProfile);
         if (data.bodylog)        StorageManager.saveData(StorageManager.KEY_BODYLOG, data.bodylog);
         if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
+        if (Array.isArray(data.memoryBox)) StorageManager.saveMemoryBox(data.memoryBox);
         if (data.exerciseTM)     StorageManager.saveData(StorageManager.KEY_EXERCISE_TM, data.exerciseTM);
         if (data.lastWeights)    StorageManager.saveData(StorageManager.KEY_WEIGHTS, data.lastWeights);
         if (data.rmHistory)      StorageManager.saveData(StorageManager.KEY_RM, data.rmHistory);

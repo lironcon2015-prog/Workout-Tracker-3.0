@@ -5551,6 +5551,24 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     display: inline-block; margin: 1px;
 }
 
+/* תיבת זיכרון וניסיון (v17.86) */
+.mb-entry-card, .mb-proposal-card {
+    background: var(--surface-3); border-radius: var(--r-md);
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+}
+.mb-entry-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.mb-entry-src {
+    font-size: var(--fs-sm); color: var(--text-dim);
+    background: var(--surface-4); border-radius: 9999px; padding: 2px 10px;
+}
+.mb-entry-cat, .mb-cat-select { max-width: 160px; }
+.mb-entry-text, .mb-text-input { min-height: 60px; font-size: var(--fs-md); line-height: 1.5; }
+.mb-entry-actions, .mb-proposal-actions {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start;
+}
+
 /* ════════════════════════════════════════════
    BODY LOG — מסך שקילות (משקל + אחוז שומן)
    ════════════════════════════════════════════ */

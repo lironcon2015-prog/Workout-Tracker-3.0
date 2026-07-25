@@ -388,7 +388,7 @@
     <div id="unified-export-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>ייצוא קובץ מאוחד (לניתוח)</h3>
-            <p class="sub-text" style="margin-bottom:16px;">קובץ JSON אחד: שקילות, תזונה (יומית + מפורטת), היסטוריית אימונים ושינה+התאוששות. בחר טווח.</p>
+            <p class="sub-text" style="margin-bottom:16px;">קובץ JSON אחד: שקילות, תזונה (יומית + מפורטת), היסטוריית אימונים, שינה+התאוששות ותיבת זיכרון המאמן. בחר טווח.</p>
             <div class="vertical-stack">
                 <button class="btn-main primary-gradient" onclick="exportUnifiedData('all')">הכל</button>
                 <button class="btn-text" onclick="exportUnifiedData(7)">7 ימים אחרונים</button>
@@ -795,6 +795,7 @@
                             <div class="bridge-btn-row">
                                 <button class="bridge-btn bridge-btn--save" onclick="saveAISettings()">שמור הגדרות</button>
                                 <button class="bridge-btn bridge-btn--dim" onclick="openCoachPromptsSheet()">ערוך פרומפטים</button>
+                                <button class="bridge-btn bridge-btn--dim" onclick="openMemoryBoxSheet()">תיבת זיכרון</button>
                                 <button class="bridge-btn bridge-btn--danger" onclick="clearAIHistory()">מחק היסטוריה</button>
                             </div>
                         </div>
@@ -2487,6 +2488,41 @@
         <button class="btn-main primary-gradient" onclick="saveCoachPrompts()">שמור פרומפטים</button>
         <button class="btn-text" onclick="resetCoachPrompts()">שחזר ברירת מחדל</button>
         <button class="btn-text" onclick="closeCoachPromptsSheet()">ביטול</button>
+    </div>
+
+    <!-- Memory Box Sheet — תיבת זיכרון וניסיון (v17.86) -->
+    <div id="memory-box-overlay" class="bottom-sheet-overlay" onclick="closeMemoryBoxSheet()"></div>
+    <div id="memory-box-sheet" class="bottom-sheet" style="max-height:88vh;overflow-y:auto;">
+        <div class="sheet-handle"></div>
+        <h3>תיבת זיכרון וניסיון</h3>
+        <p class="sub-text">כללים קבועים שהמאמן יקרא בכל שיחה עתידית. המאמן מציע — אתה מאשר. אפשר גם להוסיף כלל ידני. <span id="mb-meter" style="color:var(--text-dim);"></span></p>
+        <div id="mb-list" style="display:flex;flex-direction:column;gap:10px;margin:8px 0 16px;"></div>
+        <div class="glass-card compact" style="text-align:right;margin-top:8px;">
+            <label class="coach-prompt-label">הוספת כלל ידני</label>
+            <select id="mb-add-cat" class="minimal-input" style="margin-bottom:6px;">
+                <option value="biomechanics">ביומכניקה</option>
+                <option value="nutrition">תזונה</option>
+                <option value="preference">העדפה</option>
+                <option value="protocol">פרוטוקול</option>
+                <option value="other">אחר</option>
+            </select>
+            <textarea id="mb-add-text" class="ai-persona-textarea" rows="2" placeholder="למשל: Belt Squat ו-Leg Press אינם אקסיאליים."></textarea>
+            <button class="bridge-btn bridge-btn--save" onclick="addManualMemoryBoxEntry()">הוסף לתיבה</button>
+        </div>
+        <button class="btn-text" onclick="closeMemoryBoxSheet()">סגור</button>
+    </div>
+
+    <!-- Memory Proposal Sheet — אישור הצעות מהמאמן (v17.86) -->
+    <div id="memory-proposal-overlay" class="bottom-sheet-overlay" onclick="closeMemoryProposalSheet()"></div>
+    <div id="memory-proposal-sheet" class="bottom-sheet" style="max-height:80vh;overflow-y:auto;">
+        <div class="sheet-handle"></div>
+        <h3>המאמן מציע להוסיף לתיבה</h3>
+        <p class="sub-text">אשר כדי לקבע לשיחות הבאות. ניתן לערוך את הטקסט/הקטגוריה לפני שמירה.</p>
+        <div id="mb-proposal-list" style="display:flex;flex-direction:column;gap:10px;margin:8px 0 12px;"></div>
+        <div class="bridge-btn-row" style="margin-top:8px;">
+            <button class="bridge-btn bridge-btn--save" onclick="approveAllMemoryProposals()">אשר הכל</button>
+            <button class="bridge-btn bridge-btn--dim" onclick="rejectAllMemoryProposals()">דחה הכל</button>
+        </div>
     </div>
 
     <!-- Target History Sheet — יעדים לפי תאריך (תיקוני עבר ללוג היעדים) -->

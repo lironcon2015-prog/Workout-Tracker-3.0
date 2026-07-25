@@ -5161,6 +5161,18 @@ function buildSystemPrompt(opts = {}) {
 - הפרופיל הכתוב ("פרופיל המתאמן") משמש רק למידע שאינו במערכת (מגבלות, העדפות, יעדים, עקרונות). בכל סתירה בין הפרופיל לנתוני המערכת (מצב תזונתי, משקל, TDEE, תוכנית האימונים, TM) — נתוני המערכת ("נתוני מערכת" / "מצב תזונתי" / "מצב נוכחי") גוברים; ציין את הסתירה בקצרה.
 - המצב התזונתי הנוכחי הוא אך ורק השורה "מצב נוכחי" שבמקטע "מצב תזונתי". פאזה קודמת המופיעה שם הסתיימה ואינה בתוקף — אל תתאר את המתאמן כנמצא בה. אימוני עבר בהיסטוריה מתויגים ב-[מצב תזונתי בזמן האימון: …] — נתח כל אימון לפי התיוג שלו.
 
+# תיבת זיכרון וניסיון — הצעת כלל קבוע
+- אתה מודל stateless. אין לך זיכרון בין שיחות ואין לך יכולת לעדכן את הפרומפט שלך, לשנות הגדרות באפליקציה, או "להטמיע" כלל. אל תבטיח פעולה כזו.
+- הדרך היחידה לקבע כלל לשיחות עתידיות: לפלוט בסוף התשובה בלוק בפורמט מדויק:
+  <propose-memory category="biomechanics|nutrition|preference|protocol|other">טקסט הכלל הקבוע, ברור וקצר, עד 250 תווים</propose-memory>
+- הבלוק מוסתר מהתצוגה של המתאמן ומוצג לו כהצעה נפרדת שדורשת אישור מפורש. אל תכריז בגוף התשובה "הוספתי לתיבה" / "הטמעתי" / "עדכנתי" — עד שהמתאמן יאשר, כלום לא נשמר.
+- הצע רק כאשר: (א) המתאמן תיקן עובדה שגויה שלך; (ב) המתאמן קבע כלל שלדעתך יש להחיל תמיד; (ג) המתאמן ביקש במפורש להוסיף לתיבה. אל תמציא הצעות.
+- הכללים שכבר אושרו מוזרקים למטה תחת "כללים מאושרים מתיקונים קודמים" — הם מחייבים אותך, ואסור לסתור אותם.
+
+# תיקון של המתאמן
+- כשהמתאמן מתקן טעות שלך, אמת קודם את התיקון מול הידע שלך. אישור אוטומטי אסור. אם התיקון נכון — הודה בטעות ותאר את מקורה המדויק (מושג שהוחלף, נתון שפוספס). אם התיקון שגוי — אמור זאת בכבוד. אישור בלי אימות הוא ריצוי.
+- אין להמציא ידע ביומכני, פיזיולוגי או תזונתי. אם אינך בטוח בסיווג של תרגיל (אקסיאלי/לא, מפרק ראשוני, וקטור עומס) — אמור "לא בטוח" במקום לנחש.
+
 # מתודולוגיה
 - בהשוואה בין בלוקים: השווה תמיד שבועות מקבילים (שבוע N בבלוק הנוכחי מול שבוע N בבלוק קודם), לא מספרים מוחלטים מתקופות שונות.
 - התאם המלצות למצב התזונתי (Cut / Maintenance / Surplus): בגירעון — עדיפות לשימור כוח ולוויסות נפח ועייפות; בעודף — ניצול חלון לעלייה. ציין במפורש כשהמצב התזונתי משנה את ההמלצה.
@@ -5180,6 +5192,7 @@ function buildSystemPrompt(opts = {}) {
 
     // זיכרון מצטבר משיחות קודמות + ניתוחים קודמים של המאמן (קונטקסט ארוך-טווח, צד-קלט בלבד)
     prompt += _coachMemorySection();
+    prompt += _memoryBoxSection();
     prompt += _buildCondensedCoachSummaries(2, 800);
 
     // מצב תזונתי — משפיע ישירות על ההמלצות (Cut/Maintenance/Surplus). פורמט מפורש (ב6א).
@@ -5267,6 +5280,23 @@ function _coachMemorySection() {
         return `\n=== זיכרון מצטבר משיחות קודמות ===\n${m.text.trim()}\n`;
     }
     return '';
+}
+
+// _memoryBoxSection — כללים מאושרים מהתיבה. תמיד מלא (גם ב-slim) — זו הבקשה
+// המפורשת של המשתמש: אלה הכללים הקבועים, ואסור להם לרדת תוך אימון.
+function _memoryBoxSection() {
+    const box = StorageManager.getMemoryBox();
+    if (!box.length) return '';
+    const CAT_HE = {
+        biomechanics: 'ביומכניקה', nutrition: 'תזונה',
+        preference:   'העדפה',     protocol:  'פרוטוקול',
+        other:        'אחר'
+    };
+    const lines = box.map(e =>
+        `[${CAT_HE[e.category] || e.category}] ${e.text.trim()}`).join('\n');
+    return `\n=== כללים מאושרים מתיקונים קודמים (תיבת זיכרון וניסיון) ===\n` +
+           `הכללים הבאים אושרו על-ידי המתאמן והם מחייבים. אתה אמור לפעול לפיהם, ואסור לך לסתור אותם. אם כלל כאן סותר משהו שהיית אומר בברירת מחדל — הכלל גובר.\n` +
+           lines + '\n';
 }
 
 // _buildCondensedCoachSummaries — N סיכומי המאמן האחרונים, מקוצרים (כותרות-מסקנה).
@@ -5639,9 +5669,12 @@ async function sendAIMessage() {
     if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.5'; }
 
     try {
-        const responseText = await callGeminiAPI(text);
+        const rawText = await callGeminiAPI(text);
 
-        // עדכון זיכרון
+        // חילוץ בלוקי <propose-memory> — מוסתרים מהתצוגה, מוצעים באישור נפרד
+        const { clean: responseText, proposals } = _extractMemoryProposals(rawText);
+
+        // עדכון זיכרון — שומרים את הטקסט הנקי (בלי הבלוקים) בהיסטוריה
         const now = Date.now();
         const userMsg  = { role: 'user',  text, timestamp: now, workoutWeek: state.week || null, workoutType: state.type || null };
         const modelMsg = { role: 'model', text: responseText, timestamp: now + 1, workoutWeek: state.week || null, workoutType: state.type || null };
@@ -5655,6 +5688,9 @@ async function sendAIMessage() {
         // הצגת תשובה
         typing.remove();
         container.appendChild(_createBubble('model', responseText));
+
+        // אם המאמן הציע להוסיף לתיבה — פותחים מסך אישור
+        if (proposals.length) openMemoryProposalSheet(proposals);
 
         // רענון זיכרון המאמן ברקע — לא חוסם, רץ רק כשנצבר מספיק
         _maybeUpdateCoachMemory();
@@ -5786,6 +5822,210 @@ function resetCoachPrompts() {
     if (b) b.value = d.block;
     if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
     showAlert('הפרומפטים שוחזרו לברירת מחדל.');
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// תיבת זיכרון וניסיון (v17.86)
+// ═════════════════════════════════════════════════════════════════════════════
+
+const _MB_CAT_HE = {
+    biomechanics: 'ביומכניקה',
+    nutrition:    'תזונה',
+    preference:   'העדפה',
+    protocol:     'פרוטוקול',
+    other:        'אחר'
+};
+
+// _extractMemoryProposals — מחלץ בלוקי <propose-memory> מתשובת המודל.
+// מחזיר { clean, proposals }: clean הוא הטקסט בלי הבלוקים; proposals רשימת { category, text }.
+// חסין ל-whitespace ולציטוטים חסרים.
+function _extractMemoryProposals(text) {
+    if (!text) return { clean: '', proposals: [] };
+    const proposals = [];
+    const re = /<propose-memory\s+category\s*=\s*["']?([a-z_]+)["']?\s*>([\s\S]*?)<\/propose-memory>/gi;
+    const clean = text.replace(re, (_, cat, body) => {
+        const c = String(cat || '').toLowerCase().trim();
+        const category = StorageManager.MEMORY_BOX_CATEGORIES.includes(c) ? c : 'other';
+        const body_trimmed = String(body || '').trim();
+        if (body_trimmed) proposals.push({ category, text: body_trimmed.slice(0, 500) });
+        return '';
+    }).replace(/\n{3,}/g, '\n\n').trim();
+    return { clean, proposals };
+}
+
+// ─── מסך אישור הצעות מהמאמן ─────────────────────────────────────────────────
+
+function openMemoryProposalSheet(proposals) {
+    if (!Array.isArray(proposals) || !proposals.length) return;
+    _mbPendingProposals = proposals.slice();
+    _renderMemoryProposalSheet();
+    document.getElementById('memory-proposal-overlay').style.display = 'block';
+    document.getElementById('memory-proposal-sheet').classList.add('open');
+    haptic('light');
+}
+
+function closeMemoryProposalSheet() {
+    document.getElementById('memory-proposal-overlay').style.display = 'none';
+    document.getElementById('memory-proposal-sheet').classList.remove('open');
+    _mbPendingProposals = [];
+}
+
+let _mbPendingProposals = [];
+
+function _renderMemoryProposalSheet() {
+    const list = document.getElementById('mb-proposal-list');
+    if (!list) return;
+    if (!_mbPendingProposals.length) {
+        list.innerHTML = '<p class="sub-text">אין עוד הצעות. אפשר לסגור.</p>';
+        return;
+    }
+    const cats = StorageManager.MEMORY_BOX_CATEGORIES;
+    list.innerHTML = _mbPendingProposals.map((p, i) => `
+        <div class="mb-proposal-card" data-idx="${i}">
+            <select class="minimal-input mb-cat-select" data-idx="${i}">
+                ${cats.map(c => `<option value="${c}"${c===p.category?' selected':''}>${_MB_CAT_HE[c]}</option>`).join('')}
+            </select>
+            <textarea class="ai-persona-textarea mb-text-input" data-idx="${i}" rows="3">${_escapeHtml(p.text)}</textarea>
+            <div class="mb-proposal-actions">
+                <button class="bridge-btn bridge-btn--save" onclick="approveMemoryProposal(${i})">שמור</button>
+                <button class="bridge-btn bridge-btn--dim"  onclick="rejectMemoryProposal(${i})">דחה</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function _escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+function approveMemoryProposal(idx) {
+    const p = _mbPendingProposals[idx];
+    if (!p) return;
+    const catEl  = document.querySelector(`.mb-cat-select[data-idx="${idx}"]`);
+    const textEl = document.querySelector(`.mb-text-input[data-idx="${idx}"]`);
+    const category = catEl ? catEl.value : p.category;
+    const text     = textEl ? textEl.value.trim() : p.text;
+    if (!text) { showAlert('הטקסט ריק — אי אפשר לשמור.'); return; }
+    const res = StorageManager.addMemoryBoxEntry(text, category, 'ai_proposed');
+    if (!res.ok) {
+        if (res.reason === 'full') {
+            showAlert('התיבה מלאה (30 רשומות / 3,000 תווים). ערוך את התיבה ומחק ישנות.');
+        } else {
+            showAlert('שמירה נכשלה.');
+        }
+        return;
+    }
+    _mbPendingProposals.splice(idx, 1);
+    if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
+    haptic('success');
+    if (!_mbPendingProposals.length) {
+        closeMemoryProposalSheet();
+        showAlert('נשמר לתיבת הזיכרון.');
+    } else {
+        _renderMemoryProposalSheet();
+    }
+}
+
+function rejectMemoryProposal(idx) {
+    _mbPendingProposals.splice(idx, 1);
+    haptic('light');
+    if (!_mbPendingProposals.length) closeMemoryProposalSheet();
+    else _renderMemoryProposalSheet();
+}
+
+function approveAllMemoryProposals() {
+    // עובר מהסוף להתחלה כי approveMemoryProposal משנה splice
+    for (let i = _mbPendingProposals.length - 1; i >= 0; i--) approveMemoryProposal(i);
+}
+
+function rejectAllMemoryProposals() { closeMemoryProposalSheet(); haptic('light'); }
+
+// ─── מסך תיבת הזיכרון (צפייה, עריכה, הוספה ידנית) ───────────────────────────
+
+function openMemoryBoxSheet() {
+    _renderMemoryBoxSheet();
+    document.getElementById('memory-box-overlay').style.display = 'block';
+    document.getElementById('memory-box-sheet').classList.add('open');
+    haptic('light');
+}
+
+function closeMemoryBoxSheet() {
+    document.getElementById('memory-box-overlay').style.display = 'none';
+    document.getElementById('memory-box-sheet').classList.remove('open');
+}
+
+function _renderMemoryBoxSheet() {
+    const list = document.getElementById('mb-list');
+    const meter = document.getElementById('mb-meter');
+    if (!list) return;
+    const box = StorageManager.getMemoryBox();
+    const chars = box.reduce((s, e) => s + (e.text ? e.text.length : 0), 0);
+    if (meter) {
+        meter.textContent = `${box.length}/${StorageManager.MEMORY_BOX_MAX_ENTRIES} רשומות · ${chars}/${StorageManager.MEMORY_BOX_MAX_CHARS} תווים`;
+    }
+    if (!box.length) {
+        list.innerHTML = '<p class="sub-text" style="text-align:center;padding:24px 0;">התיבה ריקה. כשהמאמן ייתקל בתיקון עובדתי חשוב, הוא יציע להוסיף. אפשר גם להוסיף כלל ידני למטה.</p>';
+        return;
+    }
+    const cats = StorageManager.MEMORY_BOX_CATEGORIES;
+    list.innerHTML = box.slice().reverse().map(e => `
+        <div class="mb-entry-card" data-id="${e.id}">
+            <div class="mb-entry-head">
+                <select class="minimal-input mb-entry-cat" data-id="${e.id}">
+                    ${cats.map(c => `<option value="${c}"${c===e.category?' selected':''}>${_MB_CAT_HE[c]}</option>`).join('')}
+                </select>
+                <span class="mb-entry-src">${e.source === 'ai_proposed' ? 'הציע המאמן' : 'הוזן ידני'}</span>
+            </div>
+            <textarea class="ai-persona-textarea mb-entry-text" data-id="${e.id}" rows="2">${_escapeHtml(e.text)}</textarea>
+            <div class="mb-entry-actions">
+                <button class="bridge-btn bridge-btn--save"   onclick="saveMemoryBoxEntry('${e.id}')">שמור שינוי</button>
+                <button class="bridge-btn bridge-btn--danger" onclick="deleteMemoryBoxEntry('${e.id}')">מחק</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function saveMemoryBoxEntry(id) {
+    const catEl  = document.querySelector(`.mb-entry-cat[data-id="${id}"]`);
+    const textEl = document.querySelector(`.mb-entry-text[data-id="${id}"]`);
+    if (!catEl || !textEl) return;
+    const text = textEl.value.trim();
+    if (!text) { showAlert('הטקסט ריק. למחיקה — לחץ "מחק".'); return; }
+    StorageManager.updateMemoryBoxEntry(id, { text, category: catEl.value });
+    if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
+    haptic('success');
+    showAlert('נשמר.');
+    _renderMemoryBoxSheet();
+}
+
+function deleteMemoryBoxEntry(id) {
+    showConfirm('למחוק את הכלל הזה מהתיבה?', () => {
+        StorageManager.removeMemoryBoxEntry(id);
+        if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
+        haptic('success');
+        _renderMemoryBoxSheet();
+    });
+}
+
+function addManualMemoryBoxEntry() {
+    const catEl  = document.getElementById('mb-add-cat');
+    const textEl = document.getElementById('mb-add-text');
+    if (!catEl || !textEl) return;
+    const text = textEl.value.trim();
+    if (!text) { showAlert('כתוב את הכלל.'); return; }
+    const res = StorageManager.addMemoryBoxEntry(text, catEl.value, 'user_added');
+    if (!res.ok) {
+        showAlert(res.reason === 'full'
+            ? 'התיבה מלאה — מחק כללים ישנים לפני הוספה.'
+            : 'הוספה נכשלה.');
+        return;
+    }
+    textEl.value = '';
+    if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
+    haptic('success');
+    _renderMemoryBoxSheet();
 }
 
 /**

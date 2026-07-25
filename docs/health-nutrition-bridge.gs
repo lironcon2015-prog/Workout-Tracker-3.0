@@ -26,7 +26,8 @@
  *      - Who has access: Anyone (ה-token מגן על הגישה)
  * 4. העתק את "Web app URL" → הדבק בהגדרות GYMPRO ("גשר Apple Health (שינה)")
  *    יחד עם ה-SECRET_TOKEN.
- * 5. בנה את הקיצור לפי docs/sleep-shortcut-recipe.md.
+ * 5. הגדר את Health Auto Export + אוטומציות הקיצור לפי docs/hae-automation-recipe.md
+ *    (‏sleep-shortcut-recipe.md הוא המסלול הישן — גיבוי בלבד).
  *
  * בדיקה: פתח בדפדפן  <WebAppURL>?token=<SECRET_TOKEN>  ← אמור להחזיר JSON.
  * ==========================================================================*/

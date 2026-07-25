@@ -174,10 +174,12 @@ function doGet(e) {
  * מדדי qty נפרדים. ממזגים לפי תאריך. משכי שינה מומרים לדקות לפי היחידה (hr→×60).
  * זיהוי מדד לפי מילות-מפתח בשם — עמיד לשינויי-שמות קלים בין גרסאות HAE.
  *
- * ⚠️ ייחוס תאריך הלילה: האפליקציה מייחסת שינה ל**תאריך הבוקר** (היקיצה). ב-HAE
- * שדה `date` של שורת שינה הוא היום שבו הלילה **התחיל** — לילה שהתחיל ב-23:30
- * היה נשמר על אתמול, והמסך היה נראה כאילו "לא התעדכן". לכן לשורות שינה מעדיפים
- * את התאריך של `sleepEnd` (רגע היקיצה), ורק בהיעדרו נופלים ל-`date`/`endDate`.
+ * ⚠️ ייחוס תאריך הלילה: האפליקציה מייחסת שינה ל**תאריך הבוקר** (היקיצה).
+ * ב-**Export Version v2** שורת sleep_analysis כלל **אינה מכילה `date`** אלא
+ * `startDate`/`endDate` — לכן `_isoDate(r.date)` החזיר null וכל השורות נזרקו
+ * בשקט (זה היה הבאג). וגם כשקיים `date` (v1) הוא יום **תחילת** הלילה — לילה
+ * שהתחיל ב-23:30 נשמר על אתמול. לכן לשורות שינה מעדיפים את `sleepEnd` (רגע
+ * היקיצה), ורק בהיעדרו נופלים ל-`date`/`endDate`/`startDate`.
  *
  * diag (אופציונלי) מתמלא לצורכי אבחון: כמה שורות שינה נקלטו, כמה נזרקו, והאם
  * המקור נראה לא-מצטבר (בלי Aggregate) — אז חובה להחזיר שגיאה, לא שקט. */
@@ -196,12 +198,13 @@ function _parseHAE(metrics, diag) {
     var isSleep = name.indexOf('sleep') > -1 && name.indexOf('temp') === -1;
 
     rows.forEach(function (r) {
-      var aggregated = !!(r && (r.core != null || r.deep != null || r.rem != null ||
-                                r.totalSleep != null || r.asleep != null || r.qty != null));
-      // דגימת שינה גולמית (startDate/endDate בלי טוטלים) — Aggregate כבוי ב-HAE.
-      // לא מסכמים אותה בכוונה: סכימת גלם היא בדיוק הבאג שבגללו עברנו ל-HAE
-      // (מקורות כפולים בהיסטוריית הצימודים → דגימות חופפות).
-      if (isSleep && !aggregated && r && (r.startDate || r.endDate)) {
+      // שורת שינה מצטברת מזוהה לפי **טוטלים**, לא לפי qty: ב-v1 הלא-מצטבר כל
+      // מקטע שלב מגיע כ-{startDate,endDate,qty,value} — qty קיים אך חסר משמעות
+      // כאן. שורת שינה בלי טוטלים = דגימת גלם, ולא מסכמים אותה בכוונה: סכימת
+      // מקורות חופפים (היסטוריית צימודי שעונים) היא הבאג שבגללו עברנו ל-HAE.
+      var hasSleepTotals = !!(r && (r.core != null || r.deep != null || r.rem != null ||
+                                    r.totalSleep != null || r.asleep != null));
+      if (isSleep && !hasSleepTotals) {
         d0.unaggregated = true; d0.skipped = (d0.skipped || 0) + 1; return;
       }
       // ייחוס לתאריך היקיצה לשורות שינה; שאר המדדים — לפי היום שלהם.
@@ -209,8 +212,7 @@ function _parseHAE(metrics, diag) {
                  _isoDate(r && r.date) || _isoDate(r && r.endDate) || _isoDate(r && r.startDate);
       if (!date) { d0.skipped = (d0.skipped || 0) + 1; return; }
       var s = slot(date);
-      if (isSleep && (r.core != null || r.deep != null ||
-          r.rem != null || r.totalSleep != null || r.asleep != null)) {
+      if (isSleep) {
         d0.sleepRows = (d0.sleepRows || 0) + 1;
         if (r.core  != null) s.core  = _n(r.core  * toMin);
         if (r.deep  != null) s.deep  = _n(r.deep  * toMin);

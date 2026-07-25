@@ -44,6 +44,13 @@ const MAX_DAYS  = 120;             // שמירת ~4 חודשים אחרונים 
 const DEBUG_RAW = false;
 const RAW_KEY   = 'last_raw';
 
+// 📋 יומן דחיפות — 12 האחרונות, נחשף ב-doGet כ-`pushes`. קיים כדי לענות על
+//    השאלה שאי-אפשר לענות עליה מהאפליקציה: **האם הטריגר בכלל ירה, והאם הביא
+//    נתונים?** ריצה שרצה כשהמכשיר נעול מגיעה עם שדות ריקים/שגיאה — ביומן היא
+//    תיראה כשורה עם asleep:0 או src:'hae:ERR', לעומת טריגר שלא ירה בכלל = אין שורה.
+const PUSH_LOG_KEY = 'push_log';
+const PUSH_LOG_MAX = 12;
+
 /* ─── קליטה מהקיצור (POST) ────────────────────────────────────────────────
  * גוף JSON יכול לכלול אחד או שניים:
  *   שינה:  { "token":"...", "sleep":[ { "date":"2026-07-20", "asleep":434, "inbed":471,
@@ -78,6 +85,8 @@ function doPost(e) {
     // כשל שקט הוא האויב: אם HAE שלחה מדדים ולא יצא מהם ולו לילה אחד — מחזירים
     // שגיאה מפורשת עם רמז, במקום NO_DATA גנרי שנראה כמו "אין נתונים".
     if (!incSleep.length && !incNutri.length) {
+      // מתעדים גם כישלון — זו בדיוק הראיה ש"הטריגר ירה אבל המכשיר היה נעול".
+      _logPush(haeDiag.unaggregated ? 'hae:ERR_RAW' : 'hae:ERR_EMPTY', '', null);
       return _json({ ok: false,
         error: haeDiag.unaggregated ? 'HAE_NOT_AGGREGATED' : 'HAE_NO_USABLE_ROWS',
         hint: haeDiag.unaggregated
@@ -94,7 +103,10 @@ function doPost(e) {
       body.hrv != null || body.rhr != null || body.resp != null || body.temp != null)) {
     incSleep = [body];
   }
-  if (!incNutri.length && !incSleep.length) return _json({ ok: false, error: 'NO_DATA' });
+  if (!incNutri.length && !incSleep.length) {
+    _logPush('ERR_NO_DATA', '', null);
+    return _json({ ok: false, error: 'NO_DATA' });
+  }
 
   var lock = LockService.getScriptLock();
   lock.tryLock(10000);
@@ -125,6 +137,9 @@ function doPost(e) {
       _save(SLEEP_KEY, sMap);
       out.sleep_stored = sStored;
       out.date_used = dateUsed;   // שקיפות: איזה תאריך נשמר בפועל
+      _logPush(haeDiag ? 'hae' : 'flat', dateUsed, incSleep[incSleep.length - 1]);
+    } else if (incNutri.length) {
+      _logPush('nutri', '', null);
     }
     return _json(out);
   } finally {
@@ -158,7 +173,7 @@ function doGet(e) {
         rhr: v[6], hrv: v[7], respRate: v[8], wristTempDev: v[9]
       };
     });
-    result = { ok: true, days: days, sleep: sleep };
+    result = { ok: true, days: days, sleep: sleep, pushes: _loadPushLog() };
   }
 
   var json = JSON.stringify(result);
@@ -260,6 +275,29 @@ function _save(key, map) {
 
 function _todayIso() {  // תאריך היום לפי אזור-הזמן של הסקריפט (fallback לתאריך חסר)
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+/* ─── יומן דחיפות ─────────────────────────────────────────────────────────
+ * שורה לכל POST — מוצלח או כושל. עונה על "איזה טריגר ירה בפועל, ומה הוא הביא".
+ * t = חותמת מקומית, src = מקור/שגיאה, date = התאריך שנשמר, ואז הערכים שהגיעו.
+ * לעולם לא מפיל את הבקשה — כל היומן עטוף ב-try. */
+function _loadPushLog() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(PUSH_LOG_KEY)) || []; }
+  catch (e) { return []; }
+}
+function _logPush(tag, dateUsed, night) {
+  try {
+    var arr = _loadPushLog();
+    arr.push({
+      t: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MM-dd HH:mm'),
+      src: tag, date: dateUsed || '',
+      asleep: night ? _n(night.asleep) : 0,
+      hrv:    night ? _n(night.hrv)    : 0,
+      rhr:    night ? _n(night.rhr)    : 0
+    });
+    while (arr.length > PUSH_LOG_MAX) arr.shift();
+    PropertiesService.getScriptProperties().setProperty(PUSH_LOG_KEY, JSON.stringify(arr));
+  } catch (e) {}
 }
 
 function _n(x) { return Math.round(Number(x) || 0); }         // מספר שלם

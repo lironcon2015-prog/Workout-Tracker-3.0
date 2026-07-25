@@ -578,6 +578,16 @@ const StorageManager = {
         a.download = `gympro_full_backup_${new Date().toISOString().slice(0, 10)}.json`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
+        // פידבק — בלי זה הלחיצה נראית כמו "לא קרה כלום", והשורה הסמוכה בהגדרות
+        // היא דווקא "שחזור גיבוי מלא".
+        if (typeof showCloudToast === 'function') {
+            showCloudToast(`✅ גיבוי מלא הורד — ${payload.keyCount} מפתחות`, true);
+        }
+        // ההורדה עלולה לנווט את ה-webview החוצה ולבנות את טופס ההגדרות מחדש ריק.
+        // ‏visibilitychange/pageshow מכסים את החזרה; זה מכסה את המקרה שבו לא היה ניווט.
+        setTimeout(() => {
+            if (typeof refreshAllBridgeStatus === 'function') refreshAllBridgeStatus();
+        }, 1200);
     },
 
     restoreFullBackup(payload) {

@@ -345,14 +345,23 @@ document.addEventListener('DOMContentLoaded', () => {
 // חזרה לאפליקציה מהרקע (PWA ב-iOS נשאר בזיכרון) = "כניסה" — משיכת Health שקטה.
 // force=true: כל העלאה לפרונט מושכת מחדש, גם אם האפליקציה לא נסגרה (עוקף throttle).
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') syncHealthNutrition(false, true);
+    if (document.visibilityState === 'visible') { syncHealthNutrition(false, true); _refreshSettingsIfOpen(); }
     // ביציאה מהאפליקציה — דחיפת snapshot טרי לווידג'ט (beacon, שורד סגירת דף)
     if (document.visibilityState === 'hidden') StorageManager.pushWidgetSnapshotBeacon();
 });
 // iOS PWA: שחזור מ-bfcache לא תמיד יורה visibilitychange — pageshow מכסה את המקרה
 window.addEventListener('pageshow', (e) => {
     if (e.persisted) syncHealthNutrition(false, true);
+    _refreshSettingsIfOpen();   // חזרה מהורדת קובץ — השדות נבנו מחדש ריקים
 });
+
+// אכלוס מחדש של שדות הגשרים בחזרה לפרונט, רק כשמסך ההגדרות פתוח (זול ולא מפריע).
+function _refreshSettingsIfOpen() {
+    const st = document.getElementById('ui-settings');
+    if (st && st.classList.contains('active') && typeof refreshAllBridgeStatus === 'function') {
+        refreshAllBridgeStatus();
+    }
+}
 
 function checkRecovery() {
     if (!StorageManager.hasActiveSession()) return;
@@ -1253,18 +1262,26 @@ function _syncBridgeCollapse() {
     });
 }
 
+// refreshAllBridgeStatus — מאכלס מחדש את כל שדות/סטטוסי הגשרים מהאחסון.
+// למה זה נחוץ בנפרד מ-openSettings: ב-PWA של iOS הורדת קובץ (גיבוי מלא) מנווטת
+// את ה-webview החוצה, ובחזרה הטופס נבנה מחדש **ריק** — הערכים עדיין באחסון,
+// אבל המסך מציג שדות ריקים וזה נראה כאילו המפתחות נמחקו. מסך ההגדרות כבר פתוח,
+// כך ש-openSettings לא ייקרא שוב — ולכן מרעננים גם בחזרה לפרונט.
+function refreshAllBridgeStatus() {
+    ['updateFirebaseStatus', 'updateAIStatus',
+     'updateMfpBridgeStatus', 'updateHealthBridgeStatus', 'updateWatchBridgeStatus',
+     'updateBackupBridgeStatus', 'updateWidgetBridgeStatus', 'updatePhotoBridgeStatus']
+        .forEach(name => {
+            try { const fn = window[name]; if (typeof fn === 'function') fn(); }
+            catch (e) { console.warn('GymPro: bridge status refresh failed', name, e); }
+        });
+    _syncBridgeCollapse();
+}
+
 function openSettings() {
     navigate('ui-settings');
     renderUserAvatar();
-    if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
-    if (typeof updateAIStatus === 'function') updateAIStatus();
-    if (typeof updateMfpBridgeStatus === 'function') updateMfpBridgeStatus();
-    if (typeof updateHealthBridgeStatus === 'function') updateHealthBridgeStatus();
-    if (typeof updateWatchBridgeStatus === 'function') updateWatchBridgeStatus();
-    if (typeof updateBackupBridgeStatus === 'function') updateBackupBridgeStatus();
-    if (typeof updateWidgetBridgeStatus === 'function') updateWidgetBridgeStatus();
-    if (typeof updatePhotoBridgeStatus === 'function') updatePhotoBridgeStatus();
-    _syncBridgeCollapse();
+    refreshAllBridgeStatus();
     if (typeof updateBodyProfileStatus === 'function') updateBodyProfileStatus();
     _renderNutritionalToggle();
     _renderMainTMSettings();
@@ -5822,10 +5839,13 @@ function _bridgeFill(inputId, value) {
 
 // שער בפני מחיקה מקרית: שדה שרוקן בעוד שבאחסון יש ערך — דורש אישור.
 // pairs: [{ name, value, stored }]. ללא ריקון — ממשיך מיד, בלי הטרדה.
-function _bridgeConfirmClear(label, pairs, proceed) {
+// ביטול = הערך באחסון לא נגע, ולכן חובה גם **להחזיר את התצוגה** — אחרת השדה
+// נשאר ריק על המסך והמשתמש חושב שהערך אבד (הוא לא).
+function _bridgeConfirmClear(label, pairs, proceed, restore) {
     const clearing = pairs.filter(p => !p.value && p.stored).map(p => p.name);
     if (!clearing.length) { proceed(); return; }
-    showConfirm(`לרוקן ${clearing.join(' ו')} של ${label}? הערך השמור יימחק.`, proceed);
+    showConfirm(`לרוקן ${clearing.join(' ו')} של ${label}? הערך השמור יימחק.`, proceed,
+        () => { if (typeof restore === 'function') restore(); });
 }
 
 // מתג הפעלה — כותב רק את דגל ה-ON (url/token נשארים undefined ולכן לא נכתבים).
@@ -5855,7 +5875,7 @@ function saveMfpBridgeSettings() {
         StorageManager.saveMfpBridge(on, url, token);
         updateMfpBridgeStatus();
         showAlert('הגדרות גשר התזונה נשמרו!');
-    });
+    }, updateMfpBridgeStatus);
 }
 
 function updateMfpBridgeStatus() {
@@ -5892,7 +5912,7 @@ function saveBackupBridgeSettings() {
         StorageManager.saveBackupBridge(on, url, token);
         updateBackupBridgeStatus();
         showAlert('הגדרות גשר הגיבוי נשמרו!');
-    });
+    }, updateBackupBridgeStatus);
 }
 
 // שליחה ידנית — בניית הגיבוי + fetch לוקחות שנייה ויותר. בלי פידבק מיידי זה
@@ -5951,7 +5971,7 @@ function saveWidgetBridgeSettings() {
         StorageManager.saveWidgetBridge(on, url, token);
         updateWidgetBridgeStatus();
         showAlert('הגדרות גשר הווידג\'ט נשמרו!');
-    });
+    }, updateWidgetBridgeStatus);
 }
 
 function pushWidgetNow() {
@@ -5998,7 +6018,7 @@ function savePhotoBridgeSettings() {
         updatePhotoBridgeStatus();
         if (on && typeof _ppKickUploads === 'function') _ppKickUploads();   // העלאת ממתינות מיד עם ההפעלה
         showAlert('הגדרות גשר התמונות נשמרו!');
-    });
+    }, updatePhotoBridgeStatus);
 }
 
 function testPhotoBridgeNow() {
@@ -6060,7 +6080,7 @@ function saveHealthBridgeSettings() {
         updateHealthBridgeStatus();
         showAlert('הגדרות גשר ה-Health נשמרו!');
         if (on) syncHealthNutrition(true); // משיכה מיידית — פידבק מהיר שהחיבור עובד (רק אם דלוק)
-    });
+    }, updateHealthBridgeStatus);
 }
 
 function updateHealthBridgeStatus() {
@@ -6198,7 +6218,7 @@ function saveWatchBridgeSettings() {
         StorageManager.saveWatchBridge(on, url, token);
         _watchBridgeApply(on);
         showAlert('הגדרות גשר השעון נשמרו!');
-    });
+    }, updateWatchBridgeStatus);
 }
 
 function updateWatchBridgeStatus() {

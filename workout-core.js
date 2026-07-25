@@ -6307,6 +6307,13 @@ function updateWatchBridgeStatus() {
     if (t)  t.checked = cfg.on;
     _bridgeFill('watch-bridge-url-input', cfg.url);
     _bridgeFill('watch-bridge-token-input', cfg.token);
+    // שורת סטטוס — היה הגשר היחיד בלי אחת (v17.82)
+    const el = document.getElementById('watch-bridge-status');
+    if (el) {
+        el.innerHTML = cfg.url
+            ? '<span style="color:var(--type-b);font-weight:700;">&#9679; גשר מוגדר</span>'
+            : '<span style="color:var(--text-dim);">&#9679; לא מוגדר</span>';
+    }
 }
 
 // ─── פרופיל גוף (TDEE) ───────────────────────────────────────────────────────

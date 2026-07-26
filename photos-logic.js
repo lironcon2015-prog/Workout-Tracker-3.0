@@ -1109,25 +1109,38 @@ async function _ppRunAnalysis(manual) {
 }
 
 /* ─── פרטיות: מסך התמונות לא יופיע בחזרה מהרקע ─────────────────────────────
- * המסך פרטי (תמונות גוף). כשהאפליקציה עוברת לרקע — נעבור לתת-טאב "שקילה" ונסגור
- * את ה-viewer כדי שה-snapshot של iOS וחזרה למסך יראו שקילה.
- * חריג חשוב: כשהמצלמה פתוחה או בפתיחה (כולל בקשת הרשאה של הדפדפן — שגורמת
- * ל-blur/visibilitychange בטעות) — לא לגעת. ה-overlay של המצלמה מכסה את הגלריה
- * ממילא, אין דליפה. שלישיית מאזינים נותנת רשת ביטחון (visibilitychange/pagehide/blur). */
+ * המסך פרטי (תמונות גוף). כשהאפליקציה עוברת לרקע או חוזרת מרקע — נעבור לתת-טאב
+ * "שקילה" ונסגור את ה-viewer, כך שגם ה-snapshot של iOS וגם חזרה למסך יראו שקילה.
+ *
+ * למה מטפלים גם ב-visible/pageshow/focus (ולא רק ב-hidden):
+ *   iOS לוקח snapshot מיד עם המעבר לרקע, לפעמים לפני שה-JS מספיק לרוץ. אם ה-DOM
+ *   ברגע ה-snapshot היה תמונות — חזרה תציג אותן עד שה-JS יתעורר. לכן חוזרים על
+ *   ההחלפה גם ב-visible/focus/pageshow — נבטיח שהפריים הראשון אחרי החזרה הוא שקילה.
+ *
+ * הסתרה סינכרונית ראשונה, setBodyTab אחר כך: גם אם _renderBodyCharts זורק בשקט,
+ * הפאנל של התמונות כבר לא מוצג.
+ *
+ * חריג: כשהמצלמה פתוחה — לא לגעת. ה-overlay של המצלמה מכסה את הגלריה ממילא, ובקשת
+ * ההרשאה של הדפדפן גורמת ל-blur/visibilitychange בטעות ותסגור מצלמה שלא לצורך. */
 function _ppHidePhotosOnBackground() {
     if (_ppCamActive) return;
     try { if (typeof ppCloseViewer === 'function') ppCloseViewer(); } catch (e) {}
+    if (typeof _blTab === 'undefined' || _blTab !== 'photos') return;
+    // שלב 1 — DOM סינכרוני, לא זורק גם אם רינדור עמוק ייכשל
     try {
-        if (typeof _blTab !== 'undefined' && _blTab === 'photos' && typeof setBodyTab === 'function') {
-            setBodyTab('weight');
-        }
+        const p = document.getElementById('bl-view-photos');
+        const w = document.getElementById('bl-view-weight');
+        if (p) p.style.display = 'none';
+        if (w) w.style.display = '';
     } catch (e) {}
+    // שלב 2 — סנכרון מלא של state + כפתורי seg + רינדור
+    try { if (typeof setBodyTab === 'function') setBodyTab('weight'); } catch (e) {}
 }
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') _ppHidePhotosOnBackground();
-});
+document.addEventListener('visibilitychange', _ppHidePhotosOnBackground);
 window.addEventListener('pagehide', _ppHidePhotosOnBackground);
-window.addEventListener('blur', _ppHidePhotosOnBackground);
+window.addEventListener('pageshow', _ppHidePhotosOnBackground);
+window.addEventListener('blur',  _ppHidePhotosOnBackground);
+window.addEventListener('focus', _ppHidePhotosOnBackground);
 
 // חיבור ה-pinch-to-zoom פעם אחת בטעינה — האלמנט קיים ב-DOM מההתחלה
 document.addEventListener('DOMContentLoaded', () => {

@@ -71,11 +71,15 @@ const creds = await resolveCreds();
 // בלי המטמון, כישלון רשת חד-פעמי מרוקן את הווידג'ט לגמרי עד הרענון הבא —
 // וזה בדיוק מה שקורה בבוקר, כשה-iPhone מרענן ווידג'טים אחרי לילה של רשת
 // רדומה. עדיף להציג נתוני אתמול עם חותמת זמן מאשר מסך ריק שמאשים את המשתמש.
+// timeoutInterval=8 קריטי: iOS נותן לווידג'ט ~15 שניות בלבד. Apps Script ב-cold
+// start יכול לענות לאיטיות ל-30+ שניות — בלי timeout מפורש הסקריפט כולו נהרג
+// עם "Received timeout when running script" והמטמון לא נטען.
 let snap = null;
 let netFail = false;
 if (creds) {
     try {
         const req = new Request(creds.url + '?token=' + encodeURIComponent(creds.token));
+        req.timeoutInterval = 8;
         const j = await req.loadJSON();
         if (j && j.ok && j.snapshot) snap = j.snapshot;
         else if (!j || !j.ok) netFail = true;      // BAD_TOKEN / תשובה לא תקינה

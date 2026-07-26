@@ -40,10 +40,15 @@ const col = (h, a) => a === undefined ? new Color(h) : new Color(h, a);
 // בלי המטמון, כישלון רשת חד-פעמי מרוקן את הווידג'ט עד הרענון הבא — וזה בדיוק
 // מה שקורה בבוקר, כשה-iPhone מרענן ווידג'טים אחרי לילה של רשת רדומה. ה-snapshot
 // לא נמחק מהגשר; רק הבקשה נכשלה. עדיף להציג נתוני אתמול עם חותמת זמן.
+// timeoutInterval=8 קריטי: iOS נותן לווידג'ט ~15 שניות בלבד. Apps Script ב-cold
+// start יכול לענות לאיטיות ל-30+ שניות — בלי timeout מפורש הסקריפט כולו נהרג
+// עם "Received timeout when running script" והמטמון לא נטען. עם timeout, ה-catch
+// תופס וה-fallback ל-cache מציג נתונים ישנים במקום ווידג'ט לבן שבור.
 let snap = null;
 let netFail = false;
 try {
     const req = new Request(BRIDGE_URL + '?token=' + encodeURIComponent(TOKEN));
+    req.timeoutInterval = 8;
     const j = await req.loadJSON();
     if (j && j.ok && j.snapshot) snap = j.snapshot;
     else if (!j || !j.ok) netFail = true;      // BAD_TOKEN / תשובה לא תקינה

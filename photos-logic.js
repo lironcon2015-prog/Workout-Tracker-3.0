@@ -1110,11 +1110,13 @@ async function _ppRunAnalysis(manual) {
 
 /* ─── פרטיות: מסך התמונות לא יופיע בחזרה מהרקע ─────────────────────────────
  * המסך פרטי (תמונות גוף). כשהאפליקציה עוברת לרקע — נעבור לתת-טאב "שקילה" ונסגור
- * גלריה/מצלמה פתוחות. כך גם ה-snapshot של iOS למרכז ההחלפה וגם חזרה למסך יראו
- * שקילה. שלישיית מאזינים (visibilitychange/pagehide/blur) נותנת רשת ביטחון. */
+ * את ה-viewer כדי שה-snapshot של iOS וחזרה למסך יראו שקילה.
+ * חריג חשוב: כשהמצלמה פתוחה או בפתיחה (כולל בקשת הרשאה של הדפדפן — שגורמת
+ * ל-blur/visibilitychange בטעות) — לא לגעת. ה-overlay של המצלמה מכסה את הגלריה
+ * ממילא, אין דליפה. שלישיית מאזינים נותנת רשת ביטחון (visibilitychange/pagehide/blur). */
 function _ppHidePhotosOnBackground() {
+    if (_ppCamActive) return;
     try { if (typeof ppCloseViewer === 'function') ppCloseViewer(); } catch (e) {}
-    try { if (_ppCamActive && typeof ppCloseCamera === 'function') ppCloseCamera(); } catch (e) {}
     try {
         if (typeof _blTab !== 'undefined' && _blTab === 'photos' && typeof setBodyTab === 'function') {
             setBodyTab('weight');

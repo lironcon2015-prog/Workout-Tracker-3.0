@@ -1638,6 +1638,16 @@ function selectNutritionalState(state) {
     haptic('success');
 }
 
+// ── Wendler 5/3/1 — סכימת אחוזים/חזרות: מקור אמת יחיד ─────────────────────────
+// מזין את applyRMAndStart (חישוב סטים בזמן ריצה), את updateRMDeltaRow (חישוב הפוך
+// של RM מהמשקל הכבד ביותר בארכיון), ואת _buildWorkoutPlanSection (פירוט לפרומפט
+// AI). amrapIdx = אינדקס הסט העליון (top-set) — מסומן ב-"+" בפלט למאמן.
+const WENDLER_531_SCHEME = {
+    1: { pct: [0.65, 0.75, 0.85, 0.75, 0.65],       reps: [5, 5, 5, 8, 10],     amrapIdx: 2 },
+    2: { pct: [0.70, 0.80, 0.90, 0.80, 0.70, 0.70], reps: [3, 3, 3, 8, 10, 10], amrapIdx: 2 },
+    3: { pct: [0.75, 0.85, 0.95, 0.85, 0.75, 0.75], reps: [5, 3, 1, 8, 10, 10], amrapIdx: 2 }
+};
+
 // ── Cut: הפחתת תרגילי מיין ל-4 סטים ──────────────────────────────────────────
 // בקאט, תרגילי MAIN LIFT (isMain) מוגבלים ל-4 הסטים הראשונים (הכבדים) כדי לחתוך
 // נפח/עייפות בלי לדלג ידנית. טוגל בהגדרות (דלוק כברירת מחדל), עוקף = כיבוי.
@@ -2249,7 +2259,8 @@ function setupCalculatedEx() {
                         const exLogs = match.log.filter(l => l && l.exName === state.currentExName && !l.skip);
                         if (exLogs.length) {
                             const maxW = Math.max(...exLogs.map(l => l.w || 0));
-                            const maxPct = wk === 1 ? 0.85 : wk === 2 ? 0.90 : 0.95;
+                            const scheme = WENDLER_531_SCHEME[wk];
+                            const maxPct = scheme.pct[scheme.amrapIdx];   // top-set (AMRAP) — הכבד ביותר בשבוע
                             if (maxW > 0) prevRM = Math.round(maxW / maxPct / 2.5) * 2.5;
                         }
                     }
@@ -2298,13 +2309,9 @@ function applyRMAndStart(rmValue) {
     state.rm = rmValue;
     StorageManager.saveRM(state.currentExName, state.rm);
     state.rmUsed[state.currentExName] = state.rm;
-    let percentages = []; let reps = [];
     const w = parseInt(state.week);
-    if (w === 1) { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
-    else if (w === 2) { percentages = [0.70, 0.80, 0.90, 0.80, 0.70, 0.70]; reps = [3, 3, 3, 8, 10, 10]; }
-    else if (w === 3) { percentages = [0.75, 0.85, 0.95, 0.85, 0.75, 0.75]; reps = [5, 3, 1, 8, 10, 10]; }
-    else { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
-    state.currentEx.sets = percentages.map((pct, i) => ({ w: Math.round((state.rm * pct) / 2.5) * 2.5, r: reps[i] }));
+    const scheme = WENDLER_531_SCHEME[w] || WENDLER_531_SCHEME[1];   // deload/לא-מוגדר → סכימת שבוע 1
+    state.currentEx.sets = scheme.pct.map((pct, i) => ({ w: Math.round((state.rm * pct) / 2.5) * 2.5, r: scheme.reps[i] }));
     // Cut: הגבלת תרגיל מיין ל-4 הסטים הראשונים (הכבדים) — לא הרסני, רק ל-session הנוכחי
     if (_cutCapMainActive() && state.currentEx.sets.length > CUT_MAIN_SET_CAP)
         state.currentEx.sets = state.currentEx.sets.slice(0, CUT_MAIN_SET_CAP);
@@ -5099,12 +5106,14 @@ function _buildBodyProfileLine() {
 
 // _buildWorkoutPlanSection — תוכנית האימונים הפעילה מ-state.workouts/state.exercises + TM.
 // מתעדכן אוטומטית מעורך התוכנית — כך שהמאמן לעולם לא עובד מול תוכנית מיושנת בפרופיל הידני.
+// לתרגילי Main עם TM מוגדר: פולט את שלוש שבועות ה-5/3/1 בק"ג מעוגלים ל-2.5, כדי שהמאמן
+// לא יצטרך לגזור את המספרים מ-TM ומ-ברו-סיינס (מקור הטעויות ההיסטורי בשיחות).
 function _buildWorkoutPlanSection() {
     if (!state.workouts || !Object.keys(state.workouts).length) return '';
     const exByName = {};
     (state.exercises || []).forEach(e => { exByName[e.name] = e; });
     const tms = (typeof StorageManager.getAllExerciseTMs === 'function') ? StorageManager.getAllExerciseTMs() : {};
-    let out = '';
+    let out = '\nפרוטוקול Wendler 5/3/1 (משקלים מעוגלים ל-2.5 ק"ג הכי קרוב, AMRAP מסומן ב-"+"):\n';
     Object.keys(state.workouts).forEach(wName => {
         const items = state.workouts[wName] || [];
         if (!items.length) return;
@@ -5115,7 +5124,12 @@ function _buildWorkoutPlanSection() {
                 out += `   - Cluster ×${item.rounds} סבבים: ${names}\n`;
             } else if (item.isMain) {
                 const tm = tms[item.name];
-                out += `   - ${item.name} (Main${tm != null && tm !== '' ? `, TM ${tm}kg` : ''})\n`;
+                if (tm != null && tm !== '' && !isNaN(parseFloat(tm))) {
+                    out += `   - ${item.name} (Main, TM ${tm}kg)\n`;
+                    out += _buildMainScheduleLines(parseFloat(tm));
+                } else {
+                    out += `   - ${item.name} (Main, TM לא מוגדר)\n`;
+                }
             } else {
                 const ex = exByName[item.name];
                 const reps = ex && ex.sets && ex.sets[0] ? ex.sets[0].r : '?';
@@ -5124,6 +5138,27 @@ function _buildWorkoutPlanSection() {
         });
     });
     return out;
+}
+
+// _buildMainScheduleLines — שלוש שורות שבוע (1/2/3) עם משקלים ב-ק"ג לתרגיל Main.
+// מפריד בין main sets (עד amrapIdx) לבין back-off (מעבר לו) — התאמה מדויקת לפרוטוקול.
+function _buildMainScheduleLines(tm) {
+    const fmt = kg => (Number.isInteger(kg) ? kg.toString() : kg.toFixed(1).replace(/\.0$/, ''));
+    let lines = '';
+    [1, 2, 3].forEach(wk => {
+        const sc = WENDLER_531_SCHEME[wk];
+        const sets = sc.pct.map((pct, i) => {
+            const kg = Math.round((tm * pct) / 2.5) * 2.5;
+            const reps = sc.reps[i];
+            const suffix = (i === sc.amrapIdx) ? '+' : '';
+            return `${fmt(kg)}×${reps}${suffix}`;
+        });
+        const main = sets.slice(0, sc.amrapIdx + 1).join(', ');
+        const backoff = sets.slice(sc.amrapIdx + 1);
+        const backoffStr = backoff.length ? ` | back-off: ${backoff.join(', ')}` : '';
+        lines += `      שבוע ${wk}: ${main}${backoffStr}\n`;
+    });
+    return lines;
 }
 
 // _buildSystemDataSection — מקטע "נתוני מערכת" המלא (מקור אמת, גובר על הפרופיל).

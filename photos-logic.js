@@ -622,13 +622,18 @@ function ppDeleteCurrent() {
 
 let _ppCamActive = false;
 let _ppCamStream = null;
-let _ppCamFacing = 'user';        // ברירת מחדל: מצלמה קדמית (החלטת מוצר)
+let _ppCamFacing = 'environment'; // ברירת מחדל: מצלמה אחורית (איכות טובה יותר, ללא mirror)
 let _ppGhostOn = true;
 let _ppGhostUrl = null;
 let _ppTimerSec = 0;              // 0 / 3 / 10
 let _ppCountdownTimer = null;
-let _ppZoomLevels = [];           // רמות זום זמינות מהחומרה (ריק = אין תמיכה)
-let _ppZoomIdx = 0;
+let _ppZoomLevels = [];           // presets לצ'יפ (1/2/3 בטווח הנתמך) — ריק = אין זום כלל
+let _ppZoomMin = 1;               // גבולות זום מהחומרה
+let _ppZoomMax = 1;
+let _ppZoomCur = 1;               // ערך זום נוכחי (כולל pinch — לא בהכרח על preset)
+let _ppZoomRafPending = false;    // rAF-throttle ל-applyConstraints ב-pinch
+let _ppPinchInitDist = 0;         // מרחק בין 2 האצבעות בתחילת ה-pinch
+let _ppPinchInitZoom = 1;         // ערך הזום בתחילת ה-pinch
 let _ppFitContain = false;        // תצוגה: false=מסך מלא (cover), true=פריים מלא (contain)
 
 function _ppCamMsg(txt) {
@@ -648,44 +653,93 @@ function _ppUpdateCamChips() {
     if (f) f.textContent = 'מצלמה: ' + (_ppCamFacing === 'user' ? 'קדמית' : 'אחורית');
     if (t) { t.textContent = 'טיימר: ' + (_ppTimerSec ? _ppTimerSec + ' שנ\'' : 'כבוי'); t.classList.toggle('off', !_ppTimerSec); }
     if (z) {
-        z.style.display = _ppZoomLevels.length > 1 ? '' : 'none';
-        if (_ppZoomLevels.length) z.textContent = 'זום: ' + _ppZoomLevels[_ppZoomIdx] + 'x';
+        // הכפתור מוצג גם כשאין presets אבל יש טווח לפינץ' (min<max)
+        const hasZoom = _ppZoomMax > _ppZoomMin + 0.01;
+        z.style.display = hasZoom ? '' : 'none';
+        if (hasZoom) {
+            const shown = Math.round(_ppZoomCur * 10) / 10;
+            z.textContent = 'זום: ' + shown + 'x';
+        }
     }
     if (fit) fit.textContent = 'תצוגה: ' + (_ppFitContain ? 'מלאה' : 'מסך');
 }
 
 // ─── זום חומרה — רק אם ה-track חושף capability (iOS 17+/Android Chrome) ─────
-// רמות מועמדות: מינימום החומרה (0.5x אולטרה-רחבה כשקיימת), 1x, 2x, 3x — בתחום הנתמך.
+// שני מסלולים: presets 1x/2x/3x לצ'יפ + Pinch-to-zoom רציף (מוגבל ל-[min,max] של החומרה).
 function _ppInitZoom() {
-    _ppZoomLevels = []; _ppZoomIdx = 0;
+    _ppZoomLevels = []; _ppZoomMin = 1; _ppZoomMax = 1; _ppZoomCur = 1;
     try {
         const track = _ppCamStream && _ppCamStream.getVideoTracks()[0];
         const caps = track && track.getCapabilities ? track.getCapabilities() : null;
         if (!caps || caps.zoom == null || caps.zoom.min == null) return;
         const { min, max } = caps.zoom;
-        const cand = [min, 1, 2, 3].filter(v => v >= min && v <= max);
+        _ppZoomMin = min; _ppZoomMax = max;
+        const cand = [1, 2, 3].filter(v => v >= min && v <= max);
         _ppZoomLevels = [...new Set(cand.map(v => Math.round(v * 10) / 10))].sort((a, b) => a - b);
-        if (_ppZoomLevels.length < 2) { _ppZoomLevels = []; return; }
-        // ברירת מחדל: 1x אם קיים, אחרת הרמה הראשונה
-        _ppZoomIdx = Math.max(0, _ppZoomLevels.indexOf(1));
-        _ppApplyZoom();
+        // ערך התחלתי: 1x אם בטווח, אחרת המינימום
+        _ppZoomCur = (min <= 1 && max >= 1) ? 1 : min;
+        _ppApplyZoomVal(_ppZoomCur);
     } catch (e) { _ppZoomLevels = []; }
 }
 
-function _ppApplyZoom() {
+function _ppApplyZoomVal(v) {
     try {
         const track = _ppCamStream && _ppCamStream.getVideoTracks()[0];
-        if (track && _ppZoomLevels.length)
-            track.applyConstraints({ advanced: [{ zoom: _ppZoomLevels[_ppZoomIdx] }] }).catch(() => {});
+        if (track) track.applyConstraints({ advanced: [{ zoom: v }] }).catch(() => {});
     } catch (e) { /* מכשיר בלי תמיכה */ }
 }
 
+// שינוי זום מפינץ' — rAF-throttle כדי לא להציף את applyConstraints
+function _ppSetZoom(v) {
+    _ppZoomCur = Math.max(_ppZoomMin, Math.min(_ppZoomMax, v));
+    _ppUpdateCamChips();
+    if (_ppZoomRafPending) return;
+    _ppZoomRafPending = true;
+    requestAnimationFrame(() => {
+        _ppZoomRafPending = false;
+        _ppApplyZoomVal(_ppZoomCur);
+    });
+}
+
+// הכפתור "זום" — קופץ ל-preset הבא (1→2→3→1). אם המשתמש הגיע דרך pinch לערך שאינו על preset,
+// נבחר את הראשון שגדול ממנו (אחרת חוזר להתחלה).
 function ppCycleZoom() {
     if (!_ppZoomLevels.length) return;
-    _ppZoomIdx = (_ppZoomIdx + 1) % _ppZoomLevels.length;
-    _ppApplyZoom();
-    _ppUpdateCamChips();
+    const next = _ppZoomLevels.find(v => v > _ppZoomCur + 0.05) || _ppZoomLevels[0];
+    _ppSetZoom(next);
     haptic('light');
+}
+
+function _ppTouchDist(t) {
+    const dx = t[0].clientX - t[1].clientX;
+    const dy = t[0].clientY - t[1].clientY;
+    return Math.hypot(dx, dy);
+}
+
+// Pinch-to-zoom — נאזין פעם אחת ב-DOMContentLoaded. הפעיל רק כשהמצלמה פתוחה ויש טווח זום.
+function _ppInitPinchZoom() {
+    const ov = document.getElementById('pp-cam');
+    if (!ov || ov._ppPinchBound) return;
+    ov._ppPinchBound = true;
+    ov.addEventListener('touchstart', e => {
+        if (!_ppCamActive || _ppZoomMax <= _ppZoomMin + 0.01) return;
+        if (e.touches.length === 2) {
+            _ppPinchInitDist = _ppTouchDist(e.touches);
+            _ppPinchInitZoom = _ppZoomCur;
+            e.preventDefault();
+        }
+    }, { passive: false });
+    ov.addEventListener('touchmove', e => {
+        if (!_ppCamActive || !_ppPinchInitDist) return;
+        if (e.touches.length === 2) {
+            const d = _ppTouchDist(e.touches);
+            if (d > 0) _ppSetZoom(_ppPinchInitZoom * (d / _ppPinchInitDist));
+            e.preventDefault();
+        }
+    }, { passive: false });
+    const endPinch = () => { _ppPinchInitDist = 0; };
+    ov.addEventListener('touchend', endPinch);
+    ov.addEventListener('touchcancel', endPinch);
 }
 
 // תצוגה מסך-מלא (cover, חותכת) ↔ פריים מלא (contain, עם פסים) — הלכידה זהה בשתיהן
@@ -1053,6 +1107,30 @@ async function _ppRunAnalysis(manual) {
         if (typeof _renderBodyPhotos === 'function' && manual) _renderBodyPhotos();
     }
 }
+
+/* ─── פרטיות: מסך התמונות לא יופיע בחזרה מהרקע ─────────────────────────────
+ * המסך פרטי (תמונות גוף). כשהאפליקציה עוברת לרקע — נעבור לתת-טאב "שקילה" ונסגור
+ * גלריה/מצלמה פתוחות. כך גם ה-snapshot של iOS למרכז ההחלפה וגם חזרה למסך יראו
+ * שקילה. שלישיית מאזינים (visibilitychange/pagehide/blur) נותנת רשת ביטחון. */
+function _ppHidePhotosOnBackground() {
+    try { if (typeof ppCloseViewer === 'function') ppCloseViewer(); } catch (e) {}
+    try { if (_ppCamActive && typeof ppCloseCamera === 'function') ppCloseCamera(); } catch (e) {}
+    try {
+        if (typeof _blTab !== 'undefined' && _blTab === 'photos' && typeof setBodyTab === 'function') {
+            setBodyTab('weight');
+        }
+    } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') _ppHidePhotosOnBackground();
+});
+window.addEventListener('pagehide', _ppHidePhotosOnBackground);
+window.addEventListener('blur', _ppHidePhotosOnBackground);
+
+// חיבור ה-pinch-to-zoom פעם אחת בטעינה — האלמנט קיים ב-DOM מההתחלה
+document.addEventListener('DOMContentLoaded', () => {
+    try { _ppInitPinchZoom(); } catch (e) {}
+});
 
 // ─── טריגר שבועי שקט — בכניסה לטאב (נקרא מ-_renderBodyPhotos) ───────────────
 function _ppMaybeAutoAnalyze() {

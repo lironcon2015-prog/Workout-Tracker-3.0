@@ -6806,6 +6806,8 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
 .pp-cam {
     display: none; position: fixed; inset: 0; z-index: 2000;
     background: #000; flex-direction: column; align-items: center; justify-content: center;
+    /* מונע pinch-zoom של הדפדפן — הפינץ' נתפס בקוד ומופעל על הזום של המצלמה */
+    touch-action: none;
 }
 .pp-cam-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .pp-ghost {

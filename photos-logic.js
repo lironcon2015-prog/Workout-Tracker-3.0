@@ -412,7 +412,7 @@ function _ppRenderAnalysisCard() {
     const entries = (trend && trend.entries) || [];
     if (!entries.length) {
         el.innerHTML = '<div class="bl-chart-title">ניתוח AI</div>' +
-            '<div class="pp-empty-sub">טרם בוצע ניתוח. עם 2+ תמונות (במרווח של ~10 ימים ומעלה) לחץ "נתח עכשיו", או המתן לניתוח השבועי האוטומטי.</div>';
+            '<div class="pp-empty-sub">טרם בוצע ניתוח. עם 2+ תמונות מתאריכים שונים לחץ "נתח עכשיו", או המתן לניתוח השבועי האוטומטי.</div>';
         return;
     }
     const last = entries[entries.length - 1];
@@ -529,7 +529,7 @@ function _ppRenderGallery(index) {
             '• אותו מקום, אותה תאורה, אותו מרחק מהמצלמה<br>' +
             '• עמידה זקופה מול המצלמה (חזית), ידיים בצדדים<br>' +
             '• אותו לבוש (או דומה) בכל צילום<br>' +
-            'תמונה אחת ליום מספיקה — ההשוואות נעשות במרווחים של ~10 ימים ומעלה.</div>';
+            'תמונה אחת ליום מספיקה — ברווחים קצרים ייתכן רעש (מים/פמפ/תאורה), והמערכת שוקללת זאת דרך ציון בר-ההשוואה.</div>';
         return;
     }
     if (head) head.style.display = '';
@@ -876,13 +876,14 @@ function ppAnalyzeNow() { _ppRunAnalysis(true); }
 
 /* ════════ מנוע ניתוח AI משורשר (Gemini Vision) ════════
  * עקרונות (החלטות מוצר — לא רק פרומפט):
- * - אין השוואה במרווח < 10 ימים (רעש: מים/פמפ/תאורה) — נאכף בקוד.
+ * - סף מינימלי להשוואה: 1 יום (נאכף בקוד). ברווחים קצרים ה"רעש" (מים/פמפ/תאורה)
+ *   דומיננטי — מגן על כך מודל ה-comparability והוראת "ברירת מחדל: אין שינוי".
  * - שער "בר-השוואה" לפני ניתוח; מתחת ל-5 — אין השוואה, רק פידבק צילום.
  * - עיגון בנתוני משקל (despiked) ותזונה מהאפליקציה; אנטי-הזיה; אין מדידות
  *   מספריות מתמונה (אחוז שומן/היקפים).
  * - הזיכרון = KEY_PHOTO_TREND: entries (עד 30) + aiNotes מצטבר, רוכב על config. */
 
-const _PP_MIN_COMPARE_DAYS = 10;
+const _PP_MIN_COMPARE_DAYS = 1;
 const _PP_TREND_MAX_ENTRIES = 30;
 let _ppAnalysisBusy = false;
 let _ppAutoTriedAt = 0;   // הגנת סשן — לא לחזור על ניסיון אוטומטי שנכשל בכל רינדור
@@ -913,7 +914,7 @@ function _ppNutritionAvg(fromDate, toDate) {
     return { kcal: avg('calories'), protein: avg('protein'), count: days.length };
 }
 
-// בחירת סט התמונות: נוכחית, השוואה (האחרונה במרחק ≥10 ימים; אחרת הישנה ביותר),
+// בחירת סט התמונות: נוכחית, השוואה (האחרונה במרחק ≥_PP_MIN_COMPARE_DAYS ימים; אחרת הישנה ביותר),
 // עוגן (התמונה הראשונה אי-פעם — אם שונה משתי האחרות)
 function _ppPickAnalysisSet() {
     const index = _ppIndexDesc();

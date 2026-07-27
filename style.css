@@ -320,6 +320,17 @@ html[data-theme="purple"] {
     color: var(--text);
 }
 
+/* Material Symbols — מאוחסן מקומית ב-vendor/ ולא נטען מ-Google Fonts.
+   האפליקציה offline-first: טעינה מ-CDN אומרת שבפתיחה ראשונה ללא רשת
+   המשתמש רואה את שם האייקון כטקסט גולמי ("chevron_left") בכל הממשק. */
+@font-face {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('./vendor/material-symbols-outlined.woff2') format('woff2');
+}
+
 .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
     font-weight: 400;
@@ -332,6 +343,9 @@ html[data-theme="purple"] {
     word-wrap: normal;
     white-space: nowrap;
     direction: ltr;
+    /* חובה: שמות האייקונים הם ליגטורות. הגיע קודם מגיליון הסגנון של Google. */
+    -webkit-font-feature-settings: 'liga';
+    font-feature-settings: 'liga';
     -webkit-font-smoothing: antialiased;
 }
 
@@ -5915,7 +5929,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     position: relative;
 }
 .fd-close {
-    background: var(--glass); -webkit-backdrop-filter: var(--fd-glass); backdrop-filter: var(--fd-glass);
+    background: color-mix(in srgb, var(--surface-3) 88%, transparent); -webkit-backdrop-filter: var(--fd-glass); backdrop-filter: var(--fd-glass);
     border: 1px solid var(--hairline); color: var(--text); box-shadow: var(--top-glint);
     width: 42px; height: 42px; border-radius: var(--r-pill);
     display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
@@ -5936,7 +5950,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-date-main { font-weight: 600; font-size: var(--fs-xl); letter-spacing: -0.02em; }
 .fd-date-dow { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.16em; }
 .fd-manage-btn {
-    background: var(--glass); -webkit-backdrop-filter: var(--fd-glass); backdrop-filter: var(--fd-glass);
+    background: color-mix(in srgb, var(--surface-3) 88%, transparent); -webkit-backdrop-filter: var(--fd-glass); backdrop-filter: var(--fd-glass);
     border: 1px solid var(--hairline); color: var(--text); box-shadow: var(--top-glint);
     width: 42px; height: 42px; border-radius: var(--r-pill);
     display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;

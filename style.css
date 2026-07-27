@@ -320,6 +320,17 @@ html[data-theme="purple"] {
     color: var(--text);
 }
 
+/* Material Symbols — מאוחסן מקומית ב-vendor/ ולא נטען מ-Google Fonts.
+   האפליקציה offline-first: טעינה מ-CDN אומרת שבפתיחה ראשונה ללא רשת
+   המשתמש רואה את שם האייקון כטקסט גולמי ("chevron_left") בכל הממשק. */
+@font-face {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('./vendor/material-symbols-outlined.woff2') format('woff2');
+}
+
 .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
     font-weight: 400;
@@ -332,6 +343,9 @@ html[data-theme="purple"] {
     word-wrap: normal;
     white-space: nowrap;
     direction: ltr;
+    /* חובה: שמות האייקונים הם ליגטורות. הגיע קודם מגיליון הסגנון של Google. */
+    -webkit-font-feature-settings: 'liga';
+    font-feature-settings: 'liga';
     -webkit-font-smoothing: antialiased;
 }
 

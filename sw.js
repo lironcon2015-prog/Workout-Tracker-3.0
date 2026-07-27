@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 17.93
+ * Version: 17.94
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v17.93';
+const CACHE_VERSION = 'gympro-v17.94';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -18,6 +18,7 @@ const FILES_TO_CACHE = [
     './photos-logic.js',
     './storage.js',
     './data.js',
+    './vendor/material-symbols-outlined.woff2',
     './manifest.json',
     './version.json',
     './icon-192.png',
@@ -87,8 +88,10 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // ספריות vendor (ZBar) — cache-first עם שמירה בזמן ריצה. נטענות עצלה רק
-    // ב-fallback של iOS, ולכן לא ב-pre-cache (כדי לא להוריד ~330KB לכל המשתמשים).
+    // נכסי vendor — cache-first עם שמירה בזמן ריצה.
+    // ZBar נטענת עצלה רק ב-fallback של iOS, ולכן לא ב-pre-cache (~330KB).
+    // פונט Material Symbols כן ב-FILES_TO_CACHE — הוא נדרש לכל אייקון בממשק,
+    // ובלעדיו בטעינה ראשונה offline מוצג שם האייקון כטקסט גולמי.
     if (url.includes('/vendor/')) {
         event.respondWith(
             caches.open(CACHE_VERSION).then(cache =>

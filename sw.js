@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 18.0
+ * Version: 18.1
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v18.0';
+const CACHE_VERSION = 'gympro-v18.1';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -19,6 +19,11 @@ const FILES_TO_CACHE = [
     './storage.js',
     './data.js',
     './vendor/material-symbols-outlined.woff2',
+    './vendor/fonts/inter-latin.woff2',
+    './vendor/fonts/inter-latin-ext.woff2',
+    './vendor/fonts/heebo-hebrew.woff2',
+    './vendor/fonts/heebo-latin.woff2',
+    './vendor/fonts/heebo-latin-ext.woff2',
     './manifest.json',
     './version.json',
     './icon-192.png',

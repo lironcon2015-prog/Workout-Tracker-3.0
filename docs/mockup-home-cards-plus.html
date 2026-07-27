@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מוקאפ — כפתור פלוס בכרטיסי "היום"</title>
+<style>
+@font-face { font-family:'Heebo'; src:url('../vendor/fonts/heebo-hebrew.woff2') format('woff2'); font-weight:100 900; font-display:swap; unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F; }
+@font-face { font-family:'Heebo'; src:url('../vendor/fonts/heebo-latin.woff2') format('woff2'); font-weight:100 900; font-display:swap; }
+@font-face { font-family:'Material Symbols Outlined'; src:url('../vendor/material-symbols-outlined.woff2') format('woff2'); font-style:normal; font-weight:100 700; font-display:block; }
+.material-symbols-outlined {
+    font-family:'Material Symbols Outlined'; font-weight:normal; font-style:normal;
+    line-height:1; letter-spacing:normal; text-transform:none; display:inline-block;
+    white-space:nowrap; direction:ltr; -webkit-font-feature-settings:'liga'; font-feature-settings:'liga';
+}
+
+:root {
+    --fs-xs:.65rem; --fs-sm:.72rem; --fs-md:.8rem; --fs-lg:.9rem; --fs-xl:1.05rem; --fs-2xl:1.3rem;
+    --bg:#070708; --surface-1:#101013; --surface-2:#161619; --surface-3:#1e1e22; --surface-4:#26262c;
+    --hairline:rgba(255,255,255,0.06); --hairline-hi:rgba(255,255,255,0.10);
+    --top-glint:inset 0 1px 0 rgba(255,255,255,0.05);
+    --elev-2:0 2px 8px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.35);
+    --r-xs:8px; --r-sm:14px; --r-md:20px; --r-lg:28px; --r-pill:9999px;
+    --accent:#0A84FF; --accent-rgb:10,132,255; --accent-soft:rgba(10,132,255,0.14);
+    --text:#e2e2e2; --text-dim:#8E8E93;
+    --success:#30D158; --success-rgb:48,209,88;
+    --type-b:#47e266; --type-c:#ffb868; --danger-soft:#ff6b6b;
+}
+
+* { box-sizing:border-box; }
+body {
+    margin:0; padding:24px 16px 60px; background:var(--bg); color:var(--text);
+    font-family:'Heebo','Inter',-apple-system,sans-serif; -webkit-font-smoothing:antialiased;
+}
+h1 { font-size:1.5rem; font-weight:900; margin:0 0 4px; letter-spacing:-0.02em; }
+.sub { color:var(--text-dim); font-size:var(--fs-md); margin:0 0 28px; line-height:1.6; }
+.panes { display:flex; gap:20px; flex-wrap:wrap; }
+.pane { flex:1 1 320px; min-width:300px; }
+.pane-hdr {
+    display:flex; align-items:center; gap:8px; margin:0 0 12px;
+    font-size:var(--fs-sm); font-weight:900; letter-spacing:0.12em; text-transform:uppercase;
+}
+.tag { border-radius:var(--r-pill); padding:3px 10px; font-size:var(--fs-xs); font-weight:900; }
+.tag-old { background:rgba(255,107,107,0.14); color:var(--danger-soft); }
+.tag-new { background:rgba(var(--success-rgb),0.14); color:var(--success); }
+.phone {
+    background:var(--bg); border:1px solid var(--hairline-hi); border-radius:var(--r-lg);
+    padding:18px 14px 22px;
+}
+
+/* ===== שכפול הסגנונות האמיתיים של כרטיסי "היום" ===== */
+.home-pr-section-hdr { display:flex; align-items:center; justify-content:space-between; margin:0 4px 10px; }
+.home-pr-section-title { font-size:var(--fs-xs); font-weight:900; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); }
+.home-today-row { display:flex; gap:10px; }
+.home-today-card {
+    flex:1; min-width:0; height:10.75rem;
+    background:var(--surface-2); box-shadow:var(--top-glint), var(--elev-2);
+    border:1px solid var(--hairline); border-top-color:var(--hairline-hi);
+    border-radius:var(--r-lg); padding:12px 16px;
+    display:flex; flex-direction:column; text-align:right;
+    font-family:inherit; color:var(--text); cursor:pointer;
+}
+.home-today-top { display:flex; align-items:center; justify-content:space-between; min-height:1rem; }
+.home-today-lbl { font-size:var(--fs-xs); font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#c0c6d6; }
+.home-today-metric { display:flex; align-items:baseline; gap:5px; margin-top:0.35rem; }
+.home-today-num { font-size:1.55rem; font-weight:900; line-height:1; letter-spacing:-0.02em; }
+.home-today-unit { font-size:var(--fs-xs); color:var(--text-dim); font-weight:700; }
+.home-today-diary-hint { font-size:var(--fs-xl); color:var(--accent); align-self:center; opacity:0.85; margin-inline-start:auto; }
+.home-today-remain { font-size:var(--fs-xl); font-weight:700; line-height:1; margin-top:0.3rem; direction:ltr; text-align:right; color:var(--success); }
+.home-today-rows { margin-top:auto; display:flex; flex-direction:column; gap:2px; }
+.home-today-kv { display:flex; justify-content:space-between; font-size:0.68rem; }
+.home-today-kv-lbl { color:var(--text-dim); }
+.home-today-kv-val { font-weight:700; }
+.macro-p { color:var(--accent); } .macro-c { color:var(--type-c); } .macro-f { color:var(--type-b); }
+
+/* תג LIVE + אייקון יומן — המצב הקיים (יורדים) */
+.bl-live-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    background:rgba(var(--success-rgb),0.12); color:var(--success);
+    font-size:var(--fs-xs); font-weight:700; letter-spacing:0.08em;
+    border-radius:var(--r-pill); padding:2px 8px; margin-inline-start:8px;
+}
+.bl-live-dot { width:6px; height:6px; border-radius:var(--r-pill); background:var(--success); box-shadow:0 0 6px rgba(var(--success-rgb),0.6); }
+
+/* ===== החדש: כפתור פלוס ===== */
+.home-today-add {
+    width:26px; height:26px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--surface-4); border:1px solid var(--hairline-hi);
+    border-radius:var(--r-pill); color:var(--text); cursor:pointer;
+    padding:0; margin:-4px -4px -4px 0;
+    transition:transform 120ms cubic-bezier(.2,0,0,1), background 120ms;
+}
+.home-today-add .material-symbols-outlined { font-size:18px; }
+.home-today-add:active { transform:scale(0.88); background:#32323a; }
+/* וריאנט B — פלוס במבטא */
+.home-today-add--accent { background:var(--accent-soft); border-color:rgba(var(--accent-rgb),0.28); color:var(--accent); }
+
+.note {
+    margin-top:14px; padding:12px 14px; background:var(--surface-1);
+    border:1px solid var(--hairline); border-radius:var(--r-sm);
+    font-size:var(--fs-sm); color:var(--text-dim); line-height:1.75;
+}
+.note b { color:var(--text); font-weight:700; }
+.arrow-lbl {
+    display:flex; align-items:center; gap:6px; margin-top:10px;
+    font-size:var(--fs-xs); color:var(--text-dim);
+}
+.arrow-lbl .material-symbols-outlined { font-size:14px; color:var(--accent); }
+.variants { display:flex; gap:20px; margin-top:34px; flex-wrap:wrap; }
+.variant-box { flex:1 1 280px; }
+.vh { font-size:var(--fs-sm); font-weight:900; margin:0 0 10px; letter-spacing:0.06em; }
+hr.sep { border:0; border-top:1px solid var(--hairline); margin:34px 0 22px; }
+</style>
+</head>
+<body>
+
+<h1>כרטיסי "היום" — פלוס במקום LIVE/יומן</h1>
+<p class="sub">
+    השוואה לפני/אחרי. בכל כרטיס: התג הימני נשאר תווית הכרטיס, הפינה הנגדית מקבלת כפתור פלוס יחיד.
+    לחיצה על גוף הכרטיס ממשיכה להוביל ל-Composition (כמו היום).
+</p>
+
+<div class="panes">
+
+    <!-- ═══ לפני ═══ -->
+    <div class="pane">
+        <div class="pane-hdr"><span class="tag tag-old">לפני</span> המצב הקיים</div>
+        <div class="phone">
+            <div class="home-pr-section-hdr"><span class="home-pr-section-title">היום</span></div>
+            <div class="home-today-row">
+                <div class="home-today-card">
+                    <div class="home-today-top">
+                        <span class="home-today-lbl">תזונה היום</span>
+                        <span class="bl-live-badge"><span class="bl-live-dot"></span>LIVE</span>
+                    </div>
+                    <div class="home-today-metric">
+                        <span class="home-today-num">2,180</span>
+                        <span class="home-today-unit">kcal</span>
+                        <span class="home-today-diary-hint material-symbols-outlined">menu_book</span>
+                    </div>
+                    <div class="home-today-remain">320</div>
+                    <div class="home-today-rows">
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">חלבון</span><span class="home-today-kv-val macro-p">168g</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">פחמימה</span><span class="home-today-kv-val macro-c">210g</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">שומן</span><span class="home-today-kv-val macro-f">64g</span></div>
+                    </div>
+                </div>
+                <div class="home-today-card">
+                    <div class="home-today-top">
+                        <span class="home-today-lbl">הרכב גוף</span>
+                    </div>
+                    <div class="home-today-metric">
+                        <span class="home-today-num">82.4</span>
+                        <span class="home-today-unit">kg</span>
+                    </div>
+                    <div class="home-today-rows">
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">אחוז שומן</span><span class="home-today-kv-val">14.2%</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">מסת גוף רזה</span><span class="home-today-kv-val">70.7 ק"ג</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">שינוי 30 יום</span><span class="home-today-kv-val">0.8 ק"ג</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="note">
+                <b>תזונה:</b> תג LIVE (משיכת Health) + אייקון יומן צמוד למספר.<br>
+                <b>שקילה:</b> אין כניסה מהירה — רק ניווט לכרטיס.
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ אחרי ═══ -->
+    <div class="pane">
+        <div class="pane-hdr"><span class="tag tag-new">אחרי</span> פלוס אחיד בשני הכרטיסים</div>
+        <div class="phone">
+            <div class="home-pr-section-hdr"><span class="home-pr-section-title">היום</span></div>
+            <div class="home-today-row">
+                <div class="home-today-card">
+                    <div class="home-today-top">
+                        <span class="home-today-lbl">תזונה היום</span>
+                        <button class="home-today-add" aria-label="הוסף רישום תזונה"><span class="material-symbols-outlined">add</span></button>
+                    </div>
+                    <div class="home-today-metric">
+                        <span class="home-today-num">2,180</span>
+                        <span class="home-today-unit">kcal</span>
+                    </div>
+                    <div class="home-today-remain">320</div>
+                    <div class="home-today-rows">
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">חלבון</span><span class="home-today-kv-val macro-p">168g</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">פחמימה</span><span class="home-today-kv-val macro-c">210g</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">שומן</span><span class="home-today-kv-val macro-f">64g</span></div>
+                    </div>
+                </div>
+                <div class="home-today-card">
+                    <div class="home-today-top">
+                        <span class="home-today-lbl">הרכב גוף</span>
+                        <button class="home-today-add" aria-label="הוסף שקילה"><span class="material-symbols-outlined">add</span></button>
+                    </div>
+                    <div class="home-today-metric">
+                        <span class="home-today-num">82.4</span>
+                        <span class="home-today-unit">kg</span>
+                    </div>
+                    <div class="home-today-rows">
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">אחוז שומן</span><span class="home-today-kv-val">14.2%</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">מסת גוף רזה</span><span class="home-today-kv-val">70.7 ק"ג</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">שינוי 30 יום</span><span class="home-today-kv-val">0.8 ק"ג</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="note">
+                <b>תזונה → פלוס:</b> פותח את יומן התזונה (<code>openFoodDiary()</code>).<br>
+                <b>שקילה → פלוס:</b> פותח את מודל ההזנה הידנית (<code>openBodyEntryModal()</code>).<br>
+                <b>גוף הכרטיס:</b> ללא שינוי — ניווט ל-Composition.
+            </div>
+            <div class="arrow-lbl"><span class="material-symbols-outlined">check</span> שורת המספר נקייה — המספר והיחידה בלבד</div>
+        </div>
+    </div>
+
+</div>
+
+<hr class="sep">
+
+<h1 style="font-size:1.15rem;">שתי גרסאות לכפתור — לבחירה</h1>
+<p class="sub">אותה גיאומטריה (26px עגול, מקום התג הישן), נבדלות רק בצבע.</p>
+
+<div class="variants">
+    <div class="variant-box">
+        <p class="vh">A — ניטרלי (surface-4) · מומלץ</p>
+        <div class="phone">
+            <div class="home-today-row">
+                <div class="home-today-card" style="max-width:190px;">
+                    <div class="home-today-top">
+                        <span class="home-today-lbl">תזונה היום</span>
+                        <button class="home-today-add"><span class="material-symbols-outlined">add</span></button>
+                    </div>
+                    <div class="home-today-metric"><span class="home-today-num">2,180</span><span class="home-today-unit">kcal</span></div>
+                    <div class="home-today-remain">320</div>
+                    <div class="home-today-rows">
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">חלבון</span><span class="home-today-kv-val macro-p">168g</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">פחמימה</span><span class="home-today-kv-val macro-c">210g</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">שומן</span><span class="home-today-kv-val macro-f">64g</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="note">עקבי עם כפתורי ה-pill בשפת Liquid Obsidian. לא מושך את העין מהמספר הראשי.</div>
+        </div>
+    </div>
+
+    <div class="variant-box">
+        <p class="vh">B — במבטא (accent כחול)</p>
+        <div class="phone">
+            <div class="home-today-row">
+                <div class="home-today-card" style="max-width:190px;">
+                    <div class="home-today-top">
+                        <span class="home-today-lbl">תזונה היום</span>
+                        <button class="home-today-add home-today-add--accent"><span class="material-symbols-outlined">add</span></button>
+                    </div>
+                    <div class="home-today-metric"><span class="home-today-num">2,180</span><span class="home-today-unit">kcal</span></div>
+                    <div class="home-today-remain">320</div>
+                    <div class="home-today-rows">
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">חלבון</span><span class="home-today-kv-val macro-p">168g</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">פחמימה</span><span class="home-today-kv-val macro-c">210g</span></div>
+                        <div class="home-today-kv"><span class="home-today-kv-lbl">שומן</span><span class="home-today-kv-val macro-f">64g</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="note">בולט וברור כפעולה, אבל מתחרה על תשומת הלב עם מספר הקלוריות ועם צבע החלבון.</div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

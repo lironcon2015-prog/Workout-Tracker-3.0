@@ -622,7 +622,7 @@ function openArchiveDetail(idx) {
             if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
                 FirebaseManager.saveArchiveToCloud().then(ok => {
                     if (typeof showCloudToast === 'function') {
-                        showCloudToast(ok ? '☁️ ארכיון עודכן בענן' : '⚠️ שגיאה בעדכון ארכיון בענן', ok);
+                        showCloudToast(ok ? 'ארכיון עודכן בענן' : 'שגיאה בעדכון ארכיון בענן', ok);
                     }
                     window.location.reload();
                 });
@@ -1150,11 +1150,11 @@ function saveArchiveEdit() {
     if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
         FirebaseManager.saveArchiveToCloud().then(ok => {
             if (typeof showCloudToast === 'function') {
-                showCloudToast(ok ? '☁️ ארכיון עודכן בענן' : '⚠️ שגיאה בעדכון ארכיון בענן', ok);
+                showCloudToast(ok ? 'ארכיון עודכן בענן' : 'שגיאה בעדכון ארכיון בענן', ok);
             }
         }).catch(e => {
             console.error('GymPro: archive cloud sync failed', e);
-            if (typeof showCloudToast === 'function') showCloudToast('⚠️ שגיאה בעדכון ארכיון בענן', false);
+            if (typeof showCloudToast === 'function') showCloudToast('שגיאה בעדכון ארכיון בענן', false);
         });
     }
 
@@ -1758,7 +1758,7 @@ function _renderAliasStep2() {
             ${selArr.map(n => `<span class="alias-preview-tag">${escapeHtml(n)}</span>`).join('')}
         </div>
         <button class="btn-main primary-gradient" id="alias-btn-step3" ${suggested ? '' : 'disabled'} onclick="_renderAliasStep3()">המשך</button>
-        <button class="btn-text" onclick="_renderAliasStep1()">⟵ חזור</button>`;
+        <button class="btn-text" onclick="_renderAliasStep1()"><span class="material-symbols-outlined">arrow_back</span> חזור</button>`;
 
     document.getElementById('alias-sheet-body').innerHTML = html;
     _aliasGroupName = suggested;
@@ -1798,13 +1798,13 @@ function _renderAliasStep3() {
         <div class="alias-confirm-box">
             <div class="alias-confirm-name">${escapeHtml(_aliasGroupName)}</div>
             <div style="font-size:0.72em;color:var(--text-dim);margin-bottom:6px;">${totalCount} אימונים · ממוצע ${avgStr}</div>
-            <div class="alias-confirm-arrow">מכיל ↓</div>
+            <div class="alias-confirm-arrow">מכיל <span class="material-symbols-outlined inline-arrow">arrow_downward</span></div>
             <div class="alias-confirm-tags">
                 ${selArr.map(n => `<span class="alias-confirm-tag">${escapeHtml(n)}</span>`).join('')}
             </div>
         </div>
-        <button class="btn-main success-gradient" onclick="_saveAliasGroup()">✓ שמור קבוצה</button>
-        <button class="btn-text" onclick="_renderAliasStep2()">⟵ חזור</button>`;
+        <button class="btn-main success-gradient" onclick="_saveAliasGroup()"><span class="material-symbols-outlined">check</span> שמור קבוצה</button>
+        <button class="btn-text" onclick="_renderAliasStep2()"><span class="material-symbols-outlined">arrow_back</span> חזור</button>`;
 
     document.getElementById('alias-sheet-body').innerHTML = html;
 }
@@ -1900,9 +1900,9 @@ function renderConsistencyTrack(archive, n) {
 
     const legendEl = document.getElementById('cons-legend');
     if (legendEl) legendEl.innerHTML = `
-        <span style="color:var(--type-b); font-size:0.65rem; font-weight:700;">● ≤${greenT} ימים</span>
-        <span style="color:var(--type-c); font-size:0.65rem; font-weight:700; margin:0 8px;">● ${greenT + 1}–${orangeT} ימים</span>
-        <span style="color:var(--danger); font-size:0.65rem; font-weight:700;">● ${orangeT + 1}+ ימים</span>`;
+        <span style="color:var(--type-b); font-size:0.65rem; font-weight:700;"><i class="legend-swatch" style="background:var(--type-b)"></i> ≤${greenT} ימים</span>
+        <span style="color:var(--type-c); font-size:0.65rem; font-weight:700; margin:0 8px;"><i class="legend-swatch" style="background:var(--type-c)"></i> ${greenT + 1}–${orangeT} ימים</span>
+        <span style="color:var(--danger); font-size:0.65rem; font-weight:700;"><i class="legend-swatch" style="background:var(--danger)"></i> ${orangeT + 1}+ ימים</span>`;
 
     let html = `<div class="cons-line"></div>`;
     
@@ -1987,8 +1987,8 @@ function openMicroSortSheet() {
         <div class="micro-sort-row">
             <span class="micro-sort-name">${escapeHtml(ex)}</span>
             <div class="micro-sort-btns">
-                <button class="micro-sort-btn" onclick="moveMicroOrder(${i}, -1)" ${i === 0 ? 'disabled' : ''}>↑</button>
-                <button class="micro-sort-btn" onclick="moveMicroOrder(${i}, 1)" ${i === order.length - 1 ? 'disabled' : ''}>↓</button>
+                <button class="micro-sort-btn" onclick="moveMicroOrder(${i}, -1)" ${i === 0 ? 'disabled' : ''}><span class="material-symbols-outlined">arrow_upward</span></button>
+                <button class="micro-sort-btn" onclick="moveMicroOrder(${i}, 1)" ${i === order.length - 1 ? 'disabled' : ''}><span class="material-symbols-outlined">arrow_downward</span></button>
             </div>
         </div>`).join('');
 
@@ -2460,8 +2460,8 @@ function renderVolumeHeatmap(archive, weeks, muscleFilter) {
         let trendHTML = '';
         if (wkIdx > 0 && weekTotals[wkIdx - 1] > 0 && total > 0) {
             const change = (total - weekTotals[wkIdx - 1]) / weekTotals[wkIdx - 1] * 100;
-            if (change >= 5)        trendHTML = `<span class="hm-trend up">↑ ${Math.round(change)}%</span>`;
-            else if (change <= -5)  trendHTML = `<span class="hm-trend down">↓ ${Math.round(Math.abs(change))}%</span>`;
+            if (change >= 5)        trendHTML = `<span class="hm-trend up"><span class="material-symbols-outlined inline-arrow">arrow_upward</span> ${Math.round(change)}%</span>`;
+            else if (change <= -5)  trendHTML = `<span class="hm-trend down"><span class="material-symbols-outlined inline-arrow">arrow_downward</span> ${Math.round(Math.abs(change))}%</span>`;
             else                    trendHTML = `<span class="hm-trend flat">– 0%</span>`;
         }
         const dimCls = total === 0 ? ' dim' : '';
@@ -2702,7 +2702,7 @@ async function requestAIPlateauAdvice() {
     btn.setAttribute('disabled', 'true');
     result.style.display = 'block';
     result.className = 'plateau-ai-result loading';
-    result.innerHTML = '⏳ המאמן בוחן את ההיסטוריה שלך...';
+    result.innerHTML = '<span class="material-symbols-outlined inline-arrow">hourglass_top</span> המאמן בוחן את ההיסטוריה שלך...';
 
     try {
         const data = detectPlateau(exName);
@@ -3068,9 +3068,9 @@ function _homePRRenderInfo(sessions, _all) {
     if (idx > 0) {
         const prev = sessions[idx - 1];
         const diff = Math.round((s.e1rm - prev.e1rm) * 10) / 10;
-        const sign = diff > 0 ? '↑' : diff < 0 ? '↓' : '=';
+        const sign = diff > 0 ? '<span class="material-symbols-outlined inline-arrow">arrow_upward</span>' : diff < 0 ? '<span class="material-symbols-outlined inline-arrow">arrow_downward</span>' : '';
         const cls  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
-        deltaEl.textContent = `${sign} ${Math.abs(diff).toFixed(1)} kg`;
+        deltaEl.innerHTML = `${sign} ${Math.abs(diff).toFixed(1)} kg`;
         deltaEl.className = `home-pr-delta ${cls}`;
     } else {
         deltaEl.textContent = 'ראשון';
@@ -3220,7 +3220,7 @@ function _homeTodayRenderBody() {
     const lbm = fat != null ? cur.weight * (1 - fat / 100) : null;
     numEl.textContent = cur.weight.toFixed(1);
     const deltaCls = d30 > 0 ? 'delta-up' : d30 < 0 ? 'delta-down' : '';
-    const arrow = d30 > 0 ? '▲ ' : d30 < 0 ? '▼ ' : '';
+    const arrow = d30 > 0 ? '<span class="material-symbols-outlined inline-arrow">arrow_upward</span> ' : d30 < 0 ? '<span class="material-symbols-outlined inline-arrow">arrow_downward</span> ' : '';
     const kv = (lbl, v, cls = '') =>
         `<div class="home-today-kv"><span class="home-today-kv-lbl">${lbl}</span>` +
         `<span class="home-today-kv-val ${cls}">${v}</span></div>`;

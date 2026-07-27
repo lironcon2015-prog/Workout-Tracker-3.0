@@ -2763,8 +2763,24 @@ body::before {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
 }
+/* אייקון בגודל טקסט, משובץ בשורת טקסט — מחליף תווים גרפיים (✓ ↑ ↓ ⚠ ⇄ ≡) */
+.material-symbols-outlined.inline-arrow { font-size: 1.05em; line-height: 1;
+    vertical-align: -0.15em; }
+/* אייקון אזהרה משובץ בתוך משפט + נקודות מקרא צבעוניות (החליפו ⚠️ / 🟢 / 🟠) */
+.material-symbols-outlined.inline-warn { font-size: 1.05em; line-height: 1;
+    vertical-align: -0.15em; color: var(--warn); }
+.legend-swatch { display: inline-block; width: 0.7em; height: 0.7em;
+    border-radius: var(--r-pill); vertical-align: baseline; }
+.legend-swatch--ok   { background: var(--success); }
+.legend-swatch--warn { background: var(--warn); }
+.cloud-toast { display: flex; align-items: center; gap: 8px; }
+.cloud-toast .toast-ico { font-size: 1.15em; line-height: 1; flex-shrink: 0; }
 .cloud-toast.success { border-color: rgba(var(--success-rgb),0.5); }
+.cloud-toast.success .toast-ico { color: var(--success); }
 .cloud-toast.error   { border-color: rgba(var(--danger-rgb),0.5); }
+.cloud-toast.error .toast-ico   { color: var(--danger); }
+.cloud-toast.pending { border-color: var(--hairline-hi); }
+.cloud-toast.pending .toast-ico { color: var(--text-dim); }
 
 /* ── Cloud Sync Failure Banner (#3) — התראה מתמשכת על כשל גיבוי לענן ── */
 .cloud-sync-banner {
@@ -6502,7 +6518,10 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     padding: 12px 4px 6px; border-bottom: 1px solid var(--hairline);
 }
 .fd-food-star { font-size: var(--fs-2xl); color: var(--faint, var(--text-dim)); flex-shrink: 0; line-height: 1; }
+.fd-food-star .material-symbols-outlined { font-size: inherit; line-height: 1;
+    font-variation-settings: 'FILL' 0; }
 .fd-food-star.on { color: var(--accent); }
+.fd-food-star.on .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
 .fd-food-edit { flex-shrink: 0; display: flex; color: var(--text-dim); }
 .fd-food-edit .material-symbols-outlined { font-size: var(--fs-xl); }
 .fd-add-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; margin-top: 6px; border-top: 1px solid var(--hairline); }

@@ -476,7 +476,7 @@ const StorageManager = {
         a.href = URL.createObjectURL(blob);
         a.download = fileName;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        showAlert('קובץ החיבורים ירד. ⚠️ הוא מכיל מפתחות אישיים — שמור אותו במקום בטוח.');
+        showAlert('קובץ החיבורים ירד. שים לב: הוא מכיל מפתחות אישיים — שמור אותו במקום בטוח.');
     },
 
     importConnections(payload) {
@@ -572,7 +572,7 @@ const StorageManager = {
         // פידבק — בלי זה הלחיצה נראית כמו "לא קרה כלום", והשורה הסמוכה בהגדרות
         // היא דווקא "שחזור גיבוי מלא".
         if (typeof showCloudToast === 'function') {
-            showCloudToast(`✅ גיבוי מלא הורד — ${payload.keyCount} מפתחות`, true);
+            showCloudToast(`גיבוי מלא הורד — ${payload.keyCount} מפתחות`, true);
         }
         // ההורדה עלולה לנווט את ה-webview החוצה ולבנות את טופס ההגדרות מחדש ריק.
         // ‏visibilitychange/pageshow מכסים את החזרה; זה מכסה את המקרה שבו לא היה ניווט.
@@ -595,7 +595,7 @@ const StorageManager = {
         let curCount = 0;
         for (let i = 0; i < localStorage.length; i++) if (this._isAppKey(localStorage.key(i))) curCount++;
         const warn = (curCount > 10 && count < curCount * 0.7)
-            ? `\n\n⚠️ הקובץ מכיל ${count} מפתחות בלבד, ובמכשיר יש ${curCount}. ייתכן שהוא חלקי או פגום.`
+            ? `\n\nשים לב: הקובץ מכיל ${count} מפתחות בלבד, ובמכשיר יש ${curCount}. ייתכן שהוא חלקי או פגום.`
             : '';
 
         showConfirm(`שחזור גיבוי מלא מ-${when} (${count} מפתחות). כל הנתונים וההגדרות הנוכחיים יידרסו והאפליקציה תחזור בדיוק למצב של מועד הגיבוי.${warn}\n\nגיבוי של המצב הנוכחי יירד אוטומטית לפני כן. להמשיך?`, () => {

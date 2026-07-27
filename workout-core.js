@@ -7,12 +7,22 @@
 // ─── CLOUD TOAST ──────────────────────────────────────────────────────────
 
 let _cloudToastTimer = null;
-function showCloudToast(msg, success) {
+// state: 'pending' לפעולה שרצה כרגע; אחרת נגזר מ-success.
+// האייקון נגזר מהמצב ולא נכתב לתוך המחרוזת — כך אין תווים גרפיים בהודעות.
+const _TOAST_ICON = { pending: 'hourglass_top', success: 'check_circle', error: 'warning' };
+function showCloudToast(msg, success, state) {
     const t = document.getElementById('cloud-toast');
     if (!t) return;
     if (_cloudToastTimer) clearTimeout(_cloudToastTimer);
-    t.textContent = msg;
-    t.className = 'cloud-toast ' + (success ? 'success' : 'error');
+    const kind = state || (success ? 'success' : 'error');
+    t.innerHTML = '';
+    const ico = document.createElement('span');
+    ico.className = 'material-symbols-outlined toast-ico';
+    ico.textContent = _TOAST_ICON[kind] || _TOAST_ICON.success;
+    const txt = document.createElement('span');
+    txt.textContent = msg;
+    t.append(ico, txt);
+    t.className = 'cloud-toast ' + kind;
     // force reflow להתחלת אנימציה מחדש אם נקרא שוב
     void t.offsetWidth;
     t.classList.add('show');
@@ -53,7 +63,7 @@ function maybeShowCloudSyncBanner() {
 function notifyCloudSaveFailure(ok, store, label) {
     if (ok || typeof FirebaseManager === 'undefined') return;
     if (!FirebaseManager.isConfigured() || !FirebaseManager._isSyncArmed()) return;
-    showCloudToast('⚠️ ' + label + ' נכשל — ' + FirebaseManager.describeSyncFailure(store), false);
+    showCloudToast('' + label + ' נכשל — ' + FirebaseManager.describeSyncFailure(store), false);
 }
 
 function dismissCloudSyncBanner() {
@@ -1501,7 +1511,7 @@ function backupAllToCloud() {
                     (StorageManager.getFoodDb().length > 0) || (StorageManager.getNutritionDaily().length > 0);
     if (!hasData) { showAlert('אין נתונים מקומיים להעלאה — בוטל כדי לא לדרוס את הגיבוי בענן.'); return; }
     FirebaseManager._armSync();
-    showCloudToast('⏳ מגבה לענן…', true);
+    showCloudToast('מגבה לענן…', true, 'pending');
     Promise.all([
         FirebaseManager.saveArchiveToCloud(),
         FirebaseManager.saveConfigToCloud(),
@@ -1521,7 +1531,7 @@ function restoreAllFromCloud() {
     showConfirm('לשחזר את כל הנתונים מהענן? הנתונים במכשיר יוחלפו בגרסה שבענן.\n\nגיבוי של המצב הנוכחי יירד אוטומטית לפני כן.', () => {
         // רשת ביטחון: צילום המצב הנוכחי לקובץ לפני שדורסים אותו
         try { StorageManager.exportFullBackup(); } catch (e) {}
-        showCloudToast('⏳ מושך מהענן…', true);
+        showCloudToast('מושך מהענן…', true, 'pending');
         FirebaseManager.restoreAllFromCloud().then(res => {
             const parts = [];
             if (res.archive) parts.push(`${res.archive} אימונים`);
@@ -1920,7 +1930,7 @@ function openCurrentPlanSheet() {
             if (isDone) {
                 dotClass = 'dot-done';
                 itemClass = 'plan-done';
-                rightHtml = `<span class="plan-done-check">✓</span><span class="plan-sets-done">${doneSets} סטים</span>`;
+                rightHtml = `<span class="plan-done-check"><span class="material-symbols-outlined">check</span></span><span class="plan-sets-done">${doneSets} סטים</span>`;
             } else if (isCurrent) {
                 dotClass = 'dot-current';
                 itemClass = 'plan-current';
@@ -2039,7 +2049,7 @@ function showConfirmScreen(forceExName = null) {
     if (counterDiv) {
         const completed = state.completedExInSession.length;
         if (completed > 0 && !state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.clusterMode) {
-            counterDiv.innerText = `✓ ${completed} תרגילים הושלמו`;
+            counterDiv.innerHTML = `<span class="material-symbols-outlined inline-arrow">check</span> ${completed} תרגילים הושלמו`;
             counterDiv.style.display = 'block';
         } else {
             counterDiv.style.display = 'none';
@@ -2460,7 +2470,7 @@ function initPickers() {
             foundNext = true;
         }
         if (!foundNext) pillsHtml += `<div class="queue-pill"><span class="queue-pill-name">סוף סבב</span></div>`;
-        queueDiv.innerHTML = `<div class="cluster-queue-header"><div class="queue-title">≡ תור הקלאסטר</div><span class="queue-continue-lbl">המשך הסבב</span></div><div class="cluster-queue-pills">${pillsHtml}</div>`;
+        queueDiv.innerHTML = `<div class="cluster-queue-header"><div class="queue-title"><span class="material-symbols-outlined inline-arrow">format_list_bulleted</span> תור הקלאסטר</div><span class="queue-continue-lbl">המשך הסבב</span></div><div class="cluster-queue-pills">${pillsHtml}</div>`;
         exHeader.parentNode.insertBefore(queueDiv, exHeader.nextSibling);
     }
 
@@ -2578,7 +2588,7 @@ function initPickers() {
     // שיטת המשקל — קובעת את בורר המשקל, התווית והכפתורים
     const wMode = _effWeightMode();
     const wModeLabel = document.getElementById('weight-mode-label');
-    if (wModeLabel) wModeLabel.textContent = WEIGHT_MODE_LABELS[wMode] + ' ⇄';
+    if (wModeLabel) wModeLabel.innerHTML = WEIGHT_MODE_LABELS[wMode] + ' <span class="material-symbols-outlined inline-arrow">swap_horiz</span>';
     const wStepperRow = document.getElementById('weight-stepper-row');
     if (wStepperRow) wStepperRow.style.visibility = wMode === 'bw' ? 'hidden' : 'visible';
 
@@ -2905,7 +2915,7 @@ async function requestAIRecommendation() {
     haptic('light');
     trigger.setAttribute('disabled', 'true');
     result.className = 'set-rec-result loading';
-    result.innerHTML = '⏳ המאמן חושב על הסט הבא...';
+    result.innerHTML = '<span class="material-symbols-outlined inline-arrow">hourglass_top</span> המאמן חושב על הסט הבא...';
     _openSetRecSheet();
 
     try {
@@ -3287,7 +3297,7 @@ function renderClusterRestUI() {
     } else {
         // כל הסבבים הושלמו
         document.getElementById('cluster-status-text').innerText = `הסבבים הושלמו (${state.activeCluster.rounds})`;
-        document.getElementById('cluster-timer-text').innerText = "✓";
+        document.getElementById('cluster-timer-text').innerHTML = '<span class="material-symbols-outlined">check</span>';
         btnExtra.style.display = 'block';
         btnSkip.style.display = 'block';
         btnSkip.innerText = 'סיום';
@@ -3984,7 +3994,7 @@ async function copyResult() {
     // גיבוי אוטומטי לענן אחרי שמירת אימון
     if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
         FirebaseManager.saveArchiveToCloud().then(ok => {
-            showCloudToast(ok ? '☁️ ארכיון נשמר בענן' : '⚠️ שגיאה בשמירת ארכיון לענן', ok);
+            showCloudToast(ok ? 'ארכיון נשמר בענן' : 'שגיאה בשמירת ארכיון לענן', ok);
         });
     }
 
@@ -4281,7 +4291,7 @@ function generateCoachSummary() {
         .catch(err => {
             console.warn('GymPro: coach summary failed', err);
             body.className = 'coach-card-body error';
-            body.innerHTML = `<div class="coach-error">⚠️ לא הצלחתי להפיק סיכום כרגע. <button class="coach-retry-btn" onclick="generateCoachSummary()">נסה שוב</button></div>`;
+            body.innerHTML = `<div class="coach-error"><span class="material-symbols-outlined inline-arrow">warning</span> לא הצלחתי להפיק סיכום כרגע. <button class="coach-retry-btn" onclick="generateCoachSummary()">נסה שוב</button></div>`;
             // לא זורקים מחדש — ה-Promise נפתר (resolved) כדי ש-copyResult יוכל להמתין לו בבטחה
             return null;
         });
@@ -4585,7 +4595,7 @@ function _editModalInit(w, r, rir, note, mode) {
 
 function _editModalRenderModeUI() {
     const lbl = document.getElementById('edit-weight-mode-lbl');
-    if (lbl) lbl.textContent = (_editModalMode === 'bw' ? 'משקל גוף' : _editModalMode === 'plates' ? 'פלטות' : 'Weight (kg)') + ' ⇄';
+    if (lbl) lbl.innerHTML = (_editModalMode === 'bw' ? 'משקל גוף' : _editModalMode === 'plates' ? 'פלטות' : 'Weight (kg)') + ' <span class="material-symbols-outlined inline-arrow">swap_horiz</span>';
     const row = document.getElementById('edit-weight-stepper-row');
     if (row) row.style.visibility = _editModalMode === 'bw' ? 'hidden' : 'visible';
 }
@@ -6205,7 +6215,7 @@ function sendConnectionsNow() {
     const btn = document.getElementById('conn-send-btn');
     _connSending = true;
     if (btn) { btn.disabled = true; btn.querySelector('.stg-row-title').textContent = 'שולח…'; }
-    if (typeof showCloudToast === 'function') showCloudToast('⏳ שולח חיבורים לאימייל…', true);
+    if (typeof showCloudToast === 'function') showCloudToast('שולח חיבורים לאימייל…', true, 'pending');
     StorageManager.maybeBackupConnections(true)
         .catch(() => {})
         .then(() => {
@@ -6374,7 +6384,7 @@ function sendBackupNow() {
     const btn = document.getElementById('backup-send-btn');
     _backupSending = true;
     if (btn) { btn.disabled = true; btn.textContent = 'שולח…'; }
-    if (typeof showCloudToast === 'function') showCloudToast('⏳ שולח גיבוי לאימייל…', true);
+    if (typeof showCloudToast === 'function') showCloudToast('שולח גיבוי לאימייל…', true, 'pending');
     StorageManager.maybeSendWeeklyBackup(true)
         .then(ok => { if (ok) updateBackupBridgeStatus(); })
         .catch(() => {})
@@ -6454,7 +6464,7 @@ async function syncHealthNutrition(manual = false, force = false) {
     }
     _healthSyncLast = now;
 
-    if (manual) showCloudToast('⏳ מושך מ-Health…', true);
+    if (manual) showCloudToast('מושך מ-Health…', true, 'pending');
     try {
         const data = await _jsonpRequest(url, token, 30000);
         if (!data || data.ok !== true) {
@@ -6496,14 +6506,14 @@ async function syncHealthNutrition(manual = false, force = false) {
                 const parts = [];
                 if (sleepChanged) parts.push(`${sleepChanged} לילות שינה`);
                 if (nutChanged)   parts.push(`${nutChanged} ימי תזונה`);
-                showCloudToast(`✅ עודכנו ${parts.join(' + ')} מ-Health`, true);
+                showCloudToast(`עודכנו ${parts.join(' + ')} מ-Health`, true);
             }
         } else if (manual) {
             showCloudToast('הנתונים כבר מעודכנים', true);
         }
     } catch (e) {
         console.warn('GymPro: health sync failed', e);
-        if (manual) showCloudToast('⚠️ ' + e.message, false);
+        if (manual) showCloudToast('' + e.message, false);
     }
 }
 
@@ -6572,7 +6582,7 @@ async function importNutritionFromGmail() {
         return;
     }
     haptic('light');
-    showCloudToast('⏳ מושך תזונה מ-Gmail…', true);
+    showCloudToast('מושך תזונה מ-Gmail…', true, 'pending');
     try {
         // JSONP במקום fetch — Apps Script עושה redirect ל-googleusercontent ללא
         // כותרות CORS, כך ש-fetch חוצה-מקור תמיד נכשל. <script> אינו כפוף ל-CORS.
@@ -6597,11 +6607,11 @@ async function importNutritionFromGmail() {
             showCloudToast(`נמצאו ${conflicts.length} ימים קיימים — בחר אילו לדרוס`, true);
         } else {
             _applyMfpImport(days, data.rawCsv || '', null, []);
-            showCloudToast(`✅ יובאו ${days.length} ימי תזונה`, true);
+            showCloudToast(`יובאו ${days.length} ימי תזונה`, true);
         }
     } catch (e) {
         console.error('GymPro: nutrition import error', e);
-        showCloudToast('⚠️ ' + e.message, false);
+        showCloudToast('' + e.message, false);
     }
 }
 
@@ -6679,7 +6689,7 @@ function confirmMfpOverwrite() {
     const { days, rawCsv, conflicts } = _pendingMfpImport;
     _applyMfpImport(days, rawCsv, set, conflicts);
     const total = days.length, overwritten = set.size, kept = conflicts.length - overwritten;
-    if (typeof showCloudToast === 'function') showCloudToast(`✅ יובאו ${total} ימים · נדרסו ${overwritten} · נשמרו ${kept}`, true);
+    if (typeof showCloudToast === 'function') showCloudToast(`יובאו ${total} ימים · נדרסו ${overwritten} · נשמרו ${kept}`, true);
     closeMfpConflict();
     haptic('medium');
 }
@@ -6849,7 +6859,7 @@ function _syncLiveResumeBtn() {
 function _syncLiveWeightModeUI() {
     const mode = _effWeightMode();
     const lbl = document.getElementById('live-weight-mode-lbl');
-    if (lbl) lbl.textContent = (mode === 'bw' ? 'משקל גוף' : mode === 'plates' ? 'פלטות' : 'משקל') + ' ⇄';
+    if (lbl) lbl.innerHTML = (mode === 'bw' ? 'משקל גוף' : mode === 'plates' ? 'פלטות' : 'משקל') + ' <span class="material-symbols-outlined inline-arrow">swap_horiz</span>';
     const unit = document.getElementById('live-edit-weight-unit');
     if (unit) unit.textContent = mode === 'bw' ? ' ' : mode === 'plates' ? 'יח׳ (×2.5 ק"ג)' : 'ק"ג';
     const pmRow = document.getElementById('live-weight-pm-row');

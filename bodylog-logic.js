@@ -1915,28 +1915,36 @@ function _slSleepDebtLine(nights) {
 // את הקומפוזיט, ומגביל תרומת לילה בודד ל-~3 סטיות-תקן — היגיינה סטטיסטית תקנית.
 const _clampZ = z => Math.max(-3, Math.min(3, z));
 
-// עד כמה לילות אחורה מותר לגרור RHR חסר. RHR נקרא כמגמה (לא נקודה יומית), ולכן ערך של
-// אתמול תקף להיום; החלון קטן מונע גרירת ערך מיושן מדי אחרי כמה לילות בלי שעון.
-const RHR_CARRY_MAX_GAP = 3;
+// כמה לילות אחורה מותר לגרור כל מדד חסר. RHR: 3 (Apple מעדכן ~12:00, חסר בבוקר).
+// HRV/נשימה: 2 (משתנים יותר מיום ליום — חלון קצר יותר). ערך מיושן מזה — נשאר "חסר".
+const VITAL_CARRY_MAX = { rhr: 3, hrv: 2, respRate: 2 };
+const RHR_CARRY_MAX_GAP = VITAL_CARRY_MAX.rhr;   // תאימות לאחור
 
-// _carriedRHR — RHR אפקטיבי לחישוב הציון בלבד: של הלילה עצמו אם תקין, אחרת הערך התקין
-// האחרון עד RHR_CARRY_MAX_GAP לילות אחורה.
-//   הבעיה: Apple מחשב RHR כמצרף יומי ומעדכן אותו רק סביב 12:00, אחרי סנכרון הבוקר (~07:08).
-//   לכן המדד חסר בבוקר, והציון היה מאבד רכיב בעל משקל 0.20 → המשקל האפקטיבי של HRV קפץ
-//   מ-0.35 ל-~0.48 (המדד הרועש ביותר הופך לקובע). גרירת "RHR של אתמול" מחזירה את המדד לכל
-//   בוקר. בטוח כי הערך הנגרר הוא אותו מצרף יומי של Apple — אותה סקאלה בדיוק (בניגוד ל-RHR
-//   לילי מחושב, שהיה בסקאלה נמוכה יותר ומחייב baseline נפרד). הערך הנגרר משמש רק כנקודה
-//   בחישוב ה-z, **אינו נשמר ואינו נכנס ל-baseline** — לכן אפס זיהום של הנורמה האישית.
-//   מגבלה מודעת: ביום עם אירוע חד (למשל צום) RHR ישפיע על הציון של מחר, לא של היום.
-function _carriedRHR(nights, idx) {
-    const own = nights[idx] && nights[idx].rhr;
-    if (_validVital('rhr', own)) return own;
-    const floor = Math.max(0, idx - RHR_CARRY_MAX_GAP);
+// _carriedVital — ערך המדד: של הלילה עצמו אם תקין, אחרת התקין האחרון בטווח המותר.
+// מחזיר {v, carried, gap} — carried=true כשהערך גרור, gap=מרחק בלילות (1 = מאתמול).
+//   בטוח: אותה סקאלה בדיוק (RHR = מצרף יומי של Apple; HRV/נשימה = ממוצע יומי) — לא לרבב
+//   עם RHR לילי מחושב, שהוא בסקאלה נמוכה יותר. הערך הנגרר **אינו נשמר** וב**אינו נכנס
+//   ל-baseline** (שקורא רק מהמערך המאוחסן) — אפס זיהום של הנורמה האישית.
+//   בציון: פותר את "נפילת רכיב" כשמדד חסר בבוקר (RHR/HRV/נשימה) שגורמת למשקלים להתנרמל
+//   ולתת שליטה מוגזמת למדד רועש. בתצוגה: מחליף "—" בערך אמיתי + סימון "מלפני N ימים",
+//   כדי שהמשתמש יראה נתון אינדיקטיבי במקום ריק (החלטה מכוונת, החליפה את "התצוגה מציגה
+//   את האמת של הלילה" — האמת האחרונה הזמינה שקופה יותר עם התיוג).
+function _carriedVital(nights, idx, key) {
+    const carryMax = VITAL_CARRY_MAX[key] || 0;
+    const own = nights[idx] && nights[idx][key];
+    if (_validVital(key, own)) return { v: own, carried: false, gap: 0 };
+    const floor = Math.max(0, idx - carryMax);
     for (let i = idx - 1; i >= floor; i--) {
-        const v = nights[i] && nights[i].rhr;
-        if (_validVital('rhr', v)) return v;
+        const v = nights[i] && nights[i][key];
+        if (_validVital(key, v)) return { v, carried: true, gap: idx - i };
     }
-    return own;   // אין ערך תקין בטווח — נשאר חסר, המדד ינוטרל והמשקלים יתנרמלו כרגיל
+    return { v: null, carried: false, gap: 0 };
+}
+
+// _carriedRHR — wrapper לתאימות (הציון משתמש בערך בלבד, לא באובייקט)
+function _carriedRHR(nights, idx) {
+    const c = _carriedVital(nights, idx, 'rhr');
+    return c.v != null ? c.v : (nights[idx] && nights[idx].rhr);
 }
 
 // computeReadiness — ציון 0–100 מ-z-score מול baseline. מחזיר building עד 14 לילות.
@@ -1961,9 +1969,10 @@ function computeReadiness(nights, idx) {
         const valFmt = Math.round(val * 10) / 10;   // ערך גולמי לתצוגה בפרומפט ("HRV 41ms")
         parts.push({ w, contrib, label, val: valFmt, unit, delta: (delta > 0 ? '+' : '') + delta + unit, dir: good ? 'up' : 'down', z });
     };
-    push('hrv', 0.35, n.hrv, 'pos', 'HRV', 'ms', false);
-    push('rhr', 0.20, _carriedRHR(nights, idx), 'inv', 'דופק מנוחה', '', true);   // carry-forward: RHR של אתמול כשחסר בבוקר (תזמון Apple)
-    push('respRate', 0.08, n.respRate, 'rise', 'נשימה', '', true);
+    // carry-forward לכל הוויטלים החסרים בבוקר — מונע נפילת רכיב שגורמת ליתר להשתלט על הציון
+    push('hrv', 0.35, _carriedVital(nights, idx, 'hrv').v, 'pos', 'HRV', 'ms', false);
+    push('rhr', 0.20, _carriedVital(nights, idx, 'rhr').v, 'inv', 'דופק מנוחה', '', true);
+    push('respRate', 0.08, _carriedVital(nights, idx, 'respRate').v, 'rise', 'נשימה', '', true);
     // שינה — הרכיב בציון הוא בעיקר יחסי-לנורמה (התאוששות), כמו שאר המדדים: 85% סטייה מהבסיס
     // האישי + 15% מספיקות מוחלטת מול עוגן (NSF/AASM ~7.5ש'). המספיקות נשארת כ"לחישה" בלבד כדי
     // שהציון לא יתעוור לגמרי לגירעון כרוני; חוב-השינה המוחלט מוצג בנפרד ככרטיס (ראה _sleepDebt),
@@ -2082,8 +2091,11 @@ function _slDualChart(nights) {
     </div>`;
 }
 
-function _slMetric(v, unit, k, delta, dcls) {
-    return `<div class="sl-metric"><div class="v">${v}<small>${unit || ''}</small></div><div class="k">${k}</div>${delta ? `<div class="d ${dcls}">${delta}</div>` : ''}</div>`;
+function _slMetric(v, unit, k, delta, dcls, carriedGap) {
+    // carriedGap>0 → ערך נגרר מלילה קודם. סימון עדין ("מלפני יום"/"מלפני N ימים") מתחת לדלתא,
+    // כדי שהמשתמש יראה נתון אינדיקטיבי במקום "—" אבל יבין שזה לא הערך של הלילה עצמו.
+    const cg = carriedGap ? `<div class="sl-carried">מלפני ${carriedGap === 1 ? 'יום' : carriedGap + ' ימים'}</div>` : '';
+    return `<div class="sl-metric"><div class="v">${v}<small>${unit || ''}</small></div><div class="k">${k}</div>${delta ? `<div class="d ${dcls}">${delta}</div>` : ''}${cg}</div>`;
 }
 
 function _slAvg(nights, key, win) {
@@ -2119,11 +2131,13 @@ function renderSleepView() {
         const good = invGood ? d < 0 : d > 0;
         return [`${d > 0 ? '+' : ''}${d} מול baseline`, good ? 'up' : 'down'];
     };
-    // מדד לא-תקין (0/מחוץ לטווח) מוצג כ"—" ובלי דלתא — לא כערך אמיתי מטעה
-    const _vv = (k) => _validVital(k, n[k]) ? n[k] : null;
-    const hrvD = dlt(_vv('hrv'), b('hrv'), false, 'ms');
-    const rhrD = dlt(_vv('rhr'), b('rhr'), true, '');
-    const respD = dlt(_vv('respRate'), b('respRate'), true, '');
+    // מדד חסר → carry-forward מלילה קודם (עד VITAL_CARRY_MAX). הכרטיס מציג ערך אמיתי + תיוג
+    // "מלפני יום/N ימים" במקום "—", כדי שלמשתמש תמיד תהיה קריאה אינדיקטיבית. אין ערך בטווח → "—".
+    const _cv = (k) => _carriedVital(nights, idx, k);
+    const hrvC = _cv('hrv'), rhrC = _cv('rhr'), respC = _cv('respRate');
+    const hrvD = dlt(hrvC.v, b('hrv'), false, 'ms');
+    const rhrD = dlt(rhrC.v, b('rhr'), true, '');
+    const respD = dlt(respC.v, b('respRate'), true, '');
     // טמפ' עור: הערך הגולמי מוחלט (°C) → מציגים סטייה מ-baseline אישי, אך רק אחרי 14 לילות
     // ("בונה" עד אז). לא-תקין/חסר → "—".
     const _bTemp = _recoveryBaseline(nights, idx, 'wristTempDev');
@@ -2176,9 +2190,9 @@ function renderSleepView() {
       <div class="sl-mgrid">
         ${_slMetric(_slFmtDur(n.asleepMin), '', 'זמן שינה', n.asleepMin >= need ? 'מעל היעד' : 'מתחת ליעד', n.asleepMin >= need ? 'up' : 'down')}
         ${_slMetric(Math.round((n.efficiency || 0) * 100), '%', 'יעילות', (n.efficiency || 0) >= 0.88 ? 'טובה' : 'בינונית', (n.efficiency || 0) >= 0.88 ? 'up' : 'flat')}
-        ${_slMetric(_vv('hrv') ?? '—', ' ms', 'HRV', ...hrvD)}
-        ${_slMetric(_vv('rhr') ?? '—', ' bpm', 'דופק מנוחה', ...rhrD)}
-        ${_slMetric(_vv('respRate') ?? '—', '', 'קצב נשימה', ...respD)}
+        ${_slMetric(hrvC.v ?? '—', ' ms', 'HRV', ...hrvD, hrvC.gap)}
+        ${_slMetric(rhrC.v ?? '—', ' bpm', 'דופק מנוחה', ...rhrD, rhrC.gap)}
+        ${_slMetric(respC.v ?? '—', '', 'קצב נשימה', ...respD, respC.gap)}
         ${tempCard}
       </div>
     </div>

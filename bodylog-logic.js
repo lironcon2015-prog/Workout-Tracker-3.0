@@ -2068,15 +2068,35 @@ function _slDurChart(nights) {
         <line x1="${pad}" x2="${W - pad}" y1="${ny}" y2="${ny}" stroke="var(--warn)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>${bars}</svg>`;
 }
 
+// _slAutoScale — סקאלה דינמית לסדרה: נגזרת מהערכים בפועל בחלון, לא מטווח קשיח.
+// למה: ערך חריג-אך-תקין (למשל HRV 159ms מ-Apple Health) מול סקאלה קבועה 40–90 ייצר y שלילי
+// והקו "ברח" מגבולות הכרטיס. הגרף הוא תצוגת מגמה בלבד — עדיף להתאים את הסקאלה מאשר לחתוך נתון.
+// סדרה שטוחה (טווח קטן מברירת המחדל) נמתחת לטווח ברירת המחדל סביב האמצע, כדי לא להגדיל רעש.
+function _slAutoScale(data, key, defLo, defHi) {
+    const vals = data.map(r => r && r[key]).filter(v => _validVital(key, v));
+    if (!vals.length) return [defLo, defHi];
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const defSpan = defHi - defLo, mid = (lo + hi) / 2;
+    if (hi - lo < defSpan) { lo = mid - defSpan / 2; hi = mid + defSpan / 2; }
+    else { const p = (hi - lo) * 0.12; lo -= p; hi += p; }
+    if (!(hi > lo)) { lo = mid - defSpan / 2; hi = mid + defSpan / 2; }   // הגנה אחרונה מחלוקה ב-0
+    return [lo, hi];
+}
+
 function _slDualChart(nights) {
     const data = nights.slice(-_slRange);
     const W = 320, H = 96, pad = 8;
-    const line = (key, col, lo, hi) => {
+    const line = (key, col, defLo, defHi) => {
+        const [lo, hi] = _slAutoScale(data, key, defLo, defHi);
         const n = data.length, bw = (W - pad * 2) / Math.max(n - 1, 1);
+        const TOP = 9, BOT = H - 9;   // רצועת הציור — משאירה מקום לרדיוס הנקודה ולעובי הקו
         let d = '', pts = '';
         data.forEach((row, i) => {
             const v = row[key]; if (!_validVital(key, v)) return;   // מדד לא-תקין (0) → מדלגים, הקו מגשר במקום להישבר
-            const x = pad + i * bw, yy = H - ((v - lo) / (hi - lo)) * (H - 18) - 9;
+            const x = pad + i * bw;
+            // clamp — רשת ביטחון שנייה: גם אם הסקאלה תחושב שגוי, שום נקודה לא תצא מה-viewBox
+            const raw = H - ((v - lo) / (hi - lo)) * (H - 18) - 9;
+            const yy = Math.min(BOT, Math.max(TOP, isFinite(raw) ? raw : H / 2));
             d += (d ? 'L' : 'M') + x.toFixed(1) + ' ' + yy.toFixed(1) + ' ';
             pts += `<circle cx="${x.toFixed(1)}" cy="${yy.toFixed(1)}" r="${i === n - 1 ? 3.5 : 2}" fill="${col}"/>`;
         });

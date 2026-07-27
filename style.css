@@ -2025,7 +2025,7 @@ body::before {
 .bar-chart-wrap::-webkit-scrollbar { display: none; }
 .bar-chart { height: 180px; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; position: relative; margin-top: 10px; padding: 0 8px; }
 .bar-col-wrap { position: relative; width: 32px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; z-index: 1; flex-shrink:0; }
-.bar { width: 100%; background: rgba(var(--accent-rgb),0.4); border-radius: var(--r-xs) var(--r-xs) 0 0; transition: all 0.5s cubic-bezier(0.2,0.8,0.2,1); }
+.bar { width: 100%; background: rgba(var(--accent-rgb),0.4); border-radius: var(--r-xs) var(--r-xs) 0 0; transition: all 0.5s var(--ease); }
 .bar.peak { background: var(--accent); box-shadow: 0 0 20px rgba(var(--accent-rgb),0.6); }
 .bar-lbl-top { font-size: var(--fs-xs); color: rgba(255,255,255,0.4); font-weight: 900; font-style: italic; margin-bottom: 4px; transition: color var(--dur-2) var(--ease); }
 .bar.peak + .bar-lbl-top, .bar-col-wrap:hover .bar-lbl-top { color: #fff; }
@@ -2035,7 +2035,7 @@ body::before {
 .hbar-row { display: flex; flex-direction: column; gap: 8px; }
 .hbar-label { font-size: var(--fs-xs); font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; cursor: pointer; }
 .hbar-track { width: 100%; background: rgba(255,255,255,0.05); border-radius: var(--r-pill); height: 8px; overflow: hidden; }
-.hbar-fill { height: 100%; border-radius: var(--r-pill); transition: width 0.7s cubic-bezier(0.2,0.8,0.2,1); }
+.hbar-fill { height: 100%; border-radius: var(--r-pill); transition: width 0.7s var(--ease); }
 
 /* DONUT */
 .donut-layout { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
@@ -2365,7 +2365,7 @@ body::before {
 .hbar-fill {
     height: 100%;
     border-radius: var(--r-xs);
-    transition: width 0.7s cubic-bezier(0.2,0.8,0.2,1);
+    transition: width 0.7s var(--ease);
 }
 
 .hbar-count {
@@ -5125,7 +5125,7 @@ body.live-mode-active { overflow: hidden; }
     border-radius: 50%; background: rgba(var(--accent-rgb),0.25);
     display: flex; align-items: center; justify-content: center;
     color: var(--accent); flex-shrink: 0;
-    animation: live-arrow-bounce 1.4s infinite cubic-bezier(0.4,0,0.6,1);
+    animation: live-arrow-bounce 1.4s infinite var(--ease);
 }
 .live-swipe-card.dragging .live-swipe-icon {
     background: rgba(var(--type-b-rgb),0.3); color: var(--type-b);
@@ -5992,7 +5992,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-ring { width: 248px; height: 248px; display: block; }   /* v16.93: הוגדל מ-220 — יחס ספרות/טבעת (הספרות נראו גדולות מדי בפנים) */
 .fd-ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 5; }
 .fd-rg0 { stop-color: var(--accent); } .fd-rg1 { stop-color: var(--accent-dim); }
-.fd-ring-prog { fill: none; stroke: url(#fdRingGrad); stroke-width: 5; transform: rotate(-90deg); transform-origin: 60px 60px; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.5)); transition: stroke-dashoffset 0.9s cubic-bezier(0.22,1,0.36,1); }
+.fd-ring-prog { fill: none; stroke: url(#fdRingGrad); stroke-width: 5; transform: rotate(-90deg); transform-origin: 60px 60px; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.5)); transition: stroke-dashoffset 0.9s var(--ease); }
 .fd-ring-prog.over { stroke: var(--danger); filter: drop-shadow(0 0 6px rgba(var(--danger-rgb),0.45)); }
 .fd-ring-center {
     position: absolute; inset: 0; display: flex; flex-direction: column;
@@ -6034,7 +6034,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-mstat-val { font-size: var(--fs-xl); font-weight: 400; color: var(--text); letter-spacing: -0.01em; }
 .fd-mstat-val small { font-size: 0.56em; color: var(--text-dim); font-weight: 400; margin-inline-start: 2px; }
 .fd-mline { width: 42px; height: 3px; border-radius: var(--r-pill); background: rgba(255,255,255,0.08); overflow: hidden; }
-.fd-mline span { display: block; height: 100%; border-radius: var(--r-pill); transition: width 0.6s cubic-bezier(0.22,1,0.36,1); }
+.fd-mline span { display: block; height: 100%; border-radius: var(--r-pill); transition: width 0.6s var(--ease); }
 .fd-mline.macro-p span { background: var(--macro-p); }
 .fd-mline.macro-c span { background: var(--macro-c); }
 .fd-mline.macro-f span { background: var(--macro-f); }

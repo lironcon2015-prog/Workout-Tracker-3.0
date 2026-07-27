@@ -944,7 +944,7 @@ function fdRenderTab() {
     else if (_fdTab === 'custom') foods = StorageManager.customFoods();
     if (!foods.length) {
         box.innerHTML = _fdTab === 'recent' ? emptyStateHtml('history', 'אין עדיין מזונות אחרונים', 'חפש מוצר למעלה')
-            : _fdTab === 'fav' ? emptyStateHtml('star', 'אין מועדפים', 'סמן ⭐ על מזון כדי שיופיע כאן')
+            : _fdTab === 'fav' ? emptyStateHtml('star', 'אין מועדפים', 'סמן מזון בכוכב כדי שיופיע כאן')
             : emptyStateHtml('edit_note', 'אין מזונות מותאמים', 'צור באמצעות הכפתור למטה');
         return;
     }
@@ -1117,7 +1117,7 @@ async function fdAiLookup() {
     if (!box || !q) return;
     if (!StorageManager.getAIConfig().apiKey) { showAlert('להערכת AI נדרש מפתח Gemini (הגדרות → AI Coach).'); return; }
     const seq = _fdSearchSeq;
-    box.innerHTML = '<div class="fd-loading">🔮 מעריך תזונה עם AI…</div>';
+    box.innerHTML = '<div class="fd-loading"><span class="material-symbols-outlined">auto_awesome</span> מעריך תזונה עם AI…</div>';
     try {
         const food = await _fdAiFood(q);
         if (seq !== _fdSearchSeq) return;   // המשתמש המשיך להקליד — התעלם
@@ -1165,7 +1165,7 @@ function _fdRenderFoodList(foods, box, append) {
                 <span class="fd-entry-pcf"><i class="macro-p">ח ${Math.round(dP)}</i><i class="macro-c">פ ${Math.round(dC)}</i><i class="macro-f">ש ${Math.round(dF)}</i></span>
             </div>
             ${editBtn}
-            <span class="fd-food-star ${f.favorite ? 'on' : ''}" role="button" onclick="event.stopPropagation();fdToggleFav('${_fdEsc(f.id)}',this)">${f.favorite ? '★' : '☆'}</span>
+            <span class="fd-food-star ${f.favorite ? 'on' : ''}" role="button" onclick="event.stopPropagation();fdToggleFav('${_fdEsc(f.id)}',this)"><span class="material-symbols-outlined">star</span></span>
         </button>`;
     }).join('');
     box.innerHTML = (append ? box.innerHTML : '') + html;
@@ -1174,7 +1174,7 @@ function _fdRenderFoodList(foods, box, append) {
 function fdToggleFav(id, el) {
     const on = StorageManager.toggleFavoriteFood(id);
     if (_fdFoodCache[id]) _fdFoodCache[id].favorite = on;
-    if (el) { el.textContent = on ? '★' : '☆'; el.classList.toggle('on', on); }
+    if (el) { el.classList.toggle('on', on); }
     _fdSyncCloud();
     haptic('light');
 }
@@ -1317,7 +1317,7 @@ function _fdUpdatePreview() {
     prev.innerHTML = `<span class="fd-preview-kcal">${m.kcal}<small>kcal</small></span>
         <span class="fd-preview-pcf">חלבון ${m.p}g · פחמימה ${m.c}g · שומן ${m.f}g</span>
         <span class="fd-preview-g">${_fdQtyDisplayLabel(g)}</span>
-        ${mismatch ? `<div class="fd-kcal-warn">⚠ הקלוריות לא תואמות את פירוט המאקרו (סטייה ${Math.round(mismatch * 100)}%) — ייתכן נתון מקור שגוי</div>` : ''}`;
+        ${mismatch ? `<div class="fd-kcal-warn"><span class="material-symbols-outlined inline-arrow">warning</span> הקלוריות לא תואמות את פירוט המאקרו (סטייה ${Math.round(mismatch * 100)}%) — ייתכן נתון מקור שגוי</div>` : ''}`;
 }
 
 function fdSavePortion() {
@@ -1429,7 +1429,7 @@ function _fdCustomCheckMismatch() {
     const c = Number(document.getElementById('fd-c-c').value) || 0;
     const f = Number(document.getElementById('fd-c-f').value) || 0;
     const mismatch = _fdKcalMismatch(kcal, p, c, f);
-    warnEl.innerHTML = mismatch ? `⚠ הקלוריות שהוזנו לא תואמות את חלבון/פחמימה/שומן (סטייה ${Math.round(mismatch * 100)}%) — בדוק את הערכים` : '';
+    warnEl.innerHTML = mismatch ? `<span class="material-symbols-outlined inline-arrow">warning</span> הקלוריות שהוזנו לא תואמות את חלבון/פחמימה/שומן (סטייה ${Math.round(mismatch * 100)}%) — בדוק את הערכים` : '';
 }
 
 // food=null → יצירת מזון מותאם חדש; food קיים → עריכה במקום (אותו id, משמר היסטוריית שימוש/מועדפים)
@@ -1631,7 +1631,7 @@ async function fdParsePastedNutrition() {
     if (!text) { setMsg('הדבק טקסט של ערכים תזונתיים ואז לחץ "זהה ומלא".'); return; }
     let r = _fdParseNutritionText(text);
     if (r.kcal == null && _fdAiAvailable()) {
-        setMsg('🔮 מנתח את הטקסט עם AI…');
+        setMsg('מנתח את הטקסט עם AI…');
         try { r = await _fdAiParseLabelText(text); } catch (e) { r = null; }
     }
     if (!r || r.kcal == null) {
@@ -1655,7 +1655,7 @@ function _fdApplyParsedNutrition(r) {
     if (msg) {
         const basisLbl = r.unit === 'ml' ? '100 מ״ל' : '100 גרם';
         const from = (r.basis && r.basis !== 100) ? ` (הומר ממנה של ${r.basis} ${r.unit === 'ml' ? 'מ״ל' : 'גרם'})` : (r.ai ? ' (ניתוח AI)' : '');
-        msg.innerHTML = `✓ זוהה ל-${basisLbl}${from}: <b>${Math.round(r.kcal)}</b> קק״ל · ח ${r.p ?? 0} · פ ${r.c ?? 0} · ש ${r.f ?? 0} — בדוק ותקן במידת הצורך`;
+        msg.innerHTML = `<span class="material-symbols-outlined inline-arrow">check</span> זוהה ל-${basisLbl}${from}: <b>${Math.round(r.kcal)}</b> קק״ל · ח ${r.p ?? 0} · פ ${r.c ?? 0} · ש ${r.f ?? 0} — בדוק ותקן במידת הצורך`;
     }
     haptic('light');
 }
@@ -1873,7 +1873,7 @@ function fdOnPhoto(file) {
     if (!file) return;
     if (_fdPhotoMode === 'meal') { _fdOnMealPhoto(file); return; }
     const box = document.getElementById('fd-results');
-    if (box) box.innerHTML = '<div class="fd-loading">📷 קורא את התווית/ברקוד…</div>';
+    if (box) box.innerHTML = '<div class="fd-loading"><span class="material-symbols-outlined">photo_camera</span> קורא את התווית/ברקוד…</div>';
     // נתיב מהיר: פענוח ברקוד מקומי (ללא AI/רשת). הצליח → cache/OFF דרך resolveBarcode.
     _fdPendingBarcode = null;
     _fdDecodeBarcode(file).then(async code => {
@@ -1896,7 +1896,7 @@ function fdOnPhoto(file) {
 
 // קריאת תווית ערך תזונתי דרך Gemini — נתיב הנפילה כשאין ברקוד מפוענח מקומית
 function _fdLabelViaGemini(file, box) {
-    if (box) box.innerHTML = '<div class="fd-loading">📷 קורא את התווית…</div>';
+    if (box) box.innerHTML = '<div class="fd-loading"><span class="material-symbols-outlined">photo_camera</span> קורא את התווית…</div>';
     _fileToBase64(file).then(({ base64, mime }) => _callGeminiFood(base64, mime)).then(async res => {
         // אם זוהה ברקוד מהתווית — חיפוש דרך resolveBarcode (cache/OFF)
         if (res && res.barcode && /^\d{6,}$/.test(String(res.barcode))) {
@@ -1913,9 +1913,9 @@ function _fdLabelViaGemini(file, box) {
             _fdOpenPortion(food, null);
             return;
         }
-        if (box) box.innerHTML = '<div class="fd-empty">⚠ לא זוהו ערכים מהתמונה — חפש ידנית או צור מזון מותאם.</div>';
+        if (box) box.innerHTML = '<div class="fd-empty"><span class="material-symbols-outlined inline-arrow">warning</span> לא זוהו ערכים מהתמונה — חפש ידנית או צור מזון מותאם.</div>';
     }).catch(() => {
-        if (box) box.innerHTML = '<div class="fd-empty">⚠ קריאת התמונה נכשלה — חפש ידנית.</div>';
+        if (box) box.innerHTML = '<div class="fd-empty"><span class="material-symbols-outlined inline-arrow">warning</span> קריאת התמונה נכשלה — חפש ידנית.</div>';
     });
 }
 
@@ -2121,7 +2121,7 @@ function _fdCompFromEstimate(it) {
 // _fdOnMealPhoto — הערכת מנה מצולמת → Meal Builder עם מרכיבים ניתנים לעריכה
 function _fdOnMealPhoto(file) {
     const box = document.getElementById('fd-results');
-    if (box) box.innerHTML = '<div class="fd-loading">🍽️ מעריך את המנה מהתמונה…</div>';
+    if (box) box.innerHTML = '<div class="fd-loading"><span class="material-symbols-outlined">restaurant</span> מעריך את המנה מהתמונה…</div>';
     _fileToBase64(file).then(({ base64, mime }) => _callGeminiMeal(base64, mime)).then(res => {
         let comps = [];
         if (res && Array.isArray(res.items) && res.items.length && res.items[0] && res.items[0].kcal != null) {
@@ -2131,12 +2131,12 @@ function _fdOnMealPhoto(file) {
             comps = [_fdCompFromEstimate({ name: res.name || 'מנה', grams: res.grams, kcal: res.kcal, protein: res.protein, carbs: res.carbs, fat: res.fat })];
         }
         if (!comps.length) {
-            if (box) box.innerHTML = '<div class="fd-empty">⚠ לא הצלחתי להעריך את המנה — נסה תמונה ברורה יותר או חפש ידנית.</div>';
+            if (box) box.innerHTML = '<div class="fd-empty"><span class="material-symbols-outlined inline-arrow">warning</span> לא הצלחתי להעריך את המנה — נסה תמונה ברורה יותר או חפש ידנית.</div>';
             return;
         }
         _fdOpenMealBuilder({ name: (res && res.name) || 'מנה מהתמונה', components: comps, meal: _fdMeal, time: _fdNowTime(), editId: null });
     }).catch(() => {
-        if (box) box.innerHTML = '<div class="fd-empty">⚠ הערכת המנה נכשלה — נסה שוב או חפש ידנית.</div>';
+        if (box) box.innerHTML = '<div class="fd-empty"><span class="material-symbols-outlined inline-arrow">warning</span> הערכת המנה נכשלה — נסה שוב או חפש ידנית.</div>';
     });
 }
 
@@ -2199,7 +2199,7 @@ function _fdRenderComponents() {
                     <span class="fd-comp-cell"><input id="fd-mc-c100-${i}" inputmode="decimal" step="any" value="${_fdR(p.c)}" oninput="_fdMealRecalc()"><small class="macro-c">פ</small></span>
                     <span class="fd-comp-cell"><input id="fd-mc-f100-${i}" inputmode="decimal" step="any" value="${_fdR(p.f)}" oninput="_fdMealRecalc()"><small class="macro-f">ש</small></span>
                 </div>
-                <span class="fd-comp-kcal"><b id="fd-mc-kc-${i}">${_fdFmt(kcal)}</b> kcal למרכיב<span class="fd-comp-warn" id="fd-mc-warn-${i}" style="display:none" title=""> ⚠</span></span>
+                <span class="fd-comp-kcal"><b id="fd-mc-kc-${i}">${_fdFmt(kcal)}</b> kcal למרכיב<span class="fd-comp-warn" id="fd-mc-warn-${i}" style="display:none" title=""> <span class="material-symbols-outlined inline-arrow">warning</span></span></span>
             </div>
             <div class="fd-comp-qty">
                 <input type="number" id="fd-mc-g-${i}" inputmode="decimal" min="0" step="any" value="${_fdR(c.grams)}" oninput="_fdMealRecalc()">

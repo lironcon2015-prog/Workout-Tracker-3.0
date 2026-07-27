@@ -33,7 +33,7 @@ function autoSaveConfigToCloud() {
     FirebaseManager.saveConfigToCloud().then(ok => {
         // הצלחה = שקט (הודעת ההצלחה רק הפריעה). רק כשל אמיתי מציג טוסט.
         if (!ok && typeof showCloudToast === 'function') {
-            showCloudToast('⚠️ שמירת נתונים לענן נכשלה — ' + FirebaseManager.describeSyncFailure('config'), false);
+            showCloudToast('שמירת נתונים לענן נכשלה — ' + FirebaseManager.describeSyncFailure('config'), false);
         }
     });
 }

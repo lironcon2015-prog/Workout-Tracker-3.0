@@ -86,27 +86,27 @@
             <h3>עריכת סט</h3>
             <div class="input-grid mb-md">
                 <div class="glass-card compact stepper-card m-0">
-                    <label id="edit-weight-mode-lbl" class="wmode-toggle" onclick="_editModalCycleMode()">Weight (kg) ⇄</label>
+                    <label id="edit-weight-mode-lbl" class="wmode-toggle" onclick="_editModalCycleMode()">Weight (kg) <span class="material-symbols-outlined inline-arrow">swap_horiz</span></label>
                     <div id="edit-weight-display" class="stepper-num-display" onclick="_editModalEditValue('weight')">—</div>
                     <div id="edit-weight-stepper-row" class="stepper-row">
-                        <button class="stepper-pm-btn" onclick="_editModalStep('weight',-1)">−</button>
-                        <button class="stepper-pm-btn" onclick="_editModalStep('weight',1)">+</button>
+                        <button class="stepper-pm-btn" onclick="_editModalStep('weight',-1)"><span class="material-symbols-outlined">remove</span></button>
+                        <button class="stepper-pm-btn" onclick="_editModalStep('weight',1)"><span class="material-symbols-outlined">add</span></button>
                     </div>
                 </div>
                 <div class="glass-card compact stepper-card m-0">
                     <label>Reps</label>
                     <div id="edit-reps-display" class="stepper-num-display" onclick="_editModalEditValue('reps')">—</div>
                     <div class="stepper-row">
-                        <button class="stepper-pm-btn" onclick="_editModalStep('reps',-1)">−</button>
-                        <button class="stepper-pm-btn" onclick="_editModalStep('reps',1)">+</button>
+                        <button class="stepper-pm-btn" onclick="_editModalStep('reps',-1)"><span class="material-symbols-outlined">remove</span></button>
+                        <button class="stepper-pm-btn" onclick="_editModalStep('reps',1)"><span class="material-symbols-outlined">add</span></button>
                     </div>
                 </div>
                 <div class="glass-card compact stepper-card m-0">
                     <label>RIR</label>
                     <div id="edit-rir-display" class="stepper-num-display" onclick="_editModalEditValue('rir')">—</div>
                     <div class="stepper-row">
-                        <button class="stepper-pm-btn" onclick="_editModalStep('rir',-1)">−</button>
-                        <button class="stepper-pm-btn" onclick="_editModalStep('rir',1)">+</button>
+                        <button class="stepper-pm-btn" onclick="_editModalStep('rir',-1)"><span class="material-symbols-outlined">remove</span></button>
+                        <button class="stepper-pm-btn" onclick="_editModalStep('rir',1)"><span class="material-symbols-outlined">add</span></button>
                     </div>
                 </div>
             </div>
@@ -201,7 +201,7 @@
             <div class="stepper-control mt-sm mb-lg">
                 <button class="stepper-btn" onclick="changeRestTime(-15)">-</button>
                 <span id="rest-time-display" class="stepper-value">90s</span>
-                <button class="stepper-btn" onclick="changeRestTime(15)">+</button>
+                <button class="stepper-btn" onclick="changeRestTime(15)"><span class="material-symbols-outlined">add</span></button>
             </div>
             <button class="btn-main primary-gradient" onclick="saveExerciseSettings()">שמור</button>
             <button class="btn-text" onclick="closeExerciseSettings()">ביטול</button>
@@ -896,7 +896,7 @@
                                 <span class="material-symbols-outlined stg-chevron">chevron_left</span>
                             </button>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">גיבוי מלא = צילום מדויק של כל האפליקציה, כולל המפתחות — שחזורו מחזיר אותה בדיוק למצב של מועד הגיבוי. לפני כל שחזור מוחק יורד אוטומטית גיבוי של המצב הנוכחי. ⚠️ הקובץ מכיל מפתחות אישיים — לשמור במקום בטוח.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">גיבוי מלא = צילום מדויק של כל האפליקציה, כולל המפתחות — שחזורו מחזיר אותה בדיוק למצב של מועד הגיבוי. לפני כל שחזור מוחק יורד אוטומטית גיבוי של המצב הנוכחי. <span class="material-symbols-outlined inline-warn">warning</span> הקובץ מכיל מפתחות אישיים — לשמור במקום בטוח.</div>
                         <input type="file" id="import-connections-file" class="d-none" accept=".json,application/json" onchange="processConnectionsImport(this)">
                         <input type="file" id="import-full-backup-file" class="d-none" accept=".json,application/json" onchange="processFullBackupImport(this)">
                     </div>
@@ -923,7 +923,7 @@
                                 <button id="backup-send-btn" class="bridge-btn bridge-btn--go" onclick="sendBackupNow()">שלח גיבוי עכשיו</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">בכל פתיחת אפליקציה נבדק אם עברו 7 ימים מהגיבוי האחרון — ואם כן, קובץ הגיבוי המלא נשלח לאימייל שלך דרך הגשר (docs/backup-bridge.gs, רץ בחשבון ה-Gmail שלך). בנוסף, <b>בכל שינוי של מפתח חיבור נשלח מיד קובץ חיבורים מעודכן</b> — כך שלמפתח חדש אף פעם אין חלון בלי גיבוי. ⚠️ המייל מכיל את כל המפתחות — הוא נשלח מחשבונך לעצמך בלבד.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">בכל פתיחת אפליקציה נבדק אם עברו 7 ימים מהגיבוי האחרון — ואם כן, קובץ הגיבוי המלא נשלח לאימייל שלך דרך הגשר (docs/backup-bridge.gs, רץ בחשבון ה-Gmail שלך). בנוסף, <b>בכל שינוי של מפתח חיבור נשלח מיד קובץ חיבורים מעודכן</b> — כך שלמפתח חדש אף פעם אין חלון בלי גיבוי. <span class="material-symbols-outlined inline-warn">warning</span> המייל מכיל את כל המפתחות — הוא נשלח מחשבונך לעצמך בלבד.</div>
                     </div>
 
                     <!-- ווידג'ט אייפון (Scriptable) -->
@@ -974,7 +974,7 @@
                                 <button class="bridge-btn bridge-btn--alt" onclick="scanPhotoDriveNow()">סרוק דרייב</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">תמונות ההתקדמות נשמרות בתיקייה פרטית בדרייב שלך דרך הגשר (docs/photo-bridge.gs) — מקור האמת; במכשיר נשמר רק cache. ⚠️ פרטיות: ניתוח ה-AI שולח את התמונות ל-Gemini API — ב-free tier גוגל רשאית להשתמש בקלט לשיפור מודלים; במסלול בתשלום לא.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">תמונות ההתקדמות נשמרות בתיקייה פרטית בדרייב שלך דרך הגשר (docs/photo-bridge.gs) — מקור האמת; במכשיר נשמר רק cache. <span class="material-symbols-outlined inline-warn">warning</span> פרטיות: ניתוח ה-AI שולח את התמונות ל-Gemini API — ב-free tier גוגל רשאית להשתמש בקלט לשיפור מודלים; במסלול בתשלום לא.</div>
                     </div>
 
                     <!-- ייבוא תזונה (MyFitnessPal) -->
@@ -1088,7 +1088,7 @@
                         <span class="material-symbols-outlined" style="font-size:1.2rem;line-height:1;">add</span>
                         צור תוכנית חדשה
                     </button>
-                    <button class="btn-save-cloud km-cloud-link" onclick="saveWorkoutManagerToCloud()">☁️ שמור קונפיגורציה לענן</button>
+                    <button class="btn-save-cloud km-cloud-link" onclick="saveWorkoutManagerToCloud()"><span class="material-symbols-outlined inline-arrow">cloud_upload</span> שמור קונפיגורציה לענן</button>
                 </div>
             </div>
 
@@ -1324,12 +1324,12 @@
                 </div>
                 <div class="input-grid">
                     <div class="glass-card compact stepper-card">
-                        <label id="weight-mode-label" class="wmode-toggle" onclick="cycleWeightMode()">Weight (kg) ⇄</label>
+                        <label id="weight-mode-label" class="wmode-toggle" onclick="cycleWeightMode()">Weight (kg) <span class="material-symbols-outlined inline-arrow">swap_horiz</span></label>
                         <select id="weight-picker" class="ios-picker" style="display:none;"></select>
                         <div id="weight-display" class="stepper-num-display" onclick="editPickerValue('weight')">—</div>
                         <div id="weight-stepper-row" class="stepper-row">
-                            <button class="stepper-pm-btn" onclick="stepPicker('weight',-1)">−</button>
-                            <button class="stepper-pm-btn" onclick="stepPicker('weight',1)">+</button>
+                            <button class="stepper-pm-btn" onclick="stepPicker('weight',-1)"><span class="material-symbols-outlined">remove</span></button>
+                            <button class="stepper-pm-btn" onclick="stepPicker('weight',1)"><span class="material-symbols-outlined">add</span></button>
                         </div>
                     </div>
                     <div class="glass-card compact stepper-card">
@@ -1337,8 +1337,8 @@
                         <select id="reps-picker" class="ios-picker" style="display:none;"></select>
                         <div id="reps-display" class="stepper-num-display" onclick="editPickerValue('reps')">—</div>
                         <div class="stepper-row">
-                            <button class="stepper-pm-btn" onclick="stepPicker('reps',-1)">−</button>
-                            <button class="stepper-pm-btn" onclick="stepPicker('reps',1)">+</button>
+                            <button class="stepper-pm-btn" onclick="stepPicker('reps',-1)"><span class="material-symbols-outlined">remove</span></button>
+                            <button class="stepper-pm-btn" onclick="stepPicker('reps',1)"><span class="material-symbols-outlined">add</span></button>
                         </div>
                     </div>
                     <div class="glass-card compact stepper-card">
@@ -1346,13 +1346,13 @@
                         <select id="rir-picker" class="ios-picker" style="display:none;"></select>
                         <div id="rir-display" class="stepper-num-display" onclick="editPickerValue('rir')">—</div>
                         <div class="stepper-row">
-                            <button class="stepper-pm-btn" onclick="stepPicker('rir',-1)">−</button>
-                            <button class="stepper-pm-btn" onclick="stepPicker('rir',1)">+</button>
+                            <button class="stepper-pm-btn" onclick="stepPicker('rir',-1)"><span class="material-symbols-outlined">remove</span></button>
+                            <button class="stepper-pm-btn" onclick="stepPicker('rir',1)"><span class="material-symbols-outlined">add</span></button>
                         </div>
                     </div>
                 </div>
                 <input type="text" id="set-notes" class="minimal-input" placeholder="הערות לסט (אופציונלי)">
-                <button id="btn-submit-set" class="btn-main primary-gradient pulse" onclick="nextStep()">LOG SET &nbsp;→</button>
+                <button id="btn-submit-set" class="btn-main primary-gradient pulse" onclick="nextStep()">LOG SET &nbsp;<span class="material-symbols-outlined inline-arrow">arrow_forward</span></button>
                 <div id="action-panel" class="action-panel">
                     <p id="next-ex-preview" class="passive-preview"></p>
                     <div class="vertical-stack">
@@ -1423,9 +1423,9 @@
                 <div id="calendar-view" style="display:none;">
                     <div class="calendar-wrapper">
                         <div class="calendar-header">
-                            <button class="month-nav-btn" onclick="changeMonth(-1)">❮</button>
+                            <button class="month-nav-btn" onclick="changeMonth(-1)"><span class="material-symbols-outlined">chevron_left</span></button>
                             <span id="current-month-display" class="current-month-display"></span>
-                            <button class="month-nav-btn" onclick="changeMonth(1)">❯</button>
+                            <button class="month-nav-btn" onclick="changeMonth(1)"><span class="material-symbols-outlined">chevron_right</span></button>
                         </div>
                         <div class="calendar-grid">
                             <div class="day-name">א</div><div class="day-name">ב</div><div class="day-name">ג</div><div class="day-name">ד</div><div class="day-name">ה</div><div class="day-name">ו</div><div class="day-name">ש</div>
@@ -1455,7 +1455,7 @@
                                 <input type="checkbox" id="archive-coach-toggle" onchange="toggleArchiveCopyCoach(this.checked)">
                                 <span>ס. מאמן</span>
                             </label>
-                            <button class="archive-pill-btn archive-pill-cancel" onclick="_exitArchiveSelectMode()" aria-label="בטל בחירה">✕</button>
+                            <button class="archive-pill-btn archive-pill-cancel" onclick="_exitArchiveSelectMode()" aria-label="בטל בחירה"><span class="material-symbols-outlined">close</span></button>
                         </div>
                         <div id="archive-list" class="vertical-stack"></div>
                     </div>
@@ -1867,7 +1867,7 @@
                     <div id="pp-reminder" class="pp-reminder" style="display:none;">
                         <span id="pp-reminder-txt"></span>
                         <button class="pp-reminder-cta" onclick="ppOpenCamera()">צלם</button>
-                        <button class="pp-reminder-x" onclick="ppSnoozeReminder()" aria-label="דחה ל-3 ימים">✕</button>
+                        <button class="pp-reminder-x" onclick="ppSnoozeReminder()" aria-label="דחה ל-3 ימים"><span class="material-symbols-outlined">close</span></button>
                     </div>
                     <div class="pp-actions">
                         <button class="pp-cta" onclick="ppOpenCamera()">צלם תמונת התקדמות</button>
@@ -1971,11 +1971,11 @@
                 <p class="color-dim text-xs mt-0 mb-sm">השאר ריק לחישוב אוטומטי לפי הרגלי האימון שלך</p>
                 <div class="input-grid grid-2-cols" style="gap:10px;">
                     <div>
-                        <label class="input-label" style="font-size:0.75em;">🟢 ירוק — עד (ימים)</label>
+                        <label class="input-label" style="font-size:0.75em;"><i class="legend-swatch legend-swatch--ok"></i> ירוק — עד (ימים)</label>
                         <input type="number" id="pref-cons-green" class="minimal-input m-0" min="1" max="30" placeholder="אוטומטי">
                     </div>
                     <div>
-                        <label class="input-label" style="font-size:0.75em;">🟠 כתום — עד (ימים)</label>
+                        <label class="input-label" style="font-size:0.75em;"><i class="legend-swatch legend-swatch--warn"></i> כתום — עד (ימים)</label>
                         <input type="number" id="pref-cons-orange" class="minimal-input m-0" min="1" max="60" placeholder="אוטומטי">
                     </div>
                 </div>
@@ -2048,12 +2048,12 @@
         </div>
         <div class="live-edit-grid">
             <div class="live-edit-card">
-                <div class="live-edit-card-lbl wmode-toggle" id="live-weight-mode-lbl" onclick="cycleWeightMode()">משקל ⇄</div>
+                <div class="live-edit-card-lbl wmode-toggle" id="live-weight-mode-lbl" onclick="cycleWeightMode()">משקל <span class="material-symbols-outlined inline-arrow">swap_horiz</span></div>
                 <div id="live-edit-weight-disp" class="live-edit-card-val" onclick="editLivePickerValue('weight')">—</div>
                 <div class="live-edit-card-unit" id="live-edit-weight-unit">ק"ג</div>
                 <div class="live-edit-pm-row" id="live-weight-pm-row">
-                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('weight',-1)">−</button>
-                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('weight',1)">+</button>
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('weight',-1)"><span class="material-symbols-outlined">remove</span></button>
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('weight',1)"><span class="material-symbols-outlined">add</span></button>
                 </div>
             </div>
             <div class="live-edit-card">
@@ -2061,8 +2061,8 @@
                 <div id="live-edit-reps-disp" class="live-edit-card-val" onclick="editLivePickerValue('reps')">—</div>
                 <div class="live-edit-card-unit">REPS</div>
                 <div class="live-edit-pm-row">
-                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('reps',-1)">−</button>
-                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('reps',1)">+</button>
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('reps',-1)"><span class="material-symbols-outlined">remove</span></button>
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('reps',1)"><span class="material-symbols-outlined">add</span></button>
                 </div>
             </div>
             <div class="live-edit-card">
@@ -2070,8 +2070,8 @@
                 <div id="live-edit-rir-disp" class="live-edit-card-val" onclick="editLivePickerValue('rir')">—</div>
                 <div class="live-edit-card-unit">&nbsp;</div>
                 <div class="live-edit-pm-row">
-                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('rir',-1)">−</button>
-                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('rir',1)">+</button>
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('rir',-1)"><span class="material-symbols-outlined">remove</span></button>
+                    <button class="live-edit-pm-btn" onclick="_liveStepPicker('rir',1)"><span class="material-symbols-outlined">add</span></button>
                 </div>
             </div>
         </div>
@@ -2079,7 +2079,7 @@
             <label class="live-edit-notes-lbl" for="live-edit-notes">הערה לסט</label>
             <input type="text" id="live-edit-notes" class="live-edit-notes-input" placeholder="אופציונלי — הוסף הערה לסט הזה" oninput="_syncLiveNoteToMain()">
         </div>
-        <button id="live-edit-log-btn" class="btn-main primary-gradient live-edit-log-btn" onclick="_liveLogSetFromSheet()">LOG SET &nbsp;→</button>
+        <button id="live-edit-log-btn" class="btn-main primary-gradient live-edit-log-btn" onclick="_liveLogSetFromSheet()">LOG SET &nbsp;<span class="material-symbols-outlined inline-arrow">arrow_forward</span></button>
     </div>
 
     <!-- Workout Quick Menu (תרגילים / היסטוריה / יומן) -->
@@ -2255,9 +2255,9 @@
     <div id="fd-cal-sheet" class="bottom-sheet fd-cal-sheet">
         <div class="sheet-handle"></div>
         <div class="calendar-header">
-            <button class="month-nav-btn" onclick="fdCalShiftMonth(-1)" aria-label="חודש קודם">❮</button>
+            <button class="month-nav-btn" onclick="fdCalShiftMonth(-1)" aria-label="חודש קודם"><span class="material-symbols-outlined">chevron_left</span></button>
             <span id="fd-cal-title" class="current-month-display"></span>
-            <button class="month-nav-btn" id="fd-cal-next" onclick="fdCalShiftMonth(1)" aria-label="חודש הבא">❯</button>
+            <button class="month-nav-btn" id="fd-cal-next" onclick="fdCalShiftMonth(1)" aria-label="חודש הבא"><span class="material-symbols-outlined">chevron_right</span></button>
         </div>
         <div class="calendar-grid">
             <div class="day-name">א</div><div class="day-name">ב</div><div class="day-name">ג</div><div class="day-name">ד</div><div class="day-name">ה</div><div class="day-name">ו</div><div class="day-name">ש</div>
@@ -2464,7 +2464,7 @@
         <p class="sub-text">נשמר ומוזרק לכל שיחה כהקשר קבוע. נתונים דינמיים (משקל, מצב תזונתי, תוכנית, TM) נשאבים אוטומטית מהמערכת — כתוב כאן רק מידע קבוע (מגבלות, העדפות, יעדים, עקרונות).</p>
         <div id="ai-persona-review" class="ai-persona-review" hidden>
             <span id="ai-persona-review-text"></span>
-            <button class="btn-text ai-persona-review-btn" onclick="confirmProfileReviewed()">הפרופיל מעודכן ✓</button>
+            <button class="btn-text ai-persona-review-btn" onclick="confirmProfileReviewed()">הפרופיל מעודכן <span class="material-symbols-outlined inline-arrow">check</span></button>
         </div>
         <textarea id="ai-persona-text" class="ai-persona-textarea"
                   placeholder="למשל: מתאמן 3 פעמים בשבוע, מתמקד בכוח. יש לי רגישות בכתף ימין. המטרה שלי היא 140kg Bench..."></textarea>
@@ -2649,7 +2649,7 @@
         <h3 id="bg-picker-title">בחירת רקע</h3>
         <div id="bg-picker-content"></div>
     </div>
-    <button id="bg-save" onclick="saveBgEdit()" style="display:none;position:fixed;bottom:104px;left:50%;transform:translateX(-50%);z-index:500;background:var(--success);color:#0a0a0a;border:none;border-radius:9999px;padding:11px 24px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;">✓ שמור וסיום</button>
+    <button id="bg-save" onclick="saveBgEdit()" style="display:none;position:fixed;bottom:104px;left:50%;transform:translateX(-50%);z-index:500;background:var(--success);color:#0a0a0a;border:none;border-radius:9999px;padding:11px 24px;font-family:inherit;font-weight:900;font-size:0.9rem;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;"><span class="material-symbols-outlined inline-arrow">check</span> שמור וסיום</button>
     <script>
     (function(){
         var KEY = 'gympro-bg-choices-v2';
@@ -2867,7 +2867,7 @@
             document.getElementById('bg-lab').style.display = 'none';
             document.getElementById('bg-save').style.display = 'none';
             applyAll();
-            if (typeof showCloudToast === 'function') showCloudToast('תמונות הרקע נשמרו ✓', true);
+            if (typeof showCloudToast === 'function') showCloudToast('תמונות הרקע נשמרו', true);
         };
 
         // ── ניהול רקעים מותאמים (sheet בהגדרות) ──
@@ -2949,7 +2949,7 @@
                 document.getElementById('bgm-preview-wrap').style.display = 'none';
                 document.getElementById('bgm-name').value = '';
                 renderBgList();
-                if (typeof showCloudToast === 'function') showCloudToast('הרקע "' + name + '" נוסף ✓', true);
+                if (typeof showCloudToast === 'function') showCloudToast('הרקע "' + name + '" נוסף', true);
                 if (typeof haptic === 'function') haptic('success');
             }).catch(function(){
                 if (typeof showAlert === 'function') showAlert('שמירת הרקע נכשלה. ייתכן שאין מקום פנוי במכשיר.');

@@ -515,7 +515,7 @@ function _renderTdeeCard() {
     const details = !_blTdeeExpanded ? '' : `
         ${windowLine}
         <table class="bl-tdee-table"><thead><tr><th>שיטה</th><th>BMR</th><th>TDEE</th><th></th></tr></thead><tbody>${rows}</tbody></table>
-        ${t.diverge ? `<div class="bl-tdee-warn">⚠ השיטות סוטות &gt;15% זו מזו — ייתכן דיווח לא עקבי</div>` : ''}
+        ${t.diverge ? `<div class="bl-tdee-warn"><span class="material-symbols-outlined inline-arrow">warning</span> השיטות סוטות &gt;15% זו מזו — ייתכן דיווח לא עקבי</div>` : ''}
         <div class="bl-tdee-targets">
             <div><span>תחזוקה</span><b>${fmt(t.best)}</b></div>
             <div><span>ירידה ~0.5/שב'</span><b>${fmt(cut)}</b></div>
@@ -601,32 +601,32 @@ function _tdeeWindowExplainHTML(t) {
     const req = t.customStart
         ? `התאריך שבחרת ידנית — <b>${D(t.startDate)}</b>`
         : `החלון האוטומטי — 28 הימים האחרונים (מ-<b>${D(t.startDate)}</b>)`;
-    out.push(`<p>📅 <b>ביקשת:</b> ${req}.</p>`);
-    out.push(`<p>⚙️ <b>חושב בפועל:</b> מ-<b>${D(t.effectiveStart)}</b>${t.measuredOk ? ` · ${t.days} ימי תזונה · קצב ${t.weeklyKg} ק"ג/שבוע` : ' · ללא מדידת back-calc (הערכת נוסחה בלבד)'}.</p>`);
+    out.push(`<p><span class="material-symbols-outlined inline-arrow">event_available</span> <b>ביקשת:</b> ${req}.</p>`);
+    out.push(`<p><span class="material-symbols-outlined inline-arrow">tune</span> <b>חושב בפועל:</b> מ-<b>${D(t.effectiveStart)}</b>${t.measuredOk ? ` · ${t.days} ימי תזונה · קצב ${t.weeklyKg} ק"ג/שבוע` : ' · ללא מדידת back-calc (הערכת נוסחה בלבד)'}.</p>`);
     let any = false;
     if (t.trimmedOld) {
         any = true;
-        out.push(`<div class="bl-info-block">🔒 <b>למה לא התחיל מהתאריך שביקשת?</b><br>
+        out.push(`<div class="bl-info-block"><span class="material-symbols-outlined inline-arrow">lock</span> <b>למה לא התחיל מהתאריך שביקשת?</b><br>
         בין השקילה ב-${D(t.gapLastOld)} לשקילה ב-${D(t.effectiveStart)} יש פער של <b>${t.gapDays} ימים</b> — סימן למאזניים חדש או baseline חדש. הפרש הכיול בין שני המאזניים (לרוב ~1 ק"ג) היה נספר בטעות כשינוי משקל ומנפח את ה-TDEE. לכן החישוב משתמש רק במקטע הרציף האחרון, מ-${D(t.effectiveStart)}.</div>`);
     }
     if (t.despiked && t.despiked.length) {
         any = true;
         const list = t.despiked.map(p => `${D(p.date)} (${p.weight} ק"ג)`).join(', ');
-        out.push(`<div class="bl-info-block">💧 <b>שקילות שדולגו ברגרסיה:</b><br>
+        out.push(`<div class="bl-info-block"><span class="material-symbols-outlined inline-arrow">water_drop</span> <b>שקילות שדולגו ברגרסיה:</b><br>
         ${t.despiked.length === 1 ? 'שקילה אחת חרגה' : `${t.despiked.length} שקילות חרגו`} ביותר מ-0.8 ק"ג מהשכנות — כנראה אגירת מים / ריפיד / מסעדה: ${list}. נקודה כזו מושכת את קו המגמה ומנפחת את הקצב, לכן הושמטה מהחישוב (אך נשמרה בהיסטוריה ובגרף).</div>`);
     }
     if (t.shortWindow) {
         any = true;
-        out.push(`<div class="bl-info-block">⏳ <b>אין מדידה — החלון קצר מדי:</b><br>
+        out.push(`<div class="bl-info-block"><span class="material-symbols-outlined inline-arrow">hourglass_top</span> <b>אין מדידה — החלון קצר מדי:</b><br>
         החלון מכסה ${t.spanDays} ימי מגמת משקל, מתחת למינימום של 10 ימים למדידה אמינה. הקדם את תאריך ההתחלה או המתן לעוד שקילות. בינתיים מוצגות הערכות נוסחה בלבד.</div>`);
     }
     if (t.clamped) {
         any = true;
-        out.push(`<div class="bl-info-block">⚠️ <b>הקצב חרג מהסביר:</b><br>
+        out.push(`<div class="bl-info-block"><span class="material-symbols-outlined inline-arrow">warning</span> <b>הקצב חרג מהסביר:</b><br>
         קצב המשקל שחושב (${t.weeklyKg} ק"ג/שבוע) חורג מהטווח הפיזיולוגי (מעל 1.6) — סימן לנתונים פגומים. לכן לא הוצגה מדידה, ונבחרה הערכת נוסחה.</div>`);
     }
     if (!any) {
-        out.push(`<div class="bl-info-block">✅ החישוב השתמש בכל השקילות בחלון שבחרת, ללא דילוגים.<br>
+        out.push(`<div class="bl-info-block"><span class="material-symbols-outlined inline-arrow">check_circle</span> החישוב השתמש בכל השקילות בחלון שבחרת, ללא דילוגים.<br>
         הנוסחה: <b>back-calc = צריכה ממוצעת − (שיפוע המשקל × 7,700 קק"ל/ק"ג)</b>.</div>`);
     }
     return out.join('');
@@ -1285,7 +1285,7 @@ function _renderBodyList(log) {
         const prev = sorted[i + 1]; // הישן יותר (מהמערך המלא, גם בגבול 7)
         const delta = prev ? e.weight - prev.weight : null;
         const dCls = delta == null ? '' : (delta > 0 ? 'up' : delta < 0 ? 'down' : '');
-        const dArrow = delta == null ? '' : (delta > 0 ? '▲' : delta < 0 ? '▼' : '');
+        const dArrow = delta == null ? '' : (delta > 0 ? '<span class="material-symbols-outlined inline-arrow">arrow_upward</span>' : delta < 0 ? '<span class="material-symbols-outlined inline-arrow">arrow_downward</span>' : '');
         const deltaHtml = delta != null && delta !== 0 ? `<span class="bl-delta ${dCls}">${dArrow}${Math.abs(delta).toFixed(1)}</span>` : '';
         const chip = e.nutritionState ? `<span class="bl-state-chip bl-state-chip--${e.nutritionState}">${_BL_STATE_LBL[e.nutritionState]}</span>` : '';
         const fat = e.bodyFat != null ? `<span class="bl-row-fat">${e.bodyFat.toFixed(1)}%</span>` : '';
@@ -1417,11 +1417,11 @@ function _onBodyPhotoSelected(file) {
             }
             if (res.bodyFat != null) document.getElementById('bl-entry-fat').value = res.bodyFat;
             hint.className = 'bl-ocr-hint bl-ocr-hint--ok';
-            hint.textContent = res.weight != null ? '✓ נקרא מהתמונה — בדוק ותקן אם צריך' : '⚠ לא זוהה משקל — הזן ידנית';
+            hint.innerHTML = res.weight != null ? '<span class="material-symbols-outlined inline-arrow">check</span> נקרא מהתמונה — בדוק ותקן אם צריך' : '<span class="material-symbols-outlined inline-arrow">warning</span> לא זוהה משקל — הזן ידנית';
         });
     }).catch(() => {
         const hint = document.getElementById('bl-entry-ocr-hint');
-        if (hint) { hint.style.display = 'block'; hint.className = 'bl-ocr-hint bl-ocr-hint--err'; hint.textContent = '⚠ קריאת התמונה נכשלה — הזן ידנית'; }
+        if (hint) { hint.style.display = 'block'; hint.className = 'bl-ocr-hint bl-ocr-hint--err'; hint.innerHTML = '<span class="material-symbols-outlined inline-arrow">warning</span> קריאת התמונה נכשלה — הזן ידנית'; }
     });
 }
 

@@ -505,12 +505,12 @@
                     <button class="home-today-card" id="home-today-nutrition" onclick="goToComposition('nutrition')">
                         <div class="home-today-top">
                             <span class="home-today-lbl" id="home-today-nutri-lbl">תזונה היום</span>
-                            <span class="bl-live-badge" id="home-today-live" style="display:none" role="button" onclick="event.stopPropagation();refreshHomeNutrition()"><span class="bl-live-dot"></span>LIVE</span>
+                            <!-- span ולא button — הכרטיס עצמו הוא <button> ו-button מקונן אינו HTML תקין -->
+                            <span class="home-today-add" role="button" tabindex="0" aria-label="הוסף רישום תזונה" onclick="event.stopPropagation();openFoodDiary()"><span class="material-symbols-outlined">add</span></span>
                         </div>
-                        <div class="home-today-metric" role="button" onclick="event.stopPropagation();openFoodDiary()">
+                        <div class="home-today-metric">
                             <span class="home-today-num" id="home-today-kcal">—</span>
                             <span class="home-today-unit">kcal</span>
-                            <span class="home-today-diary-hint material-symbols-outlined">menu_book</span>
                         </div>
                         <div class="home-today-remain" id="home-today-remain" style="display:none"></div>
                         <div class="home-today-rows" id="home-today-macros"></div>
@@ -518,6 +518,8 @@
                     <button class="home-today-card" id="home-today-body" onclick="goToComposition('weight')">
                         <div class="home-today-top">
                             <span class="home-today-lbl">הרכב גוף</span>
+                            <!-- openBodyEntryModal ללא ארגומנט — הפרמטר הוא date, ואירוע שיועבר ייקרא כתאריך -->
+                            <span class="home-today-add" role="button" tabindex="0" aria-label="הוסף שקילה" onclick="event.stopPropagation();openBodyEntryModal()"><span class="material-symbols-outlined">add</span></span>
                         </div>
                         <div class="home-today-metric">
                             <span class="home-today-num" id="home-body-weight">—</span>

@@ -255,20 +255,19 @@ function sparkline(points) {
         const span = (max - min) || 1;
         const x = i => PAD + (W - 2 * PAD) * (i / (points.length - 1));
         const y = v => PAD + (H - 2 * PAD) * (1 - (v - min) / span);
-        // ציר הזמן מימין לשמאל (RTL): הנקודה הישנה מימין, העדכנית משמאל
-        const px = i => W - x(i);
+        // ציר הזמן משמאל לימין — כלל אוניברסלי לגרפים, כולל בממשק RTL
 
         const line = new Path();
         points.forEach((v, i) => {
-            const pt = new Point(px(i), y(v));
+            const pt = new Point(x(i), y(v));
             i === 0 ? line.move(pt) : line.addLine(pt);
         });
         ctx.addPath(line);
         ctx.setStrokeColor(col(C.accent)); ctx.setLineWidth(5.5);
         ctx.strokePath();
 
-        // נקודת הערך האחרון — עם טבעת בצבע הרקע
-        const lx = px(points.length - 1), ly = y(points[points.length - 1]);
+        // נקודת הערך האחרון (בצד ימין של הגרף) — עם טבעת בצבע הרקע
+        const lx = x(points.length - 1), ly = y(points[points.length - 1]);
         ctx.setFillColor(col(C.bg));
         ctx.fillEllipse(new Rect(lx - 10, ly - 10, 20, 20));
         ctx.setFillColor(col(C.accent));

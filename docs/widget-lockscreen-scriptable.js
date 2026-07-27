@@ -469,11 +469,11 @@ function sparkline(points, W, H) {
         const PAD = Math.round(H * 0.2);
         const x = i => PAD + (W - 2 * PAD) * (i / (points.length - 1));
         const y = v => PAD + (H - 2 * PAD) * (1 - (v - min) / span);
-        const px = i => W - x(i);
+        // ציר הזמן משמאל לימין — כלל אוניברסלי לגרפים
 
         const line = new Path();
         points.forEach((v, i) => {
-            const pt = new Point(px(i), y(v));
+            const pt = new Point(x(i), y(v));
             i === 0 ? line.move(pt) : line.addLine(pt);
         });
         ctx.addPath(line);
@@ -483,7 +483,7 @@ function sparkline(points, W, H) {
 
         const r = Math.max(2.5, H * 0.1);
         ctx.setFillColor(w_(A.full));
-        ctx.fillEllipse(new Rect(px(points.length - 1) - r, y(points[points.length - 1]) - r, r * 2, r * 2));
+        ctx.fillEllipse(new Rect(x(points.length - 1) - r, y(points[points.length - 1]) - r, r * 2, r * 2));
     }
     return ctx.getImage();
 }

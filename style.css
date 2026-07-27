@@ -4118,9 +4118,9 @@ body::before {
 }
 .home-today-kv-lbl { color: var(--text-dim); font-weight: 600; }
 .home-today-kv-val { font-weight: 700; color: var(--text); }
-.home-today-kv-val.macro-p { color: var(--macro-p); }
-.home-today-kv-val.macro-c { color: var(--macro-c); }
-.home-today-kv-val.macro-f { color: var(--macro-f); }
+.home-today-kv-val.macro-p { color: var(--text); }
+.home-today-kv-val.macro-c { color: var(--text); }
+.home-today-kv-val.macro-f { color: var(--text); }
 .home-today-kv-val.delta-up { color: var(--danger-soft); }      /* עלייה במשקל = אדום, כמו .bl-kpi-val--up */
 .home-today-kv-val.delta-down { color: var(--secondary); }
 .home-today-empty { margin-top: auto; font-size: var(--fs-xs); color: var(--text-dim); line-height: 1.5; }
@@ -5864,9 +5864,9 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 /* שורות מאקרו בהיסטוריית התזונה */
 .bl-nutri-macros { display: flex; gap: 8px; }
 .bl-macro { font-size: var(--fs-xs); font-weight: 700; padding: 2px 8px; border-radius: var(--r-pill); background: #111; color: var(--text-dim); }
-.bl-macro--p { color: var(--macro-p); }
-.bl-macro--c { color: var(--macro-c); }
-.bl-macro--f { color: var(--macro-f); }
+.bl-macro--p { color: var(--text); }
+.bl-macro--c { color: var(--text); }
+.bl-macro--f { color: var(--text); }
 
 /* כרטיס "תזונה היום" — הבלטת LIVE: מסגרת accent + תג עם נקודה פולסת */
 .bl-chart-card.bl-daily-live {
@@ -6313,9 +6313,9 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-meal-kcal { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
 .fd-meal-pcf { display: inline-flex; gap: 8px; letter-spacing: 0.04em; }
 .fd-meal-pcf i { font-style: normal; }
-.fd-meal-pcf i.macro-p { color: var(--macro-p); }
-.fd-meal-pcf i.macro-c { color: var(--macro-c); }
-.fd-meal-pcf i.macro-f { color: var(--macro-f); }
+.fd-meal-pcf i.macro-p { color: var(--text-dim); }
+.fd-meal-pcf i.macro-c { color: var(--text-dim); }
+.fd-meal-pcf i.macro-f { color: var(--text-dim); }
 .fd-meal-add {
     background: color-mix(in srgb, var(--fd-meal-accent, var(--accent)) 14%, transparent);
     color: var(--fd-meal-accent, var(--accent)); border: 1px solid var(--hairline);
@@ -6361,9 +6361,9 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-entry-kcal small { font-size: 0.48em; color: var(--text-dim); font-weight: 600; margin-inline-start: 3px; text-transform: uppercase; letter-spacing: 0.1em; }
 .fd-entry-pcf { display: flex; gap: 8px; font-size: var(--fs-xs); font-weight: 600; }
 .fd-entry-pcf i { font-style: normal; }
-.fd-entry-pcf i.macro-p { color: var(--macro-p); }
-.fd-entry-pcf i.macro-c { color: var(--macro-c); }
-.fd-entry-pcf i.macro-f { color: var(--macro-f); }
+.fd-entry-pcf i.macro-p { color: var(--text-dim); }
+.fd-entry-pcf i.macro-c { color: var(--text-dim); }
+.fd-entry-pcf i.macro-f { color: var(--text-dim); }
 .fd-meal-emptyrow {
     display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
     background: none; border: none; color: var(--text-dim);
@@ -6673,9 +6673,9 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-meal-total-unit { font-size: var(--fs-sm); color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
 .fd-meal-total-macros { display: flex; gap: 12px; margin-inline-start: auto; font-size: var(--fs-xs); font-weight: 600; }
 .fd-meal-total-macros i { font-style: normal; }
-.fd-meal-total-macros i.macro-p { color: var(--macro-p); }
-.fd-meal-total-macros i.macro-c { color: var(--macro-c); }
-.fd-meal-total-macros i.macro-f { color: var(--macro-f); }
+.fd-meal-total-macros i.macro-p { color: var(--text-dim); }
+.fd-meal-total-macros i.macro-c { color: var(--text-dim); }
+.fd-meal-total-macros i.macro-f { color: var(--text-dim); }
 .fd-comp-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .fd-comp {
     display: flex; align-items: flex-start; gap: 8px;
@@ -6706,9 +6706,9 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-comp-per100 input::-webkit-outer-spin-button, .fd-comp-per100 input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .fd-comp-per100 input:focus { outline: none; border-color: var(--accent); }
 .fd-comp-per100 small { font-style: normal; font-weight: 700; }
-.fd-comp-per100 small.macro-p { color: var(--macro-p); }
-.fd-comp-per100 small.macro-c { color: var(--macro-c); }
-.fd-comp-per100 small.macro-f { color: var(--macro-f); }
+.fd-comp-per100 small.macro-p { color: var(--text-dim); }
+.fd-comp-per100 small.macro-c { color: var(--text-dim); }
+.fd-comp-per100 small.macro-f { color: var(--text-dim); }
 .fd-comp-kcal { font-size: var(--fs-xs); color: var(--text-dim); }
 .fd-comp-kcal b { color: var(--text); font-weight: 700; }
 .fd-comp-warn { color: var(--danger); font-size: var(--fs-sm); cursor: help; }
@@ -6760,9 +6760,9 @@ body.fd-comp-pick #fd-add-sheet { z-index: 1101; }
     font-family: inherit; font-size: var(--fs-md); text-align: center;
 }
 .nutri-macro-targets input:focus { outline: none; border-color: var(--accent); }
-.nutri-macro-targets input.macro-p::placeholder { color: var(--macro-p); }
-.nutri-macro-targets input.macro-c::placeholder { color: var(--macro-c); }
-.nutri-macro-targets input.macro-f::placeholder { color: var(--macro-f); }
+.nutri-macro-targets input.macro-p::placeholder { color: var(--text-dim); }
+.nutri-macro-targets input.macro-c::placeholder { color: var(--text-dim); }
+.nutri-macro-targets input.macro-f::placeholder { color: var(--text-dim); }
 
 /* ── יומן מזון: גלילה — מניעת "קפיצת" מסך בהורדת מקלדת ── */
 #fd-results, #fd-scroll { overscroll-behavior: contain; }

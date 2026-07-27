@@ -5929,7 +5929,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     position: relative;
 }
 .fd-close {
-    background: var(--glass); -webkit-backdrop-filter: var(--fd-glass); backdrop-filter: var(--fd-glass);
+    background: color-mix(in srgb, var(--surface-3) 88%, transparent); -webkit-backdrop-filter: var(--fd-glass); backdrop-filter: var(--fd-glass);
     border: 1px solid var(--hairline); color: var(--text); box-shadow: var(--top-glint);
     width: 42px; height: 42px; border-radius: var(--r-pill);
     display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
@@ -5950,7 +5950,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-date-main { font-weight: 600; font-size: var(--fs-xl); letter-spacing: -0.02em; }
 .fd-date-dow { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.16em; }
 .fd-manage-btn {
-    background: var(--glass); -webkit-backdrop-filter: var(--fd-glass); backdrop-filter: var(--fd-glass);
+    background: color-mix(in srgb, var(--surface-3) 88%, transparent); -webkit-backdrop-filter: var(--fd-glass); backdrop-filter: var(--fd-glass);
     border: 1px solid var(--hairline); color: var(--text); box-shadow: var(--top-glint);
     width: 42px; height: 42px; border-radius: var(--r-pill);
     display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;

@@ -3162,14 +3162,12 @@ function _homeTodayRenderNutrition() {
     const numEl = document.getElementById('home-today-kcal');
     if (!numEl) return;
     const lblEl = document.getElementById('home-today-nutri-lbl');
-    const liveEl = document.getElementById('home-today-live');
     const rowsEl = document.getElementById('home-today-macros');
     const remEl = document.getElementById('home-today-remain');
     const all = StorageManager.getNutritionDaily();
     if (!all.length) {
         numEl.textContent = '—';
         lblEl.textContent = 'תזונה היום';
-        liveEl.style.display = 'none';
         if (remEl) remEl.style.display = 'none';
         rowsEl.innerHTML = '<div class="home-today-empty">אין עדיין נתוני תזונה — חבר Health או ייבא MFP</div>';
         return;
@@ -3177,7 +3175,6 @@ function _homeTodayRenderNutrition() {
     const latest = all[all.length - 1];               // ממוין מהישן לחדש
     const isToday = latest.date === _blTodayStr();
     lblEl.textContent = isToday ? 'תזונה היום' : 'יום אחרון · ' + _blShortDate(latest.date);
-    liveEl.style.display = isToday ? '' : 'none';
     numEl.textContent = (Math.round(latest.calories || 0)).toLocaleString('en-US');
     // קלוריות שנותרו מול היעד היומי — לפי היעד שהיה בתוקף ביום המוצג (כשהיום
     // האחרון עם נתונים אינו היום, מציגים את היעד של אותו יום — לא הרטרואקטיבי) (v16.91)
@@ -3238,7 +3235,9 @@ function goToComposition(tab) {
     switchMainTab('bodylog');
 }
 
-// רענון Health ידני מתג ה-LIVE בכרטיס הבית (stopPropagation מונע ניווט).
+// ⚠️ יתומה מ-v18.5 — תג ה-LIVE ירד מכרטיס הבית (הוחלף בכפתור "+"), ואין כרגע
+// שום נקודת כניסה שקוראת לפונקציה. נשמרה בכוונה: כשנפעיל מחדש את הקישור ל-MFP/Health,
+// צריך לחווט אותה מחדש (ראה PROJECT_KNOWLEDGE.md → חוב טכני).
 // משיכה manual — עוקפת throttle ומציגה toast; בהצלחה הכרטיס מתרענן דרך ה-hook הקיים.
 function refreshHomeNutrition() {
     if (typeof syncHealthNutrition === 'function') syncHealthNutrition(true);

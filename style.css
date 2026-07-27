@@ -4084,12 +4084,25 @@ body::before {
     letter-spacing: 0.12em;
     color: #c0c6d6;
 }
-/* תג ה-LIVE בכרטיס הבית לחיץ (רענון Health) — הרחבת שטח המגע בלי להזיז את הפריסה */
-#home-today-live {
+/* כפתור "+" בפינת הכרטיס — כניסה מהירה: תזונה → יומן מזון, הרכב גוף → שקילה ידנית.
+   26px עגול במקום תג ה-LIVE הישן; מרג'ין שלילי כדי לא להגדיל את גובה שורת הכותרת. */
+.home-today-add {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-4);
+    border: 1px solid var(--hairline-hi);
+    border-radius: var(--r-pill);
+    color: var(--text);
     cursor: pointer;
-    padding: 8px 12px;
-    margin: -8px -10px;
+    margin: -4px -4px -4px 0;
+    transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
+.home-today-add .material-symbols-outlined { font-size: 18px; }
+.home-today-add:active { transform: scale(0.88); background: #32323a; }
 .home-today-metric {
     display: flex;
     align-items: baseline;
@@ -4098,19 +4111,6 @@ body::before {
 }
 .home-today-num { font-size: 1.55rem; font-weight: 900; line-height: 1; color: var(--text); }
 .home-today-unit { font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim); }
-/* מספר הקלוריות בכרטיס התזונה לחיץ — פותח את יומן התזונה. הרחבת שטח מגע בלי להזיז פריסה. */
-#home-today-nutrition .home-today-metric {
-    cursor: pointer;
-    padding: 8px 8px;
-    margin: 0.625rem -8px 0;
-    border-radius: var(--r-sm);
-}
-.home-today-diary-hint {
-    font-size: var(--fs-xl);
-    color: var(--accent);
-    align-self: center;
-    opacity: 0.85;
-}
 /* קלוריות שנותרו — מספר בלבד, מתחת לצריכה. LTR כדי שהמינוס יוצג לפני הספרות */
 .home-today-remain {
     font-size: var(--fs-xl);   /* בין הצריכה (1.55rem) למאקרוז (0.68rem) */

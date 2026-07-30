@@ -413,6 +413,7 @@ const StorageManager = {
             this.KEY_AI_MODELS,
             this.KEY_AI_PERSONA,
             this.KEY_COACH_PROMPTS,
+            this.KEY_MEMORY_BOX,          // תיבת זיכרון — הגדרת מאמן, לא דאטה; חייבת גיבוי מיידי
             this.KEY_USDA_KEY,
             this.KEY_MFP_BRIDGE_URL,
             this.KEY_MFP_BRIDGE_TOKEN,
@@ -1800,15 +1801,65 @@ const StorageManager = {
 
     saveMemoryBox(arr) {
         this.saveData(this.KEY_MEMORY_BOX, Array.isArray(arr) ? arr : []);
+        // תיבת הזיכרון היא חלק מקובץ החיבורים — כל שינוי בה מפעיל בדיקת גיבוי
+        // (טביעת האצבע השתנתה). שקט ואידמפוטנטי: אם הגשר כבוי או בדיבאונס — לא קורה כלום.
+        try { this.maybeBackupConnections(); } catch (e) { /* גיבוי לא חוסם שמירה */ }
     },
 
-    // addMemoryBoxEntry — מחזיר { ok, reason?, entry? }. reason: 'full' אם מעל תקרה.
+    // ── זיהוי כפילויות (v18.6) ──────────────────────────────────────────
+    // הבאג: המאמן מציע שוב כללים שכבר בתיבה (הוא stateless, ולא תמיד מזהה
+    // שהכלל כבר מוזרק לו). הנרמול מסיר ניקוד, סימני פיסוק, מקפים ורווחים
+    // כפולים כדי שגם ניסוח כמעט-זהה ייתפס.
+    _normalizeMemoryText(s) {
+        return String(s || '')
+            .toLowerCase()
+            // סדר חשוב: קודם פיסוק→רווח (כולל מקף עברי U+05BE), רק אחר כך מחיקת ניקוד —
+            // אחרת טווח הניקוד בולע את המקף ומדביק מילים ("ו־Leg" → "וleg").
+            .replace(/["'`׳״־.,;:!?()\[\]{}\-–—_/\\]/g, ' ')
+            .replace(/[֑-ׇ]/g, '')                 // ניקוד/טעמים
+            .replace(/\s+/g, ' ')
+            .trim();
+    },
+
+    // _memorySimilarity — יחס Jaccard על מילים (0..1). תופס ניסוח מחדש של אותו כלל.
+    _memorySimilarity(a, b) {
+        const wa = new Set(this._normalizeMemoryText(a).split(' ').filter(w => w.length > 1));
+        const wb = new Set(this._normalizeMemoryText(b).split(' ').filter(w => w.length > 1));
+        if (!wa.size || !wb.size) return 0;
+        let inter = 0;
+        wa.forEach(w => { if (wb.has(w)) inter++; });
+        return inter / (wa.size + wb.size - inter);
+    },
+
+    // findDuplicateMemoryEntry — מחזיר את הרשומה הקיימת שזהה/דומה מאוד, או null.
+    // הסף 0.82 נבחר שמרנית: כלל מנוסח מחדש ייתפס, כלל חדש באותו נושא לא ייחסם.
+    findDuplicateMemoryEntry(text, box) {
+        const t = this._normalizeMemoryText(text);
+        if (!t) return null;
+        const list = Array.isArray(box) ? box : this.getMemoryBox();
+        for (const e of list) {
+            if (!e || !e.text) continue;
+            const n = this._normalizeMemoryText(e.text);
+            if (n === t) return e;
+            // הכלה נחשבת כפילות רק כשהקצר מהווה רוב מהארוך — אחרת כלל קצר וחדש
+            // שבמקרה מופיע כביטוי בתוך כלל ארוך ייחסם בטעות.
+            const [short, long] = t.length <= n.length ? [t, n] : [n, t];
+            if (long.includes(short) && short.length >= long.length * 0.6) return e;
+            if (this._memorySimilarity(t, n) >= 0.82) return e;
+        }
+        return null;
+    },
+
+    // addMemoryBoxEntry — מחזיר { ok, reason?, entry?, existing? }.
+    // reason: 'full' מעל תקרה | 'duplicate' כלל זהה כבר בתיבה.
     addMemoryBoxEntry(text, category, source) {
         const t = String(text || '').trim();
         if (!t) return { ok: false, reason: 'empty' };
         const cat = this.MEMORY_BOX_CATEGORIES.includes(category) ? category : 'other';
         const src = (source === 'ai_proposed' || source === 'user_added') ? source : 'user_added';
         const box = this.getMemoryBox();
+        const dup = this.findDuplicateMemoryEntry(t, box);
+        if (dup) return { ok: false, reason: 'duplicate', existing: dup };
         const totalChars = box.reduce((s, e) => s + (e.text ? e.text.length : 0), 0);
         if (box.length >= this.MEMORY_BOX_MAX_ENTRIES || totalChars + t.length > this.MEMORY_BOX_MAX_CHARS) {
             return { ok: false, reason: 'full' };
@@ -1845,6 +1896,7 @@ const StorageManager = {
 
     resetMemoryBox() {
         localStorage.removeItem(this.KEY_MEMORY_BOX);
+        try { this.maybeBackupConnections(); } catch (e) {}
     },
 
     // נקודת חיתוך לתצוגת AI Coach — הודעות עם timestamp לפני הערך הזה לא יוצגו

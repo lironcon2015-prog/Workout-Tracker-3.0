@@ -2471,6 +2471,9 @@
         <textarea id="ai-persona-text" class="ai-persona-textarea"
                   placeholder="למשל: מתאמן 3 פעמים בשבוע, מתמקד בכוח. יש לי רגישות בכתף ימין. המטרה שלי היא 140kg Bench..."></textarea>
         <button class="btn-main primary-gradient" onclick="saveAIPersona()">שמור פרופיל</button>
+        <div class="bridge-btn-row" style="margin-top:8px;">
+            <button class="bridge-btn bridge-btn--dim" onclick="copyAIPersonaText()">העתק פרומפט</button>
+        </div>
         <button class="btn-text" onclick="closeAIPersonaSheet()">ביטול</button>
     </div>
 
@@ -2497,6 +2500,9 @@
         <div class="sheet-handle"></div>
         <h3>תיבת זיכרון וניסיון</h3>
         <p class="sub-text">כללים קבועים שהמאמן יקרא בכל שיחה עתידית. המאמן מציע — אתה מאשר. אפשר גם להוסיף כלל ידני. <span id="mb-meter" style="color:var(--text-dim);"></span></p>
+        <div class="bridge-btn-row" style="margin-top:8px;">
+            <button class="bridge-btn bridge-btn--dim" onclick="copyMemoryBoxText()">העתק תיבה</button>
+        </div>
         <div id="mb-list" style="display:flex;flex-direction:column;gap:10px;margin:8px 0 16px;"></div>
         <div class="glass-card compact" style="text-align:right;margin-top:8px;">
             <label class="coach-prompt-label">הוספת כלל ידני</label>

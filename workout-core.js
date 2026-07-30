@@ -5213,6 +5213,8 @@ function buildSystemPrompt(opts = {}) {
 - הבלוק מוסתר מהתצוגה של המתאמן ומוצג לו כהצעה נפרדת שדורשת אישור מפורש. אל תכריז בגוף התשובה "הוספתי לתיבה" / "הטמעתי" / "עדכנתי" — עד שהמתאמן יאשר, כלום לא נשמר.
 - הצע רק כאשר: (א) המתאמן תיקן עובדה שגויה שלך; (ב) המתאמן קבע כלל שלדעתך יש להחיל תמיד; (ג) המתאמן ביקש במפורש להוסיף לתיבה. אל תמציא הצעות.
 - הכללים שכבר אושרו מוזרקים למטה תחת "כללים מאושרים מתיקונים קודמים" — הם מחייבים אותך, ואסור לסתור אותם.
+- **אל תציע כלל שכבר נמצא שם.** לפני כל <propose-memory> קרא את הרשימה למטה ובדוק אם הכלל כבר מופיע — גם אם הוא מנוסח אחרת או מסווג בקטגוריה אחרת. אם כן: אל תפלוט בלוק, ואל תזכיר שהכלל כבר קיים אלא אם נשאלת. הצעה חוזרת על כלל קיים היא תקלה.
+- אם המתאמן חוזר על כלל שכבר בתיבה — זו אינה סיבה להצעה חדשה; פשוט פעל לפיו.
 
 # תיקון של המתאמן
 - כשהמתאמן מתקן טעות שלך, אמת קודם את התיקון מול הידע שלך. אישור אוטומטי אסור. אם התיקון נכון — הודה בטעות ותאר את מקורה המדויק (מושג שהוחלף, נתון שפוספס). אם התיקון שגוי — אמור זאת בכבוד. אישור בלי אימות הוא ריצוי.
@@ -5900,9 +5902,25 @@ function _extractMemoryProposals(text) {
 
 // ─── מסך אישור הצעות מהמאמן ─────────────────────────────────────────────────
 
+// _filterNewProposals — מסנן הצעות שכבר קיימות בתיבה (או שכפולים בתוך אותה תשובה).
+// הבאג: המאמן stateless ומציע שוב כללים שכבר אושרו — המשתמש קיבל מסך אישור מיותר.
+// הסינון כאן הוא ההגנה האמיתית; ההוראה בפרומפט רק מקטינה את התדירות.
+function _filterNewProposals(proposals) {
+    const box = StorageManager.getMemoryBox();
+    const accepted = [];
+    return proposals.filter(p => {
+        if (!p || !p.text) return false;
+        if (StorageManager.findDuplicateMemoryEntry(p.text, box.concat(accepted))) return false;
+        accepted.push({ text: p.text });
+        return true;
+    });
+}
+
 function openMemoryProposalSheet(proposals) {
     if (!Array.isArray(proposals) || !proposals.length) return;
-    _mbPendingProposals = proposals.slice();
+    const fresh = _filterNewProposals(proposals);
+    if (!fresh.length) return;   // הכול כבר בתיבה — לא מטרידים את המתאמן
+    _mbPendingProposals = fresh.slice();
     _renderMemoryProposalSheet();
     document.getElementById('memory-proposal-overlay').style.display = 'block';
     document.getElementById('memory-proposal-sheet').classList.add('open');
@@ -5957,9 +5975,17 @@ function approveMemoryProposal(idx) {
     if (!res.ok) {
         if (res.reason === 'full') {
             showAlert('התיבה מלאה (30 רשומות / 3,000 תווים). ערוך את התיבה ומחק ישנות.');
-        } else {
-            showAlert('שמירה נכשלה.');
+            return;
         }
+        if (res.reason === 'duplicate') {
+            // כלל זהה כבר בתיבה — מסירים את ההצעה במקום להשאיר אותה תקועה
+            showAlert('הכלל הזה כבר קיים בתיבה.');
+            _mbPendingProposals.splice(idx, 1);
+            if (!_mbPendingProposals.length) closeMemoryProposalSheet();
+            else _renderMemoryProposalSheet();
+            return;
+        }
+        showAlert('שמירה נכשלה.');
         return;
     }
     _mbPendingProposals.splice(idx, 1);
@@ -6062,15 +6088,68 @@ function addManualMemoryBoxEntry() {
     if (!text) { showAlert('כתוב את הכלל.'); return; }
     const res = StorageManager.addMemoryBoxEntry(text, catEl.value, 'user_added');
     if (!res.ok) {
-        showAlert(res.reason === 'full'
-            ? 'התיבה מלאה — מחק כללים ישנים לפני הוספה.'
-            : 'הוספה נכשלה.');
+        if (res.reason === 'full')       showAlert('התיבה מלאה — מחק כללים ישנים לפני הוספה.');
+        else if (res.reason === 'duplicate') showAlert('כלל זהה כבר קיים בתיבה:\n' + res.existing.text);
+        else                             showAlert('הוספה נכשלה.');
         return;
     }
     textEl.value = '';
     if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
     haptic('success');
     _renderMemoryBoxSheet();
+}
+
+// _copyText — העתקה ללוח עם fallback ל-execCommand (Safari ישן / הקשר לא מאובטח).
+// מחזיר true אם ההעתקה יצאה לדרך.
+function _copyText(text, okMsg) {
+    const t = String(text || '');
+    if (!t.trim()) { showAlert('אין מה להעתיק.'); return false; }
+    const done = () => { haptic('success'); if (okMsg) showAlert(okMsg); };
+    if (navigator.clipboard && window.isSecureContext !== false) {
+        navigator.clipboard.writeText(t).then(done).catch(() => _copyTextFallback(t, done));
+    } else {
+        _copyTextFallback(t, done);
+    }
+    return true;
+}
+
+function _copyTextFallback(text, done) {
+    try {
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.setAttribute('readonly', '');
+        el.style.position = 'fixed';
+        el.style.opacity = '0';
+        document.body.appendChild(el);
+        el.select();
+        el.setSelectionRange(0, text.length);   // iOS
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        done();
+    } catch (e) {
+        showAlert('ההעתקה נכשלה.');
+    }
+}
+
+// copyMemoryBoxText — מעתיק את כל תיבת הזיכרון כטקסט קריא (לגיבוי ידני / הדבקה במודל אחר).
+function copyMemoryBoxText() {
+    const box = StorageManager.getMemoryBox();
+    if (!box.length) { showAlert('התיבה ריקה.'); return; }
+    const lines = box.map((e, i) =>
+        `${i + 1}. [${_MB_CAT_HE[e.category] || e.category}] ${String(e.text || '').trim()}`);
+    const text = `=== תיבת זיכרון וניסיון — GYMPRO ELITE ===\n` +
+                 `${box.length} כללים · ${new Date().toLocaleDateString('he-IL')}\n\n` +
+                 lines.join('\n');
+    _copyText(text, `הועתקו ${box.length} כללים.`);
+}
+
+// copyAIPersonaText — מעתיק את פרומפט המאמן (הפרופיל) כפי שהוא כרגע בעורך,
+// כולל שינויים שטרם נשמרו — מה שרואים הוא מה שמועתק.
+function copyAIPersonaText() {
+    const textarea = document.getElementById('ai-persona-text');
+    const text = textarea ? textarea.value : StorageManager.getAIPersona();
+    if (!text || !text.trim()) { showAlert('הפרופיל ריק — אין מה להעתיק.'); return; }
+    _copyText(text.trim(), 'הפרופיל הועתק!');
 }
 
 /**

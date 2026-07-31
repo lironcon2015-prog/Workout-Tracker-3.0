@@ -630,9 +630,22 @@ function renderRegularItem(item, idx, list) {
             </div>
         </div>` : '';
 
-    const tagHtml = item.isMain
-        ? `<div class="km-tags-row"><span class="km-tag-label">תגיות</span><button class="km-tag-pill km-tag-pill--main" onclick="toggleMainStatus(${idx})">MAIN LIFT</button></div>`
-        : `<div class="km-tags-row"><span class="km-tag-label">תגיות</span><button class="km-tag-pill" onclick="toggleMainStatus(${idx})">+ תגית</button></div>`;
+    const mainPill = item.isMain
+        ? `<button class="km-tag-pill km-tag-pill--main" onclick="toggleMainStatus(${idx})">MAIN LIFT</button>`
+        : `<button class="km-tag-pill" onclick="toggleMainStatus(${idx})">+ תגית</button>`;
+    const dropPill = `<button class="km-tag-pill${item.dropSet ? ' km-tag-pill--drop' : ''}" onclick="toggleDropSetFlag(${idx})">DROP SET</button>`;
+    const tagHtml = `<div class="km-tags-row"><span class="km-tag-label">תגיות</span>${mainPill}${dropPill}</div>`;
+
+    // שורת אחוז הירידה — רק כשהדרופ דלוק, כדי לא להעמיס בלוקים רגילים
+    const dropPctHtml = item.dropSet ? `
+        <div class="km-sets-row">
+            <span class="km-sets-label">ירידת משקל בדרופ</span>
+            <div class="km-stepper">
+                <button class="km-stepper-btn" onclick="changeDropPct(${idx}, -5)">-</button>
+                <span class="km-stepper-val">${item.dropPct || 20}%</span>
+                <button class="km-stepper-btn" onclick="changeDropPct(${idx}, 5)">+</button>
+            </div>
+        </div>` : '';
 
     row.innerHTML = `
         <div class="km-block-header">
@@ -650,6 +663,7 @@ function renderRegularItem(item, idx, list) {
         <div class="km-block-footer">
             <div class="km-block-footer-meta">
                 ${setsHtml}
+                ${dropPctHtml}
                 ${tagHtml}
             </div>
             <button class="km-trash-btn" onclick="removeExFromEditor(${idx})">
@@ -749,6 +763,27 @@ function toggleMainStatus(idx) { managerState.exercises[idx].isMain = !managerSt
 function changeSetCount(idx, delta) { let c = managerState.exercises[idx].sets + delta; if (c < 1) c = 1; managerState.exercises[idx].sets = c; renderEditorList(); }
 function moveExInEditor(idx, dir) { if (idx + dir < 0 || idx + dir >= managerState.exercises.length) return; const t = managerState.exercises[idx]; managerState.exercises[idx] = managerState.exercises[idx + dir]; managerState.exercises[idx + dir] = t; renderEditorList(); }
 function removeExFromEditor(idx) { managerState.exercises.splice(idx, 1); renderEditorList(); }
+// ─── דרופ סט בתוכנית (v18.7) ──────────────────────────────────────────────
+// דגל ברמת פריט התוכנית. תרגיל בתוך סבב לא מקבל דרופ — הזרימה שם מקוננת ממילא.
+function toggleDropSetFlag(idx) {
+    const item = managerState.exercises[idx];
+    if (!item || item.type === 'cluster') return;
+    item.dropSet = !item.dropSet;
+    if (item.dropSet && !item.dropPct) item.dropPct = 20;
+    haptic('light');
+    renderEditorList();
+}
+
+function changeDropPct(idx, delta) {
+    const item = managerState.exercises[idx];
+    if (!item) return;
+    let v = (item.dropPct || 20) + delta;
+    if (v < 5) v = 5;
+    if (v > 60) v = 60;
+    item.dropPct = v;
+    renderEditorList();
+}
+
 function changeClusterRounds(idx, delta) { let v = managerState.exercises[idx].rounds + delta; if (v < 1) v = 1; managerState.exercises[idx].rounds = v; renderEditorList(); }
 function changeClusterRest(idx, delta) { let v = managerState.exercises[idx].clusterRest + delta; if (v < 0) v = 0; managerState.exercises[idx].clusterRest = v; renderEditorList(); }
 function addClusterToEditor() { managerState.exercises.push({ type: 'cluster', rounds: 3, clusterRest: 120, exercises: [] }); renderEditorList(); }

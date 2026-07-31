@@ -5376,12 +5376,18 @@ function _buildSleepAIContext(slim) {
     if (n.hrv != null) s += ` | HRV ${n.hrv}ms`;
     if (n.rhr != null) s += ` | דופק מנוחה ${n.rhr}`;
     if (n.respRate != null) s += ` | נשימה ${n.respRate}`;
-    // טמפ' עור: הערך מוחלט (°C) → מזריקים סטייה מ-baseline אישי, רק אחרי 14 לילות (אחרת לא מייצג)
+    // טמפ' עור: הערך מוחלט (°C) → מזריקים סטייה מ-baseline אישי.
+    // מוצג מאותו סף שבו הוא מוצג למתאמן בכרטיס (5 לילות) — אחרת המאמן "לא יודע" על
+    // נתון שהמתאמן רואה מולו. עד 14 לילות מסומן "בסיס ראשוני", כך שהמאמן יכול לדבר
+    // עליו אבל לא להתייחס אליו כאות מבוסס.
     if (typeof _recoveryBaseline === 'function' && n.wristTempDev != null) {
         const bT = _recoveryBaseline(nights, idx, 'wristTempDev');
-        if (bT.med != null && bT.n >= (typeof TEMP_MIN_NIGHTS !== 'undefined' ? TEMP_MIN_NIGHTS : 14)) {
+        const showMin = (typeof TEMP_SHOW_MIN_NIGHTS !== 'undefined') ? TEMP_SHOW_MIN_NIGHTS : 5;
+        const scoreMin = (typeof TEMP_MIN_NIGHTS !== 'undefined') ? TEMP_MIN_NIGHTS : 14;
+        if (bT.med != null && bT.n >= showMin) {
             const dev = Math.round((n.wristTempDev - bT.med) * 10) / 10;
             s += ` | סטיית טמפ׳ ${dev > 0 ? '+' : ''}${dev}°`;
+            if (bT.n < scoreMin) s += ` (בסיס ראשוני — ${bT.n} לילות, לא משוקלל בציון)`;
         }
     }
     s += `\n`;

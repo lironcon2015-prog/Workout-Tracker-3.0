@@ -1809,7 +1809,14 @@ const _VITAL_RANGE = {
     efficiency:   [0.3, 1.01], // יחס (מתחת ל-0.3 = תקלת חישוב)
     wristTempDev: [15, 45]     // °C מוחלט (טמפ' עור בשינה) — מסנן 0/תקלה, וגם פרנהייט (כשל בטוח)
 };
-const TEMP_MIN_NIGHTS = 14;    // טמפ' לא נכנסת לציון עד שיש baseline של 14 לילות (fade-in הדרגתי)
+// שני ספים נפרדים לטמפ' — הצגה ושקלול אינם אותה דרישה:
+//   • תצוגה מ-5 לילות: זה הרף ש-Apple עצמה עובדת לפיו לקביעת baseline לטמפ' ריסט.
+//     סטייה מ-5–7 לילות היא מידע אמיתי, ועדיף להראות אותה מסומנת כ"בסיס ראשוני"
+//     מאשר להסתיר נתון קיים במשך שבועיים.
+//   • ציון מ-14 לילות: שקלול לתוך ציון מורכב רגיש הרבה יותר לרעש מאשר הצגת מספר,
+//     ולכן הסף המחמיר נשאר בדיוק כפי שהיה — הציון לא זז על בסיס דליל.
+const TEMP_MIN_NIGHTS = 14;         // שקלול בציון ההתאוששות
+const TEMP_SHOW_MIN_NIGHTS = 5;     // הצגה בכרטיס
 function _validVital(key, v) {
     if (v == null || isNaN(v)) return false;
     const r = _VITAL_RANGE[key];
@@ -1917,7 +1924,9 @@ const _clampZ = z => Math.max(-3, Math.min(3, z));
 
 // כמה לילות אחורה מותר לגרור כל מדד חסר. RHR: 3 (Apple מעדכן ~12:00, חסר בבוקר).
 // HRV/נשימה: 2 (משתנים יותר מיום ליום — חלון קצר יותר). ערך מיושן מזה — נשאר "חסר".
-const VITAL_CARRY_MAX = { rhr: 3, hrv: 2, respRate: 2 };
+// wristTempDev: 3 — Apple כותבת את הדגימה באיחור ולא בכל לילה, ובלי גרירה הכרטיס
+// מציג "—" גם כשיש שורת לילות תקינה מיד לפני. אותה מכניקה בדיוק כמו RHR/HRV.
+const VITAL_CARRY_MAX = { rhr: 3, hrv: 2, respRate: 2, wristTempDev: 3 };
 const RHR_CARRY_MAX_GAP = VITAL_CARRY_MAX.rhr;   // תאימות לאחור
 
 // _carriedVital — ערך המדד: של הלילה עצמו אם תקין, אחרת התקין האחרון בטווח המותר.
@@ -2160,15 +2169,25 @@ function renderSleepView() {
     const respD = dlt(respC.v, b('respRate'), true, '');
     // טמפ' עור: הערך הגולמי מוחלט (°C) → מציגים סטייה מ-baseline אישי, אך רק אחרי 14 לילות
     // ("בונה" עד אז). לא-תקין/חסר → "—".
+    // הערך עצמו נגרר עד 3 ימים אחורה (כמו HRV/דופק) — הדגימה מ-Apple מגיעה באיחור,
+    // ובלי זה כרטיס ריק הסתיר שורת לילות תקינה. מוצג מ-5 לילות בסיס; עד 14 מסומן
+    // "בסיס ראשוני" כי הוא עדיין לא משוקלל בציון.
+    const _tempC = _carriedVital(nights, idx, 'wristTempDev');
     const _bTemp = _recoveryBaseline(nights, idx, 'wristTempDev');
-    const _tempValid = _validVital('wristTempDev', n.wristTempDev);
-    const _tempReady = _tempValid && _bTemp.med != null && _bTemp.n >= TEMP_MIN_NIGHTS;
-    const _tempDev = _tempReady ? Math.round((n.wristTempDev - _bTemp.med) * 10) / 10 : null;
+    const _tempValid = _tempC.v != null;
+    const _tempReady = _tempValid && _bTemp.med != null && _bTemp.n >= TEMP_SHOW_MIN_NIGHTS;
+    const _tempDev = _tempReady ? Math.round((_tempC.v - _bTemp.med) * 10) / 10 : null;
+    // שני חיוויים שיכולים לחול יחד: הערך ישן (נגרר), והבסיס עדיין ראשוני (לא בציון).
+    // מוצגים שניהם — הסתרת אחד מהם מציגה את המספר כאמין יותר ממה שהוא.
+    const _tempAge = _tempC.carried ? (_tempC.gap === 1 ? 'מלפני יום' : `מלפני ${_tempC.gap} ימים`) : '';
+    const _tempBase = _bTemp.n >= TEMP_MIN_NIGHTS ? 'מול baseline' : 'בסיס ראשוני';
+    const _tempSub = !_tempReady ? ''
+        : (_tempAge ? _tempAge + (_bTemp.n >= TEMP_MIN_NIGHTS ? '' : ' · ראשוני') : _tempBase);
     const tempCard = !_tempValid
         ? _slMetric('—', '', 'טמפ׳ עור', '', 'flat')
         : !_tempReady
-        ? _slMetric('בונה', '', 'טמפ׳ עור', 'אוסף בסיס', 'flat')
-        : _slMetric((_tempDev > 0 ? '+' : '') + _tempDev, '°', 'טמפ׳ עור', 'מול baseline', _tempDev <= 0.2 ? 'up' : 'down');
+        ? _slMetric('בונה', '', 'טמפ׳ עור', `${_bTemp.n}/${TEMP_SHOW_MIN_NIGHTS} לילות`, 'flat')
+        : _slMetric((_tempDev > 0 ? '+' : '') + _tempDev, '°', 'טמפ׳ עור', _tempSub, _tempDev <= 0.2 ? 'up' : 'down');
 
     const drivers = (rd.drivers || []).map(d =>
         `<span class="sl-chip ${d.dir}">${d.label} <span class="ar">${d.delta}</span></span>`).join('');

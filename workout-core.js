@@ -313,6 +313,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const _soundTgl = document.getElementById('sound-toggle');
     if (_soundTgl) _soundTgl.checked = soundEnabled;
     if (typeof renderWorkoutMenu === 'function') renderWorkoutMenu();
+    // קריאה לפני checkRecovery — היא מבחינה לפיה בין רענון לא-רצוני להפעלה טרייה
+    _bootUIState = readUIState();
     checkRecovery();
     // גשר השעון — adopt-on-open + האזנה, ו-adopt חוזר על חזרה-לפוקוס (R6/R7).
     try {
@@ -325,6 +327,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // מציג את הסקשן לפי ההעדפה (כרטיסי "היום" / גרף PR) ומרנדר את הפעיל
     if (typeof applyHomeSectionPref === 'function') applyHomeSectionPref();
     maybeShowCloudSyncBanner();
+    // רענון לא-רצוני בלי אימון פעיל — חזרה לטאב שבו המשתמש עמד, בלי לקפוץ הביתה
+    if (_bootUIState && !_bootRestoredSession) restoreUIState(_bootUIState);
+    // מעקב אחר מיקום הגלילה (throttle של שנייה) — כדי שהחזרה תהיה לאותה נקודה
+    const _scrollArea = document.querySelector('.content-area');
+    if (_scrollArea) {
+        let _scrollSaveTimer = null;
+        _scrollArea.addEventListener('scroll', () => {
+            if (_scrollSaveTimer) return;
+            _scrollSaveTimer = setTimeout(() => { _scrollSaveTimer = null; saveUIState(); }, 1000);
+        }, { passive: true });
+    }
     fetch('./version.json')
         .then(r => r.json())
         .then(d => {
@@ -385,12 +398,87 @@ function _refreshSettingsIfOpen() {
     }
 }
 
+// ─── שחזור מסך אחרי רענון לא-רצוני ─────────────────────────────────────────
+// ב-iOS, סיבוב מסך תחת לחץ זיכרון גורם ל-WebKit להרוג את תהליך הרינדור ולטעון
+// את הדף מחדש מה-cache. sessionStorage שורד רענון באותה לשונית אך נמחק כשהאפליקציה
+// נסגרת ונפתחת מחדש — ולכן עצם קיומו ב-boot הוא הסימן המדויק ל"רענון לא-רצוני",
+// להבדיל מהפעלה טרייה. אין כאן דאטה של המשתמש, רק "באיזה מסך היית".
+const UI_STATE_KEY = 'gympro_ui';
+const UI_STATE_TTL = 30 * 60 * 1000;   // state ישן מזה — התעלם ופתח במסך הבית
+// מסכי שורש בלבד. מסכי flow (עורך, סלקטור, אימון) משוחזרים דרך restoreSession.
+const UI_ROOT_TABS = {
+    'ui-week': 'workout', 'ui-analytics': 'analytics',
+    'ui-archive': 'archive', 'ui-bodylog': 'bodylog'
+};
+let _bootUIState        = null;    // ה-state שנקרא ב-boot (null = הפעלה טרייה)
+let _bootRestoredSession = false;  // האם שוחזר אימון פעיל — אז אין שחזור טאב
+let _silentBoot         = false;   // מדכא haptic בזמן שחזור אוטומטי
+
+function saveUIState() {
+    try {
+        const screen = state.historyStack[state.historyStack.length - 1];
+        if (!screen) return;
+        const area = document.querySelector('.content-area');
+        sessionStorage.setItem(UI_STATE_KEY, JSON.stringify({
+            screen:  screen,
+            blTab:   (typeof _blTab === 'string') ? _blTab : null,
+            scrollY: area ? area.scrollTop : 0,
+            ts:      Date.now()
+        }));
+    } catch (e) { /* מצב פרטי / מכסת אחסון — שחזור המסך אינו קריטי */ }
+}
+
+function readUIState() {
+    try {
+        const raw = sessionStorage.getItem(UI_STATE_KEY);
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        if (!s || !s.ts || (Date.now() - s.ts) > UI_STATE_TTL) return null;
+        return s;
+    } catch (e) { return null; }
+}
+
+function restoreUIState(s) {
+    const tab = UI_ROOT_TABS[s.screen];
+    if (!tab) return;   // הגדרות / מסך פנימי — נשארים במסך הבית
+    _silentBoot = true;
+    try {
+        if (tab !== 'workout' && typeof switchMainTab === 'function') switchMainTab(tab);
+        if (tab === 'bodylog' && s.blTab && typeof setBodyTab === 'function' && s.blTab !== _blTab) {
+            setBodyTab(s.blTab);
+        }
+        const area = document.querySelector('.content-area');
+        if (area && s.scrollY > 0) {
+            // rAF כפול — אחרי שהרינדור של הטאב סיים לקבוע את גובה התוכן
+            requestAnimationFrame(() => requestAnimationFrame(() => { area.scrollTop = s.scrollY; }));
+        }
+    } catch (e) { /* כשל שחזור — נשארים במסך הבית, בלי לשבור את הטעינה */ }
+    _silentBoot = false;
+}
+
+// רשת ביטחון: כשהתהליך נהרג, visibilitychange לא תמיד יורה. pagehide/freeze
+// מכסים את הפער כדי שהסט האחרון שתועד ומיקום המסך ישרדו את הרענון.
+function _persistOnTeardown() {
+    try { if (state.workoutStartTime) StorageManager.saveSessionState(); } catch (e) {}
+    saveUIState();
+}
+window.addEventListener('pagehide', _persistOnTeardown);
+document.addEventListener('freeze', _persistOnTeardown);
+
 function checkRecovery() {
     if (!StorageManager.hasActiveSession()) return;
     // הצג modal רק אם האימון התחיל בפועל (יש workoutStartTime)
     // עריכה בעורך גם שומרת session אבל אין workoutStartTime
     const saved = StorageManager.getSessionState();
     if (saved && saved.state && saved.state.workoutStartTime) {
+        // רענון לא-רצוני (סיבוב מסך שהרג את הדף) — חוזרים לאימון בשקט.
+        // המודל שמור להפעלה טרייה, שבה השאלה "להמשיך?" באמת רלוונטית.
+        if (_bootUIState) {
+            _bootRestoredSession = true;
+            _silentBoot = true;
+            try { restoreSession(); } finally { _silentBoot = false; }
+            return;
+        }
         document.getElementById('recovery-modal').style.display = 'flex';
     } else {
         // session של עורך בלבד — נקה אוטומטית
@@ -476,6 +564,7 @@ function restoreSession() {
         // גשר השעון — אחרי שחזור האימון, מזג בכוח סטים שנרשמו מהשעון (R: clobber-by-restore)
         try { if (typeof WatchBridge !== 'undefined') WatchBridge.forceAdopt(); } catch (e) {}
 
+        saveUIState();   // כדי שגם רענון נוסף מיד אחרי יזוהה ויחזיר לאימון
         haptic('success');
     } else {
         discardSession();
@@ -688,6 +777,7 @@ function discardSession() {
 // ─── HAPTIC / AUDIO ────────────────────────────────────────────────────────
 
 function haptic(type = 'light') {
+    if (_silentBoot) return;   // שחזור אוטומטי אחרי רענון — בלי רטט שמבלבל
     if (!("vibrate" in navigator)) return;
     try {
         if (type === 'light') navigator.vibrate(20);
@@ -798,6 +888,7 @@ function navigate(id, clearStack = false) {
     if (id === 'ui-main' && typeof _syncLiveResumeBtn === 'function') {
         setTimeout(_syncLiveResumeBtn, 80);
     }
+    saveUIState();   // מיקום נוכחי — לשחזור אחרי רענון לא-רצוני
 }
 
 function handleBackClick() {

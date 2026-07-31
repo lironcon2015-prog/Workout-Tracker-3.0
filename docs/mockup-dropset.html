@@ -1,0 +1,452 @@
+<meta charset="utf-8">
+<title>מוקאפ · דרופ סט — מסכי האימון</title>
+<style>
+:root{
+  /* ── טוקני האפליקציה (Liquid Obsidian) — מקור: style.css ── */
+  --bg:#070708; --surface-1:#101013; --surface-2:#161619; --surface-3:#1e1e22; --surface-4:#26262c;
+  --hairline:rgba(255,255,255,.06); --hairline-hi:rgba(255,255,255,.10);
+  --top-glint:inset 0 1px 0 rgba(255,255,255,.05);
+  --elev-2:0 2px 8px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.35);
+  --accent:#0A84FF; --accent-soft:rgba(10,132,255,.14);
+  --success:#30D158; --danger:#ff453a; --text:#e2e2e2; --text-dim:#8E8E93;
+  /* הצבע הסמנטי של דרופ סט — ענבר קיים בטוקנים (--warn-strong), נבדל מה-accent הכחול */
+  --drop:#FF9F0A; --drop-soft:rgba(255,159,10,.14); --drop-line:rgba(255,159,10,.35);
+
+  /* ── כרום העמוד (מסתגל לתמה של הצופה) ── */
+  --page-bg:#f4f4f6; --page-fg:#1a1a1e; --page-dim:#5f5f6b;
+  --page-card:#ffffff; --page-line:rgba(0,0,0,.10); --page-accent:#0A6ED1;
+}
+@media (prefers-color-scheme:dark){
+  :root{--page-bg:#0d0d10; --page-fg:#e6e6ea; --page-dim:#9a9aa5;
+        --page-card:#151519; --page-line:rgba(255,255,255,.09); --page-accent:#4da3ff;}
+}
+:root[data-theme="dark"]{--page-bg:#0d0d10; --page-fg:#e6e6ea; --page-dim:#9a9aa5;
+  --page-card:#151519; --page-line:rgba(255,255,255,.09); --page-accent:#4da3ff;}
+:root[data-theme="light"]{--page-bg:#f4f4f6; --page-fg:#1a1a1e; --page-dim:#5f5f6b;
+  --page-card:#ffffff; --page-line:rgba(0,0,0,.10); --page-accent:#0A6ED1;}
+
+*{box-sizing:border-box}
+body{margin:0;direction:rtl;background:var(--page-bg);color:var(--page-fg);
+  font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Hebrew","Arial Hebrew",sans-serif;
+  -webkit-font-smoothing:antialiased;padding:32px 16px 80px;line-height:1.6}
+.page{max-width:1120px;margin:0 auto}
+
+/* ── כותרת ── */
+.head{border-bottom:1px solid var(--page-line);padding-bottom:20px;margin-bottom:28px}
+.eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.14em;color:var(--drop);margin:0 0 6px}
+h1{font-size:1.9rem;font-weight:900;margin:0 0 8px;letter-spacing:-.01em;text-wrap:balance}
+.lede{margin:0;color:var(--page-dim);font-size:.95rem;max-width:62ch}
+
+/* ── שורת החלטות ── */
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:0 0 36px}
+.rule{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:14px 16px}
+.rule b{display:block;font-size:.8rem;margin-bottom:4px}
+.rule span{font-size:.78rem;color:var(--page-dim)}
+.rule.is-drop{border-color:var(--drop-line)}
+.rule.is-drop b{color:var(--drop)}
+
+/* ── סקשנים ── */
+section{margin:0 0 44px}
+.sec-h{display:flex;align-items:baseline;gap:10px;margin:0 0 4px}
+.sec-n{font-size:.7rem;font-weight:800;color:var(--page-accent);letter-spacing:.1em}
+h2{font-size:1.15rem;font-weight:800;margin:0;letter-spacing:-.01em}
+.sec-d{margin:0 0 18px;color:var(--page-dim);font-size:.85rem;max-width:66ch}
+
+.row{display:flex;gap:18px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
+.col{flex:0 0 auto;width:290px}
+.cap{font-size:.74rem;color:var(--page-dim);margin:10px 2px 0;line-height:1.5}
+.cap b{color:var(--page-fg);font-weight:700}
+.step{display:inline-block;font-size:.62rem;font-weight:800;letter-spacing:.08em;
+  background:var(--drop-soft);color:var(--drop);padding:3px 9px;border-radius:9999px;margin-bottom:8px}
+.step.neutral{background:var(--accent-soft);color:var(--page-accent)}
+
+/* ══════════ מסגרת מכשיר — תמיד כהה, זו האפליקציה ══════════ */
+.phone{background:var(--bg);border:1px solid rgba(255,255,255,.10);border-radius:30px;
+  padding:16px 14px 18px;box-shadow:0 10px 40px rgba(0,0,0,.35);color:var(--text);
+  font-size:14px;min-height:430px;display:flex;flex-direction:column}
+.phone.sheetframe{min-height:auto}
+.phone *{font-family:inherit}
+
+.badge-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ios-badge{background:var(--accent);color:#fff;font-size:.6rem;font-weight:800;letter-spacing:.06em;
+  padding:4px 10px;border-radius:9999px}
+.ios-badge.drop{background:var(--drop);color:#1a1200}
+.uni-badge{background:var(--surface-4);color:var(--text-dim);font-size:.55rem;font-weight:700;
+  padding:4px 8px;border-radius:9999px;letter-spacing:.06em}
+.ex-name{font-size:1.25rem;font-weight:900;margin:0 0 8px;letter-spacing:-.01em}
+.history-pill{display:inline-block;background:var(--surface-4);color:var(--text-dim);font-size:.62rem;
+  padding:5px 11px;border-radius:9999px;margin-bottom:14px}
+.history-pill.drop-src{background:var(--drop-soft);color:var(--drop)}
+
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.pcard{background:var(--surface-2);border:1px solid var(--hairline);border-top-color:var(--hairline-hi);
+  box-shadow:var(--top-glint);border-radius:18px;padding:10px 6px;text-align:center}
+.pcard.hot{border-color:var(--drop-line);background:linear-gradient(180deg,rgba(255,159,10,.07),var(--surface-2))}
+.pcard .lbl{font-size:.55rem;color:var(--text-dim);font-weight:700;letter-spacing:.05em;margin-bottom:6px}
+.pcard .val{font-size:1.45rem;font-weight:900;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.pcard.hot .val{color:var(--drop)}
+.pcard .was{font-size:.55rem;color:var(--text-dim);margin-top:3px;text-decoration:line-through;opacity:.7}
+.pm{display:flex;gap:6px;justify-content:center;margin-top:9px}
+.pm i{width:26px;height:26px;border-radius:9999px;background:var(--surface-4);color:var(--text);
+  display:grid;place-items:center;font-style:normal;font-size:.9rem;font-weight:700}
+
+.note-input{background:var(--surface-1);border:1px solid var(--hairline);border-radius:14px;
+  padding:9px 12px;font-size:.68rem;color:var(--text-dim);margin-bottom:10px}
+.btn{border-radius:9999px;padding:13px;text-align:center;font-weight:800;font-size:.8rem;letter-spacing:.02em}
+.btn-primary{background:linear-gradient(135deg,#0A84FF,#0056b3);color:#fff}
+.btn-drop{background:linear-gradient(135deg,#FF9F0A,#c26e00);color:#1a1200}
+.btn-ghost{background:var(--surface-4);color:var(--text);font-weight:700}
+
+/* פיל "+ דרופ סט" — נקודת הכניסה האד-הוק */
+.pill-row{display:flex;gap:8px;margin:10px 0 2px}
+.pill{background:var(--surface-4);color:var(--text-dim);border-radius:9999px;padding:8px 14px;
+  font-size:.68rem;font-weight:700;align-self:flex-start}
+.pill.armed{background:var(--drop-soft);color:var(--drop);box-shadow:inset 0 0 0 1px var(--drop-line)}
+.pill.ghost-add{color:var(--text)}
+
+.timer{margin-top:auto;padding-top:14px;display:flex;align-items:center;justify-content:center;gap:10px;
+  color:var(--text-dim);font-size:.7rem}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--success)}
+.timer .t{font-size:1.05rem;font-weight:900;color:var(--text);font-variant-numeric:tabular-nums}
+.skip{margin-top:12px;text-align:center;color:var(--text-dim);font-size:.68rem}
+
+/* ── מסך Live ── */
+.live{background:var(--bg);border-radius:30px;border:1px solid rgba(255,255,255,.10);padding:22px 16px;
+  min-height:430px;display:flex;flex-direction:column;align-items:center;text-align:center;
+  box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.live-counter{font-size:.62rem;font-weight:800;color:var(--text-dim);letter-spacing:.14em}
+.live-name{font-size:1.5rem;font-weight:900;margin:6px 0 16px;letter-spacing:-.02em}
+.ring{width:130px;height:130px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--drop) 0 62%, rgba(255,255,255,.07) 62% 100%);margin-bottom:16px}
+.ring.blue{background:conic-gradient(var(--accent) 0 42%, rgba(255,255,255,.07) 42% 100%)}
+.ring .in{width:112px;height:112px;border-radius:50%;background:var(--bg);display:grid;place-items:center}
+.ring .tt{font-size:1.5rem;font-weight:900;font-variant-numeric:tabular-nums}
+.ring .tl{font-size:.55rem;color:var(--text-dim);letter-spacing:.16em;font-weight:700}
+.live-target{width:100%;background:var(--surface-2);border:1px solid var(--hairline);border-radius:22px;
+  padding:14px;margin-bottom:14px}
+.live-target.drop{border-color:var(--drop-line);background:linear-gradient(180deg,rgba(255,159,10,.08),var(--surface-2))}
+.lt-head{display:flex;justify-content:space-between;align-items:center;font-size:.6rem;color:var(--text-dim);
+  font-weight:700;margin-bottom:6px}
+.lt-chip{background:var(--drop);color:#1a1200;border-radius:9999px;padding:3px 9px;font-size:.55rem;font-weight:800}
+.lt-val{font-size:1.55rem;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.lt-val em{font-style:normal;color:var(--drop)}
+.swipe{width:100%;background:var(--surface-1);border:1px dashed rgba(255,255,255,.18);border-radius:22px;
+  padding:14px;color:var(--text-dim);font-size:.72rem;font-weight:700;margin-top:auto}
+
+/* ── גיליון תחתון (Live Edit) ── */
+.sheet{background:var(--surface-3);border-radius:26px 26px 20px 20px;padding:14px 14px 18px;
+  border:1px solid var(--hairline);border-top-color:var(--hairline-hi)}
+.sheet-handle{width:36px;height:4px;border-radius:9999px;background:var(--surface-4);margin:0 auto 12px}
+.sheet-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sheet-h h4{margin:0;font-size:.95rem;font-weight:900}
+.toggle{display:flex;align-items:center;gap:7px;font-size:.65rem;font-weight:700;color:var(--text-dim)}
+.sw{width:34px;height:20px;border-radius:9999px;background:var(--surface-4);position:relative}
+.sw::after{content:"";position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:#8b8b93}
+.sw.on{background:var(--drop)}
+.sw.on::after{right:auto;left:2px;background:#1a1200}
+.toggle.on{color:var(--drop)}
+
+/* ── יומן הסטים ── */
+.slog-card{background:var(--surface-2);border:1px solid var(--hairline);border-top-color:var(--hairline-hi);
+  border-radius:22px;padding:14px;box-shadow:var(--top-glint)}
+.slog-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.slog-name{font-size:.92rem;font-weight:900;margin:0}
+.slog-vol-l{font-size:.5rem;color:var(--text-dim);letter-spacing:.14em;font-weight:800;text-align:left;margin:0}
+.slog-vol-v{font-size:.95rem;font-weight:900;margin:0;text-align:left;font-variant-numeric:tabular-nums}
+.set-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--hairline)}
+.set-n{width:20px;font-size:.72rem;font-weight:800;color:var(--text-dim);font-variant-numeric:tabular-nums}
+.set-d{flex:1;font-size:.82rem;font-weight:700;font-variant-numeric:tabular-nums}
+.rir{background:var(--surface-4);color:var(--text-dim);border-radius:9999px;padding:3px 8px;font-size:.55rem;font-weight:700}
+.set-row.drop{padding-right:22px;position:relative}
+.set-row.drop::before{content:"";position:absolute;right:8px;top:0;bottom:50%;width:1px;background:var(--drop-line)}
+.set-row.drop::after{content:"";position:absolute;right:8px;top:50%;width:8px;height:1px;background:var(--drop-line)}
+.set-row.drop .set-n{color:var(--drop);font-size:.6rem;letter-spacing:.04em}
+.set-row.drop .set-d{color:var(--text-dim);font-weight:600}
+.set-row.drop .rir{background:var(--drop-soft);color:var(--drop)}
+
+/* ── בלוק בעורך התוכנית ── */
+.km{background:var(--surface-2);border:1px solid var(--hairline);border-top-color:var(--hairline-hi);
+  border-radius:22px;padding:14px;box-shadow:var(--top-glint)}
+.km-num{font-size:.55rem;font-weight:800;color:var(--text-dim);letter-spacing:.14em}
+.km-name{font-size:1rem;font-weight:900;margin:8px 0 12px}
+.km-row{display:flex;justify-content:space-between;align-items:center;font-size:.68rem;color:var(--text-dim);
+  padding:8px 0;border-top:1px solid var(--hairline)}
+.km-step{display:flex;align-items:center;gap:8px;background:var(--surface-1);border-radius:9999px;padding:3px 8px}
+.km-step b{font-size:.75rem;color:var(--text);font-variant-numeric:tabular-nums}
+.tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.tag-pill{border-radius:9999px;padding:5px 11px;font-size:.6rem;font-weight:800;background:var(--surface-4);color:var(--text-dim)}
+.tag-pill.main{background:var(--accent-soft);color:#5cb0ff;box-shadow:inset 0 0 0 1px rgba(10,132,255,.35)}
+.tag-pill.drop-on{background:var(--drop-soft);color:var(--drop);box-shadow:inset 0 0 0 1px var(--drop-line)}
+
+/* ── בלוק טקסט/קוד ── */
+.code{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:14px 16px;
+  overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem;
+  line-height:1.85;direction:ltr;text-align:left;white-space:pre;color:var(--page-fg)}
+.code .hl{color:var(--drop);font-weight:700}
+
+/* ── טבלת החלטות ── */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:.82rem}
+th,td{text-align:right;padding:10px 12px;border-bottom:1px solid var(--page-line);vertical-align:top}
+th{font-size:.68rem;letter-spacing:.06em;color:var(--page-dim);font-weight:800;text-transform:uppercase}
+td b{font-weight:700}
+td.q{color:var(--page-dim);font-size:.8rem}
+
+.open{background:var(--page-card);border:1px solid var(--page-line);border-right:3px solid var(--drop);
+  border-radius:12px;padding:14px 16px;margin-top:12px}
+.open h3{margin:0 0 8px;font-size:.9rem;font-weight:800}
+.open ol{margin:0;padding-right:18px;font-size:.84rem;color:var(--page-dim)}
+.open li{margin-bottom:6px}
+.open li b{color:var(--page-fg)}
+.foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--page-line);font-size:.72rem;color:var(--page-dim)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="page">
+
+<header class="head">
+  <p class="eyebrow">GYMPRO ELITE · הצעת פיצ'ר</p>
+  <h1>דרופ סט — בתוכנית ותוך כדי אימון</h1>
+  <p class="lede">מוקאפ של הפלואו המלא: איפה מסמנים דרופ בתוכנית, איפה פותחים אותו ספונטנית בשני מסכי האימון,
+  ואיך הוא נראה בתיעוד. הצבע הסמנטי לדרופ הוא הענבר שכבר קיים בטוקנים — כדי שלא יתחרה בכחול של הזרימה הרגילה.</p>
+</header>
+
+<div class="rules">
+  <div class="rule is-drop"><b>ענבר = עצימות</b><span>כל מה ששייך לדרופ צבוע ב-<code>--warn-strong</code>. הכחול נשאר לזרימה הרגילה.</span></div>
+  <div class="rule"><b>דרופ אינו סט נוסף</b><span>הנפח נספר במלואו, מונה הסטים לא גדל — הדרופ הוא המשך של אותו סט.</span></div>
+  <div class="rule"><b>שתי החזיתות</b><span>המסך המפורט ומסך ה-Live מקבלים את אותו מנגנון, לפי כלל אחידות הפיקרים.</span></div>
+</div>
+
+<section>
+  <div class="sec-h"><span class="sec-n">שלב 1</span><h2>בתוכנית המובנית</h2></div>
+  <p class="sec-d">בכל בלוק בעורך מתווספת תגית שלישית לצד MAIN LIFT. כשהיא דלוקה, כל סט בתרגיל הזה יפתח דרופ אוטומטית עם הרישום.</p>
+  <div class="row">
+    <div class="col">
+      <span class="step neutral">עורך התוכנית</span>
+      <div class="phone sheetframe">
+        <div class="km">
+          <div class="km-num">בלוק 04</div>
+          <div class="km-name">Lateral Raises</div>
+          <div class="km-row"><span>סטים יעד</span>
+            <span class="km-step"><b>−</b><b>4</b><b>+</b></span></div>
+          <div class="km-row"><span>תגיות</span>
+            <div class="tags">
+              <span class="tag-pill drop-on">DROP SET</span>
+              <span class="tag-pill">+ תגית</span>
+            </div>
+          </div>
+          <div class="km-row"><span>ירידת משקל בדרופ</span>
+            <span class="km-step"><b>−</b><b>20%</b><b>+</b></span></div>
+        </div>
+      </div>
+      <p class="cap"><b>מה נשמר:</b> <code>dropSet: true</code> ו-<code>dropPct: 20</code> על פריט התוכנית.
+      שורת האחוז מופיעה רק כשהתגית דלוקה.</p>
+    </div>
+
+    <div class="col">
+      <span class="step neutral">אישור התרגיל</span>
+      <div class="phone">
+        <div class="badge-row"><span class="ios-badge">SET 1/4</span><span class="ios-badge drop">DROP SET</span></div>
+        <h3 class="ex-name">Lateral Raises</h3>
+        <div class="history-pill">בפעם הקודמת: 12kg × 12 (RIR 1)</div>
+        <div class="note-input">כל סט ייפתח לדרופ אוטומטית · −20%</div>
+        <div class="btn btn-primary">התחל תרגיל</div>
+        <p class="skip">דלג על התרגיל</p>
+      </div>
+      <p class="cap">תג <b>DROP SET</b> על מסך האישור ועל שורת ה-SET — כדי שלא תופתע כשהמסך יקפוץ לדרופ אחרי הרישום.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h"><span class="sec-n">שלב 2</span><h2>המסך המפורט — הפלואו</h2></div>
+  <p class="sec-d">שלושה מצבים של אותו מסך. הפיל "+ דרופ סט" הוא נקודת הכניסה כשהדרופ לא בתוכנית — הוא יושב מתחת ל-LOG SET,
+  יישור לימין, בדיוק כמו שאר ה-pills באפליקציה.</p>
+  <div class="row">
+
+    <div class="col">
+      <span class="step">1 · לפני הרישום</span>
+      <div class="phone">
+        <div class="badge-row"><span class="ios-badge">SET 2/4</span><span class="uni-badge">UNILATERAL</span></div>
+        <h3 class="ex-name">Lateral Raises</h3>
+        <div class="history-pill">סט אחרון: 14kg × 12 (RIR 1)</div>
+        <div class="grid3">
+          <div class="pcard"><div class="lbl">משקל</div><div class="val">14</div><div class="pm"><i>−</i><i>+</i></div></div>
+          <div class="pcard"><div class="lbl">חזרות</div><div class="val">12</div><div class="pm"><i>−</i><i>+</i></div></div>
+          <div class="pcard"><div class="lbl">RIR</div><div class="val">1</div><div class="pm"><i>−</i><i>+</i></div></div>
+        </div>
+        <div class="note-input">הערות לסט (אופציונלי)</div>
+        <div class="btn btn-primary">LOG SET</div>
+        <div class="pill-row"><span class="pill ghost-add">+ דרופ סט</span></div>
+        <p class="skip">דלג על התרגיל</p>
+      </div>
+      <p class="cap"><b>לחיצה על הפיל = חימוש.</b> הוא נצבע בענבר ("דרופ מזוין"), והדרופ ייפתח מיד אחרי LOG SET — סט אחד בלבד.</p>
+    </div>
+
+    <div class="col">
+      <span class="step">2 · הדרופ נפתח</span>
+      <div class="phone">
+        <div class="badge-row"><span class="ios-badge drop">DROP 1</span><span class="uni-badge">אחרי SET 2</span></div>
+        <h3 class="ex-name">Lateral Raises</h3>
+        <div class="history-pill drop-src">הסט שנרשם: 14kg × 12 (RIR 1)</div>
+        <div class="grid3">
+          <div class="pcard hot"><div class="lbl">משקל</div><div class="val">11</div><div class="was">14</div><div class="pm"><i>−</i><i>+</i></div></div>
+          <div class="pcard hot"><div class="lbl">חזרות</div><div class="val">8</div><div class="pm"><i>−</i><i>+</i></div></div>
+          <div class="pcard hot"><div class="lbl">RIR</div><div class="val">0</div><div class="pm"><i>−</i><i>+</i></div></div>
+        </div>
+        <div class="note-input">הערה לדרופ (אופציונלי)</div>
+        <div class="btn btn-drop">LOG DROP</div>
+        <div class="pill-row"><span class="pill">בטל דרופ</span></div>
+        <div class="timer"><span class="dot"></span>ללא מנוחה — <span class="t">00:07</span></div>
+      </div>
+      <p class="cap">אותם פיקרים בדיוק, עם ברירות מחדל: משקל <b>−20%</b> מעוגל לקפיצה, חזרות כמו בסט, <b>RIR 0</b>.
+      הטיימר עובר ל"ללא מנוחה" ולא מתחיל את המנוחה הארוכה.</p>
+    </div>
+
+    <div class="col">
+      <span class="step">3 · אחרי הדרופ</span>
+      <div class="phone">
+        <div class="badge-row"><span class="ios-badge">SET 2/4</span><span class="ios-badge drop">DROP 1 ✓</span></div>
+        <h3 class="ex-name">Lateral Raises</h3>
+        <div class="history-pill drop-src">14kg × 12 ⤵ 11kg × 8</div>
+        <div class="slog-card" style="margin-bottom:12px">
+          <div class="set-row" style="border-top:none"><span class="set-n">02</span><span class="set-d">14 × 12</span><span class="rir">RIR 1</span></div>
+          <div class="set-row drop"><span class="set-n">D1</span><span class="set-d">11 × 8</span><span class="rir">RIR 0</span></div>
+        </div>
+        <div class="pill-row"><span class="pill armed">+ דרופ נוסף</span></div>
+        <div class="btn btn-ghost" style="margin-top:10px">המשך לסט הבא</div>
+        <div class="timer"><span class="dot"></span>מנוחה <span class="t">01:42</span></div>
+      </div>
+      <p class="cap">אפשר לשרשר <b>DROP 2</b> ו-<b>DROP 3</b> באותה לחיצה. ברגע שעוברים לסט הבא, המנוחה הרגילה מתחילה כרגיל.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h"><span class="sec-n">שלב 3</span><h2>מסך ה-Live</h2></div>
+  <p class="sec-d">אותו מנגנון, בחזית של מסך מלא: צ'יפ על כרטיס הסט הנוכחי, וטוגל בגיליון "ערוך סט נוכחי" שהוא ה-proxy לאותם פיקרים.</p>
+  <div class="row">
+
+    <div class="col">
+      <span class="step">Live · דרופ מזוין</span>
+      <div class="live">
+        <div class="live-counter">SET 2/4</div>
+        <h3 class="live-name">Lateral Raises</h3>
+        <div class="ring blue"><div class="in"><div><div class="tt">01:12</div><div class="tl">REST</div></div></div></div>
+        <div class="live-target drop">
+          <div class="lt-head"><span>סט נוכחי</span><span class="lt-chip">דרופ אחרי הסט</span></div>
+          <div class="lt-val">14 × 12 · RIR 1</div>
+        </div>
+        <div class="swipe">החלק לרישום הסט</div>
+      </div>
+      <p class="cap">הצ'יפ הענברי מופיע כשהדרופ מזוין — מהתוכנית או מהטוגל. ההחלקה לרישום נשארת אותה החלקה.</p>
+    </div>
+
+    <div class="col">
+      <span class="step">Live · הדרופ פעיל</span>
+      <div class="live">
+        <div class="live-counter">DROP 1 · אחרי SET 2</div>
+        <h3 class="live-name">Lateral Raises</h3>
+        <div class="ring"><div class="in"><div><div class="tt">00:07</div><div class="tl">DROP</div></div></div></div>
+        <div class="live-target drop">
+          <div class="lt-head"><span>דרופ 1</span><span class="lt-chip">−20%</span></div>
+          <div class="lt-val"><em>11</em> × 8 · RIR 0</div>
+        </div>
+        <div class="swipe">החלק לרישום הדרופ</div>
+      </div>
+      <p class="cap">הטבעת מחליפה צבע לענבר וה-REST הופך ל-<b>DROP</b> — סימן חד-משמעי שאתה באמצע סט, לא בין סטים.</p>
+    </div>
+
+    <div class="col">
+      <span class="step">Live · גיליון העריכה</span>
+      <div class="phone sheetframe">
+        <div class="sheet">
+          <div class="sheet-handle"></div>
+          <div class="sheet-h">
+            <h4>ערוך סט נוכחי</h4>
+            <span class="toggle on">דרופ סט <span class="sw on"></span></span>
+          </div>
+          <div class="grid3">
+            <div class="pcard"><div class="lbl">משקל</div><div class="val">14</div><div class="pm"><i>−</i><i>+</i></div></div>
+            <div class="pcard"><div class="lbl">חזרות</div><div class="val">12</div><div class="pm"><i>−</i><i>+</i></div></div>
+            <div class="pcard"><div class="lbl">RIR</div><div class="val">1</div><div class="pm"><i>−</i><i>+</i></div></div>
+          </div>
+          <div class="note-input">הערה לסט</div>
+          <div class="btn btn-primary">LOG SET → דרופ</div>
+        </div>
+      </div>
+      <p class="cap">הטוגל בגיליון הוא אותו מתג בדיוק כמו הפיל במסך המפורט — <b>state אחד</b>, שתי חזיתות.
+      כשהוא דלוק, כפתור הרישום אומר לאן ממשיכים.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h"><span class="sec-n">שלב 4</span><h2>איך זה נראה בתיעוד</h2></div>
+  <p class="sec-d">הדרופ מקונן מתחת לסט האב בכל מקום שמציג סטים: יומן הסטים החי, מסך הסיכום, ופירוט הארכיון.</p>
+  <div class="row">
+    <div class="col" style="width:320px">
+      <span class="step neutral">יומן הסטים / סיכום</span>
+      <div class="phone sheetframe">
+        <div class="slog-card">
+          <div class="slog-head">
+            <h4 class="slog-name">Lateral Raises</h4>
+            <div><p class="slog-vol-l">VOLUME</p><p class="slog-vol-v">1,096kg</p></div>
+          </div>
+          <div class="set-row" style="border-top:none"><span class="set-n">01</span><span class="set-d">14 × 12</span><span class="rir">RIR 2</span></div>
+          <div class="set-row"><span class="set-n">02</span><span class="set-d">14 × 12</span><span class="rir">RIR 1</span></div>
+          <div class="set-row drop"><span class="set-n">D1</span><span class="set-d">11 × 8</span><span class="rir">RIR 0</span></div>
+          <div class="set-row"><span class="set-n">03</span><span class="set-d">14 × 10</span><span class="rir">RIR 0</span></div>
+          <div class="set-row drop"><span class="set-n">D1</span><span class="set-d">11 × 7</span><span class="rir">RIR 0</span></div>
+          <div class="set-row drop"><span class="set-n">D2</span><span class="set-d">8 × 6</span><span class="rir">RIR 0</span></div>
+        </div>
+      </div>
+      <p class="cap"><b>3 סטים</b> — לא 6. מספור הסטים לא זז, הדרופים מסומנים D1/D2 עם קו חיבור ענברי,
+      והנפח בכותרת כולל אותם במלואם.</p>
+    </div>
+
+    <div class="col" style="width:min(560px,86vw)">
+      <span class="step neutral">טקסט הסיכום (ארכיון · העתקה · המאמן)</span>
+      <div class="code">Lateral Raises (Vol: 1.1t):
+14kg x 12 (RIR 2)
+14kg x 12 (RIR 1) <span class="hl">⤵ 11kg x 8 (RIR 0)</span>
+14kg x 10 (RIR 0) <span class="hl">⤵ 11kg x 7 (RIR 0) ⤵ 8kg x 6 (RIR 0)</span></div>
+      <p class="cap">הדרופ נכתב <b>באותה שורה</b> של סט האב אחרי <code>⤵</code>. כך <code>details.sets.length</code> נשאר מספר הסטים
+      האמיתי לכל האנליטיקה, ורק פענוח הנפח (<code>_setStrVol</code>) מורחב לסכום כל המקטעים בשורה.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h"><span class="sec-n">שלב 5</span><h2>החלטות שצריך לאשר</h2></div>
+  <div class="tbl-wrap">
+    <table>
+      <tr><th>נושא</th><th>ההצעה</th><th>למה</th></tr>
+      <tr><td><b>ספירת סטים</b></td><td>דרופ לא מגדיל את מונה הסטים</td>
+        <td class="q">דרופ הוא טכניקת עצימות בתוך סט. ספירה כסט שלם תנפח נפח-סטים שבועי ותשבש את זיהוי הפלאטו ואת סטי-השריר.</td></tr>
+      <tr><td><b>נפח (ק"ג×חזרות)</b></td><td>נספר במלואו</td>
+        <td class="q">העבודה בוצעה בפועל. זו הסיבה היחידה שהדרופ צריך להיות רשומה מתועדת ולא הערה חופשית.</td></tr>
+      <tr><td><b>1RM / TM</b></td><td>דרופים מוחרגים מחישוב</td>
+        <td class="q">סט בעייפות מצטברת אינו אינדיקציה לכוח מקסימלי — יוריד את ה-1RM המחושב בטעות.</td></tr>
+      <tr><td><b>ברירת מחדל לירידה</b></td><td>−20% מהמשקל, מעוגל לקפיצת התרגיל</td>
+        <td class="q">טווח מקובל (20–30%). ניתן לשינוי בעורך לכל תרגיל, וידנית בפיקרים בכל דרופ.</td></tr>
+      <tr><td><b>מקסימום דרופים</b></td><td>3 לסט</td>
+        <td class="q">מעבר לזה התיעוד נהיה בלתי קריא, וזו כבר לא טכניקה אלא סט נפרד.</td></tr>
+      <tr><td><b>סופרסט</b></td><td>קיים כבר — <b>סבב/קלאסטר</b> בעורך</td>
+        <td class="q">2 תרגילים = סופרסט, 3+ = ג'יאנט. מה שחסר הוא יצירת סבב <b>תוך כדי אימון</b>, וזה שלב נפרד.</td></tr>
+    </table>
+  </div>
+
+  <div class="open">
+    <h3>מה אני מציע לבצע — ובאיזה סדר</h3>
+    <ol>
+      <li><b>דרופ סט מלא</b> — מודל הנתונים, שתי החזיתות, התוכנית, התיעוד, הנפח, והוראה למאמן שדרופ אינו סט נוסף.</li>
+      <li><b>סופרסט אד-הוק</b> — "צור סבב מהתרגיל הזה" בתפריט האימון, שממיר את התרגיל הנוכחי לקלאסטר עם תרגיל נבחר.</li>
+    </ol>
+  </div>
+</section>
+
+<p class="foot">מוקאפ · הטיפוגרפיה כאן היא פונט המערכת (Heebo נחסם ב-Artifacts); באפליקציה עצמה הכל ב-Heebo 900.
+מסגרות המכשיר נשארות כהות בכל תמה — זו האפליקציה עצמה.</p>
+
+</div>

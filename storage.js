@@ -728,6 +728,23 @@ const StorageManager = {
         return (h >>> 0) + '.' + s.length;
     },
 
+    // תזמון השליחה הנגררת. טיימר בודד — עריכה נוספת בתוך החלון רק דוחה אותו.
+    // ריענון דף מבטל את הטיימר, אבל טביעת האצבע לא התעדכנה ולכן הטריגר הבא
+    // (פתיחה/יציאה) עדיין ישלח — אין מצב של שינוי שנשאר בלי גיבוי.
+    _connFlushTimer: null,
+
+    _scheduleConnBackupFlush(delayMs) {
+        this._clearConnBackupFlush();
+        this._connFlushTimer = setTimeout(() => {
+            this._connFlushTimer = null;
+            try { this.maybeBackupConnections(); } catch (e) { /* שקט — ינוסה בטריגר הבא */ }
+        }, Math.max(1000, delayMs));
+    },
+
+    _clearConnBackupFlush() {
+        if (this._connFlushTimer) { clearTimeout(this._connFlushTimer); this._connFlushTimer = null; }
+    },
+
     // maybeBackupConnections — שולח קובץ חיבורים אם טביעת האצבע השתנתה.
     // שקט לחלוטין: כשל אינו מעדכן את טביעת האצבע, ולכן ינוסה שוב בטריגר הבא
     // (פתיחת אפליקציה / יציאה ממנה) — אין מצב של שינוי שנשאר בלי גיבוי.
@@ -737,9 +754,16 @@ const StorageManager = {
         const fp = this._connectionsFingerprint();
         if (!force && localStorage.getItem(this.KEY_CONN_FP) === fp) return Promise.resolve(false);
         // דיבאונס: שמירות רצופות (שינוי URL ואז token) לא יציפו את התיבה.
-        // דילוג אינו אובדן — טביעת האצבע לא מתעדכנת, והשליחה תקרה בטריגר הבא.
+        // דיבאונס **נגרר** (trailing) — הדילוג מתזמן שליחה לסוף החלון במקום לזרוק
+        // את השינוי. בלי זה עריכה של כמה כללים בתיבת הזיכרון ברצף הייתה שולחת קובץ
+        // רק על הראשון, והשאר היו ממתינים לפתיחת האפליקציה הבאה בלי שום חיווי.
         const lastAt = Number(localStorage.getItem(this.KEY_CONN_FP_AT) || 0);
-        if (!force && Date.now() - lastAt < 120000) return Promise.resolve(false);
+        const sinceLast = Date.now() - lastAt;
+        if (!force && sinceLast < 120000) {
+            this._scheduleConnBackupFlush(120000 - sinceLast + 500);
+            return Promise.resolve(false);
+        }
+        this._clearConnBackupFlush();
 
         const payload = this._connectionsPayload();
         if (!Object.keys(payload.data).length) return Promise.resolve(false);

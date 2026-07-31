@@ -7193,6 +7193,9 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
     padding:12px 8px;text-align:center}
 .sl-metric .v{font-size:1.12rem;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
 .sl-metric .v small{font-size:.6rem;font-weight:700;color:var(--text-dim)}
+/* ערך נושא-סימן (טמפ׳): בהקשר RTL ה-+/− הוא תו ניטרלי ש-bidi מעיף לקצה השני.
+   כיוון LTR על תיבת הערך בלבד — שאר הכרטיסים נשארים כפי שהם. */
+.sl-metric .v.v--ltr{direction:ltr}
 .sl-metric .k{font-size:.64rem;color:var(--text-dim);font-weight:700;margin-top:3px}
 .sl-metric .d{font-size:.58rem;font-weight:800;margin-top:2px}
 .sl-metric .d.up{color:var(--success)} .sl-metric .d.down{color:var(--danger-soft)} .sl-metric .d.flat{color:var(--text-dim)}

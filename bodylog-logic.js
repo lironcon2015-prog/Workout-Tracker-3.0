@@ -2120,11 +2120,13 @@ function _slDualChart(nights) {
     </div>`;
 }
 
-function _slMetric(v, unit, k, delta, dcls, carriedGap) {
+function _slMetric(v, unit, k, delta, dcls, carriedGap, ltr) {
     // carriedGap>0 → ערך נגרר מלילה קודם. סימון עדין ("מלפני יום"/"מלפני N ימים") מתחת לדלתא,
     // כדי שהמשתמש יראה נתון אינדיקטיבי במקום "—" אבל יבין שזה לא הערך של הלילה עצמו.
+    // ltr → ערך שנושא סימן (+/−). בהקשר RTL הסימן הוא תו ניטרלי ו-bidi זורק אותו לקצה
+    // השני ("+0.4°" הוצג כ-"0.4°+"). כיוון LTR על תיבת הערך בלבד מקבע את הסדר.
     const cg = carriedGap ? `<div class="sl-carried">מלפני ${carriedGap === 1 ? 'יום' : carriedGap + ' ימים'}</div>` : '';
-    return `<div class="sl-metric"><div class="v">${v}<small>${unit || ''}</small></div><div class="k">${k}</div>${delta ? `<div class="d ${dcls}">${delta}</div>` : ''}${cg}</div>`;
+    return `<div class="sl-metric"><div class="v${ltr ? ' v--ltr' : ''}">${v}<small>${unit || ''}</small></div><div class="k">${k}</div>${delta ? `<div class="d ${dcls}">${delta}</div>` : ''}${cg}</div>`;
 }
 
 function _slAvg(nights, key, win) {
@@ -2187,7 +2189,7 @@ function renderSleepView() {
         ? _slMetric('—', '', 'טמפ׳ עור', '', 'flat')
         : !_tempReady
         ? _slMetric('בונה', '', 'טמפ׳ עור', `${_bTemp.n}/${TEMP_SHOW_MIN_NIGHTS} לילות`, 'flat')
-        : _slMetric((_tempDev > 0 ? '+' : '') + _tempDev, '°', 'טמפ׳ עור', _tempSub, _tempDev <= 0.2 ? 'up' : 'down');
+        : _slMetric((_tempDev > 0 ? '+' : '') + _tempDev, '°', 'טמפ׳ עור', _tempSub, _tempDev <= 0.2 ? 'up' : 'down', 0, true);
 
     const drivers = (rd.drivers || []).map(d =>
         `<span class="sl-chip ${d.dir}">${d.label} <span class="ar">${d.delta}</span></span>`).join('');

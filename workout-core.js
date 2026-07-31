@@ -204,7 +204,7 @@ let state = {
     lastClusterRest: 0,
 
     // Drop Set State (v18.7) — נשמר אוטומטית ב-saveSessionState (מסרלז את כל state)
-    dropArmed: false,   // הדרופ מזוין לסט הנוכחי (מהתוכנית או מהפיל/טוגל)
+    dropArmed: false,   // הדרופ מסומן לסט הנוכחי (מהתוכנית או מהפיל/טוגל)
     dropMode: false,    // כרגע מתעדים דרופ — הפיקרים מציגים ערכי דרופ
     dropDone: false,    // דרופ נרשם והמסך מציג "המשך / + דרופ נוסף"
     dropLevel: 0        // 1..DROP_MAX
@@ -2554,7 +2554,7 @@ function initPickers() {
     let defaultR = 8;
     let defaultRIR = 2;
 
-    // חימוש אוטומטי מהתוכנית — כל סט בתרגיל שסומן "דרופ סט" נפתח לדרופ עם הרישום
+    // סימון אוטומטי מהתוכנית — כל סט בתרגיל שסומן "דרופ סט" נפתח לדרופ עם הרישום
     if (!state.dropMode && !state.dropDone && _dropSupported() && state.currentEx.dropSet) {
         state.dropArmed = true;
     }
@@ -3366,7 +3366,7 @@ function _roundToDropStep(w) {
 
 function _enterDropMode() {
     if (!_dropSupported()) return;
-    state.dropArmed = false;          // החימוש נצרך
+    state.dropArmed = false;          // הסימון נצרך
     state.dropMode  = true;
     state.dropDone  = false;
     state.dropLevel = (state.dropLevel || 0) + 1;
@@ -3437,7 +3437,7 @@ function addAnotherDrop() {
 function cancelDrop() { haptic('light'); _advanceAfterSet(false); }
 
 // toggleDropArm — כפתור אחד, שלוש התנהגויות לפי הקשר:
-// דרופ פתוח → ביטול | דרופ נרשם → עוד דרופ | אחרת → חימוש/ביטול חימוש לסט הנוכחי
+// דרופ פתוח → ביטול | דרופ נרשם → עוד דרופ | אחרת → סימון/ביטול סימון לסט הנוכחי
 function toggleDropArm() {
     if (!_dropSupported()) { showAlert('דרופ סט אינו נתמך בתוך סבב.'); return; }
     if (state.dropMode) { cancelDrop();     return; }
@@ -3484,7 +3484,7 @@ function _syncDropUI() {
     if (pill) {
         pill.textContent = state.dropMode ? 'בטל דרופ'
                          : state.dropDone ? '+ דרופ נוסף'
-                         : state.dropArmed ? 'דרופ מזוין · בטל'
+                         : state.dropArmed ? 'דרופ מוכן · בטל'
                          : '+ דרופ סט';
         pill.classList.toggle('is-armed', !!(state.dropArmed || state.dropMode || state.dropDone));
     }

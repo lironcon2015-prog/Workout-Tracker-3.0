@@ -29,7 +29,7 @@ document.addEventListener('click', (e) => {
 
 function autoSaveConfigToCloud() {
     if (typeof FirebaseManager === 'undefined' || !FirebaseManager.isConfigured()) return;
-    if (!FirebaseManager._isSyncArmed()) return;   // מצב לא-מזוין: דילוג שקט (הגנת ענן) — לא כשל
+    if (!FirebaseManager._isSyncArmed()) return;   // מצב לא-מסומן: דילוג שקט (הגנת ענן) — לא כשל
     FirebaseManager.saveConfigToCloud().then(ok => {
         // הצלחה = שקט (הודעת ההצלחה רק הפריעה). רק כשל אמיתי מציג טוסט.
         if (!ok && typeof showCloudToast === 'function') {

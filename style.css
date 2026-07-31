@@ -7224,3 +7224,164 @@ svg.sl-chart{width:100%;display:block;overflow:hidden}
     padding:11px 6px;text-align:center}
 .sl-avg .v{font-size:1rem;font-weight:900;font-variant-numeric:tabular-nums}
 .sl-avg .k{font-size:.6rem;color:var(--text-dim);font-weight:700;margin-top:2px}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DROP SET (v18.7)
+   דרופ = המשך של אותו סט במשקל מופחת. הצבע הסמנטי הוא הענבר הקיים
+   (--warn-strong) — נבדל מהכחול של הזרימה הרגילה ומהירוק של המנוחה.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* תג הדרופ בשורת ה-badges */
+.ios-badge--drop {
+    background: rgba(var(--warn-strong-rgb), 0.16);
+    color: var(--warn-strong);
+    border-color: rgba(var(--warn-strong-rgb), 0.4);
+}
+
+/* פיל ההפעלה — יישור לימין (RTL: flex-start), טקסט בלבד */
+.drop-pill-row { display: flex; margin-top: 10px; }
+.drop-pill {
+    align-self: flex-start;
+    background: var(--surface-4);
+    border: 1px solid transparent;
+    border-radius: var(--r-pill);
+    color: var(--text-dim);
+    padding: 9px 16px;
+    font-family: 'Heebo', sans-serif;
+    font-size: var(--fs-sm); font-weight: 700;
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.drop-pill:active { transform: scale(0.96); }
+.drop-pill.is-armed {
+    background: rgba(var(--warn-strong-rgb), 0.14);
+    border-color: rgba(var(--warn-strong-rgb), 0.35);
+    color: var(--warn-strong);
+}
+
+/* כפתור הרישום במצב דרופ.
+   סלקטור עם ID בכוונה: ל-#btn-submit-set יש כבר גרדיאנט כחול בספציפיות (1,0,0),
+   ומחלקה בלבד לא הייתה גוברת עליו. גם ההילה מוחלפת — אחרת נשארת זוהר כחול. */
+#btn-submit-set.drop-gradient,
+#live-edit-log-btn.drop-gradient,
+.btn-main.drop-gradient {
+    background: linear-gradient(90deg, #c26e00 0%, var(--warn-strong) 50%, #c26e00 100%);
+    color: #1a1200;
+    border-color: rgba(var(--warn-strong-rgb), 0.35);
+    box-shadow: 0 15px 40px rgba(var(--warn-strong-rgb), 0.25), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+/* הפעימה הכחולה מכבה בזמן דרופ — היא מונפשת על box-shadow וגוברת על הצבע */
+#btn-submit-set.drop-gradient.pulse { animation: none; }
+
+/* מקור הדרופ בכרטיסיית ההיסטוריה ("יורדים מ: …") */
+.history-pill.drop-src {
+    background: rgba(var(--warn-strong-rgb), 0.12);
+    color: var(--warn-strong);
+}
+
+/* טבעת הטיימר במצב דרופ — ענבר + תווית DROP */
+#timer-area.is-drop .timer-bar {
+    stroke: var(--warn-strong);
+    filter: drop-shadow(0 0 12px rgba(var(--warn-strong-rgb), 0.45));
+}
+#timer-area.is-drop .timer-resting-lbl { color: var(--warn-strong); }
+body.drop-mode-active .live-timer-bar {
+    stroke: var(--warn-strong);
+    filter: drop-shadow(0 0 8px rgba(var(--warn-strong-rgb), 0.5));
+}
+body.drop-mode-active .live-timer-lbl { color: var(--warn-strong); }
+/* גם ההילה של הספרות והמונה — אחרת נשארת זוהרת ירוק/כחול מול טבעת ענבר */
+body.drop-mode-active .live-timer-text { text-shadow: 0 0 30px rgba(var(--warn-strong-rgb), 0.30); }
+body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
+
+/* שורות דרופ בתיעוד — הזחה + קו חיבור לסט האב */
+.set-row--drop,
+.summary-set-row--drop,
+.slog-set-row--drop {
+    position: relative;
+    padding-right: 22px;
+}
+.set-row--drop::before,
+.summary-set-row--drop::before,
+.slog-set-row--drop::before {
+    content: ""; position: absolute; right: 8px; top: 0; bottom: 50%;
+    width: 1px; background: rgba(var(--warn-strong-rgb), 0.35);
+}
+.set-row--drop::after,
+.summary-set-row--drop::after,
+.slog-set-row--drop::after {
+    content: ""; position: absolute; right: 8px; top: 50%;
+    width: 8px; height: 1px; background: rgba(var(--warn-strong-rgb), 0.35);
+}
+.set-row--drop .set-num,
+.summary-set-row--drop .summary-set-num,
+.slog-set-row--drop .slog-set-num {
+    color: var(--warn-strong);
+    font-size: var(--fs-sm);
+}
+.set-row--drop .set-details,
+.summary-set-row--drop .summary-set-details,
+.slog-set-row--drop .slog-set-data { color: var(--text-dim); }
+.slog-set-row--drop .slog-rir-badge {
+    background: rgba(var(--warn-strong-rgb), 0.12);
+    color: var(--warn-strong);
+}
+
+/* Live — צ'יפ על כרטיס הסט + מסגרת ענבר */
+.live-drop-chip {
+    background: var(--warn-strong); color: #1a1200;
+    border-radius: var(--r-pill); padding: 3px 10px;
+    font-size: var(--fs-xs); font-weight: 900;
+}
+.live-next-target.is-drop {
+    border-color: rgba(var(--warn-strong-rgb), 0.35);
+    background: linear-gradient(180deg, rgba(var(--warn-strong-rgb), 0.08), transparent);
+}
+.live-action-btn--drop {
+    background: rgba(var(--warn-strong-rgb), 0.14);
+    color: var(--warn-strong);
+}
+
+/* Live — טוגל הדרופ בגיליון "ערוך סט נוכחי" */
+.live-edit-head-actions { display: flex; align-items: center; gap: 10px; }
+.live-drop-toggle {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--r-pill);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    font-family: 'Heebo', sans-serif;
+    font-size: var(--fs-sm); font-weight: 700;
+    cursor: pointer;
+}
+.live-drop-switch {
+    width: 32px; height: 18px; border-radius: var(--r-pill);
+    background: var(--surface-4); position: relative; flex-shrink: 0;
+    transition: background var(--dur-1) var(--ease);
+}
+.live-drop-switch::after {
+    content: ""; position: absolute; top: 2px; right: 2px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #8b8b93;
+    transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.live-drop-switch.on { background: var(--warn-strong); }
+.live-drop-switch.on::after { transform: translateX(-14px); background: #1a1200; }
+.live-drop-toggle:has(.live-drop-switch.on) { color: var(--warn-strong); border-color: rgba(var(--warn-strong-rgb), 0.4); }
+
+/* עורך התוכנית — תגית DROP SET */
+.km-tag-pill--drop {
+    background: rgba(var(--warn-strong-rgb), 0.14) !important;
+    border-color: rgba(var(--warn-strong-rgb), 0.4) !important;
+    color: var(--warn-strong) !important;
+}
+.history-row--drop .set-idx { color: var(--warn-strong); font-size: var(--fs-xs); }
+.history-row--drop { opacity: 0.75; }
+/* "+ דרופ נוסף" בפאנל ההחלטה — ענבר, כדי שלא ייקרא ככפתור המשך כחול נוסף.
+   ‏!important נדרש: ל-.secondary-action יש כבר צבע/מסגרת כחולים עם !important. */
+#btn-drop-more.secondary-action {
+    color: var(--warn-strong) !important;
+    border-color: rgba(var(--warn-strong-rgb), 0.38) !important;
+    background: rgba(var(--warn-strong-rgb), 0.06) !important;
+}

@@ -201,7 +201,13 @@ let state = {
     activeCluster: null,
     clusterIdx: 0,
     clusterRound: 1,
-    lastClusterRest: 0
+    lastClusterRest: 0,
+
+    // Drop Set State (v18.7) — נשמר אוטומטית ב-saveSessionState (מסרלז את כל state)
+    dropArmed: false,   // הדרופ מזוין לסט הנוכחי (מהתוכנית או מהפיל/טוגל)
+    dropMode: false,    // כרגע מתעדים דרופ — הפיקרים מציגים ערכי דרופ
+    dropDone: false,    // דרופ נרשם והמסך מציג "המשך / + דרופ נוסף"
+    dropLevel: 0        // 1..DROP_MAX
 };
 
 let managerState = {
@@ -423,7 +429,9 @@ function restoreSession() {
                 initPickers();
                 if (state.startTime && state.seconds > 0) {
                     const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
-                    const target = state.currentEx && state.currentEx.restTime ? state.currentEx.restTime : 90;
+                    // דרופ פתוח — היעד הוא זמן החלפת המשקל, לא מנוחת התרגיל
+                    const target = state.dropMode ? DROP_REST_TARGET
+                                 : (state.currentEx && state.currentEx.restTime ? state.currentEx.restTime : 90);
                     if (elapsed < target) {
                         document.getElementById('timer-area').style.visibility = 'visible';
                         resetAndStartTimer(target);
@@ -1868,7 +1876,7 @@ function openCurrentPlanSheet() {
 
     const setsCountMap = {};
     state.log.forEach(entry => {
-        if (entry.skip) return;
+        if (entry.skip || entry.drop) return;   // דרופ אינו סט נוסף — לא מקדם "סט X מתוך Y"
         setsCountMap[entry.exName] = (setsCountMap[entry.exName] || 0) + 1;
     });
 
@@ -2200,6 +2208,9 @@ function confirmExercise(doEx) {
             if (planItem) {
                 isMain = planItem.isMain;
                 targetSets = planItem.sets;
+                // דרופ סט מהתוכנית — נשמר על התרגיל הפעיל ומחמש כל סט מחדש ב-initPickers
+                state.currentEx.dropSet = !!planItem.dropSet;
+                state.currentEx.dropPct = planItem.dropPct;
             }
         }
     }
@@ -2413,8 +2424,47 @@ function _setVol(entry) {
     return w * entry.r;
 }
 
-// ווליום מסטרינג סט בארכיון: "80kg x 5" / "5 פלטות x 10" / "BW x 12"
+// ─── דרופ סט (v18.7) ────────────────────────────────────────────────────────
+// דרופ הוא **המשך של אותו סט** במשקל מופחת, לא סט נוסף. לכן:
+//   • הנפח נספר במלואו,
+//   • מונה הסטים לא גדל — התיעוד משרשר את הדרופ לשורת סט האב אחרי DROP_ARROW,
+//     כך ש-`details[ex].sets.length` (מקור האמת לספירת סטים בכל האנליטיקה) נשאר נכון.
+// דרופ אינו נתמך בתוך סבב/קלאסטר — קינון כפול הופך את התיעוד לבלתי קריא.
+const DROP_MAX = 3;             // מקסימום דרופים לסט
+const DROP_DEFAULT_PCT = 20;    // ברירת מחדל לירידת משקל (%)
+const DROP_REST_TARGET = 15;    // יעד טבעת הדרופ בשניות — זמן החלפת המשקל
+const DROP_ARROW = '⤵';
+
+// _groupSetsWithDrops — ממיר רשימת רשומות לוג לרשימת { entry, drops[] }.
+// דרופ מצטרף תמיד לרשומה הלא-דרופ שלפניו (הסדר במערך הוא השיוך).
+function _groupSetsWithDrops(sets) {
+    const out = [];
+    (sets || []).forEach(e => {
+        if (e && e.drop && out.length) out[out.length - 1].drops.push(e);
+        else out.push({ entry: e, drops: [] });
+    });
+    return out;
+}
+
+// _setLineText — שורת התיעוד הטקסטואלית של סט + הדרופים שלו.
+// noteLabel: true בטקסט הסיכום/ארכיון ("| Note: x"), false בתצוגה ("| x").
+function _setLineText(entry, drops, noteLabel) {
+    const one = (e) => {
+        const rir = e.rir !== undefined ? e.rir : '—';
+        const note = e.note ? (noteLabel ? ` | Note: ${e.note}` : ` | ${e.note}`) : '';
+        return `${_fmtW(e)} x ${e.r} (RIR ${rir})${note}`;
+    };
+    return [entry].concat(drops || []).map(one).join(` ${DROP_ARROW} `);
+}
+
+// ווליום מסטרינג סט בארכיון — כולל דרופים משורשרים באותה שורה
 function _setStrVol(setStr) {
+    return String(setStr).split(DROP_ARROW)
+        .reduce((sum, part) => sum + _setStrVolOne(part), 0);
+}
+
+// ווליום ממקטע יחיד: "80kg x 5" / "5 פלטות x 10" / "BW x 12"
+function _setStrVolOne(setStr) {
     const core = setStr.includes('|') ? setStr.split('|')[0].trim() : setStr;
     if (core.indexOf('BW') === 0) return 0; // משקל גוף — חזרות בלבד
     const parts = core.split('x');
@@ -2504,7 +2554,18 @@ function initPickers() {
     let defaultR = 8;
     let defaultRIR = 2;
 
-    if (state.currentEx.isCalc) {
+    // חימוש אוטומטי מהתוכנית — כל סט בתרגיל שסומן "דרופ סט" נפתח לדרופ עם הרישום
+    if (!state.dropMode && !state.dropDone && _dropSupported() && state.currentEx.dropSet) {
+        state.dropArmed = true;
+    }
+
+    if (state.dropMode) {
+        // דרופ — ירידת אחוז מהרשומה האחרונה (סט האב או הדרופ הקודם), RIR 0
+        const src = _dropSourceEntry() || {};
+        defaultW = _roundToDropStep((src.w || 0) * (1 - _dropPct() / 100));
+        defaultR = src.r || 8;
+        defaultRIR = 0;
+    } else if (state.currentEx.isCalc) {
         defaultW = target.w || 0;
         defaultR = target.r || 8;
         defaultRIR = 2;
@@ -2551,12 +2612,17 @@ function initPickers() {
     }
 
     const hist = document.getElementById('last-set-info');
-    if (state.lastLoggedSet) {
+    const dropSrc = state.dropMode ? _dropSourceEntry() : null;
+    if (dropSrc) {
+        hist.innerText = `יורדים מ: ${_fmtW(dropSrc)} x ${dropSrc.r} (RIR ${dropSrc.rir}) · −${_dropPct()}%`;
+        hist.style.display = 'block';
+    } else if (state.lastLoggedSet) {
         hist.innerText = `סט אחרון: ${_fmtW(state.lastLoggedSet)} x ${state.lastLoggedSet.r} (RIR ${state.lastLoggedSet.rir})`;
         hist.style.display = 'block';
     } else {
         hist.style.display = 'none';
     }
+    hist.classList.toggle('drop-src', !!dropSrc);
 
     document.getElementById('unilateral-note').style.display = isUnilateral(state.currentExName) ? 'block' : 'none';
 
@@ -2578,7 +2644,8 @@ function initPickers() {
         finishRoundBtn.style.display = 'block';
     } else {
         finishRoundBtn.style.display = 'none';
-        skipBtn.style.display = (state.setIdx === 0) ? 'none' : 'block';
+        // בזמן דרופ אין "דלג על התרגיל" — אתה באמצע סט, לא ביניהם
+        skipBtn.style.display = (state.setIdx === 0 || state.dropMode) ? 'none' : 'block';
     }
 
     const wPick = document.getElementById('weight-picker'); wPick.innerHTML = "";
@@ -2631,6 +2698,7 @@ function initPickers() {
     syncStepperDisplay('rir');
 
     _resetSetRecState();
+    _syncDropUI();   // חיווי הדרופ בשתי החזיתות — כאן, כדי ש-restoreSession יקבל אותו בחינם
 
     // סנכרון Live View — חשוב: ה-pickers הם source-of-truth ל-updateLiveViewContent,
     // אז אחרי שמילאנו אותם בערכים החדשים, צריך לרענן את מסך ה-Live כדי שלא יציג ערכים של תרגיל קודם
@@ -3175,12 +3243,16 @@ function nextStep() {
         round: state.clusterMode ? state.clusterRound : null
     };
     if (wMode !== 'kg') entry.wm = wMode; // סימון שיטת המשקל — נשמר גם בארכיון
+    if (state.dropMode) entry.drop = state.dropLevel;
 
     // שמירת "משקל אחרון" רק כשהשיטה תואמת את ברירת המחדל של התרגיל —
-    // override זמני (פלטות/BW על תרגיל ק"ג) לא מזהם את ה-prefill של אימונים הבאים
+    // override זמני (פלטות/BW על תרגיל ק"ג) לא מזהם את ה-prefill של אימונים הבאים.
+    // דרופ לעולם לא נשמר כ"משקל אחרון" — הוא משקל מופחת בעייפות, לא משקל העבודה.
     const defaultMode = state.currentEx.weightMode || (state.currentEx.isBW ? 'bw' : 'kg');
-    if (wMode === defaultMode && wMode !== 'bw') StorageManager.saveWeight(state.currentExName, wVal);
-    state.log.push(entry); state.lastLoggedSet = entry;
+    if (!state.dropMode && wMode === defaultMode && wMode !== 'bw') StorageManager.saveWeight(state.currentExName, wVal);
+    state.log.push(entry);
+    // lastLoggedSet נשאר סט האב — הוא ה-prefill של הסט הבא, ודרופ לא אמור לגרור אותו למטה
+    if (!state.dropMode) state.lastLoggedSet = entry;
     StorageManager.saveSessionState();
 
     if (state.clusterMode) {
@@ -3214,10 +3286,26 @@ function nextStep() {
         }
     }
 
+    // ── דרופ סט ── (מוחרג בסבב — הזרימה שם כבר מקוננת בסבבים)
+    if (state.dropMode)  { _afterDropLogged(); return; }
+    if (state.dropArmed) { _enterDropMode();   return; }
+
+    _advanceAfterSet();
+}
+
+// _advanceAfterSet — הזנב של nextStep: מעבר לסט הבא או פתיחת פאנל סיום התרגיל.
+// keepTimer: לא לאתחל את המנוחה מחדש (אחרי דרופ — המנוחה כבר רצה מרגע סיום הדרופ).
+function _advanceAfterSet(keepTimer) {
+    _resetDropState();
+    const dropPanel = document.getElementById('drop-panel');
+    if (dropPanel) dropPanel.style.display = 'none';
+
     if (state.setIdx < state.currentEx.sets.length - 1) {
-        state.setIdx++; initPickers();
+        state.setIdx++;
+        document.getElementById('btn-submit-set').style.display = 'block';
+        initPickers();
         document.getElementById('timer-area').style.visibility = 'visible';
-        resetAndStartTimer();
+        if (!keepTimer) resetAndStartTimer();
     } else {
         document.getElementById('btn-submit-set').style.display = 'none';
         document.getElementById('btn-skip-exercise').style.display = 'none';
@@ -3232,6 +3320,219 @@ function nextStep() {
         document.getElementById('next-ex-preview').innerText = `הבא בתור: ${nextName}`;
         if (!state.clusterMode) { document.getElementById('timer-area').style.visibility = 'hidden'; stopRestTimer(); }
     }
+    _syncDropUI();
+    if (typeof updateLiveViewContent === 'function') updateLiveViewContent();
+}
+
+// ─── DROP SET ENGINE ───────────────────────────────────────────────────────
+
+function _resetDropState() {
+    state.dropArmed = false;
+    state.dropMode  = false;
+    state.dropDone  = false;
+    state.dropLevel = 0;
+}
+
+// דרופ נתמך רק בתרגיל רגיל — לא בתוך סבב/קלאסטר
+function _dropSupported() {
+    return !!state.currentEx && !state.clusterMode;
+}
+
+function _dropPct() {
+    const p = state.currentEx && state.currentEx.dropPct;
+    return (typeof p === 'number' && p > 0 && p < 90) ? p : DROP_DEFAULT_PCT;
+}
+
+// _dropSourceEntry — הרשומה שממנה נגזרות ברירות המחדל של הדרופ:
+// סט האב, או הדרופ הקודם בשרשרת (כדי ש-DROP 2 יירד מ-DROP 1).
+function _dropSourceEntry() {
+    for (let i = state.log.length - 1; i >= 0; i--) {
+        const l = state.log[i];
+        if (!l.skip && l.exName === state.currentExName) return l;
+    }
+    return state.lastLoggedSet;
+}
+
+// עיגול משקל הדרופ לרשת הקפיצות של התרגיל — 37.5 ולא 37.36.
+// כלפי מטה בכוונה: דרופ קל מדי הוא טעות זניחה, דרופ כבד מדי מפספס את מטרת הטכניקה.
+function _roundToDropStep(w) {
+    if (!isFinite(w) || w <= 0) return 0;
+    if (_effWeightMode() === 'plates') return Math.max(1, Math.floor(w));
+    const step = state.currentEx.step || 2.5;
+    const v = parseFloat((Math.floor(w / step) * step).toFixed(2));
+    // משקל קטן מקפיצה אחת (משקולת יד 2 ק"ג) — משאירים את הערך המדויק במקום 0
+    return v > 0 ? v : parseFloat(w.toFixed(2));
+}
+
+function _enterDropMode() {
+    if (!_dropSupported()) return;
+    state.dropArmed = false;          // החימוש נצרך
+    state.dropMode  = true;
+    state.dropDone  = false;
+    state.dropLevel = (state.dropLevel || 0) + 1;
+
+    const dropPanel = document.getElementById('drop-panel');
+    if (dropPanel) dropPanel.style.display = 'none';
+    document.getElementById('btn-submit-set').style.display = 'block';
+
+    initPickers();                    // מושך ברירות מחדל של דרופ דרך _dropSourceEntry
+    document.getElementById('timer-area').style.visibility = 'visible';
+    resetAndStartTimer(DROP_REST_TARGET);
+    StorageManager.saveSessionState();
+    haptic('medium');
+}
+
+// _afterDropLogged — הדרופ תועד. יוצאים ממצב ההקלטה אבל נשארים על מסך הדרופ,
+// עם בחירה: עוד דרופ או המשך. המנוחה הרגילה מתחילה כאן — הסט האמיתי נגמר עכשיו.
+function _afterDropLogged() {
+    state.dropMode = false;
+    state.dropDone = true;
+
+    document.getElementById('btn-submit-set').style.display = 'none';
+    document.getElementById('btn-skip-exercise').style.display = 'none';
+
+    _renderDropPanel();
+
+    document.getElementById('timer-area').style.visibility = 'visible';
+    resetAndStartTimer();             // מנוחת התרגיל — מאפס, כי כאן הסט הסתיים
+    _syncDropUI();
+    StorageManager.saveSessionState();
+    if (typeof updateLiveViewContent === 'function') updateLiveViewContent();
+    haptic('success');
+}
+
+// _renderDropPanel — פאנל ההחלטה שאחרי דרופ. נקרא גם מ-_syncDropUI, כך
+// ששחזור אימון (reload באמצע דרופ) מחזיר את המסך לאותו מצב בלי לוגיקה כפולה.
+function _renderDropPanel() {
+    const panel = document.getElementById('drop-panel');
+    if (!panel) return;
+    const atMax = (state.dropLevel || 0) >= DROP_MAX;
+    const moreBtn = document.getElementById('btn-drop-more');
+    if (moreBtn) moreBtn.style.display = atMax ? 'none' : 'block';
+    const prev = document.getElementById('drop-panel-preview');
+    if (prev) {
+        const src = _dropSourceEntry();
+        prev.innerText = atMax
+            ? `נרשמו ${DROP_MAX} דרופים — המקסימום לסט`
+            : `דרופ ${state.dropLevel} נרשם: ${src ? _fmtW(src) + ' × ' + src.r : ''}`;
+    }
+    const wasHidden = panel.style.display !== 'block';
+    panel.style.display = 'block';
+    if (wasHidden) {
+        panel.classList.remove('is-visible');
+        void panel.offsetWidth;
+        panel.classList.add('is-visible');
+    }
+}
+
+// המשך לסט הבא אחרי דרופ — בלי לאתחל את המנוחה שכבר רצה
+function continueAfterDrop() { haptic('light'); _advanceAfterSet(true); }
+
+function addAnotherDrop() {
+    if ((state.dropLevel || 0) >= DROP_MAX) { showAlert(`מקסימום ${DROP_MAX} דרופים לסט.`); return; }
+    _enterDropMode();
+}
+
+// ביטול דרופ פתוח — הסט האב כבר תועד, אז ממשיכים כמו סט רגיל (מנוחה מאפס)
+function cancelDrop() { haptic('light'); _advanceAfterSet(false); }
+
+// toggleDropArm — כפתור אחד, שלוש התנהגויות לפי הקשר:
+// דרופ פתוח → ביטול | דרופ נרשם → עוד דרופ | אחרת → חימוש/ביטול חימוש לסט הנוכחי
+function toggleDropArm() {
+    if (!_dropSupported()) { showAlert('דרופ סט אינו נתמך בתוך סבב.'); return; }
+    if (state.dropMode) { cancelDrop();     return; }
+    if (state.dropDone) { addAnotherDrop(); return; }
+    state.dropArmed = !state.dropArmed;
+    haptic('light');
+    _syncDropUI();
+    StorageManager.saveSessionState();
+    if (typeof updateLiveViewContent === 'function') updateLiveViewContent();
+}
+
+// _syncDropUI — מקור אמת יחיד לכל חיווי הדרופ בשתי החזיתות (מסך מפורט + Live).
+// נקרא מ-initPickers, ולכן גם restoreSession מקבל אותו בחינם.
+function _syncDropUI() {
+    const supported = _dropSupported();
+    // מעבר לסבב/תרגיל שלא תומך בדרופ מנקה דגלים שנשארו — אחרת תג DROP היה נדבק
+    if (!supported && (state.dropArmed || state.dropMode || state.dropDone)) _resetDropState();
+    const pill    = document.getElementById('btn-drop-toggle');
+    const pillRow = document.getElementById('drop-pill-row');
+    const badge   = document.getElementById('drop-badge');
+    const timer   = document.getElementById('timer-area');
+    const restLbl = document.getElementById('timer-resting-lbl');
+    const submit  = document.getElementById('btn-submit-set');
+    const liveTgl = document.getElementById('live-drop-toggle');
+    const liveSw  = document.getElementById('live-drop-switch');
+
+    // פאנל ההחלטה שאחרי דרופ — נגזר מ-state כדי שגם שחזור אימון יציג אותו נכון
+    const dPanel = document.getElementById('drop-panel');
+    if (dPanel) {
+        if (state.dropDone) {
+            _renderDropPanel();
+            if (submit) submit.style.display = 'none';
+            const skipBtn = document.getElementById('btn-skip-exercise');
+            if (skipBtn) skipBtn.style.display = 'none';
+        } else {
+            dPanel.style.display = 'none';
+        }
+    }
+
+    // הפיל מוסתר בסבב, בזמן פאנל סיום התרגיל, ובזמן פאנל הדרופ (שם יש כפתור משלו)
+    const apVisible = (() => { const ap = document.getElementById('action-panel'); return !!(ap && ap.style.display === 'block'); })();
+    if (pillRow) pillRow.style.display = (supported && !apVisible && !state.dropDone) ? 'flex' : 'none';
+
+    if (pill) {
+        pill.textContent = state.dropMode ? 'בטל דרופ'
+                         : state.dropDone ? '+ דרופ נוסף'
+                         : state.dropArmed ? 'דרופ מזוין · בטל'
+                         : '+ דרופ סט';
+        pill.classList.toggle('is-armed', !!(state.dropArmed || state.dropMode || state.dropDone));
+    }
+
+    if (badge) {
+        if (state.dropMode)      { badge.style.display = 'inline-block'; badge.textContent = `DROP ${state.dropLevel}`; }
+        else if (state.dropDone) { badge.style.display = 'inline-block'; badge.textContent = `DROP ${state.dropLevel} ✓`; }
+        else if (state.dropArmed){ badge.style.display = 'inline-block'; badge.textContent = 'DROP SET'; }
+        else                      badge.style.display = 'none';
+    }
+
+    // אחרי דרופ הפיקרים עדיין מציגים את ערכי הדרופ (הם מוסתרים מאחורי הפאנל),
+    // אז השורה העליונה מתוקנת לתיאור מה שנרשם בפועל — אחרת נראה כאילו עוד בדרופ
+    if (state.dropDone) {
+        const hist = document.getElementById('last-set-info');
+        const last = _dropSourceEntry();
+        if (hist && last) {
+            hist.innerText = `דרופ ${state.dropLevel} נרשם: ${_fmtW(last)} x ${last.r}`;
+            hist.classList.add('drop-src');
+            hist.style.display = 'block';
+        }
+    }
+
+    // טבעת הטיימר — ענבר + תווית DROP רק בזמן דרופ פתוח
+    if (timer)   timer.classList.toggle('is-drop', !!state.dropMode);
+    if (restLbl) restLbl.textContent = state.dropMode ? 'Drop' : 'Resting';
+    document.body.classList.toggle('drop-mode-active', !!state.dropMode);
+
+    if (submit) {
+        submit.classList.toggle('drop-gradient', !!state.dropMode);
+        submit.innerHTML = state.dropMode
+            ? 'LOG DROP &nbsp;<span class="material-symbols-outlined inline-arrow">arrow_forward</span>'
+            : (state.dropArmed
+                ? 'LOG SET → דרופ &nbsp;<span class="material-symbols-outlined inline-arrow">arrow_forward</span>'
+                : 'LOG SET &nbsp;<span class="material-symbols-outlined inline-arrow">arrow_forward</span>');
+    }
+
+    // חזית ה-Live — אותו state, טוגל בגיליון "ערוך סט נוכחי"
+    if (liveTgl) liveTgl.style.display = supported ? 'flex' : 'none';
+    if (liveSw)  liveSw.classList.toggle('on', !!(state.dropArmed || state.dropMode));
+    const liveLogBtn = document.getElementById('live-edit-log-btn');
+    if (liveLogBtn && liveLogBtn.style.display !== 'none') {
+        liveLogBtn.innerHTML = state.dropMode
+            ? 'LOG DROP &nbsp;<span class="material-symbols-outlined inline-arrow">arrow_forward</span>'
+            : (state.dropArmed
+                ? 'LOG SET → דרופ &nbsp;<span class="material-symbols-outlined inline-arrow">arrow_forward</span>'
+                : 'LOG SET &nbsp;<span class="material-symbols-outlined inline-arrow">arrow_forward</span>');
+    }
 }
 
 function getNextExerciseName() {
@@ -3242,6 +3543,10 @@ function getNextExerciseName() {
 }
 
 function finishCurrentExercise() {
+    _resetDropState();
+    const dropPanel = document.getElementById('drop-panel');
+    if (dropPanel) dropPanel.style.display = 'none';
+    document.body.classList.remove('drop-mode-active');
     state.historyStack = state.historyStack.filter(s => s !== 'ui-main');
 
     if (state.clusterMode) {
@@ -3419,9 +3724,12 @@ function finishClusterRound() {
 }
 
 function addExtraSet() {
+    _resetDropState();
     state.setIdx++;
     state.currentEx.sets.push({ ...state.currentEx.sets[state.setIdx - 1] });
 
+    const dropPanel = document.getElementById('drop-panel');
+    if (dropPanel) dropPanel.style.display = 'none';
     const actionPanel = document.getElementById('action-panel');
     actionPanel.style.display = 'none';
     actionPanel.classList.remove('is-visible');
@@ -3802,7 +4110,7 @@ function buildSummaryUI() {
     const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
     const realSets = state.log.filter(l => !l.skip);
-    const setsCount = realSets.length;
+    const setsCount = realSets.filter(l => !l.drop).length;   // דרופ אינו סט נוסף
 
     // בניית סגמנטים בסדר הביצוע (normal per-exercise, cluster per-block)
     const segments = [];
@@ -3834,17 +4142,22 @@ function buildSummaryUI() {
     segments.forEach(seg => {
         if (seg.type === 'normal') {
             let exVol = 0, setRows = '';
-            seg.sets.forEach((s, i) => {
+            const _row = (s, label, isDrop) => {
                 exVol += _setVol(s);
                 const realIdx = realSets.indexOf(s);
                 const noteStr = s.note ? ` | ${s.note}` : '';
                 const rirStr = s.rir !== undefined ? s.rir : '—';
-                setRows += `
-                <div class="set-row">
-                    <div class="set-num">${(i + 1).toString().padStart(2, '0')}</div>
+                return `
+                <div class="set-row${isDrop ? ' set-row--drop' : ''}">
+                    <div class="set-num">${label}</div>
                     <div class="set-details">${_fmtW(s)} × ${s.r} <span style="opacity:0.5;font-size:0.85em">(RIR ${rirStr}${noteStr})</span></div>
                     <button class="set-edit-btn" onclick="openSummaryEditSetModal(${realIdx})">ערוך</button>
                 </div>`;
+            };
+            // דרופים מקוננים תחת סט האב, והמספור לא זז — דרופ אינו סט נוסף
+            _groupSetsWithDrops(seg.sets).forEach((g, i) => {
+                setRows += _row(g.entry, (i + 1).toString().padStart(2, '0'), false);
+                g.drops.forEach(d => { setRows += _row(d, 'D' + (d.drop || 1), true); });
             });
             totalVol += exVol;
             const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
@@ -4034,13 +4347,18 @@ function _saveToArchive(note) {
 
     const exOrder = [];
     const exMap = {};
+    // דרופ משורשר לשורת סט האב (⤵) ולא נדחף כרשומה נפרדת — כך
+    // details[ex].sets.length נשאר ספירת הסטים האמיתית לכל האנליטיקה.
     state.log.forEach(entry => {
         if (entry.skip) return;
         const key = entry.exName;
         if (!exMap[key]) { exMap[key] = { sets: [], skips: 0, isMain: false }; exOrder.push(key); }
-        const rir = entry.rir !== undefined ? entry.rir : '—';
-        const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-        exMap[key].sets.push(`${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
+        const line = _setLineText(entry, null, true);
+        if (entry.drop && exMap[key].sets.length) {
+            exMap[key].sets[exMap[key].sets.length - 1] += ` ${DROP_ARROW} ${line}`;
+        } else {
+            exMap[key].sets.push(line);
+        }
     });
 
     // mark skipped
@@ -4103,10 +4421,8 @@ function _saveToArchive(note) {
             const mainTag = exMap[exName] && exMap[exName].isMain ? (exTM != null ? ` (Main, TM: ${exTM}kg)` : ' (Main)') : '';
             const uniTag = isUnilateral(exName) ? ' (צד אחד)' : '';
             summaryLines.push(`${exName}${mainTag}${uniTag} (Vol: ${volStr}):`);
-            seg.sets.forEach(entry => {
-                const rir = entry.rir !== undefined ? entry.rir : '—';
-                const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-                summaryLines.push(`${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
+            _groupSetsWithDrops(seg.sets).forEach(g => {
+                summaryLines.push(_setLineText(g.entry, g.drops, true));
             });
             if (exMap[exName] && exMap[exName].skips > 0) summaryLines.push('(Skipped)');
             summaryLines.push('');
@@ -4141,7 +4457,8 @@ function _saveToArchive(note) {
     // ── Minimal log stored for display (archive detail view) ──
     const archivedLog = state.log.map(l => ({
         exName: l.exName, w: l.w, r: l.r, rir: l.rir, wm: l.wm || undefined,
-        note: l.note || '', isCluster: !!l.isCluster, round: l.round || null, skip: !!l.skip
+        note: l.note || '', isCluster: !!l.isCluster, round: l.round || null, skip: !!l.skip,
+        drop: l.drop || undefined   // בלי זה דגל הדרופ נעלם ברגע שהאימון נשמר
     }));
 
     // upsert לפי timestamp — finish() יוצר את הרשומה מיד, ועדכונים נוספים (הערה, aiSummary,
@@ -4432,13 +4749,17 @@ function openSessionLog() {
             list.appendChild(card);
 
             const setsList = card.querySelector('.slog-sets-list');
-            sets.forEach(({ entry, realIdx }, setNum) => {
+            // דרופים מקוננים תחת סט האב; מונה הסטים סופר רק סטי אב
+            let setNum = 0;
+            sets.forEach(({ entry, realIdx }, i) => {
+                const isDrop = !!entry.drop;
+                if (!isDrop) setNum++;
                 const row = document.createElement('div');
-                const isLast = setNum === sets.length - 1;
-                row.className = 'slog-set-row' + (isLast ? ' slog-set-row--last' : '');
+                const isLast = i === sets.length - 1;
+                row.className = 'slog-set-row' + (isLast ? ' slog-set-row--last' : '') + (isDrop ? ' slog-set-row--drop' : '');
                 const rirStr = (entry.rir !== '' && entry.rir != null) ? `RIR ${entry.rir}` : '—';
                 row.innerHTML = `
-                    <span class="slog-set-num">${setNum + 1}</span>
+                    <span class="slog-set-num">${isDrop ? 'D' + entry.drop : setNum}</span>
                     <span class="slog-set-data">${_fmtW(entry)} <span class="slog-x">×</span> ${entry.r}</span>
                     <span class="slog-rir-badge">${rirStr}</span>
                     <span class="material-symbols-outlined slog-row-chevron">chevron_left</span>`;
@@ -4508,19 +4829,24 @@ function _renderHistoryPager(containerEl, performances, opts = {}) {
         const perf = performances[idx];
         let rowsHtml = "";
         perf.sets.forEach((setStr, i) => {
-            const { weight, reps, rir, note } = _parseHistorySetStr(setStr);
-            const rirNum = parseFloat(rir);
-            const rirClass = (rir !== '-' && rirNum <= 0) ? 'rir-val rir-orange' : 'rir-val rir-green';
-            rowsHtml += `
-                <div class="history-row">
-                    <div class="history-col set-idx">${i + 1}</div>
-                    <div class="history-col">${weight}</div>
-                    <div class="history-col">${reps}</div>
-                    <div class="history-col ${rirClass}">${rir}</div>
-                </div>`;
-            if (note && opts.showNotes !== false) {
-                rowsHtml += `<div class="history-note-inline"><div><p>${note}</p></div></div>`;
-            }
+            // שורה יכולה להכיל דרופים משורשרים — כל מקטע מוצג בשורה משלו,
+            // הדרופים מסומנים D1/D2 ולא מקדמים את מונה הסטים
+            const segments = String(setStr).split(DROP_ARROW);
+            segments.forEach((seg, segIdx) => {
+                const { weight, reps, rir, note } = _parseHistorySetStr(seg.trim());
+                const rirNum = parseFloat(rir);
+                const rirClass = (rir !== '-' && rirNum <= 0) ? 'rir-val rir-orange' : 'rir-val rir-green';
+                rowsHtml += `
+                    <div class="history-row${segIdx ? ' history-row--drop' : ''}">
+                        <div class="history-col set-idx">${segIdx ? 'D' + segIdx : i + 1}</div>
+                        <div class="history-col">${weight}</div>
+                        <div class="history-col">${reps}</div>
+                        <div class="history-col ${rirClass}">${rir}</div>
+                    </div>`;
+                if (note && opts.showNotes !== false) {
+                    rowsHtml += `<div class="history-note-inline"><div><p>${note}</p></div></div>`;
+                }
+            });
         });
 
         const hasOlder = idx < performances.length - 1;
@@ -5225,6 +5551,7 @@ function buildSystemPrompt(opts = {}) {
 - התאם המלצות למצב התזונתי (Cut / Maintenance / Surplus): בגירעון — עדיפות לשימור כוח ולוויסות נפח ועייפות; בעודף — ניצול חלון לעלייה. ציין במפורש כשהמצב התזונתי משנה את ההמלצה.
 - אל תשווה ביצועים בין ציוד שונה: מוט ≠ משקולות יד ≠ מכונה ≠ כבל, וציוד מזדמן (מלון/נסיעה) ≠ הקבוע. השוואה חוצת-ציוד אינה בת-תוקף למגמת כוח — ציין זאת במקום להסיק רגרסיה/התקדמות.
 - הערת סט/אימון שמסבירה אנומליה (זווית, ספסל, אחיזה, ציוד, מחלה) גוברת על חישוב הנפח — אל תפרש ירידה מוסברת כרגרסיה.
+- **דרופ סט** מסומן בתיעוד בחץ ⤵ בתוך שורת הסט (למשל \`14kg x 12 (RIR 1) ⤵ 11kg x 8 (RIR 0)\`). זהו **המשך של אותו סט** במשקל מופחת ובעייפות מצטברת — לא סט נוסף ולא ירידה בכוח. הנפח שלו נספר, מונה הסטים לא. אל תחשב ממנו 1RM/TM, אל תספור אותו כסט עבודה נוסף בנפח השבועי, ואל תפרש את המשקל הנמוך כרגרסיה.
 - ציון התאוששות נמוך (רצועה "נמוך", וגם "בינוני" בגבול התחתון) בבוקר האימון גובר על קריאת רגרסיה: אל תפרש ביצוע מופחת כירידת כוח אמיתית כאשר ההתאוששות הייתה נמוכה — ציין שההתאוששות היא ההסבר הסביר, ואל תמליץ על שינוי תוכנית/TM על סמך אימון בודד כזה.
 - אל תמליץ על שינוי Training Max (העלאה/הורדה/איפוס). מותר לציין שביצוע מצביע על מרווח, בלי להציע מספר חדש.
 - כל המלצה מעשית: מה לעשות, כמה, ולמה — מבוסס על נתוני המתאמן.\n`;
@@ -6962,9 +7289,12 @@ function openLiveEditSheet() {
     const logBtn = document.getElementById('live-edit-log-btn');
     if (logBtn) {
         const ap = document.getElementById('action-panel');
+        const dp = document.getElementById('drop-panel');
         const apVisible = !!(ap && ap.style.display === 'block');
-        logBtn.style.display = apVisible ? 'none' : 'block';
+        const dpVisible = !!(dp && dp.style.display === 'block');
+        logBtn.style.display = (apVisible || dpVisible) ? 'none' : 'block';
     }
+    _syncDropUI();   // הטוגל וכיתוב כפתור הרישום — אותו state כמו במסך המפורט
     haptic('light');
 }
 
@@ -6979,8 +7309,10 @@ function _syncLiveNoteToMain() {
 // סוגר את ה-sheet, מפעיל nextStep (אותה לוגיקה כמו swipe), ומרענן את ה-Live view.
 function _liveLogSetFromSheet() {
     const ap = document.getElementById('action-panel');
+    const dp = document.getElementById('drop-panel');
     const apVisible = !!(ap && ap.style.display === 'block');
-    if (apVisible) return;  // הגנה כפולה — לא רושמים אחרי שכבר נרשם הסט האחרון
+    const dpVisible = !!(dp && dp.style.display === 'block');
+    if (apVisible || dpVisible) return;  // הגנה כפולה — לא רושמים אחרי שכבר נרשם הסט/הדרופ האחרון
     closeLiveEditSheet();
     haptic('success');
     if (typeof nextStep === 'function') {
@@ -7061,7 +7393,26 @@ function updateLiveViewContent() {
     const setN = (state.setIdx || 0) + 1;
     const setTotal = (state.currentEx && state.currentEx.sets) ? state.currentEx.sets.length : 1;
     const counterEl = document.getElementById('live-set-counter');
-    if (counterEl) counterEl.textContent = `SET ${setN}/${setTotal}`;
+    if (counterEl) {
+        counterEl.textContent = state.dropMode
+            ? `DROP ${state.dropLevel} · אחרי SET ${setN}`
+            : `SET ${setN}/${setTotal}`;
+    }
+
+    // חיווי דרופ על כרטיס הסט — צ'יפ + תווית, ותווית הטבעת (REST ⇄ DROP)
+    const dropChip = document.getElementById('live-drop-chip');
+    const targetLbl = document.getElementById('live-target-lbl');
+    const targetCard = document.getElementById('live-next-target');
+    const timerLbl = document.getElementById('live-timer-lbl');
+    if (dropChip) {
+        if (state.dropMode)       { dropChip.style.display = 'inline-block'; dropChip.textContent = `−${_dropPct()}%`; }
+        else if (state.dropDone)  { dropChip.style.display = 'inline-block'; dropChip.textContent = `דרופ ${state.dropLevel} נרשם`; }
+        else if (state.dropArmed) { dropChip.style.display = 'inline-block'; dropChip.textContent = 'דרופ אחרי הסט'; }
+        else                        dropChip.style.display = 'none';
+    }
+    if (targetLbl)  targetLbl.textContent = state.dropMode ? `דרופ ${state.dropLevel}` : 'סט נוכחי';
+    if (targetCard) targetCard.classList.toggle('is-drop', !!(state.dropMode || state.dropArmed || state.dropDone));
+    if (timerLbl)   timerLbl.textContent = state.dropMode ? 'DROP' : 'REST';
 
     const nameEl = document.getElementById('live-ex-name');
     if (nameEl) nameEl.textContent = state.currentExName || '—';
@@ -7088,29 +7439,42 @@ function updateLiveViewContent() {
     // להישאר עם כפתור "המשך לתרגיל הבא" משאריות התרגיל הקודם.
     const swipeCard = document.getElementById('live-swipe-card');
     const ap = document.getElementById('action-panel');
+    const dp = document.getElementById('drop-panel');
     const apVisible = !!(ap && ap.style.display === 'block');
-    const hasActionBtn = !!(swipeCard && swipeCard.querySelector('.live-action-btn'));
+    const dpVisible = !!(dp && dp.style.display === 'block');
 
-    if (swipeCard) {
-        if (apVisible && !hasActionBtn) {
-            // מעבר ממצב swipe → action button
+    // שלושה מצבים לכרטיס התחתון: החלקה לרישום / סיום תרגיל / החלטה אחרי דרופ.
+    // data-mode מונע רינדור מיותר בכל tick ומחליף את בדיקת ה-hasActionBtn הישנה.
+    const mode = apVisible ? 'action' : (dpVisible ? 'drop' : 'swipe');
+    if (swipeCard && swipeCard.dataset.mode !== mode) {
+        swipeCard.dataset.mode = mode;
+        if (mode === 'action') {
             swipeCard.innerHTML = `
                 <button class="live-action-btn" onclick="_liveContinueExercise()">
                     המשך לתרגיל הבא
                 </button>`;
             swipeCard.style.cursor = 'default';
-        } else if (!apVisible && hasActionBtn) {
-            // מעבר חזרה ממצב action → swipe
+        } else if (mode === 'drop') {
+            const atMax = (state.dropLevel || 0) >= DROP_MAX;
+            swipeCard.innerHTML = `
+                <button class="live-action-btn" onclick="continueAfterDrop()">המשך</button>
+                ${atMax ? '' : '<button class="live-action-btn live-action-btn--drop" onclick="addAnotherDrop()">+ דרופ נוסף</button>'}`;
+            swipeCard.style.cursor = 'default';
+        } else {
             swipeCard.innerHTML = `
                 <div class="live-swipe-icon">
                     <span class="material-symbols-outlined">arrow_back</span>
                 </div>
-                <span class="live-swipe-text">החלק לרישום הסט</span>`;
+                <span class="live-swipe-text">${state.dropMode ? 'החלק לרישום הדרופ' : 'החלק לרישום הסט'}</span>`;
             swipeCard.style.cursor = 'pointer';
             // איפוס transform למקרה שנשאר משחזור swipe באמצע drag
             swipeCard.style.transform = '';
             swipeCard.classList.remove('dragging');
         }
+    } else if (swipeCard && mode === 'swipe') {
+        // אותו מצב, אבל הטקסט מתחלף בין סט לדרופ
+        const txt = swipeCard.querySelector('.live-swipe-text');
+        if (txt) txt.textContent = state.dropMode ? 'החלק לרישום הדרופ' : 'החלק לרישום הסט';
     }
 }
 

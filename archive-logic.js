@@ -475,13 +475,17 @@ function buildArchiveDetailHTML(item) {
                 const exVol = (item.details && item.details[exName]) ? item.details[exName].vol : 0;
                 const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
                 let setRows = '';
-                seg.sets.forEach((entry, i) => {
+                const _row = (entry, label, isDrop) => {
                     const rir = entry.rir !== undefined ? entry.rir : '—';
                     const noteStr = entry.note ? ` | ${entry.note}` : '';
-                    setRows += `<div class="summary-set-row">
-                        <div class="summary-set-num">${i + 1}</div>
+                    return `<div class="summary-set-row${isDrop ? ' summary-set-row--drop' : ''}">
+                        <div class="summary-set-num">${label}</div>
                         <div class="summary-set-details">${_fmtW(entry)} x ${entry.r} (RIR ${rir}${noteStr})</div>
                     </div>`;
+                };
+                _groupSetsWithDrops(seg.sets).forEach((g, i) => {
+                    setRows += _row(g.entry, i + 1, false);
+                    g.drops.forEach(d => { setRows += _row(d, 'D' + (d.drop || 1), true); });
                 });
                 html += `<div class="summary-ex-card">
                     <div class="summary-ex-header">
@@ -739,15 +743,19 @@ function _buildArchiveEditHTML_withLog(item) {
             const exVol = (item.details && item.details[exName]) ? item.details[exName].vol : 0;
             const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
             let setRows = '';
-            seg.sets.forEach((entry, i) => {
+            const _editRow = (entry, label, isDrop) => {
                 const logIdx = nonSkipLog.indexOf(entry);
                 const rir = entry.rir !== undefined ? entry.rir : '—';
                 const noteStr = entry.note ? ` | ${entry.note}` : '';
-                setRows += `<div class="summary-set-row archive-edit-set" onclick="openArchiveSetEditor(${logIdx})">
-                    <div class="summary-set-num">${i + 1}</div>
+                return `<div class="summary-set-row archive-edit-set${isDrop ? ' summary-set-row--drop' : ''}" onclick="openArchiveSetEditor(${logIdx})">
+                    <div class="summary-set-num">${label}</div>
                     <div class="summary-set-details">${_fmtW(entry)} x ${entry.r} (RIR ${rir}${noteStr})</div>
                     <span class="material-symbols-outlined archive-edit-icon">edit</span>
                 </div>`;
+            };
+            _groupSetsWithDrops(seg.sets).forEach((g, i) => {
+                setRows += _editRow(g.entry, i + 1, false);
+                g.drops.forEach(d => { setRows += _editRow(d, 'D' + (d.drop || 1), true); });
             });
             html += `<div class="summary-ex-card">
                 <div class="summary-ex-header">
@@ -859,6 +867,7 @@ let _archiveEditSetLogIdx = -1;    // אינדקס ב-nonSkipLog
 let _archiveEditSetExName = null;  // שם תרגיל (למצב details-only)
 let _archiveEditSetExIdx = -1;     // אינדקס סט בתוך תרגיל (למצב details-only)
 let _editFromArchive = false;      // דגל לזיהוי מצב ארכיון ב-saveSetEdit
+let _archiveEditDropTail = '';     // זנב הדרופים של השורה הנערכת (מצב details-only)
 
 function openArchiveSetEditor(nonSkipIdx) {
     if (!_archiveEditItem || !_archiveEditItem.log) return;
@@ -868,6 +877,7 @@ function openArchiveSetEditor(nonSkipIdx) {
 
     _archiveEditSetLogIdx = nonSkipIdx;
     _archiveEditSetExName = null;
+    _archiveEditDropTail = '';
     _editFromArchive = true;
 
     _editModalInit(entry.w, entry.r, entry.rir !== undefined ? entry.rir : 0, entry.note, entry.wm || 'kg');
@@ -880,7 +890,12 @@ function openArchiveDetailSetEditor(exName, setIdx) {
     const exData = _archiveEditItem.details[exName];
     if (!exData || !exData.sets || !exData.sets[setIdx]) return;
 
-    const setStr = exData.sets[setIdx];
+    // דרופים משורשרים לאותה שורה — עורכים רק את סט האב ושומרים את הזנב,
+    // אחרת שמירה הייתה דורסת את השורה כולה ומוחקת את הדרופים בשקט
+    const fullStr = exData.sets[setIdx];
+    const arrowAt = fullStr.indexOf(DROP_ARROW);
+    const setStr = arrowAt >= 0 ? fullStr.slice(0, arrowAt).trim() : fullStr;
+    _archiveEditDropTail = arrowAt >= 0 ? fullStr.slice(arrowAt) : '';
     const parsed = _parseSetString(setStr);
 
     _archiveEditSetExName = exName;
@@ -956,7 +971,8 @@ function saveArchiveSetEdit() {
         if (exData && exData.sets && exData.sets[_archiveEditSetExIdx] !== undefined) {
             const noteStr = note ? ` | Note: ${note}` : '';
             const wPart = _editModalMode === 'bw' ? 'BW' : _editModalMode === 'plates' ? `${w} פלטות` : `${w}kg`;
-            exData.sets[_archiveEditSetExIdx] = `${wPart} x ${r} (RIR ${rir})${noteStr}`;
+            const tail = _archiveEditDropTail ? ` ${_archiveEditDropTail}` : '';
+            exData.sets[_archiveEditSetExIdx] = `${wPart} x ${r} (RIR ${rir})${noteStr}${tail}`;
             // חישוב מחדש של volume לתרגיל
             _recalcExVolume(_archiveEditSetExName);
         }
@@ -1010,9 +1026,14 @@ function _recalcArchiveDetails() {
         if (entry.skip) return;
         const key = entry.exName;
         if (!details[key]) { details[key] = { sets: [], vol: 0 }; exOrder.push(key); }
-        const rir = entry.rir !== undefined ? entry.rir : '—';
-        const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-        details[key].sets.push(`${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
+        // דרופ משורשר לשורת האב (זהה ל-_saveToArchive) — אחרת עריכת ארכיון
+        // הייתה מפצלת אותו לסט נפרד ומנפחת את ספירת הסטים
+        const line = _setLineText(entry, null, true);
+        if (entry.drop && details[key].sets.length) {
+            details[key].sets[details[key].sets.length - 1] += ` ${DROP_ARROW} ${line}`;
+        } else {
+            details[key].sets.push(line);
+        }
     });
 
     // חישוב volume
@@ -1087,10 +1108,8 @@ function _rebuildArchiveSummary(item) {
                 const volStr = exVol >= 1000 ? (exVol / 1000).toFixed(1) + 't' : exVol + 'kg';
                 const uniTag = isUnilateral(exName) ? ' (צד אחד)' : '';
                 lines.push(`${exName}${_mainTagOf(exName)}${uniTag} (Vol: ${volStr}):`);
-                seg.sets.forEach(entry => {
-                    const rir = entry.rir !== undefined ? entry.rir : '—';
-                    const noteStr = entry.note ? ` | Note: ${entry.note}` : '';
-                    lines.push(`${_fmtW(entry)} x ${entry.r} (RIR ${rir})${noteStr}`);
+                _groupSetsWithDrops(seg.sets).forEach(g => {
+                    lines.push(_setLineText(g.entry, g.drops, true));
                 });
                 lines.push('');
             } else {

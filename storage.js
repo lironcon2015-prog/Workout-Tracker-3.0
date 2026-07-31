@@ -1119,6 +1119,13 @@ const StorageManager = {
             if (existing) {
                 const _vitalOk = (k, v) => (typeof _validVital === 'function') ? _validVital(k, v) : (v > 0);
                 ['hrv', 'rhr', 'respRate'].forEach(k => { if (_vitalOk(k, existing[k])) merged[k] = existing[k]; });
+                // טמפ' — חוק הפוך ומכוון: ערך נכנס תקין **כן** גובר (הוא עדכני יותר), אבל
+                // ערך חסר אסור שימחק ערך שכבר נקלט. הדגימה מגיעה מ-Apple באיחור ולא בכל
+                // משיכה, והסנכרון רץ כל שעה — בלי ההגנה הזו לילה עם טמפ' נמחק בשקט
+                // במשיכה הבאה (נצפה בפועל: ערך שנקלט נעלם למחרת).
+                if (!_vitalOk('wristTempDev', d.wristTempDev) && _vitalOk('wristTempDev', existing.wristTempDev)) {
+                    merged.wristTempDev = existing.wristTempDev;
+                }
             }
             // ── מודל שלבי שינה (Apple Health) ──────────────────────────────
             // הקיצור שולח פירוט שלבים (Deep/REM/Core) + סך כולל. אם יש שלבים:

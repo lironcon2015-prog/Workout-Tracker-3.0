@@ -80,6 +80,7 @@ function setBodyTab(tab) {
     _blTab = tab;
     _applyTabVisibility();
     _refreshActiveView();   // ציור מחדש כדי שגאומטריית ה-tooltip תתעדכן בתצוגה הגלויה
+    if (typeof saveUIState === 'function') saveUIState();   // תת-הטאב שורד רענון לא-רצוני
     haptic('light');
 }
 

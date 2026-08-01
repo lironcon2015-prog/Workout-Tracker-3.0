@@ -130,8 +130,7 @@ function doPost(e) {
         // fallback: אם התאריך מהקיצור חסר/לא בפורמט yyyy-MM-dd — חותמים את תאריך
         // השרת. הקיצור רץ בבוקר על שנת הלילה, כך ש"היום" הוא התאריך הנכון.
         var date = _isoDate(d && d.date) || _todayIso();
-        sMap[date] = [_n(d.asleep), _n(d.inbed), _n(d.deep), _n(d.rem), _n(d.core),
-                      _n(d.awake), _n(d.rhr), _n(d.hrv), _f(d.resp), _f(d.temp)];
+        sMap[date] = _mergeNight(sMap[date], d);
         sStored++; dateUsed = date;
       });
       _save(SLEEP_KEY, sMap);
@@ -267,6 +266,41 @@ function _load(key) {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(key)) || {}; }
   catch (e) { return {}; }
 }
+/* ─── מיזוג לילה: שדה-שדה, לא דריסה ─────────────────────────────────────────
+ * הגשר מקבל דחיפות מרובות לאותו תאריך (אוטומציית "Today", אוטומציית סחיפה,
+ * וקצב פנימי כל 30 דק'). דריסה מלאה של השורה גרמה לשתי תקלות:
+ *   1. דחיפה חלקית איפסה שדות שלא נכללו בה (‏_n(undefined) === 0).
+ *   2. דחיפה שרצה **במהלך היום** כתבה ערכי-ערוּת על ערכי הלילה.
+ *
+ * הכלל תלוי במתי המדד נמדד — זהה בדיוק ללוגיקה של mergeSleepDays באפליקציה:
+ *   • HRV / דופק מנוחה / נשימה — נמדדים לאורך היום. **ערך קיים תקין גובר**;
+ *     דחיפה מאוחרת רק *ממלאת* מדד שהיה חסר בבוקר, לעולם לא דורסת.
+ *   • שלבי שינה + טמפ' ריסט — נמדדים בשינה בלבד, אין זיהום יומי. ערך נכנס
+ *     תקין גובר (מחושב מחדש), אבל ערך חסר **אינו מוחק** ערך שכבר נשמר.
+ * ---------------------------------------------------------------------------*/
+function _mergeNight(prev, d) {
+  var p = Array.isArray(prev) ? prev : [];
+  // ערך "קיים" נחשב רק אם הוא ממש נמדד — 0/null אצלנו פירושו "חסר"
+  var has = function (v) { return v != null && v !== 0 && !isNaN(v); };
+  // fill-only: הקיים גובר; הנכנס רק ממלא חסר  (HRV/דופק/נשימה)
+  var fill = function (old, incoming) { return has(old) ? old : incoming; };
+  // refresh: הנכנס גובר אם הוא תקין; אחרת הקיים נשמר  (שינה/טמפ')
+  var fresh = function (old, incoming) { return has(incoming) ? incoming : (has(old) ? old : incoming); };
+
+  return [
+    fresh(p[0], _n(d.asleep)),
+    fresh(p[1], _n(d.inbed)),
+    fresh(p[2], _n(d.deep)),
+    fresh(p[3], _n(d.rem)),
+    fresh(p[4], _n(d.core)),
+    fresh(p[5], _n(d.awake)),
+    fill(p[6],  _n(d.rhr)),
+    fill(p[7],  _n(d.hrv)),
+    fill(p[8],  _f(d.resp)),
+    fresh(p[9], _f(d.temp))
+  ];
+}
+
 function _save(key, map) {
   var dates = Object.keys(map).sort();
   while (dates.length > MAX_DAYS) delete map[dates.shift()];

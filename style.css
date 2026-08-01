@@ -6364,6 +6364,25 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     transition: background var(--dur-1) var(--ease);
 }
 .fd-entry:last-child { border-bottom: none; }
+/* סוויפ שמאלה למחיקה — התוכן וכפתור המחיקה נעים יחד; הכפתור "חונה" מחוץ לקצה הימני
+   ונחשף כשהשורה נגררת שמאלה. --fd-sw-x נקבע inline בזמן הגרירה (ראה _fdInitSwipeDelete). */
+.fd-swipe { position: relative; overflow: hidden; }
+.fd-swipe:last-child .fd-entry { border-bottom: none; }
+.fd-swipe-content,
+.fd-swipe-del {
+    transform: translateX(var(--fd-sw-x, 0px));
+    transition: transform var(--dur-2) var(--ease);
+}
+.fd-swipe.dragging .fd-swipe-content,
+.fd-swipe.dragging .fd-swipe-del { transition: none; }
+.fd-swipe.open { --fd-sw-x: -84px; }
+.fd-swipe-del {
+    position: absolute; top: 0; bottom: 0; right: -84px; width: 84px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--danger); color: #fff; border: none;
+    font-family: inherit; font-weight: 700; font-size: var(--fs-md); cursor: pointer;
+}
+.fd-swipe-del:active { filter: brightness(0.9); }
 .fd-entry:active { background: rgba(255,255,255,0.03); }
 .fd-entry-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .fd-entry-name { font-weight: 600; font-size: var(--fs-lg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; }

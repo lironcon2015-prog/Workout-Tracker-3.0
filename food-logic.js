@@ -483,6 +483,7 @@ function openFoodDiary(date) {
     if (!ov) return;
     ov.style.display = 'flex';
     document.body.classList.add('fd-open');
+    _fdInitSwipeDelete();
     fdRender();
     haptic('light');
 }
@@ -634,6 +635,7 @@ function fdRender() {
     const note = StorageManager.getNutritionNote(_fdDate);
     // יעדי היום המוצג — לפי הלוג האפקטיבי-מתאריך: יום עבר מציג את היעד שהיה בתוקף בו (v16.91)
     const targets = StorageManager.getTargetsForDate(_fdDate);
+    _fdSwipeOpen = null;   // ה-DOM נבנה מחדש — הפניה לשורה פתוחה מתיישנת
     scroll.innerHTML = _fdSummaryHTML(totals, mfpOwned, targets) + _fdNoteHTML(note) + _fdMealsHTML(entries, mfpOwned);
     _fdAnimateRing(scroll);
 }
@@ -783,16 +785,22 @@ function _fdMealsHTML(entries, mfpOwned) {
                 const sub = (e.components && e.components.length)
                     ? `${e.components.length} מרכיבים${e.time ? ' · ' + _fdEsc(e.time) : ''}`
                     : `${_fdEsc(_fdPortionLabel(e))}${e.time ? ' · ' + _fdEsc(e.time) : ''}`;
-                return `<button class="fd-entry" onclick="fdEditEntry('${e.id}')">
-                    <div class="fd-entry-main">
-                        <span class="fd-entry-name">${_fdEsc(e.name)}${badge}</span>
-                        <span class="fd-entry-sub">${sub}</span>
+                // עטיפת סוויפ — גרירה שמאלה חושפת "מחק" (ראה _fdInitSwipeDelete)
+                return `<div class="fd-swipe" data-no-tab-swipe data-no-swipe-back>
+                    <button class="fd-swipe-del" onclick="event.stopPropagation();fdSwipeDelete('${e.id}')" aria-label="מחק רשומה">מחק</button>
+                    <div class="fd-swipe-content">
+                    <button class="fd-entry" onclick="fdEditEntry('${e.id}')">
+                        <div class="fd-entry-main">
+                            <span class="fd-entry-name">${_fdEsc(e.name)}${badge}</span>
+                            <span class="fd-entry-sub">${sub}</span>
+                        </div>
+                        <div class="fd-entry-macros">
+                            <span class="fd-entry-kcal">${_fdFmt(e.kcal)}<small>kcal</small></span>
+                            <span class="fd-entry-pcf"><i class="macro-p">P ${Math.round(e.p)}</i><i class="macro-c">C ${Math.round(e.c)}</i><i class="macro-f">F ${Math.round(e.f)}</i></span>
+                        </div>
+                    </button>
                     </div>
-                    <div class="fd-entry-macros">
-                        <span class="fd-entry-kcal">${_fdFmt(e.kcal)}<small>kcal</small></span>
-                        <span class="fd-entry-pcf"><i class="macro-p">P ${Math.round(e.p)}</i><i class="macro-c">C ${Math.round(e.c)}</i><i class="macro-f">F ${Math.round(e.f)}</i></span>
-                    </div>
-                </button>`;
+                </div>`;
             }).join('');
         } else {
             html += `<button class="fd-meal-emptyrow" onclick="fdOpenAdd('${mealJs}')"><span class="material-symbols-outlined">add</span>הוסף מזון</button>`;
@@ -812,6 +820,90 @@ function _fdPortionLabel(e) {
         return `${_fdR(e.qty)} ${e.baseUnit === 'unit' ? 'יחידות' : 'מנות'}`;
     }
     return `${_fdR(e.qty)} ${e.unit === 'ml' ? 'מ"ל' : 'ג\''}`;
+}
+
+// ── סוויפ שמאלה למחיקת רשומה ביומן ────────────────────────────────────
+// הרשומה נגררת שמאלה וחושפת כפתור "מחק" הצמוד לקצה הימני שלה. מעבר לחצי הרוחב
+// בשחרור — נשארת פתוחה; אחרת חוזרת למקומה. נגיעה כלשהי בזמן ששורה פתוחה סוגרת אותה
+// (ואינה נחשבת כלחיצה על הרשומה — כמו ב-iOS).
+const _FD_SWIPE_W = 84;
+let _fdSwipeBound = false;
+let _fdSwipeOpen = null;                 // אלמנט .fd-swipe הפתוח כרגע
+let _fdSwipeRow = null, _fdSwipeX0 = 0, _fdSwipeY0 = 0, _fdSwipeDx = 0, _fdSwipeHoriz = false;
+let _fdSwipeSuppressClick = false;
+
+function _fdCloseSwipe(row) {
+    if (!row) return;
+    row.classList.remove('open', 'dragging');
+    row.style.removeProperty('--fd-sw-x');
+    if (_fdSwipeOpen === row) _fdSwipeOpen = null;
+}
+
+function _fdInitSwipeDelete() {
+    const scroll = document.getElementById('fd-scroll');
+    if (!scroll || _fdSwipeBound) return;
+    _fdSwipeBound = true;
+
+    scroll.addEventListener('touchstart', (e) => {
+        _fdSwipeRow = null; _fdSwipeHoriz = false; _fdSwipeDx = 0; _fdSwipeSuppressClick = false;
+        if (e.touches.length !== 1) return;
+        const onDel = !!e.target.closest('.fd-swipe-del');
+        if (_fdSwipeOpen && !onDel) { _fdCloseSwipe(_fdSwipeOpen); _fdSwipeSuppressClick = true; }
+        if (onDel) return;
+        const row = e.target.closest('.fd-swipe');
+        if (!row) return;
+        _fdSwipeRow = row;
+        _fdSwipeX0 = e.touches[0].clientX;
+        _fdSwipeY0 = e.touches[0].clientY;
+    }, { passive: true });
+
+    // לא-passive: אחרי נעילת כיוון אופקי חוסמים גלילה/ניווט-קצה של הדפדפן
+    scroll.addEventListener('touchmove', (e) => {
+        if (!_fdSwipeRow) return;
+        const t = e.touches[0];
+        const dx = t.clientX - _fdSwipeX0, dy = t.clientY - _fdSwipeY0;
+        if (!_fdSwipeHoriz) {
+            if (Math.abs(dy) > Math.abs(dx) + 6) { _fdSwipeRow = null; return; }   // גלילה אנכית — שחרר
+            if (Math.abs(dx) < 10) return;
+            if (dx > 0) { _fdSwipeRow = null; return; }                            // ימינה — לא רלוונטי
+            _fdSwipeHoriz = true;
+            _fdSwipeRow.classList.add('dragging');
+        }
+        if (e.cancelable) e.preventDefault();
+        // התנגדות מעבר לרוחב אזור המחיקה (גומי)
+        let x = Math.min(0, dx);
+        if (x < -_FD_SWIPE_W) x = -_FD_SWIPE_W + (x + _FD_SWIPE_W) * 0.25;
+        _fdSwipeDx = x;
+        _fdSwipeRow.style.setProperty('--fd-sw-x', x + 'px');
+    }, { passive: false });
+
+    const endDrag = () => {
+        const row = _fdSwipeRow;
+        _fdSwipeRow = null;
+        if (!row || !_fdSwipeHoriz) return;
+        _fdSwipeSuppressClick = true;
+        row.classList.remove('dragging');
+        row.style.removeProperty('--fd-sw-x');
+        if (_fdSwipeDx <= -_FD_SWIPE_W / 2) {
+            row.classList.add('open');
+            _fdSwipeOpen = row;
+            haptic('light');
+        } else {
+            row.classList.remove('open');
+            if (_fdSwipeOpen === row) _fdSwipeOpen = null;
+        }
+    };
+    scroll.addEventListener('touchend', endDrag, { passive: true });
+    scroll.addEventListener('touchcancel', endDrag, { passive: true });
+    scroll.addEventListener('scroll', () => { if (_fdSwipeOpen) _fdCloseSwipe(_fdSwipeOpen); }, { passive: true });
+}
+
+function fdSwipeDelete(id) {
+    _fdSwipeOpen = null;
+    StorageManager.deleteFoodEntry(_fdDate, id);
+    _fdSyncCloud();
+    fdRender();
+    haptic('warning');
 }
 
 // "שמור" בכותרת ארוחה ביומן — אוסף את כל רשומות הארוחה של היום לארוחה שמורה אחת
@@ -1374,6 +1466,8 @@ function closeFoodPortion() {
 }
 
 function fdEditEntry(id) {
+    // נגיעה שסגרה שורת סוויפ פתוחה (או סיימה גרירה) — לא נחשבת כלחיצה על הרשומה
+    if (_fdSwipeSuppressClick) { _fdSwipeSuppressClick = false; return; }
     const entry = StorageManager.getFoodLogDay(_fdDate).find(e => e.id === id);
     if (!entry) return;
     // רשומת מנה מורכבת → Meal Builder (עריכת מרכיבים)

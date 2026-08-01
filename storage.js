@@ -1395,7 +1395,7 @@ const StorageManager = {
         const db = this.getFoodDb();
         const i = db.findIndex(f => f.id === food.id || (f.barcode && food.barcode && f.barcode === food.barcode));
         if (i >= 0) db[i] = Object.assign({}, db[i], food);
-        else db.push(Object.assign({ useCount: 0, lastUsed: 0, favorite: false, mealUse: {} }, food));
+        else db.push(Object.assign({ useCount: 0, lastUsed: 0, favorite: false, mealUse: {}, createdAt: Date.now() }, food));
         this.saveData(this.KEY_FOOD_DB, db);
     },
 
@@ -1484,10 +1484,26 @@ const StorageManager = {
     favoriteFoods(meal) {
         return this.getFoodDb().filter(f => f.favorite).sort(this._mealSort(meal));
     },
+    // foodCreatedAt — מועד ההכנסה למאגר. createdAt נשמר מ-v19.3 ואילך; לרשומות ישנות
+    // נגזר מחותמת הזמן שמקודדת ב-id (custom:/meal:/gemini: + base36), ורק כמוצא אחרון מ-lastUsed.
+    foodCreatedAt(f) {
+        if (f.createdAt) return f.createdAt;
+        const m = /^(?:custom|meal|gemini):([0-9a-z]+)$/.exec(f.id || '');
+        if (m) {
+            const t = parseInt(m[1], 36);
+            if (t > 1e12 && t < 4e12) return t;   // טווח שפוי של Date.now() במילישניות
+        }
+        return f.lastUsed || 0;
+    },
+
     customFoods() {
         // מותאמים + ארוחות שמורות (meal) + מוצרים סרוקים (gemini) + מוצרים חיצוניים שנערכו ידנית (edited) — כולם ניתנים לעריכה
+        // סדר (החלטת משתמש, v19.3): מועדפים קודם, ובתוך כל קבוצה לפי מועד ההכנסה (חדש → ישן)
         return this.getFoodDb().filter(f => f.source === 'custom' || f.source === 'meal' || f.source === 'gemini' || f.edited)
-            .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+            .sort((a, b) => {
+                if (!!a.favorite !== !!b.favorite) return a.favorite ? -1 : 1;
+                return this.foodCreatedAt(b) - this.foodCreatedAt(a);
+            });
     },
 
     // applyMfpDays — ייבוא ימי MFP עם בקרת דריסה. ימים חדשים (ללא רשומה) מיובאים תמיד;

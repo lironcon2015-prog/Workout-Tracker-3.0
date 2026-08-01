@@ -141,6 +141,10 @@
                         <option value="קליסטניקס">קליסטניקס</option>
                     </select>
                 </div>
+                <button class="subs-entry-row" id="btn-ex-subs" onclick="openSubsFromExConfig()">
+                    <span class="subs-entry-label">תרגילים תחליפיים</span>
+                    <span class="subs-entry-count" id="ex-config-subs-count">—</span>
+                </button>
                 <div class="flex-between border-bottom pb-sm">
                     <span class="input-label m-0">חד-צדדי (Unilateral)</span>
                     <input type="checkbox" id="conf-ex-uni" class="archive-checkbox">
@@ -203,8 +207,25 @@
                 <span id="rest-time-display" class="stepper-value">90s</span>
                 <button class="stepper-btn" onclick="changeRestTime(15)"><span class="material-symbols-outlined">add</span></button>
             </div>
+            <button class="subs-entry-row" onclick="openSubsFromExSettings()">
+                <span class="subs-entry-label">תרגילים תחליפיים</span>
+                <span class="subs-entry-count" id="ex-settings-subs-count">—</span>
+            </button>
             <button class="btn-main primary-gradient" onclick="saveExerciseSettings()">שמור</button>
             <button class="btn-text" onclick="closeExerciseSettings()">ביטול</button>
+        </div>
+    </div>
+
+    <!-- תרגילים תחליפיים — עריכה ידנית של רשימת המחליפים לתרגיל -->
+    <div id="ex-subs-modal" class="modal-overlay">
+        <div class="modal-content max-w-350">
+            <h3 id="ex-subs-title">תרגילים תחליפיים</h3>
+            <p class="sub-text mb-md" id="ex-subs-hint">התרגילים שייבחרו יוצעו כמחליפים במסך ההחלפה</p>
+            <input type="text" id="ex-subs-search" class="minimal-input m-0" placeholder="חיפוש תרגיל" oninput="renderSubsPicker()">
+            <div id="ex-subs-list" class="subs-list"></div>
+            <button class="btn-main primary-gradient" onclick="saveExerciseSubs()">שמור</button>
+            <button class="btn-text" id="btn-subs-reset" onclick="resetExerciseSubs()">אפס לברירת מחדל</button>
+            <button class="btn-text" onclick="closeExerciseSubs()">ביטול</button>
         </div>
     </div>
 

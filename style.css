@@ -1881,6 +1881,44 @@ body::before {
 .custom-dialog-btns .btn-main { margin-top: 0; }
 .custom-dialog-btns .btn-text { padding: 12px; margin-top: 0; }
 
+/* ── תרגילים תחליפיים — שורת כניסה + בורר ── */
+/* טופס התרגיל התארך עם שורת התחליפים — גלילה פנימית כדי שכפתורי השמירה לא ייחתכו */
+#ex-config-modal .vertical-stack { flex: 1; min-height: 0; overflow-y: auto; }
+#ex-subs-modal { z-index: 1050; }   /* מעל המודאל שממנו נפתח (ex-config / ex-settings) */
+
+.subs-entry-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
+    background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--r-md);
+    padding: 14px 16px; margin-top: 4px; font-family: inherit; cursor: pointer; text-align: right;
+    transition: border-color var(--dur-2) var(--ease);
+}
+.subs-entry-row:active { border-color: var(--hairline-hi); }
+.subs-entry-label { font-size: var(--fs-md); font-weight: 600; color: var(--text); }
+.subs-entry-count { font-size: var(--fs-sm); color: var(--text-dim); }
+
+#ex-subs-search { text-align: right; }   /* modal-content הוא text-align:center */
+.subs-list {
+    flex: 1; min-height: 120px; overflow-y: auto; margin: 12px 0 4px;
+    text-align: right; -webkit-overflow-scrolling: touch;
+}
+.subs-sec {
+    font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim);
+    letter-spacing: 0.06em; padding: 12px 2px 6px;
+}
+.subs-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
+    background: none; border: none; border-bottom: 1px solid var(--hairline);
+    padding: 13px 2px; font-family: inherit; text-align: right; cursor: pointer; color: var(--text);
+}
+.subs-row:last-child { border-bottom: none; }
+.subs-row-name { font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subs-row-state {
+    flex-shrink: 0; font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim);
+    border: 1px solid var(--hairline-hi); border-radius: var(--r-pill); padding: 3px 10px;
+}
+.subs-row.on .subs-row-name { color: var(--accent); }
+.subs-row.on .subs-row-state { color: var(--accent); border-color: var(--accent-soft); }
+
 /* ── Workout Color Swatches (editor) ── */
 .color-swatches-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 4px 0; }
 .editor-thumb-option {

@@ -355,6 +355,8 @@ function openExerciseCreator() {
     document.getElementById('conf-ex-wmode').value = "kg";
 
     document.getElementById('btn-delete-ex').classList.add('d-none');
+    // תחליפים דורשים תרגיל קיים במאגר — לא זמין במצב יצירה
+    document.getElementById('btn-ex-subs').classList.add('d-none');
 
     document.getElementById('ex-config-modal').dataset.mode = "create";
     document.getElementById('ex-config-modal').style.display = 'flex';
@@ -390,8 +392,10 @@ function openExerciseEditor(exName) {
     }
 
     document.getElementById('btn-delete-ex').classList.remove('d-none');
+    document.getElementById('btn-ex-subs').classList.remove('d-none');
     document.getElementById('ex-config-modal').dataset.mode = "edit";
     document.getElementById('ex-config-modal').dataset.target = exName;
+    updateSubsCountLabels();
     document.getElementById('ex-config-modal').style.display = 'flex';
 }
 
@@ -513,6 +517,11 @@ function saveExerciseConfig() {
                     const lastW = StorageManager.getLastWeight(targetName);
                     if (lastW) StorageManager.saveWeight(name, lastW);
 
+                    // רשימות התחליפים מחזיקות שמות — שינוי שם חייב לעדכן גם אותן
+                    state.exercises.forEach(e => {
+                        if (Array.isArray(e.subs)) e.subs = e.subs.map(n => n === targetName ? name : n);
+                    });
+
                     state.exercises[exIndex].name = name;
                     _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max, wMode);
                 }
@@ -579,6 +588,10 @@ function deleteExercise() {
         const exIndex = state.exercises.findIndex(e => e.name === targetName);
         if (exIndex > -1) {
             state.exercises.splice(exIndex, 1);
+            // ניקוי הפניות יתומות מרשימות התחליפים של שאר התרגילים
+            state.exercises.forEach(e => {
+                if (Array.isArray(e.subs)) e.subs = e.subs.filter(n => n !== targetName);
+            });
             StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, state.exercises);
             autoSaveConfigToCloud();
             showAlert("התרגיל נמחק.", () => {
@@ -851,6 +864,7 @@ function openRestTimerModal(idx, internalIdx = null) {
     const time = ex.restTime || (ex.isMain ? 120 : 90);
     document.getElementById('rest-time-display').innerText = time + "s";
 
+    updateSubsCountLabels();
     document.getElementById('exercise-settings-modal').style.display = 'flex';
 }
 
@@ -902,6 +916,185 @@ function saveExerciseSettings() {
 }
 
 function closeExerciseSettings() { document.getElementById('exercise-settings-modal').style.display = 'none'; managerState.editingTimerEx = null; }
+
+// ─── תרגילים תחליפיים — עריכה ידנית ────────────────────────────────────────
+// ex.subs הוא מקור האמת ברגע שנשמר (גם ריק); בהיעדרו getSubstitutes נופל
+// לברירות המחדל מ-substituteGroups ב-data.js. ראה workout-core.js:getSubstitutes.
+
+let _subsEditName = null;   // שם התרגיל הנערך
+let _subsWorking = [];      // הרשימה בעריכה, לפני שמירה
+
+// שם התרגיל לפי הקשר הפתיחה — עורך התוכנית, אימון פעיל, או מסך התרגילים
+function openSubsFromExConfig() {
+    const modal = document.getElementById('ex-config-modal');
+    if (modal.dataset.mode !== 'edit') { showAlert('יש לשמור את התרגיל לפני הגדרת תחליפים'); return; }
+    openExerciseSubs(modal.dataset.target);
+}
+
+function openSubsFromExSettings() {
+    let name = null;
+    if (managerState.editingTimerEx) {
+        const { idx, internalIdx } = managerState.editingTimerEx;
+        const item = internalIdx !== null
+            ? managerState.exercises[idx].exercises[internalIdx]
+            : managerState.exercises[idx];
+        name = item && item.name;
+    } else {
+        name = state.currentExName;   // אימון פעיל
+    }
+    openExerciseSubs(name);
+}
+
+function openExerciseSubs(exName) {
+    const ex = state.exercises.find(e => e.name === exName);
+    if (!ex) { showAlert('התרגיל לא נמצא במאגר'); return; }
+
+    _subsEditName = ex.name;
+    // תרגיל שטרם נערך — הרשימה נטענת מלאה מברירות המחדל, כדי שאפשר יהיה גם להסיר מהן
+    _subsWorking = Array.isArray(ex.subs) ? ex.subs.slice() : defaultSubstitutes(ex.name);
+
+    document.getElementById('ex-subs-title').innerText = `תחליפיים · ${ex.name}`;
+    document.getElementById('ex-subs-search').value = '';
+    // "אפס לברירת מחדל" רלוונטי רק כשקיימת הגדרה ידנית ששונה ממנה
+    document.getElementById('btn-subs-reset').classList.toggle('d-none', !Array.isArray(ex.subs));
+    renderSubsPicker();
+    document.getElementById('ex-subs-modal').style.display = 'flex';
+}
+
+function renderSubsPicker() {
+    const box = document.getElementById('ex-subs-list');
+    if (!box) return;
+    const q = (document.getElementById('ex-subs-search').value || '').trim().toLowerCase();
+
+    // הנבחרים תמיד בראש (גם כשאינם תואמים לחיפוש — כדי לא "לאבד" בחירה תוך כדי סינון)
+    const picked = state.exercises.filter(e => _subsWorking.includes(e.name));
+    const rest = state.exercises
+        .filter(e => e.name !== _subsEditName && !_subsWorking.includes(e.name))
+        .filter(e => !q || e.name.toLowerCase().includes(q))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!picked.length && !rest.length) {
+        box.innerHTML = `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
+        return;
+    }
+
+    const row = (e, on) => `<button class="subs-row${on ? ' on' : ''}" onclick="toggleSubPick('${escapeJsAttr(e.name)}')">
+            <span class="subs-row-name">${escapeHtml(e.name)}</span>
+            <span class="subs-row-state">${on ? 'תחליף' : 'הוסף'}</span>
+        </button>`;
+
+    box.innerHTML =
+        (picked.length ? `<div class="subs-sec">נבחרו (${picked.length})</div>` + picked.map(e => row(e, true)).join('') : '') +
+        (rest.length ? `<div class="subs-sec">כל התרגילים</div>` + rest.map(e => row(e, false)).join('') : '');
+}
+
+function toggleSubPick(name) {
+    const i = _subsWorking.indexOf(name);
+    if (i >= 0) _subsWorking.splice(i, 1);
+    else _subsWorking.push(name);
+    renderSubsPicker();
+    haptic('light');
+}
+
+// _materializeSubs — "מקבע" לתרגיל את רשימת ברירת המחדל שלו כרשימה ידנית, לפני
+// שמשנים אותה. בלי זה, הסרה/הוספה בצד השני תיעלם — כי getSubstitutes היה חוזר
+// לקרוא לו את הקבוצות מ-data.js.
+function _materializeSubs(name) {
+    const ex = state.exercises.find(e => e.name === name);
+    if (!ex) return null;
+    if (!Array.isArray(ex.subs)) ex.subs = defaultSubstitutes(name);
+    return ex;
+}
+
+function _persistExercises() {
+    StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, state.exercises);
+    autoSaveConfigToCloud();
+}
+
+function saveExerciseSubs() {
+    const ex = state.exercises.find(e => e.name === _subsEditName);
+    if (!ex) { closeExerciseSubs(); return; }
+
+    const before = Array.isArray(ex.subs) ? ex.subs.slice() : defaultSubstitutes(ex.name);
+    const after = _subsWorking.filter(n => n !== ex.name);
+    ex.subs = after;
+
+    // דו-כיווניות — תחליף הוא יחס סימטרי (כמו הקבוצות ב-data.js): כל שינוי מוחל
+    // גם על הצד השני, אחרת ייווצר מצב שבו A מציע את B אבל B לא מציע את A.
+    after.filter(n => !before.includes(n)).forEach(n => {
+        const other = _materializeSubs(n);
+        if (other && !other.subs.includes(ex.name)) other.subs.push(ex.name);
+    });
+    before.filter(n => !after.includes(n)).forEach(n => {
+        const other = _materializeSubs(n);
+        if (other) other.subs = other.subs.filter(x => x !== ex.name);
+    });
+
+    _persistExercises();
+    closeExerciseSubs();
+    _afterSubsChange();
+    showAlert(after.length ? `נשמרו ${after.length} תרגילים תחליפיים` : 'התחליפים לתרגיל בוטלו');
+}
+
+// איפוס — מחיקת ההגדרה הידנית וחזרה לקבוצות מ-data.js, כולל יישור הצד השני:
+// תרגילים שכבר ידניים מקבלים בחזרה (או מאבדים) את ההפניה לפי ברירת המחדל.
+function resetExerciseSubs() {
+    const ex = state.exercises.find(e => e.name === _subsEditName);
+    if (!ex) { closeExerciseSubs(); return; }
+
+    showConfirm(`לאפס את התחליפים של "${ex.name}" לברירת המחדל?`, () => {
+        delete ex.subs;
+        const def = defaultSubstitutes(ex.name);
+        state.exercises.forEach(other => {
+            if (other.name === ex.name || !Array.isArray(other.subs)) return;
+            const has = other.subs.includes(ex.name);
+            if (def.includes(other.name) && !has) other.subs.push(ex.name);
+            else if (!def.includes(other.name) && has) other.subs = other.subs.filter(n => n !== ex.name);
+        });
+        _persistExercises();
+        closeExerciseSubs();
+        _afterSubsChange();
+        showAlert('התחליפים אופסו לברירת המחדל');
+    });
+}
+
+function closeExerciseSubs() {
+    document.getElementById('ex-subs-modal').style.display = 'none';
+    _subsEditName = null;
+    _subsWorking = [];
+}
+
+// רענון הצרכנים אחרי שינוי: מוני התחליפים במודאלים הפתוחים + רשימת מאגר התרגילים
+function _afterSubsChange() {
+    updateSubsCountLabels();
+    if (document.getElementById('ui-exercise-db').classList.contains('active')) renderExerciseDatabase();
+}
+
+function updateSubsCountLabels() {
+    const set = (elId, name) => {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        const n = name ? getSubstitutes(name).length : 0;
+        const ex = name ? state.exercises.find(e => e.name === name) : null;
+        const manual = ex && Array.isArray(ex.subs);
+        el.textContent = n ? `${n}${manual ? '' : ' · ברירת מחדל'}` : (manual ? 'אין' : '—');
+    };
+    const cfg = document.getElementById('ex-config-modal');
+    if (cfg && cfg.dataset.mode === 'edit') set('ex-config-subs-count', cfg.dataset.target);
+    else set('ex-config-subs-count', null);
+
+    let settingsName = null;
+    if (managerState.editingTimerEx) {
+        const { idx, internalIdx } = managerState.editingTimerEx;
+        const item = internalIdx !== null
+            ? managerState.exercises[idx].exercises[internalIdx]
+            : managerState.exercises[idx];
+        settingsName = item && item.name;
+    } else if (state.currentExName) {
+        settingsName = state.currentExName;
+    }
+    set('ex-settings-subs-count', settingsName);
+}
 
 // ─── SMART EXERCISE SELECTOR ───────────────────────────────────────────────
 

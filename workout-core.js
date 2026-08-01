@@ -117,22 +117,35 @@ function showConfirm(msg, onOk, onCancel) {
 
 // ─── HELPER: Substitute groups ─────────────────────────────────────────────
 
+// defaultSubstitutes — התחליפים המובנים מ-data.js. מאחדים את *כל* הקבוצות שמכילות
+// את התרגיל ולא רק הראשונה — תרגיל יכול להשתייך ליותר מקבוצה אחת
+// (Machine Press, Weighted Pull Ups), ו-find היה חותך לו את החצי השני.
+function defaultSubstitutes(exName) {
+    const out = [];
+    substituteGroups.forEach(g => {
+        if (!g.includes(exName)) return;
+        g.forEach(n => { if (n !== exName && !out.includes(n)) out.push(n); });
+    });
+    return out;
+}
+
+// getSubstitutes — הרשימה האפקטיבית. הגדרה ידנית (ex.subs) גוברת תמיד, כולל מערך
+// ריק (= המשתמש ביטל את כל התחליפים במכוון). בהיעדרה — ברירות המחדל מ-data.js.
 function getSubstitutes(exName) {
-    const group = substituteGroups.find(g => g.includes(exName));
-    return group ? group.filter(n => n !== exName) : [];
+    const ex = (typeof state !== 'undefined' && state.exercises)
+        ? state.exercises.find(e => e.name === exName) : null;
+    if (ex && Array.isArray(ex.subs)) return ex.subs.filter(n => n !== exName);
+    return defaultSubstitutes(exName);
 }
 
 function isExOrVariationDone(originalName, plannedNames = null) {
     if (state.completedExInSession.includes(originalName)) return true;
-    const group = substituteGroups.find(g => g.includes(originalName));
     // וריאציה שהושלמה "מכסה" את התרגיל רק אם היא לא תרגיל מתוכנן בפני עצמו באימון —
     // אחרת אימון שכולל שני תרגילים מאותה קבוצת תחליפים ידלג על השני
-    if (group) return group.some(varName =>
-        varName !== originalName &&
+    return getSubstitutes(originalName).some(varName =>
         state.completedExInSession.includes(varName) &&
         (!plannedNames || !plannedNames.includes(varName))
     );
-    return false;
 }
 
 // ─── UTILITY ───────────────────────────────────────────────────────────────
@@ -5181,6 +5194,7 @@ function openExerciseSettings() {
     document.getElementById('target-reps-input').value = planItem.targetReps !== undefined ? planItem.targetReps : '';
     document.getElementById('target-rir-input').value = planItem.targetRIR !== undefined ? planItem.targetRIR : '';
     document.getElementById('rest-time-display').innerText = (planItem.restTime || 90) + 's';
+    updateSubsCountLabels();
     document.getElementById('exercise-settings-modal').style.display = 'flex';
 }
 

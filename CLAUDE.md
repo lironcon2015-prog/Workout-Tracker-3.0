@@ -120,8 +120,9 @@
 **בכל commit שמשנה קבצי אפליקציה** (workout-core.js, style.css, index.html, archive-logic.js, editor-logic.js, bodylog-logic.js, food-logic.js, storage.js, data.js) —
 חובה לעדכן **באותו commit**:
 
-1. **`sw.js`** — העלה את `CACHE_VERSION` ב-1 (למשל `gympro-v15.75` → `gympro-v15.76`)
-   ועדכן גם את שורת הקומנט `* Version: X`
+1. **`sw.js`** — העלה את **ספרת ה-patch** ב-1 (למשל `gympro-v19.4.1` → `gympro-v19.4.2`)
+   ועדכן גם את שורת הקומנט `* Version: X`. עלייה ב-minor (`19.4` → `19.5`) שמורה
+   לפיצ'ר משמעותי בלבד — לא לכל commit.
 2. **`version.json`** — עדכן את `"version"` לאותו מספר (ללא `gympro-v` prefix)
 
 ### למה זה קריטי
@@ -169,8 +170,8 @@ git checkout claude/BRANCH_NAME   # חזרה לענף העבודה
 
 ### תבנית גרסה
 ```
-sw.js:        const CACHE_VERSION = 'gympro-v15.X';
-version.json: { "version": "15.X" }
+sw.js:        const CACHE_VERSION = 'gympro-v19.MINOR.PATCH';
+version.json: { "version": "19.MINOR.PATCH" }
 ```
 
 ---
@@ -214,7 +215,7 @@ version.json: { "version": "15.X" }
 ---
 
 ## גרסה נוכחית
-19.4
+19.4.1
 
 ---
 

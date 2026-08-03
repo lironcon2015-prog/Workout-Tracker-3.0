@@ -41,7 +41,8 @@ const MAX_DAYS  = 120;             // שמירת ~4 חודשים אחרונים 
 
 // 🐞 דיבאג: כשדלוק — שומר את גוף ה-POST הגולמי האחרון, לשליפה בדפדפן דרך
 //    <URL>?token=…&raw=1 (לאימות פורמט מקור חדש). ברירת מחדל כבוי; הדלק בעת הצורך.
-const DEBUG_RAW = false;
+//    ⚠️ דלוק כרגע לאבחון היעלמות טמפ' הריסט (אוגוסט 2026) — להחזיר ל-false בסיום.
+const DEBUG_RAW = true;
 const RAW_KEY   = 'last_raw';
 
 // 📋 יומן דחיפות — 12 האחרונות, נחשף ב-doGet כ-`pushes`. קיים כדי לענות על
@@ -244,7 +245,19 @@ function _parseHAE(metrics, diag) {
       } else if (name.indexOf('respirator') > -1) {
         if (r.qty != null) s.resp = _f(r.qty);
       } else if (name.indexOf('wrist') > -1 && name.indexOf('temp') > -1) {
-        if (r.qty != null) s.temp = _f(r.qty);
+        // HAE אינה עקבית בשדה הערך בין מדדים וגרסאות: חלק מהמדדים מיוצאים כ-qty,
+        // אחרים כ-Min/Avg/Max (כמו דופק). אם השדה משתנה בעדכון של HAE, תנאי על
+        // qty בלבד נכשל **בשקט** — המדד "נבחר" ו"מיוצא", והערך פשוט מתאדה בפרסור.
+        // בדיוק זה קרה: רצף של 12 לילות נקטע ב-2026-08-02 בלי שינוי בהגדרות.
+        // לכן מקבלים כל וריאנט סביר, לפי סדר עדיפות. שאר המדדים נשארים על qty —
+        // הם עובדים, ואין סיבה להרחיב טווח קליטה במקום שלא נשבר.
+        var t = (r.qty   != null) ? r.qty
+              : (r.avg   != null) ? r.avg
+              : (r.Avg   != null) ? r.Avg
+              : (r.value != null) ? r.value
+              : (r.min != null && r.max != null) ? (Number(r.min) + Number(r.max)) / 2
+              : null;
+        if (t != null) s.temp = _f(t);
       }
     });
   });
@@ -327,7 +340,10 @@ function _logPush(tag, dateUsed, night) {
       src: tag, date: dateUsed || '',
       asleep: night ? _n(night.asleep) : 0,
       hrv:    night ? _n(night.hrv)    : 0,
-      rhr:    night ? _n(night.rhr)    : 0
+      rhr:    night ? _n(night.rhr)    : 0,
+      // temp — נוסף אחרי שהיומן לא היה מסוגל לענות על "האם הדחיפה הביאה טמפ'",
+      // וזו בדיוק הייתה השאלה שתקעה את האבחון. null = לא הגיעה בדחיפה הזו.
+      temp:   night ? _f(night.temp)   : null
     });
     while (arr.length > PUSH_LOG_MAX) arr.shift();
     PropertiesService.getScriptProperties().setProperty(PUSH_LOG_KEY, JSON.stringify(arr));

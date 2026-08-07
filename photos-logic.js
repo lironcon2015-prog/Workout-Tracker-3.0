@@ -325,6 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let _ppObjUrls = [];                       // object URLs פעילים — מבוטלים ברינדור הבא
 let _ppCompareSel = { a: null, b: null };  // תאריכי ההשוואה (a = חדשה, b = ישנה)
+let _ppCompareTouched = false;             // האם המשתמש בחר בעצמו — בחירתו גוברת על כל ברירת מחדל
 
 function _ppUrl(blob) { const u = URL.createObjectURL(blob); _ppObjUrls.push(u); return u; }
 function _ppRevokeUrls() { _ppObjUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} }); _ppObjUrls = []; }
@@ -478,7 +479,9 @@ function ppClearAdhoc() {
 }
 
 // ─── כרטיס השוואה צד-לצד ────────────────────────────────────────────────────
-// ברירת מחדל: התמונה האחרונה מול הקרובה ביותר ל-14 יום אחורה.
+// v19.4.3: לא בשימוש כברירת המחדל — היעד של 14 יום נתן זוג שונה מזוג הניתוח
+// האוטומטי, ולכן כל לחיצה על "נתח עכשיו" נראתה כבחירה של המשתמש. נשמרת כאן
+// לשימוש עתידי (למשל preset "14 יום" בכרטיס ההשוואה) ולא נמחקה ללא החלטה.
 function _ppDefaultCompareDate(index, newestDate) {
     const target = _ppDaysBetween('1970-01-01', newestDate) - 14;
     let best = null, bestDist = Infinity;
@@ -495,10 +498,17 @@ function _ppRenderCompareCard(index) {
     if (!el) return;
     if (index.length < 2) { el.style.display = 'none'; return; }
     el.style.display = '';
-    const newest = index[0].date;
-    if (!_ppCompareSel.a || !index.find(e => e.date === _ppCompareSel.a)) _ppCompareSel.a = newest;
-    if (!_ppCompareSel.b || !index.find(e => e.date === _ppCompareSel.b) || _ppCompareSel.b === _ppCompareSel.a)
-        _ppCompareSel.b = _ppDefaultCompareDate(index, _ppCompareSel.a) || index[index.length - 1].date;
+    /* בחירת המשתמש גוברת על כל ברירת מחדל — היא נשארת דביקה גם אחרי רינדור מחדש
+     * ואחרי צילום תמונה חדשה. כל עוד לא נגע בתפריטים, התפריטים עוקבים אחרי זוג
+     * הניתוח האוטומטי, כדי שהתפריטים, החיווי והניתוח ידברו תמיד על אותו זוג. */
+    const has = d => !!d && index.some(e => e.date === d);
+    if (_ppCompareTouched && (!has(_ppCompareSel.a) || !has(_ppCompareSel.b) || _ppCompareSel.a === _ppCompareSel.b))
+        _ppCompareTouched = false;   // התמונה שנבחרה נמחקה — חזרה לברירת המחדל
+    if (!_ppCompareTouched) {
+        const auto = _ppPickAnalysisSet();
+        _ppCompareSel.a = auto ? auto.current : index[0].date;
+        _ppCompareSel.b = auto ? auto.vs : index[index.length - 1].date;
+    }
     const opts = sel => index.map(e =>
         `<option value="${e.date}" ${e.date === sel ? 'selected' : ''}>${_ppListDate(e.date)}</option>`).join('');
     // RTL: העמודה הראשונה מוצגת מימין — הישנה ("לפני") מימין, החדשה משמאל
@@ -514,6 +524,7 @@ function _ppRenderCompareCard(index) {
 
 function ppSetCompare(side, date) {
     _ppCompareSel[side] = date;
+    _ppCompareTouched = true;   // מכאן והלאה הבחירה שלו — לא נדרסת בשום רינדור
     _ppFillCompareImages();
     _ppUpdateAnalyzeHint();
 }

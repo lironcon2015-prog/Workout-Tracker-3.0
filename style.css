@@ -2223,16 +2223,18 @@ body::before {
     background: linear-gradient(to bottom, var(--bg) 0%, var(--bg) 52%, rgba(7,7,8,0) 100%);
 }
 
+/* v19.4.4: pill מלא במקום --r-xs (8px). על גובה של ~40px, רדיוס 8 קרא כמלבן
+   כמעט ישר — חריג בשפה שבה כל שאר הבוררים והצ'יפים הם pill. */
 .segment-wrapper {
     display: flex; background: rgba(118, 118, 128, 0.24);
-    border-radius: var(--r-xs); padding: 2px; max-width: 380px; margin: 0 auto;
+    border-radius: var(--r-pill); padding: 2px; max-width: 380px; margin: 0 auto;
 }
 
 .seg-btn {
     flex: 1; padding: 8px 0; border: none; background: transparent;
     font-family: 'Heebo', sans-serif; font-weight: 700;
     text-transform: uppercase; font-size: var(--fs-md); color: rgba(255,255,255,0.4);
-    border-radius: var(--r-xs); cursor: pointer; transition: all var(--dur-2) var(--ease);
+    border-radius: var(--r-pill); cursor: pointer; transition: all var(--dur-2) var(--ease);
 }
 .seg-btn.active { background: #636366; color: #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
 

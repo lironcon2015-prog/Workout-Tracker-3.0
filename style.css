@@ -7072,6 +7072,21 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
 .pp-secondary:disabled { opacity: var(--opacity-disabled); cursor: default; }
 .pp-secondary:active:not(:disabled) { transform: scale(0.97); }
 
+/* חיווי הזוג שיינותח — צמוד לכפתור "נתח עכשיו" */
+.pp-analyze-hint {
+    margin: -6px 0 14px; font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.5;
+}
+
+/* כרטיס "השוואה שביקשת" (אד-הוק) */
+.pp-adhoc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pp-adhoc-head .bl-chart-title { margin-bottom: 0; }
+.pp-adhoc-clear {
+    flex: none; padding: 6px 14px; border: none; border-radius: var(--r-pill);
+    background: var(--surface-4); color: var(--text-dim); font-family: inherit;
+    font-size: var(--fs-sm); font-weight: 700; cursor: pointer;
+}
+.pp-adhoc-clear:active { transform: scale(0.97); }
+
 /* כרטיס ניתוח AI */
 .pp-analysis-meta { font-size: var(--fs-sm); color: var(--text-dim); margin-bottom: 8px; }
 .pp-analysis-summary { font-size: var(--fs-md); line-height: 1.55; }
@@ -7098,6 +7113,7 @@ input[type="date"].bl-entry-row-input::-webkit-calendar-picker-indicator { opaci
     width: 100%; aspect-ratio: 3 / 4; object-fit: cover;
     border-radius: var(--r-md); background: var(--surface-4);
 }
+.pp-cmp-note { font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.4; text-align: center; }
 .pp-compare-delta { margin-top: 10px; font-size: var(--fs-sm); color: var(--text-dim); text-align: center; }
 .pp-compare-delta strong { color: var(--text); }
 

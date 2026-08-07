@@ -1139,6 +1139,7 @@ async function _ppRunAnalysis(manual) {
     }
 
     _ppAnalysisBusy = true;
+    let scrollToAdhoc = false;   // רק אחרי ניתוח אד-הוק שהצליח — לא על תוצאה ישנה
     const btn = document.getElementById('pp-analyze-btn');
     const btnTxt = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'מנתח…'; }
@@ -1204,6 +1205,7 @@ async function _ppRunAnalysis(manual) {
         _ppSyncConfigSoon();
         _ppRenderAnalysisCard();
         _ppRenderAdhocCard();
+        scrollToAdhoc = manual && set.adhoc;
         if (manual) haptic('medium');
         if (typeof showCloudToast === 'function')
             showCloudToast(comparability >= 5
@@ -1216,6 +1218,20 @@ async function _ppRunAnalysis(manual) {
         _ppAnalysisBusy = false;
         if (btn) { btn.textContent = btnTxt; btn.disabled = false; }
         if (typeof _renderBodyPhotos === 'function' && manual) _renderBodyPhotos();
+        if (scrollToAdhoc) _ppScrollToAdhoc();
+    }
+}
+
+// הכפתור נמצא בראש המסך והתוצאה מתחת לכרטיס ההשוואה — בלי זה
+// ההשוואה שביקשת מסתיימת מחוץ לשדה הראייה ונראית כאילו לא קרה כלום
+function _ppScrollToAdhoc() {
+    const el = document.getElementById('pp-adhoc-card');
+    if (!el || el.style.display === 'none') return;
+    try {
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    } catch (e) {
+        try { el.scrollIntoView(); } catch (e2) { /* דפדפן ישן — לא קריטי */ }
     }
 }
 

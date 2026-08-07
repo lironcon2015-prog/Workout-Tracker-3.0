@@ -349,7 +349,9 @@ function _renderBodyPhotos() {
         btn.title = !hasKey ? 'דרוש מפתח Gemini (הגדרות → AI)' : (index.length < 2 ? 'דרושות לפחות 2 תמונות' : '');
     }
     _ppRenderAnalysisCard();
-    _ppRenderCompareCard(index);
+    _ppRenderAdhocCard();
+    _ppRenderCompareCard(index);   // קובע את _ppCompareSel — חייב לרוץ לפני החיווי
+    _ppUpdateAnalyzeHint();        // גם כשאין כרטיס השוואה (פחות מ-2 תמונות) — כדי להסתיר
     _ppRenderGallery(index);
     _ppRenderReminder();
     if (typeof _ppMaybeAutoAnalyze === 'function') _ppMaybeAutoAnalyze();
@@ -416,32 +418,63 @@ function _ppRenderAnalysisCard() {
         return;
     }
     const last = entries[entries.length - 1];
-    const compTxt = 'בר-השוואה: ' + last.comparability + '/10';
-    const meta = _ppListDate(last.date) + ' מול ' + _ppListDate(last.vsDate) + ' · ' + compTxt;
-    let html = '<div class="bl-chart-title">ניתוח AI אחרון</div><div class="pp-analysis-meta">' + meta + '</div>';
-    if (last.comparability < 5) {
-        // הניתוח סירב להשוות — הצגת הסיבות כפידבק לצילום הבא
-        html += '<div class="pp-analysis-summary">ההשוואה לא בוצעה — איכות הצילום אינה מספיקה להשוואה אמינה.</div>';
-        if ((last.flags || []).length)
-            html += '<div class="pp-analysis-flags">לתיקון בצילום הבא: ' + last.flags.join(' · ') + '</div>';
-    } else {
-        html += '<div class="pp-analysis-summary">' + (last.summary || '') + '</div>';
-        const regionNames = { shoulders: 'כתפיים', chest: 'חזה', waist: 'מותן', arms: 'זרועות' };
-        const regions = last.regions || {};
-        const chips = Object.keys(regionNames)
-            .filter(k => regions[k])
-            .map(k => {
-                const v = String(regions[k]);
-                const cls = /clear/.test(v) ? 'clear' : (/subtle/.test(v) ? 'subtle' : '');
-                const lbl = /clear/.test(v) ? 'שינוי ברור' : (/subtle/.test(v) ? 'שינוי עדין' : 'ללא שינוי');
-                return '<span class="pp-region-chip ' + cls + '">' + regionNames[k] + ': ' + lbl + '</span>';
-            }).join('');
-        if (chips) html += '<div class="pp-analysis-regions">' + chips + '</div>';
-        if ((last.flags || []).length)
-            html += '<div class="pp-analysis-flags">שים לב: ' + last.flags.join(' · ') + '</div>';
-    }
+    let html = '<div class="bl-chart-title">ניתוח AI אחרון</div>' + _ppAnalysisBody(last);
     if (trend.aiNotes) html += '<div class="pp-analysis-notes">מצב מצטבר: ' + trend.aiNotes + '</div>';
     el.innerHTML = html;
+}
+
+// גוף רשומת ניתוח (meta + סיכום + אזורים + flags) — משותף לכרטיס הקנוני ולאד-הוק
+function _ppAnalysisBody(entry) {
+    const meta = _ppListDate(entry.date) + ' מול ' + _ppListDate(entry.vsDate) +
+        ' · בר-השוואה: ' + entry.comparability + '/10';
+    let html = '<div class="pp-analysis-meta">' + meta + '</div>';
+    if (entry.comparability < 5) {
+        // הניתוח סירב להשוות — הצגת הסיבות כפידבק לצילום הבא
+        html += '<div class="pp-analysis-summary">ההשוואה לא בוצעה — איכות הצילום אינה מספיקה להשוואה אמינה.</div>';
+        if ((entry.flags || []).length)
+            html += '<div class="pp-analysis-flags">לתיקון בצילום הבא: ' + entry.flags.join(' · ') + '</div>';
+        return html;
+    }
+    html += '<div class="pp-analysis-summary">' + (entry.summary || '') + '</div>';
+    const regionNames = { shoulders: 'כתפיים', chest: 'חזה', waist: 'מותן', arms: 'זרועות' };
+    const regions = entry.regions || {};
+    const chips = Object.keys(regionNames)
+        .filter(k => regions[k])
+        .map(k => {
+            const v = String(regions[k]);
+            const cls = /clear/.test(v) ? 'clear' : (/subtle/.test(v) ? 'subtle' : '');
+            const lbl = /clear/.test(v) ? 'שינוי ברור' : (/subtle/.test(v) ? 'שינוי עדין' : 'ללא שינוי');
+            return '<span class="pp-region-chip ' + cls + '">' + regionNames[k] + ': ' + lbl + '</span>';
+        }).join('');
+    if (chips) html += '<div class="pp-analysis-regions">' + chips + '</div>';
+    if ((entry.flags || []).length)
+        html += '<div class="pp-analysis-flags">שים לב: ' + entry.flags.join(' · ') + '</div>';
+    return html;
+}
+
+// ─── כרטיס "השוואה שביקשת" — תוצאת ניתוח אד-הוק ─────────────────────────────
+// יחיד (נדרס בכל השוואה חדשה), לא נכנס ל-entries ולא משפיע על המצב המצטבר.
+function _ppRenderAdhocCard() {
+    const el = document.getElementById('pp-adhoc-card');
+    if (!el) return;
+    const trend = StorageManager.getPhotoTrend() || {};
+    const a = trend.adhoc;
+    if (!a || !a.date || !a.vsDate) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = '';
+    el.innerHTML = '<div class="pp-adhoc-head">' +
+        '<div class="bl-chart-title">השוואה שביקשת</div>' +
+        '<button class="pp-adhoc-clear" onclick="ppClearAdhoc()">נקה</button></div>' +
+        _ppAnalysisBody(a) +
+        '<div class="pp-analysis-notes">השוואה חד-פעמית — לא נכללת בציר-הזמן ולא במצב המצטבר.</div>';
+}
+
+function ppClearAdhoc() {
+    const trend = StorageManager.getPhotoTrend() || {};
+    if (!trend.adhoc) return;
+    StorageManager.savePhotoTrend(Object.assign({}, trend, { adhoc: null }));
+    _ppSyncConfigSoon();
+    _ppRenderAdhocCard();
+    haptic('light');
 }
 
 // ─── כרטיס השוואה צד-לצד ────────────────────────────────────────────────────
@@ -472,24 +505,53 @@ function _ppRenderCompareCard(index) {
     el.innerHTML =
         '<div class="bl-chart-title">השוואה</div>' +
         '<div class="pp-compare-row">' +
-        '<div class="pp-compare-col"><select class="pp-compare-sel" onchange="ppSetCompare(\'b\', this.value)">' + opts(_ppCompareSel.b) + '</select><img id="pp-cmp-b" alt="לפני"></div>' +
-        '<div class="pp-compare-col"><select class="pp-compare-sel" onchange="ppSetCompare(\'a\', this.value)">' + opts(_ppCompareSel.a) + '</select><img id="pp-cmp-a" alt="אחרי"></div>' +
+        '<div class="pp-compare-col"><select class="pp-compare-sel" onchange="ppSetCompare(\'b\', this.value)">' + opts(_ppCompareSel.b) + '</select><img id="pp-cmp-b" alt="לפני"><div class="pp-cmp-note" id="pp-cmp-note-b"></div></div>' +
+        '<div class="pp-compare-col"><select class="pp-compare-sel" onchange="ppSetCompare(\'a\', this.value)">' + opts(_ppCompareSel.a) + '</select><img id="pp-cmp-a" alt="אחרי"><div class="pp-cmp-note" id="pp-cmp-note-a"></div></div>' +
         '</div><div class="pp-compare-delta" id="pp-cmp-delta"></div>';
     _ppFillCompareImages();
+    _ppUpdateAnalyzeHint();
 }
 
 function ppSetCompare(side, date) {
     _ppCompareSel[side] = date;
     _ppFillCompareImages();
+    _ppUpdateAnalyzeHint();
 }
 
+// חיווי מתחת לכפתור "נתח עכשיו" — איזה זוג יינותח בפועל ולאן התוצאה תיכנס.
+// בלעדיו הקשר בין הבחירה בכרטיס ההשוואה לבין הכפתור אינו גלוי.
+function _ppUpdateAnalyzeHint() {
+    const el = document.getElementById('pp-analyze-hint');
+    if (!el) return;
+    const set = _ppResolveAnalysisSet(true);
+    if (!set) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.style.display = '';
+    el.textContent = 'ינותח: ' + _ppListDate(set.current) + ' מול ' + _ppListDate(set.vs) +
+        (set.adhoc ? ' — השוואה שביקשת, לא תיכנס לציר-הזמן' : ' — ייכנס לציר-הזמן');
+}
+
+let _ppCmpGen = 0;   // טוקן דור — משיכה איטית מהדרייב לא תדרוס בחירה חדשה יותר
+
 async function _ppFillCompareImages() {
+    const gen = ++_ppCmpGen;
     const { a, b } = _ppCompareSel;
-    for (const [side, date] of [['b', b], ['a', a]]) {
+    const sides = [['b', b], ['a', a]];
+    // ניקוי לפני המשיכה — אחרת תמונת הבחירה הקודמת נשארת על המסך אם המשיכה תיכשל
+    sides.forEach(([side]) => {
         const img = document.getElementById('pp-cmp-' + side);
-        if (!img || !date) continue;
+        const note = document.getElementById('pp-cmp-note-' + side);
+        if (img) img.removeAttribute('src');
+        if (note) note.textContent = '';
+    });
+    for (const [side, date] of sides) {
+        if (!date) continue;
         const blob = await ppGetPhotoBlob(date).catch(() => null);
-        if (blob && img.isConnected) img.src = _ppUrl(blob);
+        if (gen !== _ppCmpGen) return;   // הבחירה הוחלפה בזמן המשיכה — התוצאה מיושנת
+        const img = document.getElementById('pp-cmp-' + side);
+        const note = document.getElementById('pp-cmp-note-' + side);
+        if (!img || !img.isConnected) continue;
+        if (blob) img.src = _ppUrl(blob);
+        else if (note) note.textContent = 'התמונה לא זמינה — לא מקומית ולא בדרייב';
     }
     // דלתת משקל בין התאריכים — משקל despiked מהשקילות (אם קיים בסביבה)
     const deltaEl = document.getElementById('pp-cmp-delta');
@@ -986,6 +1048,31 @@ function _ppPickAnalysisSet() {
     return { current, vs, baseline };
 }
 
+/* זוג הניתוח בפועל.
+ * ריצה אוטומטית (הטריגר השבועי) — תמיד הזוג האוטומטי; אין משתמש שבחר.
+ * ריצה ידנית — הבחירה בכרטיס ההשוואה, כשהתאריך המאוחר הוא ה"נוכחית".
+ * adhoc=true כשהזוג הנבחר שונה מהאוטומטי; אז התוצאה לא נכנסת לציר-הזמן הקנוני
+ * (entries/aiNotes/lastAnalyzedDate) אלא לשדה adhoc בלבד — השוואה חד-פעמית היא
+ * שאילתה, לא נקודה במגמה. */
+function _ppResolveAnalysisSet(manual) {
+    const auto = _ppPickAnalysisSet();
+    if (!auto) return null;
+    if (!manual) return Object.assign({}, auto, { adhoc: false });
+    const index = _ppIndexDesc();
+    const has = d => !!d && index.some(e => e.date === d);
+    const { a, b } = _ppCompareSel;
+    if (!has(a) || !has(b) || a === b) return Object.assign({}, auto, { adhoc: false });
+    // תאריכי ISO — השוואת מחרוזות = השוואה כרונולוגית
+    const current = a > b ? a : b;
+    const vs = a > b ? b : a;
+    if (current === auto.current && vs === auto.vs) return Object.assign({}, auto, { adhoc: false });
+    const trend = StorageManager.getPhotoTrend() || {};
+    const oldest = index[index.length - 1].date;
+    let baseline = has(trend.baselineDate) ? trend.baselineDate : oldest;
+    if (baseline === current || baseline === vs) baseline = null;
+    return { current, vs, baseline, adhoc: true };
+}
+
 async function _ppPhotoBase64(date) {
     const blob = await ppGetPhotoBlob(date);
     if (!blob) throw new Error('אין גישה לתמונה מ-' + _ppListDate(date) + ' (לא מקומית ולא בדרייב)');
@@ -1031,7 +1118,7 @@ async function _ppRunAnalysis(manual) {
     const fail = msg => { if (manual) showAlert(msg); };
     if (typeof _geminiRequest !== 'function') { fail('מנוע ה-AI לא זמין.'); return; }
     if (!StorageManager.getAIConfig().apiKey) { fail('דרוש מפתח Gemini — הגדרות ← AI.'); return; }
-    const set = _ppPickAnalysisSet();
+    const set = _ppResolveAnalysisSet(manual);
     if (!set) { fail('דרושות לפחות 2 תמונות לניתוח.'); return; }
     const days = _ppDaysBetween(set.vs, set.current);
     if (days < _PP_MIN_COMPARE_DAYS) {
@@ -1055,7 +1142,9 @@ async function _ppRunAnalysis(manual) {
             days,
             nut: _ppNutritionAvg(set.vs, set.current),
             aiNotes: trend.aiNotes || '',
-            recent: (trend.entries || []).slice(-5)
+            // בהשוואה אד-הוק לא מזינים "ניתוחים אחרונים" — הם ורדיקטים על זוגות
+            // אחרים, ובפרומפט שמרן כזה הם מעגנים את המודל על זוג שאינו נבדק
+            recent: set.adhoc ? [] : (trend.entries || []).slice(-5)
         };
         // סדר ה-parts = סדר ההתייחסות בפרומפט: נוכחית, השוואה, עוגן
         const parts = [{ text: _ppBuildAnalysisPrompt(ctx) }];
@@ -1080,24 +1169,35 @@ async function _ppRunAnalysis(manual) {
             flags: Array.isArray(res.flags) ? res.flags.map(String).slice(0, 6) : []
         };
         const index = _ppIndexDesc();
-        const updated = {
-            baselineDate: trend.baselineDate && index.some(e => e.date === trend.baselineDate)
-                ? trend.baselineDate
-                : (index.length ? index[index.length - 1].date : set.vs),
-            baselineDesc: trend.baselineDesc || '',
-            lastAnalyzedDate: set.current,
-            lastAutoRun: _ppTodayStr(),
-            entries: ((trend.entries || []).filter(e => !(e.date === entry.date && e.vsDate === entry.vsDate)))
-                .concat([entry])
-                .slice(-_PP_TREND_MAX_ENTRIES),
-            aiNotes: comparability >= 5 && res.aiNotes ? String(res.aiNotes) : (trend.aiNotes || '')
-        };
+        let updated;
+        if (set.adhoc) {
+            // השוואה שהמשתמש ביקש — לא נוגעת ב-entries, ב-aiNotes ובחותמות הריצה
+            // האוטומטית (אחרת ריצה חקרנית אחת מבטלת את הניתוח השבועי לתמונה החדשה)
+            updated = Object.assign({}, trend, { adhoc: Object.assign({ at: Date.now() }, entry) });
+        } else {
+            updated = {
+                baselineDate: trend.baselineDate && index.some(e => e.date === trend.baselineDate)
+                    ? trend.baselineDate
+                    : (index.length ? index[index.length - 1].date : set.vs),
+                baselineDesc: trend.baselineDesc || '',
+                lastAnalyzedDate: set.current,
+                lastAutoRun: _ppTodayStr(),
+                entries: ((trend.entries || []).filter(e => !(e.date === entry.date && e.vsDate === entry.vsDate)))
+                    .concat([entry])
+                    .slice(-_PP_TREND_MAX_ENTRIES),
+                aiNotes: comparability >= 5 && res.aiNotes ? String(res.aiNotes) : (trend.aiNotes || ''),
+                adhoc: trend.adhoc || null
+            };
+        }
         StorageManager.savePhotoTrend(updated);
         _ppSyncConfigSoon();
         _ppRenderAnalysisCard();
+        _ppRenderAdhocCard();
         if (manual) haptic('medium');
         if (typeof showCloudToast === 'function')
-            showCloudToast(comparability >= 5 ? '🧠 ניתוח תמונות הושלם' : '🧠 הניתוח דילג — איכות צילום נמוכה', comparability >= 5);
+            showCloudToast(comparability >= 5
+                ? (set.adhoc ? '🧠 ההשוואה שביקשת הושלמה' : '🧠 ניתוח תמונות הושלם')
+                : '🧠 הניתוח דילג — איכות צילום נמוכה', comparability >= 5);
     } catch (e) {
         console.warn('GymPro photos: analysis failed', e);
         fail('הניתוח נכשל: ' + (e && e.message === 'ALL_MODELS_FAILED' ? 'כל המודלים נכשלו — נסה שוב מאוחר יותר' : (e && e.message) || 'שגיאה'));

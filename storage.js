@@ -8,6 +8,7 @@ const StorageManager = {
     KEY_WEIGHTS:      'gympro_weights',
     KEY_RM:           'gympro_rm',
     KEY_EXERCISE_TM:  'gympro_exercise_tm',   // TM קבוע לתרגילי מיין (מוגדר בהגדרות) — חוסך הזנת 1RM כל אימון
+    KEY_EXERCISE_TM_AT: 'gympro_exercise_tm_at',  // { exName: epoch } — מתי עודכן ה-TM לאחרונה (תזכורת שבוע 1)
     KEY_ARCHIVE:      'gympro_archive',
     KEY_DB_EXERCISES: 'gympro_db_exercises',
     KEY_DB_WORKOUTS:  'gympro_db_workouts',
@@ -177,11 +178,21 @@ const StorageManager = {
         return this.getData(this.KEY_EXERCISE_TM) || {};
     },
 
+    /* חותמת העדכון האחרון של TM לתרגיל (epoch ms). נכתבת רק בעדכון יזום של
+     * המשתמש — דרך saveExerciseTM — ולא בשחזור מענן/ייבוא, שכותבים ישירות
+     * ל-KEY_EXERCISE_TM. null = מעולם לא עודכן במכשיר הזה. */
+    getExerciseTMUpdatedAt(exName) {
+        const at = (this.getData(this.KEY_EXERCISE_TM_AT) || {})[exName];
+        return (typeof at === 'number' && at > 0) ? at : null;
+    },
+
     saveExerciseTM(exName, tmVal) {
         const data = this.getData(this.KEY_EXERCISE_TM) || {};
-        if (tmVal == null || tmVal === '') delete data[exName];
-        else data[exName] = tmVal;
+        const stamps = this.getData(this.KEY_EXERCISE_TM_AT) || {};
+        if (tmVal == null || tmVal === '') { delete data[exName]; delete stamps[exName]; }
+        else { data[exName] = tmVal; stamps[exName] = Date.now(); }
         this.saveData(this.KEY_EXERCISE_TM, data);
+        this.saveData(this.KEY_EXERCISE_TM_AT, stamps);
     },
 
     // ── Archive ──────────────────────────────────────────────────────────
@@ -971,6 +982,7 @@ const StorageManager = {
             exercises: this.getData(this.KEY_DB_EXERCISES),
             meta: this.getData(this.KEY_META),
             exerciseTM: this.getData(this.KEY_EXERCISE_TM) || {},
+            exerciseTMAt: this.getData(this.KEY_EXERCISE_TM_AT) || {},
             lastWeights: this.getData(this.KEY_WEIGHTS) || {},
             rmHistory: this.getData(this.KEY_RM) || {},
             hiddenThumbs: this.getData('gympro_hidden_thumbs') || [],
@@ -1026,6 +1038,7 @@ const StorageManager = {
             this.saveData(this.KEY_DB_EXERCISES, data.exercises);
             if (data.meta) this.saveData(this.KEY_META, data.meta);
             if (data.exerciseTM)   this.saveData(this.KEY_EXERCISE_TM, data.exerciseTM);
+            if (data.exerciseTMAt) this.saveData(this.KEY_EXERCISE_TM_AT, data.exerciseTMAt);
             if (data.lastWeights)  this.saveData(this.KEY_WEIGHTS, data.lastWeights);
             if (data.rmHistory)    this.saveData(this.KEY_RM, data.rmHistory);
             if (data.hiddenThumbs) this.saveData('gympro_hidden_thumbs', data.hiddenThumbs);
@@ -2404,6 +2417,7 @@ const FirebaseManager = {
                 // v17.12: TM/משקלים אחרונים/היסטוריית 1RM/תמונות מוסתרות — בלעדיהם שחזור
                 // מכשיר מהענן איבד בשקט את ה-TM, ה-prefill והעדפות בוחר התמונות
                 exerciseTM:     StorageManager.getData(StorageManager.KEY_EXERCISE_TM) || {},
+                exerciseTMAt:   StorageManager.getData(StorageManager.KEY_EXERCISE_TM_AT) || {},
                 lastWeights:    StorageManager.getData(StorageManager.KEY_WEIGHTS) || {},
                 rmHistory:      StorageManager.getData(StorageManager.KEY_RM) || {},
                 hiddenThumbs:   StorageManager.getData('gympro_hidden_thumbs') || [],
@@ -2548,6 +2562,7 @@ const FirebaseManager = {
         if (data.coachPrompts)   StorageManager.saveData(StorageManager.KEY_COACH_PROMPTS, data.coachPrompts);
         if (Array.isArray(data.memoryBox)) StorageManager.saveMemoryBox(data.memoryBox);
         if (data.exerciseTM)     StorageManager.saveData(StorageManager.KEY_EXERCISE_TM, data.exerciseTM);
+        if (data.exerciseTMAt)   StorageManager.saveData(StorageManager.KEY_EXERCISE_TM_AT, data.exerciseTMAt);
         if (data.lastWeights)    StorageManager.saveData(StorageManager.KEY_WEIGHTS, data.lastWeights);
         if (data.rmHistory)      StorageManager.saveData(StorageManager.KEY_RM, data.rmHistory);
         if (data.hiddenThumbs)   StorageManager.saveData('gympro_hidden_thumbs', data.hiddenThumbs);

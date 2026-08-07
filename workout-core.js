@@ -2109,6 +2109,7 @@ function selectWorkout(t) {
     state.workoutStartTime = Date.now();
     state.sessionElapsedSecs = 0;
     state.clusterMode = false;
+    _tmReviewAskedInSession = [];   // תזכורת ה-TM נשאלת פעם אחת לתרגיל בכל אימון
     startSessionTimer();
     checkFlow();
 }
@@ -2323,7 +2324,9 @@ function confirmExercise(doEx) {
         state.currentEx.isCalc = true;
         const configuredTM = StorageManager.getExerciseTM(state.currentExName);
         if (configuredTM != null) {
-            applyRMAndStart(configuredTM);   // TM מוגדר בהגדרות — דילוג על מסך הזנת 1RM
+            // שבוע 1 + TM שלא עודכן שבוע — הזדמנות להעלות אותו לפני שהסטים מחושבים
+            if (_shouldAskTMUpdate(state.currentExName)) _askTMUpdate(state.currentExName, configuredTM);
+            else applyRMAndStart(configuredTM);   // TM מוגדר בהגדרות — דילוג על מסך הזנת 1RM
         } else {
             setupCalculatedEx();
         }
@@ -2334,6 +2337,50 @@ function confirmExercise(doEx) {
     }
 }
 
+/* ─── תזכורת עדכון TM — שבוע 1 (v19.4.6) ────────────────────────────────────
+ * בשבוע הראשון של הבלוק, כשמתחילים תרגיל MAIN שה-TM שלו לא עודכן 7 ימים,
+ * נשאל אם לעדכן לפני שהסטים מחושבים — אחרת הבלוק כולו רץ על TM ישן.
+ * החותמת נכתבת רק בעדכון יזום (saveExerciseTM), לכן TM ותיק שמעולם לא נגעו
+ * בו נחשב "ראוי לבדיקה" ויישאל בפעם הראשונה.
+ * לא נשאל: שבוע 2/3/deload, תרגיל בלי TM מוגדר (שם הזרימה הידנית ממילא שואלת),
+ * ותרגיל שכבר נשאל עליו בסשן הזה — כדי לא לנדנד בחזרה לאותו תרגיל. */
+const _TM_REVIEW_DAYS = 7;
+let _tmReviewAskedInSession = [];
+
+function _tmDaysSinceUpdate(exName) {
+    const at = StorageManager.getExerciseTMUpdatedAt(exName);
+    if (!at) return null;                                    // אין חותמת — לא ידוע
+    return Math.floor((Date.now() - at) / 86400000);
+}
+
+function _shouldAskTMUpdate(exName) {
+    if (parseInt(state.week) !== 1) return false;
+    if (state.isFreestyle || state.isExtraPhase || state.isInterruption || state.clusterMode) return false;
+    if (_tmReviewAskedInSession.includes(exName)) return false;
+    if (StorageManager.getExerciseTM(exName) == null) return false;
+    const days = _tmDaysSinceUpdate(exName);
+    return days == null || days >= _TM_REVIEW_DAYS;
+}
+
+function _askTMUpdate(exName, currentTM) {
+    _tmReviewAskedInSession.push(exName);
+    const days = _tmDaysSinceUpdate(exName);
+    const since = days == null ? 'לא עודכן מאז שהוגדר' : 'לא עודכן ' + days + ' ימים';
+    showConfirm(
+        'שבוע 1 — ה-TM של ' + exName + ' הוא ' + currentTM + ' ק"ג (' + since + '). לעדכן?',
+        () => _openTMUpdate(currentTM),
+        () => applyRMAndStart(currentTM)      // "לא" — ממשיכים עם ה-TM הקיים
+    );
+}
+
+// חלון העדכון = מסך הפיקר הקיים, עם ברירת מחדל על ה-TM הנוכחי. הדגל גורם
+// ל-save1RM לכתוב את הערך גם ל-TM שבהגדרות ולא רק לסשן הנוכחי.
+function _openTMUpdate(currentTM) {
+    setupCalculatedEx(currentTM);   // הדגל נדלק בתוך setupCalculatedEx לפי ה-override
+    const title = document.getElementById('rm-title');
+    if (title) title.innerText = state.currentExName + ' — עדכון TM';
+}
+
 function resizeSets(count) {
     const defaultReps = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].r : 10;
     const defaultWeight = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].w : 10;
@@ -2341,12 +2388,16 @@ function resizeSets(count) {
     state.currentEx.sets = Array.from({ length: count }, () => ({ w: defaultWeight, r: defaultReps }));
 }
 
-function setupCalculatedEx() {
+// defaultOverride — ערך לבחור בפיקר במקום ה-1RM האחרון (מצב עדכון TM בשבוע 1)
+function setupCalculatedEx(defaultOverride) {
+    // נקבע כאן ולא ב-_openTMUpdate: כל כניסה רגילה לפיקר מכבה את המצב, כך
+    // שיציאה מהמסך באמצע לא תגרום להזנת 1RM הבאה להיכתב כ-TM קבוע
+    state.tmUpdateMode = defaultOverride != null;
     document.getElementById('rm-title').innerText = `${state.currentExName} 1RM`;
     const lastRM = StorageManager.getLastRM(state.currentExName);
     const baseRM = state.currentEx.baseRM || 50;
     const p = document.getElementById('rm-picker'); p.innerHTML = "";
-    const defaultRM = lastRM != null ? lastRM : baseRM;
+    const defaultRM = defaultOverride != null ? defaultOverride : (lastRM != null ? lastRM : baseRM);
     for (let i = 20; i <= 200; i += 2.5) {
         p.add(new Option(i + " kg", i));
     }
@@ -2444,7 +2495,18 @@ function applyRMAndStart(rmValue) {
 }
 
 function save1RM() {
-    applyRMAndStart(parseFloat(document.getElementById('rm-picker').value));
+    const val = parseFloat(document.getElementById('rm-picker').value);
+    // מצב עדכון TM (שבוע 1): הערך נשמר גם כ-TM הקבוע בהגדרות, לא רק לסשן הזה
+    if (state.tmUpdateMode) {
+        state.tmUpdateMode = false;
+        if (!isNaN(val) && val > 0) {
+            StorageManager.saveExerciseTM(state.currentExName, val);
+            if (typeof _renderMainTMSettings === 'function') _renderMainTMSettings();
+            if (typeof showCloudToast === 'function')
+                showCloudToast('TM עודכן: ' + state.currentExName + ' → ' + val + ' ק"ג', true);
+        }
+    }
+    applyRMAndStart(val);
 }
 
 function startRecording() {

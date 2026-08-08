@@ -236,7 +236,11 @@ let managerState = {
 // ─── NAVIGATION CONSTANTS ──────────────────────────────────────────────────
 // מקור אמת יחיד — משמש גם ב-navigate() וגם ב-restoreSession()
 const WORKOUT_SCREENS = ['ui-workout-type', 'ui-confirm', 'ui-main', 'ui-1rm', 'ui-cluster-rest', 'ui-variation', 'ui-swap-list', 'ui-ask-extra', 'ui-extra-cluster', 'ui-summary'];
-const NO_BACK_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive', 'ui-bodylog'];
+// ui-summary — האימון כבר נשמר לארכיון ברגע שהמסך נפתח; "חזור" ממנו החזיר
+// ל-ui-ask-extra, ולחיצה נוספת על "סיום" יצרה רשומת ארכיון כפולה.
+// ui-ask-extra — האימון הושלם וטרם נשמר; אין מסך קודם הגיוני, ו"חזור" הוביל
+// למסך ביניים של תרגיל שכבר בוצע ומשם לנטישת אימון שלם.
+const NO_BACK_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive', 'ui-bodylog', 'ui-summary', 'ui-ask-extra'];
 
 let audioContext;
 let wakeLock = null;
@@ -525,44 +529,29 @@ function restoreSession() {
         // שחזור טיימר מהזמן שנשמר — לא כולל זמן הפסקה
         if (state.workoutStartTime) startSessionTimer(state.sessionElapsedSecs || 0);
 
-        switch (lastScreen) {
-            case 'ui-main':
-                initPickers();
-                if (state.startTime && state.seconds > 0) {
-                    const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
-                    // דרופ פתוח — היעד הוא זמן החלפת המשקל, לא מנוחת התרגיל
-                    const target = state.dropMode ? DROP_REST_TARGET
-                                 : (state.currentEx && state.currentEx.restTime ? state.currentEx.restTime : 90);
-                    if (elapsed < target) {
-                        document.getElementById('timer-area').style.visibility = 'visible';
-                        resetAndStartTimer(target);
-                    } else {
-                        document.getElementById('timer-area').style.visibility = 'visible';
-                        document.getElementById('rest-timer').innerText = "00:00";
-                        document.getElementById('timer-progress').style.strokeDashoffset = 0;
-                        state.seconds = target;
-                    }
-                }
-                break;
-            case 'ui-cluster-rest': renderClusterRestUI(); break;
-            case 'ui-confirm': showConfirmScreen(state.currentExName); break;
-            case 'ui-swap-list': openSwapMenu(); break;
-            case 'ui-workout-manager': if (typeof renderManagerList === 'function') renderManagerList(); break;
-            case 'ui-workout-editor': if (typeof openEditorUI === 'function') openEditorUI(); break;
-            case 'ui-exercise-selector':
-                document.getElementById('selector-search').value = "";
-                if (typeof updateSelectorChips === 'function') updateSelectorChips();
-                if (typeof renderSelectorList === 'function') renderSelectorList();
-                break;
-            case 'ui-1rm': setupCalculatedEx(); break;
-            case 'ui-variation':
-                if (typeof updateVariationUI === 'function') updateVariationUI();
-                if (typeof renderFreestyleChips === 'function') renderFreestyleChips();
-                if (typeof renderFreestyleList === 'function') renderFreestyleList();
-                break;
-            case 'ui-exercise-db': if (typeof renderExerciseDatabase === 'function') renderExerciseDatabase(); break;
-            case 'ui-archive': if (typeof openArchive === 'function') openArchive(); break;
-            case 'ui-summary': buildSummaryUI(); break;
+        // רינדור תוכן המסך — אותו helper שמשמש את "חזור", כדי ששני המסלולים
+        // לא יתפצלו שוב (openEditorUI כאן בכוונה: שחזור טרי, לא חזרה מעריכה)
+        _refreshScreen(lastScreen);
+        if (lastScreen === 'ui-workout-editor' && typeof openEditorUI === 'function') openEditorUI();
+        if (lastScreen === 'ui-exercise-selector') {
+            const _sel = document.getElementById('selector-search');
+            if (_sel) _sel.value = "";
+        }
+
+        // שחזור טיימר המנוחה — ייחודי לשחזור סשן, לא חלק מרינדור המסך
+        if (lastScreen === 'ui-main' && state.startTime && state.seconds > 0) {
+            const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+            // דרופ פתוח — היעד הוא זמן החלפת המשקל, לא מנוחת התרגיל
+            const target = state.dropMode ? DROP_REST_TARGET
+                         : (state.currentEx && state.currentEx.restTime ? state.currentEx.restTime : 90);
+            document.getElementById('timer-area').style.visibility = 'visible';
+            if (elapsed < target) {
+                resetAndStartTimer(target);
+            } else {
+                document.getElementById('rest-timer').innerText = "00:00";
+                document.getElementById('timer-progress').style.strokeDashoffset = 0;
+                state.seconds = target;
+            }
         }
 
         // Sprint 4: הפעלת Live overlay אחרי restore (משכפל את לוגיקת navigate()).
@@ -850,6 +839,9 @@ function _setNavDirection(dir) { _navDirection = dir === 'back' ? 'back' : 'forw
 // _applyScreenChrome — מקור האמת לעדכון ה-UI Chrome (active screen, tab-bar, strip, header buttons, back).
 // קוראים לו גם navigate() וגם restoreSession() כדי שאחרי refresh תהיה התנהגות זהה.
 function _applyScreenChrome(screenId) {
+    // מזהה לא קיים (session פגום / באג קריאה) — אסור להשאיר את האפליקציה בלי מסך פעיל
+    if (!document.getElementById(screenId)) screenId = 'ui-week';
+
     document.querySelectorAll('.screen').forEach(s => {
         s.classList.remove('active', 'enter-forward', 'enter-back');
     });
@@ -859,6 +851,13 @@ function _applyScreenChrome(screenId) {
         target.classList.add(_navDirection === 'back' ? 'enter-back' : 'enter-forward');
     }
     _navDirection = 'forward';
+
+    // סנכרון ה-tab-bar למסך שורש — ניווט שלא עבר דרך switchMainTab (חזרה, enterBgEdit)
+    // השאיר את הטאב הישן מסומן בזמן שמסך אחר מוצג
+    const rootTab = UI_ROOT_TABS[screenId];
+    if (rootTab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.id === 'tabbtn-' + rootTab));
+    }
 
     const inWorkout = WORKOUT_SCREENS.includes(screenId);
     const tabBar      = document.querySelector('.tab-bar');
@@ -874,6 +873,7 @@ function _applyScreenChrome(screenId) {
 
 function navigate(id, clearStack = false) {
     haptic('light');
+    if (!document.getElementById(id)) id = 'ui-week';
     if (id !== 'ui-main') stopRestTimer();
 
     _applyScreenChrome(id);
@@ -881,7 +881,12 @@ function navigate(id, clearStack = false) {
     if (clearStack) {
         state.historyStack = [id];
     } else {
-        if (state.historyStack[state.historyStack.length - 1] !== id) state.historyStack.push(id);
+        // Single-instance: מסך שכבר נמצא בערימה אינו נדחף שוב אלא "חוזרים" אליו (קיצוץ).
+        // בלי זה נוצרו כפילויות (ui-archive⇄detail, ui-variation בפריסטייל, ui-1rm שנשאר
+        // מתרגיל שהסתיים) והערימה גדלה בלי גבול — ואז "חזור" נחת על מסכים מתים.
+        const idx = state.historyStack.lastIndexOf(id);
+        if (idx === -1) state.historyStack.push(id);
+        else state.historyStack.length = idx + 1;
     }
 
     updatePlanFloatBtn(id);
@@ -904,109 +909,182 @@ function navigate(id, clearStack = false) {
     saveUIState();   // מיקום נוכחי — לשחזור אחרי רענון לא-רצוני
 }
 
+// _activeScreenId — המסך שהמשתמש באמת רואה. מקור אמת חזק יותר מראש הערימה,
+// כי כל drift בין השניים גרם ל-handleBackClick להריץ ענף של מסך אחר.
+function _activeScreenId() {
+    const el = document.querySelector('.screen.active');
+    return el ? el.id : null;
+}
+
+// ריפוי-עצמי של הערימה: מיישר את ראש הערימה למסך הפעיל בפועל לפני כל פעולת "חזור".
+function _syncStackToActiveScreen() {
+    const active = _activeScreenId();
+    if (!active || !Array.isArray(state.historyStack)) return;
+    const stack = state.historyStack;
+    if (stack[stack.length - 1] === active) return;
+    const idx = stack.lastIndexOf(active);
+    if (idx !== -1) stack.length = idx + 1;
+    else stack.push(active);
+}
+
+// _workoutHasData — האם יש באימון הנוכחי משהו שאובד ביציאה
+function _workoutHasData() {
+    return (state.log || []).some(l => !l.skip) || (state.completedExInSession || []).length > 0;
+}
+
+// _abandonWorkout — נטישת אימון פעיל מבלי לשמור לארכיון.
+// חובה לאפס גם את דגלי ה-state ולא רק את האחסון: בלי זה `state.workoutStartTime`
+// נשאר דולק, ‏`_persistOnTeardown` כותב מחדש את ה-session שזה עתה נמחק, וההפעלה
+// הבאה מציעה לשחזר אימון שהמשתמש נטש במפורש.
+function _abandonWorkout() {
+    try { if (typeof WatchBridge !== 'undefined') WatchBridge.finishSession(); } catch (e) {}
+    StorageManager.clearSessionState();
+    stopSessionTimer();
+    stopRestTimer();
+
+    state.log = [];
+    state.completedExInSession = [];
+    state.isFreestyle = false;
+    state.isExtraPhase = false;
+    state.isInterruption = false;
+    state.clusterMode = false;
+    state.activeCluster = null;
+    state.clusterIdx = 0;
+    state.clusterRound = 1;
+    state.setIdx = 0;
+    state.lastLoggedSet = null;
+    state.workoutStartTime = null;
+    state.sessionElapsedSecs = 0;
+    state.liveSessionId = null;
+    state.archivedTimestamp = null;
+    if (typeof _resetDropState === 'function') _resetDropState();
+
+    const main = document.getElementById('ui-main');
+    if (main) main.classList.remove('cluster');
+    document.body.classList.remove('drop-mode-active');
+    if (document.body.classList.contains('live-mode-active') && typeof exitWorkoutLiveMode === 'function') {
+        exitWorkoutLiveMode(true);
+    }
+    _liveModeSuppressed = false;
+}
+
+// _undoLastSetOfCurrentEx — מסיר מהלוג את הסט האחרון של התרגיל הפעיל, כולל
+// הדרופים שמשורשרים אליו (הם נרשמים כרשומות נפרדות אחרי סט האב).
+function _undoLastSetOfCurrentEx() {
+    while (state.log.length) {
+        const last = state.log[state.log.length - 1];
+        if (!last || last.skip || last.exName !== state.currentExName) break;
+        state.log.pop();
+        if (!last.drop) break;   // הגענו לסט האב — מפסיקים
+    }
+    const remaining = state.log.filter(l => !l.skip && !l.drop && l.exName === state.currentExName);
+    state.lastLoggedSet = remaining.length ? remaining[remaining.length - 1] : null;
+    return remaining.length;
+}
+
 function handleBackClick() {
     haptic('warning');
-    if (state.historyStack.length <= 1) return;
+    _syncStackToActiveScreen();
 
-    const currentScreen = state.historyStack[state.historyStack.length - 1];
+    const currentScreen = state.historyStack[state.historyStack.length - 1] || _activeScreenId();
+
+    // מבוי סתום: מסך פנימי בלי היסטוריה (session פגום / ערימה שנוקתה) — לעולם לא
+    // להשאיר את המשתמש בלי דרך חזרה
+    if (state.historyStack.length <= 1) {
+        if (!UI_ROOT_TABS[currentScreen]) {
+            _setNavDirection('back');
+            if (typeof switchMainTab === 'function') switchMainTab('workout');
+            else navigate('ui-week', true);
+        }
+        return;
+    }
 
     if (currentScreen === 'ui-main') {
-        if ((state.isFreestyle || state.isExtraPhase || state.isInterruption) && state.setIdx === 0 && state.log.length === 0) {
-            // pass
-        } else if (state.setIdx > 0) {
-            const ap = document.getElementById('action-panel');
-            const lastSetLogged = ap && ap.style.display === 'block';
-            showConfirm("חזרה אחורה תמחק את הסט הנוכחי. להמשיך?", () => {
-                if (lastSetLogged) {
-                    // הסט האחרון כבר נרשם — מחק אותו מה-log
-                    const lastEntry = state.log[state.log.length - 1];
-                    if (lastEntry && lastEntry.exName === state.currentExName && !lastEntry.skip) {
-                        state.log.pop();
-                    }
-                    ap.style.display = 'none';
-                    ap.classList.remove('is-visible');
-                    document.getElementById('btn-submit-set').style.display = 'block';
-                    document.getElementById('btn-skip-exercise').style.display = 'block';
-                }
-                state.setIdx--;
+        // כלל אחיד: "חזור" במסך התרגיל מסיר את הסט האחרון שנרשם בתרגיל הפעיל;
+        // כשאין מה להסיר — יוצאים מהמסך. התנאי הישן היה setIdx>0 בלבד, ולכן
+        // סט עם דרופ פתוח (שבו setIdx נשאר 0) לא נוקה ביציאה
+        const hasLoggedForCurrent = (state.log || []).some(l => !l.skip && l.exName === state.currentExName);
+        if (hasLoggedForCurrent) {
+            showConfirm("חזרה אחורה תמחק את הסט האחרון שנרשם. להמשיך?", () => {
+                const logged = _undoLastSetOfCurrentEx();
+                // setIdx נגזר מהלוג (כמו ב-startRecording) ולא מ-decrement עיוור —
+                // decrement בלי מחיקה מהלוג יצר סטים כפולים בארכיון
+                const maxIdx = Math.max(0, ((state.currentEx && state.currentEx.sets) ? state.currentEx.sets.length : 1) - 1);
+                state.setIdx = Math.min(logged, maxIdx);
+
+                const ap = document.getElementById('action-panel');
+                if (ap) { ap.style.display = 'none'; ap.classList.remove('is-visible'); }
+                const dp = document.getElementById('drop-panel');
+                if (dp) dp.style.display = 'none';
+                document.body.classList.remove('drop-mode-active');
+                if (typeof _resetDropState === 'function') _resetDropState();
+                const submitBtn = document.getElementById('btn-submit-set');
+                if (submitBtn) submitBtn.style.display = 'block';
+                const skipBtn = document.getElementById('btn-skip-exercise');
+                if (skipBtn) skipBtn.style.display = 'block';
+
                 initPickers();
+                if (typeof _syncDropUI === 'function') _syncDropUI();
+                if (typeof updateLiveViewContent === 'function') updateLiveViewContent();
                 StorageManager.saveSessionState();
             });
             return;
         } else {
             stopRestTimer();
-            state.historyStack.pop();
-            _setNavDirection('back');
-            navigate('ui-confirm');
+            _doBack(currentScreen);   // חזרה למסך שממנו הגענו (confirm / variation / 1rm)
             return;
         }
     }
 
     if (currentScreen === 'ui-variation') {
-        if ((state.isFreestyle || state.isInterruption || state.isExtraPhase) && state.log.length > 0) {
+        // "הוסף תרגיל" באמצע אימון — ביטול חוזר למסלול, לא נוטש את האימון
+        if (state.isInterruption) {
+            state.isInterruption = false;
+            _doBack(currentScreen);
+            return;
+        }
+        // שלב התרגילים הנוספים — האימון עדיין לא נשמר; חזרה ל"להוסיף תרגילים?"
+        // ולא נטישה של כל האימון
+        if (state.isExtraPhase) {
+            state.isExtraPhase = false;
+            _doBack(currentScreen);
+            return;
+        }
+        if (state.isFreestyle && _workoutHasData()) {
             showConfirm("האם לצאת מהאימון? (הנתונים שלא נשמרו בארכיון יאבדו)", () => {
-                StorageManager.clearSessionState();
-                stopSessionTimer();
-                state.isInterruption = false;
-                state.isExtraPhase = false;
+                _abandonWorkout();
                 _doBack(currentScreen);
             });
             return;
         }
-        state.isInterruption = false;
-        state.isExtraPhase = false;
+        _abandonWorkout();
+        _doBack(currentScreen);
+        return;
     }
 
     if (currentScreen === 'ui-confirm') {
-        const isSpecialMode = state.isFreestyle || state.isExtraPhase || state.isInterruption;
-        if (isSpecialMode && (state.log.length > 0 || state.completedExInSession.length > 0)) {
-            showConfirm("האם לצאת מהאימון?", () => {
-                StorageManager.clearSessionState();
-                stopSessionTimer();
+        // "חזור" ממסך הביניים = יציאה מהאימון, לא מחיקת הסט האחרון.
+        // הגרסה הקודמת מחקה כאן סט מהלוג וניווטה חזרה ל-ui-main/ui-confirm — מה
+        // שיצר לולאת ping-pong בין המסכים (ובמצב Live גם פתח מחדש את ה-overlay),
+        // בלי אישור ותוך אובדן נתונים שקט. עריכה/מחיקה של סט קיימת ביומן הסשן.
+        // שלב התרגילים הנוספים: האימון המלא עדיין לא נשמר לארכיון — חזרה מכאן
+        // חייבת להחזיר למסך הקודם ולא לנטוש אימון שלם
+        if (state.isExtraPhase) {
+            state.clusterMode = false;
+            state.activeCluster = null;
+            _doBack(currentScreen);
+            return;
+        }
+        if (_workoutHasData()) {
+            showConfirm("לצאת מהאימון? הסטים שנרשמו ולא נשמרו בארכיון יאבדו.", () => {
+                _abandonWorkout();
                 _doBack(currentScreen);
             });
             return;
         }
-        if (!isSpecialMode && state.log.length > 0) {
-            const lastEntry = state.log[state.log.length - 1];
-            if (lastEntry.isCluster) {
-                // ביטול cluster מסובך — יציאה רגילה
-                showConfirm("האם לצאת מהאימון?", () => {
-                    StorageManager.clearSessionState();
-                    stopSessionTimer();
-                    _doBack(currentScreen);
-                });
-                return;
-            }
-            // ביטול הסט האחרון
-            state.log.pop();
-            const prevExName = lastEntry.exName;
-            const exData = state.exercises.find(e => e.name === prevExName);
-            if (exData) {
-                state.currentEx = deepClone(exData);
-                state.currentExName = prevExName;
-                const workoutList = state.workouts[state.type] || [];
-                const prevExIdx = workoutList.findIndex(item => item.type !== 'cluster' && item.name === prevExName);
-                if (prevExIdx !== -1) state.exIdx = prevExIdx;
-                state.completedExInSession = state.completedExInSession.filter(n => n !== prevExName);
-                const remaining = state.log.filter(l => !l.skip && l.exName === prevExName);
-                state.setIdx = remaining.length;
-                state.lastLoggedSet = remaining.length > 0 ? remaining[remaining.length - 1] : null;
-                StorageManager.saveSessionState();
-                if (exData.isCalc) {
-                    _setNavDirection('back');
-                    showConfirmScreen();
-                } else {
-                    const ap = document.getElementById('action-panel');
-                    if (ap) { ap.style.display = 'none'; ap.classList.remove('is-visible'); }
-                    document.getElementById('btn-submit-set').style.display = 'block';
-                    _setNavDirection('back');
-                    navigate('ui-main');
-                    initPickers();
-                }
-            }
-            return;
-        }
+        _abandonWorkout();
+        _doBack(currentScreen);
+        return;
     }
 
     if (currentScreen === 'ui-cluster-rest') {
@@ -1024,8 +1102,7 @@ function handleBackClick() {
     if (currentScreen === 'ui-workout-type') {
         if (StorageManager.hasActiveSession()) {
             showConfirm("האם לצאת מהאימון? הנתונים לא יישמרו.", () => {
-                StorageManager.clearSessionState();
-                stopSessionTimer();
+                _abandonWorkout();
                 window.location.reload();
             });
         } else {
@@ -1037,33 +1114,65 @@ function handleBackClick() {
 
     if (currentScreen === 'ui-workout-editor') {
         showConfirm("לצאת ללא שמירה?", () => {
-            state.historyStack.pop();
-            _setNavDirection('back');
-            navigate('ui-workout-manager');
+            _doBack(currentScreen);   // חוזר למנהל התוכניות ומרנדר אותו מחדש
         });
         return;
     }
 
     if (currentScreen === 'ui-exercise-selector') {
-        document.getElementById('selector-search').value = "";
+        const search = document.getElementById('selector-search');
+        if (search) search.value = "";
     }
 
     _doBack(currentScreen);
 }
 
 function _doBack(currentScreen) {
-    state.historyStack.pop();
-    const prevScreen = state.historyStack[state.historyStack.length - 1];
-
-    if (prevScreen === 'ui-variation') {
-        if (typeof updateVariationUI === 'function') updateVariationUI();
-        if (typeof renderFreestyleChips === 'function') renderFreestyleChips();
-        if (typeof renderFreestyleList === 'function') renderFreestyleList();
-    }
+    if (state.historyStack.length > 1) state.historyStack.pop();
+    const prevScreen = state.historyStack[state.historyStack.length - 1] || 'ui-week';
 
     // navigate() הוא מקור האמת — מסנכרן tab-bar, session-strip, settings-btn, back-btn
     _setNavDirection('back');
     navigate(prevScreen);
+    _refreshScreen(prevScreen);
+}
+
+// _refreshScreen — מרנדר מחדש את תוכן המסך שחוזרים אליו.
+// בלי זה "חזור" הציג מסך עם תוכן ישן מהרינדור הקודם (מסך ביניים של תרגיל אחר,
+// רשימת סבב אחרי שהסבב בוטל, מנהל תוכניות לפני עריכה…). מקביל ל-switch של
+// restoreSession — שם זה כבר היה נכון, כאן זה נעדר.
+function _refreshScreen(id) {
+    const call = (fnName, ...args) => {
+        const fn = window[fnName];
+        if (typeof fn === 'function') { try { fn(...args); } catch (e) { console.warn('GymPro: refresh failed', fnName, e); } }
+    };
+    // רנדררים שמנווטים בעצמם לאותו מסך — לשמור על אנימציית "אחורה"
+    _setNavDirection('back');
+    switch (id) {
+        case 'ui-main':              call('initPickers'); break;
+        case 'ui-confirm':           call('showConfirmScreen', state.currentExName); break;
+        case 'ui-1rm':               call('setupCalculatedEx'); break;
+        case 'ui-cluster-rest':      call('renderClusterRestUI'); break;
+        case 'ui-swap-list':         call('_renderSwapMenu', ''); break;
+        case 'ui-variation':
+            call('updateVariationUI'); call('renderFreestyleChips'); call('renderFreestyleList');
+            break;
+        case 'ui-extra-cluster':     call('renderExtraClusterList'); break;
+        case 'ui-workout-type':      call('renderWorkoutMenu'); break;
+        case 'ui-workout-manager':   call('renderManagerList'); break;
+        // renderEditorList בלבד — openEditorUI היה דורס את שם/צבע התוכנית שהמשתמש
+        // כבר הקליד ועדיין לא שמר
+        case 'ui-workout-editor':    call('renderEditorList'); break;
+        case 'ui-exercise-selector': call('updateSelectorChips'); call('renderSelectorList'); break;
+        case 'ui-exercise-db':       call('renderExerciseDatabase'); break;
+        case 'ui-archive':           call('openArchive'); break;
+        case 'ui-analytics':         call('renderAnalyticsDashboard'); break;
+        case 'ui-bodylog':           call('renderBodyLog'); break;
+        case 'ui-week':              call('renderHomeTodayCards'); call('renderHeroCard'); break;
+        case 'ui-settings':          call('refreshAllBridgeStatus'); break;
+        case 'ui-summary':           call('buildSummaryUI'); break;
+    }
+    _navDirection = 'forward';
 }
 
 // ─── Sprint 2: Skeleton Loaders ──────────────────────────────────────────
@@ -1102,16 +1211,17 @@ function _initSwipeBackGesture() {
         if (!fromEdge) return;
         // אל תפעיל כש-bottom-sheet פתוח, מודאל פתוח, או על אלמנט אינטראקטיבי רגיש
         if (document.querySelector('.bottom-sheet.open')) return;
-        // בדוק כל .modal-overlay שגלוי (display !== 'none' && !== '')
-        const openModal = Array.from(document.querySelectorAll('.modal-overlay')).some(m => {
+        // כל overlay גלוי (display !== 'none' && !== ''). ‏.slog-overlay (יומן הסשן)
+        // אינו .modal-overlay ולכן נשמט מהבדיקה — סוואייפ מעליו הפעיל back מאחוריו
+        const openModal = Array.from(document.querySelectorAll('.modal-overlay, .slog-overlay, .bottom-sheet-overlay')).some(m => {
             const d = m.style.display; return d && d !== 'none';
         });
         if (openModal) return;
         if (e.target.closest('input, textarea, select, .ios-picker, [data-no-swipe-back]')) return;
-        // אל תפעיל במסכים שאין להם back
-        const curScreen = state && state.historyStack && state.historyStack[state.historyStack.length - 1];
+        // אל תפעיל במסכים שאין להם back — לפי המסך הפעיל בפועל, לא לפי ראש הערימה
+        const curScreen = _activeScreenId();
         if (!curScreen || (typeof NO_BACK_SCREENS !== 'undefined' && NO_BACK_SCREENS.includes(curScreen))) return;
-        if (state.historyStack.length <= 1) return;
+        if (!state || !Array.isArray(state.historyStack) || state.historyStack.length <= 1) return;
         startX = t.clientX;
         startY = t.clientY;
         active = true;
@@ -2117,7 +2227,7 @@ function selectWorkout(t) {
 // ─── FLOW CONTROL (while-loop, no recursion) ───────────────────────────────
 
 function checkFlow() {
-    const workoutList = state.workouts[state.type];
+    const workoutList = state.workouts[state.type] || [];
 
     // כל שמות התרגילים המתוכננים באימון (כולל תרגילי קלאסטר) —
     // כדי שהשלמת תרגיל מתוכנן לא תדלג על וריאציה שלו שמתוכננת גם היא
@@ -2207,10 +2317,12 @@ function showConfirmScreen(forceExName = null) {
 
     if (!exName) {
         if (state.clusterMode) {
-            currentPlanItem = state.activeCluster.exercises[state.clusterIdx];
+            currentPlanItem = state.activeCluster && state.activeCluster.exercises[state.clusterIdx];
         } else {
-            currentPlanItem = state.workouts[state.type][state.exIdx];
+            currentPlanItem = (state.workouts[state.type] || [])[state.exIdx];
         }
+        // exIdx מחוץ לטווח (חזרה ממסך "להוסיף תרגילים?") — לא לקרוס על .name
+        if (!currentPlanItem) { checkFlow(); return; }
         exName = currentPlanItem.name;
     }
 
@@ -3704,7 +3816,12 @@ function _syncDropUI() {
 function getNextExerciseName() {
     if (state.isInterruption) return "חזרה למסלול";
     if (state.isExtraPhase) return "תרגיל נוסף";
-    if (state.exIdx < state.workouts[state.type].length - 1) return state.workouts[state.type][state.exIdx + 1].name;
+    // Freestyle: state.type = 'Freestyle' ואין לו תוכנית ב-state.workouts —
+    // הגישה הישירה זרקה TypeError בסיום כל סט אחרון, ולכן זנב _advanceAfterSet
+    // (עצירת הטיימר, _syncDropUI, updateLiveViewContent) לא רץ ומסך ה-Live "נתקע"
+    if (state.isFreestyle) return "בחירת תרגיל";
+    const list = state.workouts[state.type] || [];
+    if (state.exIdx < list.length - 1) return list[state.exIdx + 1].name;
     return "סיום אימון";
 }
 
@@ -3713,7 +3830,9 @@ function finishCurrentExercise() {
     const dropPanel = document.getElementById('drop-panel');
     if (dropPanel) dropPanel.style.display = 'none';
     document.body.classList.remove('drop-mode-active');
-    state.historyStack = state.historyStack.filter(s => s !== 'ui-main');
+    // מסכי התרגיל שהסתיים כבר לא רלוונטיים ל"חזור" — כולל מסך ה-1RM שלו,
+    // שאחרת נשאר בערימה ו"חזור" נחת עליו כמה תרגילים אחר כך
+    state.historyStack = state.historyStack.filter(s => s !== 'ui-main' && s !== 'ui-1rm');
 
     if (state.clusterMode) {
         handleClusterFlow();
@@ -4250,8 +4369,10 @@ function finish() {
     // upsert לפי state.archivedTimestamp; כאן מתחיל אימון חדש אז מאפסים.
     _coachSummaryText = null;
     _coachSummaryPromise = null;
-    // R5: timestamp הארכיון = sessionId של הגשר (upsert יחיד, אנטי-collision) אם קיים
-    state.archivedTimestamp = state.liveSessionId || null;
+    // R5: timestamp הארכיון = sessionId של הגשר (upsert יחיד, אנטי-collision) אם קיים.
+    // אסור לאפס timestamp קיים — finish() שנקרא פעמיים על אותו אימון היה יוצר
+    // רשומת ארכיון שנייה במקום upsert לרשומה הקיימת
+    state.archivedTimestamp = state.liveSessionId || state.archivedTimestamp || null;
     _saveToArchive('');
     if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
         FirebaseManager.saveArchiveToCloud()

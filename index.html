@@ -2844,7 +2844,10 @@
             draft = Object.assign({}, choices);
             document.getElementById('bg-lab').style.display = '';
             document.getElementById('bg-save').style.display = '';
-            if (typeof navigate === 'function') navigate('ui-analytics');
+            // switchMainTab ולא navigate: מרנדר את המסך ומסמן את הטאב הנכון —
+            // navigate לבדו הציג מסך אנליטיקה ריק/ישן עם טאב "אימון" מסומן
+            if (typeof switchMainTab === 'function') switchMainTab('analytics');
+            else if (typeof navigate === 'function') navigate('ui-analytics', true);
             document.getElementById('bg-lab').textContent = 'בחר רקע';
         };
 

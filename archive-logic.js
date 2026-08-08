@@ -682,6 +682,7 @@ function exitArchiveEditMode() {
     _archiveEditItem = null;
     _archiveEditTimestamp = null;
     navigate('ui-archive');
+    openArchive();
 }
 
 function _renderArchiveEditView() {
@@ -1186,6 +1187,7 @@ function saveArchiveEdit() {
     document.getElementById('archive-detail-note-editor').style.display = 'none';
 
     navigate('ui-archive');
+    openArchive();   // בלי רינדור מחדש הרשימה הציגה את הסיכום שלפני העריכה
 }
 
 // ─── CALENDAR ─────────────────────────────────────────────────────────────

@@ -65,26 +65,37 @@ function switchArchiveView(view) {
     state.archiveView = view;
     document.getElementById('calendar-view').style.display = (view === 'calendar') ? 'block' : 'none';
     document.getElementById('list-view-container').style.display = (view === 'list') ? 'block' : 'none';
-    const calBtn = document.getElementById('btn-view-calendar');
-    if (calBtn) calBtn.classList.toggle('active', view === 'calendar');
+    _syncArchiveSegActive();
 
     if (view === 'list') _applyArchiveSubTab();
     else renderCalendar();
 }
 
-// ─── תתי-מסכים בארכיון: אימונים / שקילות / תזונה ─────────────────────────────
+// _syncArchiveSegActive — הלשונית הדולקת בסטריפ. לוח השנה הוא לשונית רביעית
+// אבל אינו נשמר ב-archiveSubTab: כך "חזור מלוח שנה" נוחת על תת-המסך האחרון
+// שהיית בו בלי לזכור אותו בנפרד. כל מסלולי הכניסה עוברים דרך switchArchiveView,
+// ולכן זו נקודת הסנכרון היחידה.
+function _syncArchiveSegActive() {
+    const active = state.archiveView === 'calendar' ? 'calendar' : (state.archiveSubTab || 'workouts');
+    document.querySelectorAll('#archive-seg .seg-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.sub === active));
+}
+
+// ─── תתי-מסכים בארכיון: אימונים / שקילות / תזונה / לוח שנה ───────────────────
 function setArchiveTab(sub) {
-    state.archiveSubTab = sub;
     _exitArchiveSelectMode();   // יציאה ממצב-בחירה במעבר בין תתי-מסכים
-    // בחירת תת-מסך תמיד מציגה רשימה — לוח השנה הוא תצוגה גלובלית נפרדת
-    switchArchiveView('list');
+    if (sub === 'calendar') {
+        switchArchiveView('calendar');   // archiveSubTab נשאר כפי שהיה — זו נקודת החזרה
+    } else {
+        state.archiveSubTab = sub;
+        switchArchiveView('list');
+    }
     haptic('light');
 }
 
 function _applyArchiveSubTab() {
     const sub = state.archiveSubTab || 'workouts';
-    document.querySelectorAll('#archive-seg .seg-btn').forEach(b =>
-        b.classList.toggle('active', b.dataset.sub === sub));
+    _syncArchiveSegActive();
     const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
     show('archive-sub-workouts', sub === 'workouts');
     show('archive-sub-weight', sub === 'weight');

@@ -1435,6 +1435,17 @@ body::before {
 }
 .ex-section-label:first-child { margin-top: 0; }
 
+/* הערת היקף בהחלפת תרגיל בתוך סבב — מבהירה שהשינוי זמני לאימון הנוכחי */
+.swap-cluster-note {
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    color: var(--text-dim);
+    background: var(--surface-2);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+    margin: 0 0 0.4rem;
+}
+
 /* ── Freestyle Finish Float ── */
 .freestyle-finish-float {
     position: fixed;
@@ -4703,12 +4714,17 @@ body::before {
     font-size: var(--fs-xs); font-weight: 700; color: rgba(170,170,255,0.5);
     letter-spacing: 0.04em;
 }
+/* שלושת כפתורי השורה (חצי סדר + מחיקה) — gap אפס ביניהם כדי לא לגזול
+   רוחב משם התרגיל, שהוא flex:1 */
+.km-cluster-ex-actions { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
 .km-icon-btn-sm {
     background: none; border: none; cursor: pointer;
     color: rgba(170,170,255,0.3); padding: 2px; display: flex; align-items: center;
     transition: color var(--dur-1) var(--ease); flex-shrink: 0;
 }
-.km-icon-btn-sm:active { color: var(--danger); }
+.km-icon-btn-sm:active { color: #c8c8ff; }
+.km-icon-btn-sm[disabled] { opacity: 0.25; pointer-events: none; }
+.km-icon-btn-sm--del:active { color: var(--danger); }
 
 /* Cluster rounds/rest controls */
 .km-cluster-controls {

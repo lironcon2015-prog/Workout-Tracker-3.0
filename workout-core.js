@@ -2777,6 +2777,9 @@ function cycleWeightMode() {
 // ─── INIT PICKERS ──────────────────────────────────────────────────────────
 
 function initPickers() {
+    // חזרה ממסך החלפת תרגיל בסבב — המשך מנוחה שנעצרה במעבר המסך.
+    // חייב לרוץ לפני חישוב נראות אזור הטיימר שלמטה (שנשען על state.timerInterval).
+    if (_clusterSwapRestSnap) _restoreClusterSwapRest();
     document.getElementById('ex-display-name').innerText = state.currentExName.replace(/\s*\(Main\)/i, '');
     const exHeader = document.querySelector('.exercise-header');
     const existingQueue = document.querySelector('.cluster-queue-container');
@@ -3930,7 +3933,16 @@ function startNextRound() {
     startRecording();
 }
 
-function addExtraRound() { state.activeCluster.rounds++; renderClusterRestUI(); StorageManager.saveSessionState(); }
+// addExtraRound — הוספת סבב אחרי שכל הסבבים הושלמו. בסיום הסבב האחרון
+// handleClusterFlow עצר את הטיימר (ו-renderClusterRestUI החליף את התצוגה ב-✓),
+// ולכן חובה להפעיל מחדש — אחרת נכנסים לסבב הנוסף בלי מנוחה נספרת.
+// resetAndStartTimer מאפס גם את התצוגה ל-00:00 ואת הטבעת, ומנקה את ה-✓.
+function addExtraRound() {
+    state.activeCluster.rounds++;
+    resetAndStartTimer(state.activeCluster.clusterRest);
+    renderClusterRestUI();
+    StorageManager.saveSessionState();
+}
 
 function finishCluster() {
     state.clusterMode = false; state.activeCluster = null;
@@ -4246,9 +4258,26 @@ function _renderSwapMenu(searchVal) {
     /** חיפוש תרגיל מ-state לפי שם — לקבלת muscles */
     const findEx = (name) => state.exercises.find(e => e.name === name);
 
+    // ── מצב סבב פעיל ──
+    // ההחלפה חלה על state.activeCluster, שהוא clone של פריט התוכנית — כלומר על
+    // שאר הסבבים באימון הנוכחי בלבד, בלי לגעת בתוכנית השמורה.
+    const inCluster = !!(state.clusterMode && state.activeCluster);
+    // תרגילים שכבר נמצאים בסבב — אין טעם להציע אותם כמחליפים (הם ירוצו ממילא)
+    const clusterNames = inCluster
+        ? (state.activeCluster.exercises || []).map(e => e.name).filter(n => n !== state.currentExName)
+        : [];
+    const isTaken = (name) => state.completedExInSession.includes(name) || clusterNames.includes(name);
+
+    if (inCluster) {
+        const note = document.createElement('p');
+        note.className = "swap-cluster-note";
+        note.innerText = 'ההחלפה תחול על שאר הסבבים באימון הזה. התוכנית השמורה לא משתנה.';
+        container.appendChild(note);
+    }
+
     // ── מומלצים: וריאציות מהקבוצות הקיימות ──
     const variations = getSubstitutes(state.currentExName)
-        .filter(name => !state.completedExInSession.includes(name))
+        .filter(name => !isTaken(name))
         .sort((a, b) => a.localeCompare(b));
     if (variations.length > 0) {
         const titleVar = document.createElement('div');
@@ -4261,6 +4290,7 @@ function _renderSwapMenu(searchVal) {
             card.className = "ex-card";
             card.innerHTML = buildExCardInner(vName, exData ? exData.muscles : []);
             card.onclick = () => {
+                if (inCluster) { _applyClusterSwap(vName); return; }
                 state.currentExName = vName;
                 state.historyStack.pop();
                 showConfirmScreen(vName);
@@ -4269,8 +4299,31 @@ function _renderSwapMenu(searchVal) {
         });
     }
 
+    // ── סידור מחדש בתוך הסבב (רק תרגילים שטרם בוצעו בסבב הנוכחי) ──
+    if (inCluster) {
+        const exs = state.activeCluster.exercises || [];
+        const later = exs.map((ex, i) => ({ ex, i })).filter(({ i }) => i > state.clusterIdx);
+        if (later.length > 0) {
+            const titleOrder = document.createElement('div');
+            titleOrder.className = "ex-section-label";
+            titleOrder.innerText = "החלף סדר בתוך הסבב";
+            container.appendChild(titleOrder);
+            later.forEach(({ ex, i }) => {
+                const exData = findEx(ex.name);
+                const card = document.createElement('div');
+                card.className = "ex-card";
+                card.innerHTML = buildExCardInner(ex.name, exData ? exData.muscles : []);
+                card.onclick = () => _reorderClusterCurrent(i);
+                container.appendChild(card);
+            });
+        }
+    }
+
     // ── החלפת סדר ──
-    if (workoutList) {
+    // בסבב פעיל exIdx מצביע על בלוק הקלאסטר כולו, ולכן החלפה ברמת הבלוקים
+    // הייתה מחליפה את הסבב הרץ עם בלוק אחר ומשבשת את הזרימה. שם הסידור
+    // מחדש מתבצע פנימית — ראה _renderClusterSwapMenu.
+    if (workoutList && !state.clusterMode) {
         const remaining = workoutList.map((item, idx) => ({ item, idx })).filter(({ idx }) => idx > state.exIdx);
         if (remaining.length > 0) {
             const titleOrder = document.createElement('div');
@@ -4302,7 +4355,7 @@ function _renderSwapMenu(searchVal) {
 
     const sv = (searchVal || '').toLowerCase();
     const allFiltered = state.exercises
-        .filter(ex => ex.name !== state.currentExName && !state.completedExInSession.includes(ex.name))
+        .filter(ex => ex.name !== state.currentExName && !isTaken(ex.name))
         .filter(ex => !sv || ex.name.toLowerCase().includes(sv))
         .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -4311,6 +4364,7 @@ function _renderSwapMenu(searchVal) {
         card.className = "ex-card";
         card.innerHTML = buildExCardInner(ex.name, ex.muscles);
         card.onclick = () => {
+            if (inCluster) { _applyClusterSwap(ex.name); return; }
             state.currentExName = ex.name;
             state.currentEx = deepClone(ex);
             if (!state.currentEx.sets || state.currentEx.sets.length === 0) {
@@ -4328,6 +4382,118 @@ function _renderSwapMenu(searchVal) {
         p.innerText = "לא נמצאו תרגילים";
         container.appendChild(p);
     }
+}
+
+/* ─── CLUSTER SWAP — החלפת תרגיל בתוך סבב פעיל (v19.5) ──────────────────────
+ * בסבב אין מסך אישור לכל תרגיל (המעבר קורה בתוך nextStep), ולכן כפתור ההחלפה
+ * של ui-confirm לא נגיש שם. הכניסה כאן היא מתפריט שלוש-הנקודות.
+ * ההחלפה חלה על state.activeCluster — clone של פריט התוכנית (ראה checkFlow) —
+ * כלומר על שאר הסבבים באימון הנוכחי, ולעולם לא על התוכנית השמורה.
+ * סטים שכבר נרשמו שומרים את שם התרגיל המקורי: זה תיאור נאמן של מה שבוצע. */
+
+// navigate() עוצר את טיימר המנוחה בכל מעבר שאינו ui-main. פתיחת מסך ההחלפה
+// אינה אמורה לאפס מנוחה שרצה — לכן שומרים את נקודת ההתחלה וממשיכים ממנה.
+let _clusterSwapRestSnap = null;
+
+function _syncClusterSwapMenuItem() {
+    const item = document.getElementById('wq-cluster-swap-item');
+    if (!item) return;
+    // רק ב-ui-main: ב-ui-cluster-rest אין "תרגיל נוכחי" ו-clusterIdx כבר לא רלוונטי
+    const show = !!(state.clusterMode && state.activeCluster && _activeScreenId() === 'ui-main');
+    item.style.display = show ? 'flex' : 'none';
+}
+
+function openClusterSwapMenu() {
+    if (!state.clusterMode || !state.activeCluster) return;
+    _clusterSwapRestSnap = state.timerInterval
+        ? { startTime: state.startTime, target: state.lastClusterRest || 30 }
+        : null;
+    _renderSwapMenu('');
+    const search = document.getElementById('swap-search');
+    if (search) search.value = '';
+    navigate('ui-swap-list');
+    StorageManager.saveSessionState();
+}
+
+// _restoreClusterSwapRest — נקרא מ-initPickers, שהוא הנקודה המשותפת לשני מסלולי
+// היציאה ממסך ההחלפה (בחירת תרגיל וגם "ביטול" דרך _doBack).
+function _restoreClusterSwapRest() {
+    const snap = _clusterSwapRestSnap;
+    _clusterSwapRestSnap = null;
+    if (!snap || !state.clusterMode) return;
+    resetAndStartTimer(snap.target);
+    state.startTime = snap.startTime;   // המשך מאותה נקודה במקום איפוס
+}
+
+// _rebindClusterCurrentEx — בונה מחדש את התרגיל הפעיל מפריט הסבב שבאינדקס הנוכחי.
+// מקביל ללוגיקת המעבר ב-nextStep, ומכבה isCalc במפורש: בסבב confirmExercise
+// מכבה אותו, וכאן עוקפים אותו — תרגיל MAIN שנשלף מהמאגר היה נכנס למסלול המחושב.
+function _rebindClusterCurrentEx() {
+    const item = state.activeCluster.exercises[state.clusterIdx];
+    const exData = item && state.exercises.find(e => e.name === item.name);
+    if (!exData) {
+        showAlert(`התרגיל "${item ? item.name : ''}" לא נמצא במאגר.`);
+        return false;
+    }
+    state.currentEx = deepClone(exData);
+    state.currentExName = exData.name;
+    state.currentEx.isCalc = false;
+
+    if (item.restTime) state.currentEx.restTime = item.restTime;
+    if (item.targetWeight !== undefined) state.currentEx.targetWeight = item.targetWeight;
+    if (item.targetReps !== undefined) state.currentEx.targetReps = item.targetReps;
+    if (item.targetRIR !== undefined) state.currentEx.targetRIR = item.targetRIR;
+
+    state.currentEx.sets = [{ w: 10, r: 10 }];
+    state.setIdx = 0;
+    state.lastLoggedSet = null;
+    return true;
+}
+
+function _returnToClusterMain() {
+    // navigate מקצץ את הערימה חזרה ל-ui-main הקיים (single-instance) — אין כפילות
+    _setNavDirection('back');
+    navigate('ui-main');
+    initPickers();
+    if (typeof _syncDropUI === 'function') _syncDropUI();
+    if (typeof updateLiveViewContent === 'function') updateLiveViewContent();
+    StorageManager.saveSessionState();
+}
+
+// _applyClusterSwap — מחליף את התרגיל שבאינדקס הנוכחי בסבב. יעדי התרגיל הישן
+// אינם עוברים לחדש (משקל/חזרות שלו חסרי משמעות עבורו); זמן המנוחה של המקטע נשמר.
+function _applyClusterSwap(newName) {
+    if (!state.clusterMode || !state.activeCluster) return;
+    const prev = state.activeCluster.exercises[state.clusterIdx] || {};
+    const replacement = { name: newName };
+    if (prev.restTime) replacement.restTime = prev.restTime;
+    state.activeCluster.exercises[state.clusterIdx] = replacement;
+
+    if (!_rebindClusterCurrentEx()) {
+        state.activeCluster.exercises[state.clusterIdx] = prev;   // גלגול לאחור
+        return;
+    }
+    haptic('success');
+    _returnToClusterMain();
+}
+
+// _reorderClusterCurrent — מחליף את מיקום התרגיל הנוכחי עם תרגיל מאוחר יותר
+// באותו סבב. משנה את סדר הריצה מכאן והלאה, לרבות בסבבים הבאים.
+function _reorderClusterCurrent(targetIdx) {
+    if (!state.clusterMode || !state.activeCluster) return;
+    const arr = state.activeCluster.exercises || [];
+    if (targetIdx <= state.clusterIdx || targetIdx >= arr.length) return;
+    const tmp = arr[state.clusterIdx];
+    arr[state.clusterIdx] = arr[targetIdx];
+    arr[targetIdx] = tmp;
+
+    if (!_rebindClusterCurrentEx()) {
+        arr[targetIdx] = arr[state.clusterIdx];   // גלגול לאחור
+        arr[state.clusterIdx] = tmp;
+        return;
+    }
+    haptic('success');
+    _returnToClusterMain();
 }
 
 // ─── COACH SUMMARY STATE ───────────────────────────────────────────────────

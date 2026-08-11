@@ -2142,6 +2142,11 @@
             <span class="material-symbols-outlined">edit_note</span>
             <span class="wq-item-text">יומן</span>
         </button>
+        <!-- החלפת תרגיל בסבב פעיל — מוצג רק ב-clusterMode (ראה _syncClusterSwapMenuItem) -->
+        <button id="wq-cluster-swap-item" class="workout-menu-item" style="display:none;" onclick="openClusterSwapMenu();toggleWorkoutQuickMenu();">
+            <span class="material-symbols-outlined">swap_horiz</span>
+            <span class="wq-item-text">החלף תרגיל</span>
+        </button>
         <button id="wq-weekend-item" class="workout-menu-item wq-weekend-item" onclick="toggleWeekEnd()">
             <span class="material-symbols-outlined">event_available</span>
             <span class="wq-item-text">סיום שבוע</span>

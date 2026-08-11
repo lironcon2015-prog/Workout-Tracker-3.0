@@ -13,6 +13,8 @@ function toggleWorkoutQuickMenu() {
     menu.style.display = isOpen ? 'none' : 'block';
     // רענון מצב מתג "סיום שבוע" בכל פתיחה
     if (!isOpen && typeof _syncWeekEndMenuItem === 'function') _syncWeekEndMenuItem();
+    // "החלף תרגיל" רלוונטי רק בתוך סבב פעיל — מחוץ לסבב ההחלפה זמינה במסך האישור
+    if (!isOpen && typeof _syncClusterSwapMenuItem === 'function') _syncClusterSwapMenuItem();
 }
 
 // סגירת התפריט בלחיצה מחוץ לו — בודק כל אלמנט עם data-workout-menu-trigger
@@ -706,16 +708,28 @@ function renderClusterItem(cluster, idx, list) {
     box.className = "km-cluster-block";
 
     let exRows = '';
+    const lastIdx = cluster.exercises.length - 1;
     cluster.exercises.forEach((ex, internalIdx) => {
         const label = String.fromCharCode(65 + internalIdx); // A, B, C...
+        // חצי סדר בתוך הסבב — מנוטרלים בקצוות כדי שלא ייראו לחיצים ללא אפקט
+        const upDis = internalIdx === 0 ? ' disabled' : '';
+        const dnDis = internalIdx === lastIdx ? ' disabled' : '';
         exRows += `
         <div class="km-cluster-ex-row">
             <span class="km-cluster-ex-label">${label}${internalIdx + 1}</span>
             <span class="km-cluster-ex-name" onclick="openRestTimerModal(${idx}, ${internalIdx})">${escapeHtml(ex.name)}</span>
             <span class="km-cluster-ex-reps">${ex.sets ? ex.sets + ' סטים' : ''}</span>
-            <button class="km-icon-btn-sm" onclick="removeExFromCluster(${idx}, ${internalIdx})">
-                <span class="material-symbols-outlined" style="font-size:0.95rem;">close</span>
-            </button>
+            <div class="km-cluster-ex-actions">
+                <button class="km-icon-btn-sm" aria-label="העלה תרגיל" onclick="moveExInCluster(${idx}, ${internalIdx}, -1)"${upDis}>
+                    <span class="material-symbols-outlined" style="font-size:0.95rem;">keyboard_arrow_up</span>
+                </button>
+                <button class="km-icon-btn-sm" aria-label="הורד תרגיל" onclick="moveExInCluster(${idx}, ${internalIdx}, 1)"${dnDis}>
+                    <span class="material-symbols-outlined" style="font-size:0.95rem;">keyboard_arrow_down</span>
+                </button>
+                <button class="km-icon-btn-sm km-icon-btn-sm--del" aria-label="הסר תרגיל" onclick="removeExFromCluster(${idx}, ${internalIdx})">
+                    <span class="material-symbols-outlined" style="font-size:0.95rem;">close</span>
+                </button>
+            </div>
         </div>`;
     });
 
@@ -801,6 +815,21 @@ function changeClusterRounds(idx, delta) { let v = managerState.exercises[idx].r
 function changeClusterRest(idx, delta) { let v = managerState.exercises[idx].clusterRest + delta; if (v < 0) v = 0; managerState.exercises[idx].clusterRest = v; renderEditorList(); }
 function addClusterToEditor() { managerState.exercises.push({ type: 'cluster', rounds: 3, clusterRest: 120, exercises: [] }); renderEditorList(); }
 function removeExFromCluster(clusterIdx, exIdx) { managerState.exercises[clusterIdx].exercises.splice(exIdx, 1); renderEditorList(); }
+
+// moveExInCluster — שינוי סדר תרגילים בתוך סבב. התוויות (A1/B2) והאינדקסים
+// ב-onclick נגזרים מחדש בכל renderEditorList, ולכן ההחלפה במערך מספיקה.
+function moveExInCluster(clusterIdx, exIdx, dir) {
+    const cluster = managerState.exercises[clusterIdx];
+    if (!cluster || cluster.type !== 'cluster') return;
+    const arr = cluster.exercises || [];
+    const target = exIdx + dir;
+    if (target < 0 || target >= arr.length) return;
+    const tmp = arr[exIdx];
+    arr[exIdx] = arr[target];
+    arr[target] = tmp;
+    haptic('light');
+    renderEditorList();
+}
 
 function saveWorkoutChanges() {
     const newName = document.getElementById('editor-workout-name').value.trim();

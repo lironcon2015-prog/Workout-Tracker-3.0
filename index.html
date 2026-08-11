@@ -1441,17 +1441,15 @@
 
             <div id="ui-archive" class="screen">
                 <div class="screen-bg"><img id="archive-bg-img" src="./img/bg-dumbbells.jpg"></div>
-                <!-- תתי-מסכים (אימונים/שקילות/תזונה) + טוגל לוח שנה גלובלי -->
+                <!-- תתי-מסכים: אימונים/שקילות/תזונה + לוח שנה, כולם באותו סטריפ -->
                 <div class="analytics-header-sticky">
                     <div class="archive-header-row">
                         <div class="segment-wrapper" id="archive-seg">
                             <button class="seg-btn active" data-sub="workouts" onclick="setArchiveTab('workouts')">אימונים</button>
                             <button class="seg-btn" data-sub="weight" onclick="setArchiveTab('weight')">שקילות</button>
                             <button class="seg-btn" data-sub="nutrition" onclick="setArchiveTab('nutrition')">תזונה</button>
+                            <button class="seg-btn" data-sub="calendar" onclick="setArchiveTab('calendar')">לוח שנה</button>
                         </div>
-                        <button class="archive-cal-btn" id="btn-view-calendar" onclick="toggleArchiveCalendar()" aria-label="לוח שנה">
-                            <span class="material-symbols-outlined">calendar_month</span>
-                        </button>
                     </div>
                 </div>
                 <div id="calendar-view" style="display:none;">
@@ -2793,7 +2791,7 @@
 
         // ── זיהוי תת-המסך הפעיל בכל מסך ──
         function anaMicro(){ var mi = document.getElementById('analytics-micro'); return !!(mi && mi.classList.contains('active')); }
-        function archCalendar(){ var b = document.getElementById('btn-view-calendar'); return !!(b && b.classList.contains('active')); }
+        function archCalendar(){ var b = document.querySelector('#archive-seg .seg-btn.active'); return !!(b && b.getAttribute('data-sub') === 'calendar'); }
         function blNutrition(){ var b = document.querySelector('#bl-subtab .seg-btn.active'); return !!(b && b.getAttribute('data-tab') === 'nutrition'); }
 
         function applySlot(imgId, slot){

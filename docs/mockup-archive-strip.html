@@ -1,0 +1,315 @@
+<title>סטריפ ארכיון מאוחד</title>
+<style>
+  :root{
+    /* נלקח ישירות מ-style.css של האפליקציה — לא פלטה חדשה */
+    --bg:#070708; --surface-1:#101013; --surface-2:#161619; --surface-3:#1e1e22; --surface-4:#26262c;
+    --hairline:rgba(255,255,255,.06); --hairline-hi:rgba(255,255,255,.10);
+    --top-glint:inset 0 1px 0 rgba(255,255,255,.05);
+    --elev-2:0 2px 8px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.35);
+    --r-xs:8px; --r-sm:14px; --r-md:20px; --r-lg:28px; --r-pill:9999px;
+    --accent:#0A84FF; --text:#e2e2e2; --text-dim:#8E8E93;
+    --seg-track:rgba(118,118,128,.24); --seg-active:#636366;
+    --amber:#ffb868; --violet:#5E5CE6;
+    --ink:#f5f5f7;
+    --fs-md:.8rem; --fs-lg:.9rem;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"Heebo",-apple-system,"Segoe UI",system-ui,"Noto Sans Hebrew",sans-serif;
+    direction:rtl; text-align:right;
+    line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:940px; margin:0 auto; padding:56px 20px 96px; display:flex; flex-direction:column; gap:56px}
+
+  /* ── כותרת ── */
+  .lede{display:flex; flex-direction:column; gap:14px; border-bottom:1px solid var(--hairline); padding-bottom:32px}
+  .eyebrow{
+    font-size:.7rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--accent); margin:0;
+  }
+  h1{
+    margin:0; font-size:clamp(1.7rem,4.6vw,2.5rem); font-weight:900;
+    letter-spacing:-.02em; line-height:1.15; color:var(--ink); text-wrap:balance;
+  }
+  .lede p{margin:0; max-width:60ch; color:var(--text-dim); font-size:1rem}
+
+  h2{
+    margin:0; font-size:1.15rem; font-weight:900; color:var(--ink);
+    letter-spacing:-.01em; text-wrap:balance;
+  }
+  section{display:flex; flex-direction:column; gap:20px}
+  .sec-head{display:flex; flex-direction:column; gap:6px}
+  .sec-head p{margin:0; color:var(--text-dim); max-width:64ch; font-size:.94rem}
+
+  /* ── מסגרת מכשיר ── */
+  .specimens{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px}
+  .spec{display:flex; flex-direction:column; gap:0; min-width:0}
+  .spec-label{
+    display:flex; align-items:center; gap:8px;
+    font-size:.72rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--text-dim); padding:0 4px 10px;
+  }
+  .dot{width:7px; height:7px; border-radius:var(--r-pill); flex-shrink:0}
+  .dot.old{background:var(--text-dim)}
+  .dot.new{background:var(--accent)}
+
+  .phone{
+    background:var(--bg); border:1px solid var(--hairline); border-top-color:var(--hairline-hi);
+    border-radius:var(--r-md); overflow:hidden; box-shadow:var(--elev-2);
+  }
+  .phone-hd{
+    padding:16px 14px 14px;
+    background:linear-gradient(180deg,#0d0d10,#08080a);
+    border-bottom:1px solid var(--hairline);
+  }
+  .phone-body{padding:16px 14px 22px; display:flex; flex-direction:column; gap:10px; min-height:132px}
+
+  /* ── רכיבי הסטריפ — משוחזרים מ-style.css ── */
+  .header-row{display:flex; align-items:center; gap:8px}
+  .segment-wrapper{
+    display:flex; background:var(--seg-track); border-radius:var(--r-pill);
+    padding:2px; flex:1; min-width:0;
+  }
+  .seg-btn{
+    flex:1; padding:8px 0; border:none; background:transparent;
+    font-family:inherit; font-weight:700; font-size:var(--fs-md);
+    color:rgba(255,255,255,.4); border-radius:var(--r-pill); cursor:pointer;
+    white-space:nowrap; transition:background 200ms cubic-bezier(.2,0,0,1), color 200ms cubic-bezier(.2,0,0,1);
+  }
+  .seg-btn.active{background:var(--seg-active); color:#fff; box-shadow:0 3px 8px rgba(0,0,0,.12)}
+  .cal-btn{
+    flex-shrink:0; width:38px; height:38px; border-radius:var(--r-pill);
+    background:var(--seg-track); border:none; color:rgba(255,255,255,.4);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.05rem;
+  }
+  .cal-btn.active{background:var(--seg-active); color:#fff}
+  .seg-btn.is-new{position:relative}
+  .seg-btn.is-new::after{
+    content:""; position:absolute; inset:-3px; border-radius:var(--r-pill);
+    border:1.5px dashed rgba(10,132,255,.75); pointer-events:none;
+  }
+
+  /* ── תוכן דמה מתחת לסטריפ ── */
+  .row-card{
+    background:var(--surface-2); border:1px solid var(--hairline); border-top-color:var(--hairline-hi);
+    border-radius:var(--r-sm); padding:11px 13px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .row-card b{color:var(--ink); font-size:var(--fs-lg); font-weight:800}
+  .row-card span{color:var(--text-dim); font-size:.72rem; font-variant-numeric:tabular-nums}
+  .chips{display:flex; gap:6px}
+  .chip{
+    background:var(--surface-4); color:var(--text-dim); border-radius:var(--r-pill);
+    padding:5px 11px; font-size:.68rem; font-weight:700;
+  }
+  .chip.on{background:var(--seg-active); color:#fff}
+
+  /* לוח שנה מוקטן */
+  .cal{display:flex; flex-direction:column; gap:8px}
+  .cal-hd{
+    display:flex; align-items:center; justify-content:space-between;
+    color:var(--ink); font-weight:800; font-size:var(--fs-lg); padding:0 2px;
+  }
+  .cal-hd i{color:var(--text-dim); font-style:normal; font-size:1rem}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
+  .cal-grid div{
+    aspect-ratio:1; border-radius:var(--r-xs); background:var(--surface-1);
+    display:flex; align-items:center; justify-content:center;
+    font-size:.6rem; color:var(--text-dim); font-variant-numeric:tabular-nums;
+  }
+  .cal-grid div.dn{color:rgba(255,255,255,.28); background:transparent; aspect-ratio:auto; padding:2px 0}
+  .cal-grid div.w{background:rgba(10,132,255,.22); color:#cfe6ff}
+  .cal-grid div.v{background:rgba(71,226,102,.2); color:#bff3cb}
+
+  /* ── טבלת החלטות ── */
+  .decisions{display:flex; flex-direction:column; gap:12px}
+  .dec{
+    background:var(--surface-2); border:1px solid var(--hairline); border-top-color:var(--hairline-hi);
+    box-shadow:var(--top-glint); border-radius:var(--r-sm);
+    padding:16px 18px; display:flex; flex-direction:column; gap:7px;
+  }
+  .dec-q{display:flex; align-items:baseline; gap:9px; font-weight:800; color:var(--ink); font-size:.96rem}
+  .dec-q em{
+    font-style:normal; font-size:.62rem; font-weight:800; letter-spacing:.1em;
+    color:var(--accent); border:1px solid rgba(10,132,255,.35); border-radius:var(--r-xs);
+    padding:2px 6px; flex-shrink:0; white-space:nowrap;
+  }
+  .dec p{margin:0; color:var(--text-dim); font-size:.9rem}
+  .dec p .rec{color:var(--ink); font-weight:700}
+
+  .note{
+    border-inline-start:2px solid var(--amber); padding:2px 14px;
+    color:var(--text-dim); font-size:.9rem; margin:0; max-width:64ch;
+  }
+  code{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:.84em;
+    background:var(--surface-3); border:1px solid var(--hairline);
+    border-radius:5px; padding:1px 5px; color:#cfe6ff; direction:ltr; display:inline-block;
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="lede">
+    <p class="eyebrow">מסך ארכיון · מוקאפ לפני ביצוע</p>
+    <h1>לוח השנה נכנס לסטריפ</h1>
+    <p>היום לוח השנה הוא כפתור אייקון נפרד ליד הבורר — תצוגה גלובלית שמרחפת מעל שלושת תתי-המסכים. המוקאפ מציג אותו כתת-מסך רביעי מלא, בדיוק כמו הסטריפ שכבר קיים במסך Composition.</p>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <h2>לפני ואחרי</h2>
+      <p>אותה שורה, אותו רוחב. ההבדל: הכפתור הנפרד נעלם, והרוחב שלו מתחלק בין ארבעת הלשוניות.</p>
+    </div>
+
+    <div class="specimens">
+      <div class="spec">
+        <div class="spec-label"><span class="dot old"></span>היום — 3 + אייקון</div>
+        <div class="phone">
+          <div class="phone-hd">
+            <div class="header-row">
+              <div class="segment-wrapper">
+                <button class="seg-btn active">אימונים</button>
+                <button class="seg-btn">שקילות</button>
+                <button class="seg-btn">תזונה</button>
+              </div>
+              <button class="cal-btn">▦</button>
+            </div>
+          </div>
+          <div class="phone-body">
+            <div class="row-card"><b>אימון כתפיים</b><span>12.8 · 4,120kg</span></div>
+            <div class="row-card"><b>אימון רגליים</b><span>10.8 · 9,540kg</span></div>
+            <div class="row-card"><b>אימון גב</b><span>08.8 · 6,275kg</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spec">
+        <div class="spec-label"><span class="dot new"></span>מוצע — סטריפ מלא של 4</div>
+        <div class="phone">
+          <div class="phone-hd">
+            <div class="header-row">
+              <div class="segment-wrapper">
+                <button class="seg-btn active">אימונים</button>
+                <button class="seg-btn">שקילות</button>
+                <button class="seg-btn">תזונה</button>
+                <button class="seg-btn is-new">לוח שנה</button>
+              </div>
+            </div>
+          </div>
+          <div class="phone-body">
+            <div class="row-card"><b>אימון כתפיים</b><span>12.8 · 4,120kg</span></div>
+            <div class="row-card"><b>אימון רגליים</b><span>10.8 · 9,540kg</span></div>
+            <div class="row-card"><b>אימון גב</b><span>08.8 · 6,275kg</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="note">התקדים כבר בקוד: מסך Composition מריץ סטריפ זהה עם ארבע לשוניות — שקילה / תזונה / שינה / תמונות. הרוחב נבדק ועובד; "לוח שנה" באורך של "תמונות" בתוספת רווח.</p>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>ארבעת המצבים</h2>
+      <p>הלשונית הפעילה היא תמיד אחת מארבע — אין יותר מצב שבו "תזונה" ולוח השנה דולקים יחד.</p>
+    </div>
+
+    <div class="specimens">
+      <div class="spec">
+        <div class="spec-label">שקילות</div>
+        <div class="phone">
+          <div class="phone-hd">
+            <div class="header-row">
+              <div class="segment-wrapper">
+                <button class="seg-btn">אימונים</button>
+                <button class="seg-btn active">שקילות</button>
+                <button class="seg-btn">תזונה</button>
+                <button class="seg-btn">לוח שנה</button>
+              </div>
+            </div>
+          </div>
+          <div class="phone-body">
+            <div class="chips"><span class="chip">7 ימים</span><span class="chip">30 יום</span><span class="chip">90 יום</span><span class="chip on">הכל</span></div>
+            <div class="row-card"><b>82.4 kg</b><span>12.8 · 14.2%</span></div>
+            <div class="row-card"><b>82.9 kg</b><span>10.8 · 14.4%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spec">
+        <div class="spec-label">לוח שנה</div>
+        <div class="phone">
+          <div class="phone-hd">
+            <div class="header-row">
+              <div class="segment-wrapper">
+                <button class="seg-btn">אימונים</button>
+                <button class="seg-btn">שקילות</button>
+                <button class="seg-btn">תזונה</button>
+                <button class="seg-btn active">לוח שנה</button>
+              </div>
+            </div>
+          </div>
+          <div class="phone-body">
+            <div class="cal">
+              <div class="cal-hd"><i>‹</i><span>אוגוסט 2026</span><i>›</i></div>
+              <div class="cal-grid">
+                <div class="dn">א</div><div class="dn">ב</div><div class="dn">ג</div><div class="dn">ד</div><div class="dn">ה</div><div class="dn">ו</div><div class="dn">ש</div>
+                <div>2</div><div class="w">3</div><div>4</div><div class="v">5</div><div class="w">6</div><div>7</div><div>8</div>
+                <div class="v">9</div><div class="w">10</div><div>11</div><div class="w">12</div><div>13</div><div class="v">14</div><div>15</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="note">תוכן לוח השנה עצמו לא משתנה — אותו רינדור, אותה ניווט חודשים, אותה מקרא. משתנה רק איך מגיעים אליו.</p>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>שלוש החלטות שצריכות אותך</h2>
+      <p>לכל אחת יש המלצה. אם אתה מסכים — תגיד "בצע" ואני יוצא לדרך עם המסומן.</p>
+    </div>
+
+    <div class="decisions">
+      <div class="dec">
+        <div class="dec-q"><em>מיקום</em>איפה יושבת הלשונית הרביעית?</div>
+        <p><span class="rec">המלצה: אחרונה — הכי שמאלה ב-RTL.</span> שלוש הראשונות הן סוגי דאטה, ולוח השנה הוא חתך שחוצה את כולן. מיקום ראשון היה דוחף את "אימונים" ממקום ברירת המחדל שאתה רגיל אליו.</p>
+      </div>
+
+      <div class="dec">
+        <div class="dec-q"><em>חזרה</em>לאן חוזרים מלוח השנה?</div>
+        <p><span class="rec">המלצה: ללשונית הדאטה האחרונה שהיית בה.</span> אם היית ב"תזונה" ועברת ללוח שנה — לחיצה חוזרת על "תזונה" מחזירה בדיוק לשם. טכנית זה נשמר בחינם: <code>archiveSubTab</code> ממשיך לזכור את השלוש, ו-<code>archiveView</code> מחזיק את הלוח.</p>
+      </div>
+
+      <div class="dec">
+        <div class="dec-q"><em>אייקון</em>להשאיר אייקון לוח שנה בתוך הלשונית?</div>
+        <p><span class="rec">המלצה: לא — טקסט בלבד.</span> זה גם חוק הפרויקט (אין אייקונים על כפתורים), וגם מה שישמור על אחידות מול שלוש שכנותיה. בפועל השינוי מסיר אייקון קיים שחורג מהחוק היום.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>מה נוגעים בקוד</h2>
+    </div>
+    <div class="decisions">
+      <div class="dec">
+        <div class="dec-q"><em>index.html</em>לשונית רביעית במקום כפתור האייקון</div>
+        <p>מוסיפים <code>seg-btn</code> רביעי ל-<code>#archive-seg</code> ומוחקים את <code>#btn-view-calendar</code>. שורת ה-wrapper <code>.archive-header-row</code> כבר לא צריכה להחזיק שני ילדים.</p>
+      </div>
+      <div class="dec">
+        <div class="dec-q"><em>archive-logic.js</em>איחוד הבחירה למקום אחד</div>
+        <p><code>setArchiveTab</code> מקבל גם <code>'calendar'</code> ומנתב ל-<code>switchArchiveView</code>; חישוב ה-<code>active</code> ב-<code>_applyArchiveSubTab</code> לוקח בחשבון גם את מצב התצוגה, כדי שהלשונית הנכונה תידלק בשני המסלולים. <code>toggleArchiveCalendar</code> נשאר לתאימות.</p>
+      </div>
+      <div class="dec">
+        <div class="dec-q"><em>style.css</em>ניקוי</div>
+        <p><code>.archive-cal-btn</code> יורד, ו-<code>.archive-header-row</code> מצטמצם — הסטריפ תופס את כל הרוחב לבדו.</p>
+      </div>
+    </div>
+  </section>
+
+</div>

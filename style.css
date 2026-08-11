@@ -2592,16 +2592,12 @@ body::before {
 #archive-sub-workouts.archive-selecting > .archive-action-pills { display: flex; }
 
 /* ── Archive header: תתי-מסכים + טוגל לוח שנה ── */
-.archive-header-row { display: flex; align-items: center; gap: 8px; max-width: 380px; margin: 0 auto; }
+/* לוח השנה הוא לשונית רביעית בסטריפ עצמו — אין יותר כפתור נפרד לצידו */
+.archive-header-row { display: flex; align-items: center; max-width: 380px; margin: 0 auto; }
 .archive-header-row .segment-wrapper { flex: 1; margin: 0; min-width: 0; }
-.archive-cal-btn {
-    flex-shrink: 0; width: 38px; height: 38px; border-radius: var(--r-pill);
-    background: rgba(118, 118, 128, 0.24); border: none; color: rgba(255,255,255,0.4);
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-    transition: background var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
-}
-.archive-cal-btn .material-symbols-outlined { font-size: var(--fs-xl); }
-.archive-cal-btn.active { background: #636366; color: #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+/* ארבע לשוניות ברוחב טלפון — "לוח שנה" היא היחידה עם רווח, ושבירה שלה
+   הייתה מקפיצה את גובה הסטריפ */
+#archive-seg .seg-btn { white-space: nowrap; }
 
 /* ── Collapsed archive month ── */
 .archive-month-items.collapsed { display: none; }

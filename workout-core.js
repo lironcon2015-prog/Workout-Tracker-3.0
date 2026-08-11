@@ -2959,9 +2959,17 @@ function initPickers() {
         for (let i = minW; i <= maxW; i = parseFloat((i + step).toFixed(2))) {
             let o = new Option(i + " kg", i); if (i === defaultW) o.selected = true; wPick.add(o);
         }
-        // משקל שמור שהוזן ידנית ולא יושב על רשת ה-step (למשל 47.3 בקפיצות 2.5) —
-        // בלי זה אף option לא נבחר וה-select נופל למשקל המינימלי
-        if (wPick.selectedIndex <= 0 && defaultW > minW) _setPickerValue(wPick, defaultW);
+        // משקל שהוזן ידנית ואינו יושב על רשת ה-step (למשל 12.5 בקפיצות של 1) —
+        // מוזרק כ-option משלו ונבחר, במקום להיצמד לשכן הקרוב ברשת.
+        // הצמדה שינתה בשקט ערך שהמשתמש הזין במפורש, ובתיקו (12.5 בדיוק בין 12
+        // ל-13) היא נפלה תמיד כלפי מטה — כי _setPickerValue משווה ב-diff < bestDiff.
+        // הרשת עוגנת ב-defaultW-40 ולכן בדרך כלל מכילה את הערך; היא מאבדת אותו
+        // כש-minW נחתך ל-0 (משקלים קלים) והשארית לא מתיישרת עם ה-step.
+        // מחוץ לטווח הבורר נשמרת ההתנהגות הקודמת — הצמדה לקצה.
+        if (wPick.selectedIndex <= 0 && defaultW > minW) {
+            if (defaultW < maxW) _insertSortedOption(wPick, defaultW, defaultW + ' kg');
+            else _setPickerValue(wPick, defaultW);
+        }
     }
 
     const rPick = document.getElementById('reps-picker'); rPick.innerHTML = "";

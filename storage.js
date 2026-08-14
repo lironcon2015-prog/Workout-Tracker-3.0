@@ -1124,13 +1124,31 @@ const StorageManager = {
             if (!_hasSleep && !_hasVitals) return;
             const existing = map[d.date];
             const merged = Object.assign({}, existing, d, { src: 'health' });
+            const _vitalOk = (k, v) => (typeof _validVital === 'function') ? _validVital(k, v) : (v > 0);
+            // ── fill-only לשינה + ניקוי אפסים ──────────────────────────────
+            // אפל מחשבת HRV/דופק לפני ששלבי השינה נכתבים, ולכן דחיפת בוקר/אמצע-יום
+            // מגיעה עם asleepMin=0. בלי ההגנה כאן נופלים שני כשלים:
+            //   1. האפס הנכנס **דורס** לילה אמיתי שכבר נקלט (בדיוק הבאג שתועד בטמפ').
+            //   2. האפס **נשמר כערך**, וצרכן שקורא גולמי (פרומפט המאמן) מדווח "00:00"
+            //      כעובדה — בעוד שכל שכבת התצוגה/הציון מסננת אותו דרך _validVital.
+            // ערך תקין נכנס תמיד גובר. אפס רק ממלא מקום ריק, ואם אין מה למלא —
+            // השדות נמחקים כדי שהמדד יהיה null ("חסר"), לא 0.
+            const _inSleep = (d.asleepMin > 0) ? d.asleepMin
+                           : ((d.coreMin || 0) + (d.deepMin || 0) + (d.remMin || 0));
+            if (!_vitalOk('asleepMin', _inSleep)) {
+                const SLEEP_FIELDS = ['asleepMin', 'inBedMin', 'awakeMin', 'deepMin', 'remMin', 'coreMin', 'efficiency'];
+                if (existing && _vitalOk('asleepMin', existing.asleepMin)) {
+                    SLEEP_FIELDS.forEach(k => { if (existing[k] != null) merged[k] = existing[k]; });
+                } else {
+                    SLEEP_FIELDS.forEach(k => { delete merged[k]; });
+                }
+            }
             // ── fill-only לוויטלים ליליים ──────────────────────────────────
             // מדדי ההתאוששות (HRV/דופק/נשימה) הם ליליים. סנכרון במהלך היום מזהם אותם בערכי-
             // ערוּת (HRV נמוך, דופק גבוה) ומוריד את הציון שלא בצדק. לכן: **ערך תקין קיים גובר**
             // — סנכרון מאוחר רק **ממלא** מדד שהיה חסר בבוקר (בעיקר RHR שעדיין לא חושב), ואינו
             // דורס ערכי-שינה תקינים. טמפ' לא נכללת — נמדדת רק בשינה, אינה מזוהמת.
             if (existing) {
-                const _vitalOk = (k, v) => (typeof _validVital === 'function') ? _validVital(k, v) : (v > 0);
                 ['hrv', 'rhr', 'respRate'].forEach(k => { if (_vitalOk(k, existing[k])) merged[k] = existing[k]; });
                 // טמפ' — חוק הפוך ומכוון: ערך נכנס תקין **כן** גובר (הוא עדכני יותר), אבל
                 // ערך חסר אסור שימחק ערך שכבר נקלט. הדגימה מגיעה מ-Apple באיחור ולא בכל

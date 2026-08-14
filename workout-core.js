@@ -378,9 +378,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try { _initSwipeBackGesture(); } catch (e) {}
     try { _initTabSwipeGesture(); }  catch (e) {}
     try { _initAllSheetsDrag(); }   catch (e) {}
-    // סנכרון תזונה מ-Health: בכניסה לאפליקציה + כל שעה עגולה כשהיא פתוחה.
+    // סנכרון שינה+תזונה מ-Health: בכניסה לאפליקציה + כל שעה עגולה כשהיא פתוחה.
     // משיכה שקטה עם throttle פנימי (15 דק') — לא חוסמת את הטעינה.
-    setTimeout(() => syncHealthNutrition(false), 2500);
+    // ניסיון חוזר אחד אחרי 20ש' אם הראשון נפל (Apps Script cold start / רשת סלולרית):
+    // מי שנכנס ומתחיל אימון מיד — כל האימון והסיכום ירוצו על הדאטה שנמשכה כאן.
+    setTimeout(async () => {
+        const ok = await syncHealthNutrition(false);
+        if (ok === false) setTimeout(() => syncHealthNutrition(false, true), 20000);
+    }, 2500);
     _scheduleHealthHourlySync();
     // גיבוי שבועי לאימייל — בדיקה שקטה בפתיחה (שולח רק אם עברו ≥7 ימים)
     setTimeout(() => StorageManager.maybeSendWeeklyBackup(false), 4000);
@@ -5825,19 +5830,35 @@ function _buildSleepAIContext(slim) {
     if (!nights || !nights.length) return '';   // אין נתוני שינה אמיתיים → לא מזריקים דמה ל-AI
     const idx = nights.length - 1;
     const n = nights[idx];
+    // _ok — אותו סינון תקינות בדיוק שבו משתמשים התצוגה והציון (_VITAL_RANGE).
+    // קריטי: הפרומפט היה הצרכן היחיד שקרא ערכים **גולמיים**, ולכן asleepMin=0
+    // (דחיפת ויטלים לפני ששלבי השינה נכתבו) הוזרק למאמן כ-"00:00" עובדתי.
+    const _ok = (k, v) => (typeof _validVital === 'function') ? _validVital(k, v) : (v != null && !isNaN(v) && v > 0);
     const avg = (key, win) => {
-        const arr = nights.slice(-win).map(d => d[key]).filter(x => x != null && !isNaN(x));
+        const arr = nights.slice(-win).map(d => d[key]).filter(x => _ok(key, x));
         return arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
     };
     const fmtH = m => m == null ? '—' : `${Math.floor(m / 60)}:${String(Math.round(m) % 60).padStart(2, '0')}`;
+    // הלילה התקין האחרון — לנפילה כשהרשומה האחרונה עדיין בלי שינה. עדיף להגיש למאמן
+    // מדידה אמיתית מתויגת בגילה מאשר חור, ובוודאי עדיף על אפס שנקרא כ"לא ישן".
+    let lastSleep = null, lastSleepGap = 0;
+    for (let i = idx; i >= 0; i--) {
+        if (_ok('asleepMin', nights[i] && nights[i].asleepMin)) { lastSleep = nights[i]; lastSleepGap = idx - i; break; }
+    }
+    const nightSleepOk = lastSleep != null && lastSleepGap === 0;
+
+    const parts = [];
+    if (nightSleepOk) {
+        parts.push(`שינה ${fmtH(n.asleepMin)}`);
+        if (_ok('efficiency', n.efficiency)) parts.push(`יעילות ${Math.round(n.efficiency * 100)}%`);
+        if (n.deepMin > 0 || n.remMin > 0) parts.push(`עמוקה ${fmtH(n.deepMin)} · REM ${fmtH(n.remMin)}`);
+    }
+    if (_ok('hrv', n.hrv))      parts.push(`HRV ${n.hrv}ms`);
+    if (_ok('rhr', n.rhr))      parts.push(`דופק מנוחה ${n.rhr}`);
+    if (_ok('respRate', n.respRate)) parts.push(`נשימה ${n.respRate}`);
 
     let s = `\n=== שינה והתאוששות (Apple Health) ===\n`;
-    s += `לילה אחרון (${n.date}): שינה ${fmtH(n.asleepMin)}`;
-    if (n.efficiency != null) s += ` | יעילות ${Math.round(n.efficiency * 100)}%`;
-    if (n.deepMin != null) s += ` | עמוקה ${fmtH(n.deepMin)} · REM ${fmtH(n.remMin)}`;
-    if (n.hrv != null) s += ` | HRV ${n.hrv}ms`;
-    if (n.rhr != null) s += ` | דופק מנוחה ${n.rhr}`;
-    if (n.respRate != null) s += ` | נשימה ${n.respRate}`;
+    s += `לילה אחרון (${n.date}): ${parts.length ? parts.join(' | ') : 'אין מדדים תקינים'}`;
     // טמפ' עור: הערך מוחלט (°C) → מזריקים סטייה מ-baseline אישי.
     // מוצג מאותו סף שבו הוא מוצג למתאמן בכרטיס (5 לילות) — אחרת המאמן "לא יודע" על
     // נתון שהמתאמן רואה מולו. עד 14 לילות מסומן "בסיס ראשוני", כך שהמאמן יכול לדבר
@@ -5853,6 +5874,16 @@ function _buildSleepAIContext(slim) {
         }
     }
     s += `\n`;
+    // אזהרה מפורשת כשמדידת השינה חסרה. בלי זה המאמן קרא asleepMin=0 גולמי והצהיר
+    // "00:00 שינה" כעובדה — הנתון פשוט טרם נכתב ב-Apple בזמן המשיכה.
+    if (!nightSleepOk) {
+        s += `שים לב: מדידת השינה ללילה הזה **חסרה** (טרם נמשכה מ-Apple) — זה אינו אפס. אין להסיק ממנה דבר ואין לצטט 00:00.\n`;
+        if (lastSleep) {
+            s += `המדידה האחרונה שכן קיימת (${lastSleep.date}, לפני ${lastSleepGap === 1 ? 'יום' : lastSleepGap + ' ימים'}): שינה ${fmtH(lastSleep.asleepMin)}`;
+            if (_ok('efficiency', lastSleep.efficiency)) s += ` | יעילות ${Math.round(lastSleep.efficiency * 100)}%`;
+            s += `.\n`;
+        }
+    }
 
     // ציון התאוששות (Readiness) — מ-computeReadiness אם זמין.
     // פורמט מכוון: רצועה מפורשת + ספים גלויים (מונע מהמודל להמציא סקאלה משלו ולקרוא את הציון כאחוז),
@@ -5874,7 +5905,9 @@ function _buildSleepAIContext(slim) {
                 }).join(', ');
                 s += `מניעים: ${driversStr}.\n`;
             }
-            s += `שינה בלילה שלפני האימון: ${fmtH(n.asleepMin)}.\n`;
+            s += nightSleepOk
+                ? `שינה בלילה שלפני האימון: ${fmtH(n.asleepMin)}.\n`
+                : `שינה בלילה שלפני האימון: לא נמדדה (הנתון חסר, לא אפס) — אל תסיק ממנה דבר.\n`;
         }
     }
     // ממוצע 7 ימים ל-HRV/דופק מנוחה בלבד — נתונים ל-baseline יחסי. שינה 7 ימים אינה מוזרקת: חוב
@@ -7322,20 +7355,21 @@ const HEALTH_SYNC_THROTTLE_MS = 15 * 60 * 1000;
 async function syncHealthNutrition(manual = false, force = false) {
     if (!StorageManager.isHealthBridgeOn()) {
         if (manual) showAlert('גשר ה-Health כבוי — הפעל אותו בהגדרות → "גשר תזונה Apple Health".');
-        return;
+        return true;   // לא כשל — אין מה לנסות שוב
     }
     const { url, token } = StorageManager.getHealthBridge();
     if (!url) {
         if (manual) showAlert('יש להגדיר קודם את גשר ה-Health בהגדרות → "גשר תזונה Apple Health".');
-        return;
+        return true;   // לא כשל — אין מה לנסות שוב
     }
     const now = Date.now();
     // force (כניסה לפרונט) עוקף את ה-throttle של 15 דק' — אך שומר מרווח 4ש' נגד ירי כפול
     // (visibilitychange עלול לירות פעמיים). אוטומטי רגיל (שעתי) נשאר עם throttle מלא.
     if (!manual) {
         const minGap = force ? 4000 : HEALTH_SYNC_THROTTLE_MS;
-        if (now - _healthSyncLast < minGap) return;
+        if (now - _healthSyncLast < minGap) return true;
     }
+    const _prevSyncAt = _healthSyncLast;
     _healthSyncLast = now;
 
     if (manual) showCloudToast('מושך מ-Health…', true, 'pending');
@@ -7348,7 +7382,7 @@ async function syncHealthNutrition(manual = false, force = false) {
         const sleep = Array.isArray(data.sleep) ? data.sleep : [];   // שינה (המקור העיקרי כעת)
         if (!days.length && !sleep.length) {
             if (manual) showCloudToast('הגשר ריק — ודא שהקיצור רץ לפחות פעם אחת', true);
-            return;
+            return true;
         }
         StorageManager.setHealthLastSync(Date.now());
 
@@ -7363,12 +7397,17 @@ async function syncHealthNutrition(manual = false, force = false) {
         }
         const changed = sleepChanged + nutChanged;
 
-        if (changed > 0 || manual) {
-            const blScreen = document.getElementById('ui-bodylog');
-            if (typeof renderBodyLog === 'function' && blScreen && blScreen.classList.contains('active')) renderBodyLog();
-            if (typeof _refreshActiveView === 'function' && blScreen && blScreen.classList.contains('active')) _refreshActiveView();
-            if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
+        // רינדור מחדש גם כש-changed=0: חותמת "מסונכרן · עודכן HH:MM" במסך השינה חייבת
+        // לזוז אחרי משיכה מוצלחת, אחרת סנכרון תקין נראה למשתמש כאילו כלום לא קרה.
+        const blScreen = document.getElementById('ui-bodylog');
+        const blActive = blScreen && blScreen.classList.contains('active');
+        // renderBodyLog מכסה כעת גם את תצוגת השינה, ולכן _refreshActiveView נדרש רק
+        // בענף ה-changed=0 (רענון החותמת) — לא עוד רינדור כפול של אותה תצוגה.
+        if (blActive) {
+            if (changed > 0 && typeof renderBodyLog === 'function') renderBodyLog();
+            else if (typeof _refreshActiveView === 'function') _refreshActiveView();
         }
+        if ((changed > 0 || manual) && typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
         if (changed > 0) {
             if (typeof FirebaseManager !== 'undefined') {
                 FirebaseManager.saveConfigToCloud()
@@ -7385,9 +7424,15 @@ async function syncHealthNutrition(manual = false, force = false) {
         } else if (manual) {
             showCloudToast('הנתונים כבר מעודכנים', true);
         }
+        return true;
     } catch (e) {
+        // כשל משיכה — החזרת החותמת לערכה הקודם. בלי זה החותמת שנקבעה *לפני* הבקשה
+        // חוסמת כל ניסיון אוטומטי ל-15 דק' בשקט מוחלט: משיכת-כניסה שנפלה משאירה את
+        // המאמן עם דאטה ישנה לאורך כל האימון בלי שום חיווי.
+        _healthSyncLast = _prevSyncAt;
         console.warn('GymPro: health sync failed', e);
         if (manual) showCloudToast('' + e.message, false);
+        return false;
     }
 }
 

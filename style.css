@@ -6459,6 +6459,8 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-entry-pcf i.macro-f { color: var(--text-dim); }
 /* שבב הסיבים בשורת הרשומה — אותו אפור כמו P/C/F. מוצג רק כשיש נתון. */
 .fd-entry-pcf i.macro-fb { color: var(--text-dim); }
+/* חיווי סיבים חסרים בתצוגה המקדימה של הפיקר — עמום, בלי צבע התראה */
+.fd-preview-miss { opacity: 0.7; }
 .fd-meal-emptyrow {
     display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
     background: none; border: none; color: var(--text-dim);

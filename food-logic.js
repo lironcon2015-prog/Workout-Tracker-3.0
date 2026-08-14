@@ -1482,7 +1482,12 @@ async function _fdBackfillFiber(food) {
     }
 
     let key = null, fetchFresh = null;
-    if (food.barcode && (!food.source || food.source === 'off')) {
+    // ברקוד = מזהה מוצר, לא מזהה מקור. מוצר שנקלט מסריקת תווית (source:'gemini') אך
+    // נושא ברקוד הוא אותו מוצר בדיוק שב-OFF, ולכן ניתן להשלמה. ההגבלה הקודמת
+    // ל-source:'off' בלבד חסמה בדיוק את המקרה הזה — מוצר שנסרק מתווית שלא פירטה
+    // סיבים נשאר בלי סיבים לנצח. בטוח: מדובר במילוי שדה **חסר** בלבד — הפונקציה
+    // יוצאת מיד כשקיים ערך, ו-edited (תיקון ידני) חסום ממילא. kcal/מאקרו לא נוגעים.
+    if (food.barcode && food.source !== 'custom' && food.source !== 'meal') {
         key = 'off:' + food.barcode;
         fetchFresh = () => lookupBarcode(String(food.barcode));
     } else if (food.source === 'tzameret' && /^tz:(.+)$/.test(id)) {
@@ -1566,8 +1571,14 @@ function _fdUpdatePreview() {
     const g = _fdComputeGrams();
     const m = _fdMacrosFor(g.grams);
     const mismatch = _fdKcalMismatch(m.kcal, m.p, m.c, m.f);
+    // סיבים חסרים מוצגים כ-"—" רק כשהוגדר יעד סיבים (סימן שהמדד מעניין את המשתמש).
+    // בלי זה מוצר שאינו ב-OFF — נפוץ במוצרים ישראליים — נשאר בלי סיבים בלי שום חיווי,
+    // והמשתמש אינו יודע שהפתרון הוא "עריכת ערכי המוצר" כאן ממש מעל.
+    const _fbTgt = Number((StorageManager.getTargetsForDate(_fdDate) || {}).fb) || 0;
+    const fbTxt = m.fb != null ? ` · סיבים ${m.fb}g`
+        : (_fbTgt > 0 ? ' · <span class="fd-preview-miss">סיבים — הוסף בעריכת ערכי המוצר</span>' : '');
     prev.innerHTML = `<span class="fd-preview-kcal">${m.kcal}<small>kcal</small></span>
-        <span class="fd-preview-pcf">חלבון ${m.p}g · פחמימה ${m.c}g · שומן ${m.f}g${m.fb != null ? ` · סיבים ${m.fb}g` : ''}</span>
+        <span class="fd-preview-pcf">חלבון ${m.p}g · פחמימה ${m.c}g · שומן ${m.f}g${fbTxt}</span>
         <span class="fd-preview-g">${_fdQtyDisplayLabel(g)}</span>
         ${mismatch ? `<div class="fd-kcal-warn"><span class="material-symbols-outlined inline-arrow">warning</span> הקלוריות לא תואמות את פירוט המאקרו (סטייה ${Math.round(mismatch * 100)}%) — ייתכן נתון מקור שגוי</div>` : ''}`;
 }

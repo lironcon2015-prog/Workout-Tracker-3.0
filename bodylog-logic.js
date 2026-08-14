@@ -33,6 +33,10 @@ function renderBodyLog() {
     _renderBodyList(log);          // הרשימה חיה בארכיון — נשמרת טרייה אחרי כל שינוי דאטה
     _renderNutritionView();
     if (typeof _renderBodyPhotos === 'function') _renderBodyPhotos();
+    // תצוגת השינה מרונדרת רק כשהיא הפעילה (חישוב baselines על 28 לילות + SVG — לא
+    // בחינם). בלעדיה, כניסה למסך עם תת-הטאב "שינה" פעיל רק חשפה את ה-HTML מהרינדור
+    // הקודם, ונתונים שנמשכו בינתיים בכניסה לאפליקציה לא הופיעו עד החלפת תת-טאב.
+    if (_blTab === 'sleep' && typeof renderSleepView === 'function') renderSleepView();
     _applyTabVisibility();
     // לוח השנה בארכיון מציג גם שקילות/תזונה — רענון אם הוא זה שמוצג כרגע
     if (document.getElementById('ui-archive')?.classList.contains('active')
@@ -2154,6 +2158,9 @@ function renderSleepView() {
     const n = nights[idx];
     const rd = computeReadiness(nights, idx);
     const need = _sleepNeed(nights, idx);   // יעד שינה אישי (חציון חתוך ל-7–9ש')
+    // asleepMin=0 (דחיפת ויטלים לפני ששלבי השינה נכתבו ב-Apple) הוא **חסר**, לא "לא ישנת".
+    // בלי הבדיקה הזו _slFmtDur(0) הציג "0:00" + "מתחת ליעד" כאילו זו מדידה אמיתית.
+    const _sleepOk = _validVital('asleepMin', n.asleepMin);
 
     const b = (key) => _recoveryBaseline(nights, idx, key).med;
     const dlt = (val, base, invGood, unit) => {
@@ -2230,8 +2237,12 @@ function renderSleepView() {
         </div>
       </div>
       <div class="sl-mgrid">
-        ${_slMetric(_slFmtDur(n.asleepMin), '', 'זמן שינה', n.asleepMin >= need ? 'מעל היעד' : 'מתחת ליעד', n.asleepMin >= need ? 'up' : 'down')}
-        ${_slMetric(Math.round((n.efficiency || 0) * 100), '%', 'יעילות', (n.efficiency || 0) >= 0.88 ? 'טובה' : 'בינונית', (n.efficiency || 0) >= 0.88 ? 'up' : 'flat')}
+        ${_sleepOk
+            ? _slMetric(_slFmtDur(n.asleepMin), '', 'זמן שינה', n.asleepMin >= need ? 'מעל היעד' : 'מתחת ליעד', n.asleepMin >= need ? 'up' : 'down')
+            : _slMetric('—', '', 'זמן שינה', 'טרם נמשך מ-Apple', 'flat')}
+        ${_validVital('efficiency', n.efficiency)
+            ? _slMetric(Math.round(n.efficiency * 100), '%', 'יעילות', n.efficiency >= 0.88 ? 'טובה' : 'בינונית', n.efficiency >= 0.88 ? 'up' : 'flat')
+            : _slMetric('—', '', 'יעילות', '', 'flat')}
         ${_slMetric(hrvC.v ?? '—', ' ms', 'HRV', ...hrvD, hrvC.gap)}
         ${_slMetric(rhrC.v ?? '—', ' bpm', 'דופק מנוחה', ...rhrD, rhrC.gap)}
         ${_slMetric(respC.v ?? '—', '', 'קצב נשימה', ...respD, respC.gap)}
@@ -2245,7 +2256,8 @@ function renderSleepView() {
 
     <div class="bl-chart-card">
       <div class="sl-card-title">שלבי שינה — הלילה</div>
-      ${_slStagesBar(n)}
+      ${_sleepOk ? _slStagesBar(n)
+        : `<div style="color:var(--text-dim);font-size:.85rem">שלבי השינה ללילה האחרון טרם נמשכו מ-Apple.</div>`}
     </div>
 
     <div class="bl-chart-card">

@@ -401,6 +401,17 @@ async function lookupBarcode(code) {
     return _offToFood(Object.assign({ code }, d.product));
 }
 
+// lookupUsdaFood — שליפת פריט USDA בודד לפי fdcId, להשלמת סיבים למזון שכבר בקאש.
+// ה-fdcId שמור על המזון בתוך ה-id ("usda:<fdcId>"), ולכן ניתן לשלוף אותו שוב.
+async function lookupUsdaFood(fdcId) {
+    const key = StorageManager.getUsdaKey && StorageManager.getUsdaKey();
+    if (!key) return null;
+    const url = `https://api.nal.usda.gov/fdc/v1/food/${encodeURIComponent(fdcId)}?api_key=${encodeURIComponent(key)}`;
+    const resp = await _fdFetch(url);
+    if (!resp.ok) throw new Error('USDA_' + resp.status);
+    return _usdaToFood(await resp.json());
+}
+
 // ── USDA FoodData Central — שכבת חומרי גלם/גנרי (אופציונלי, דורש מפתח) ──
 // מחזיר ערכים ל-100 גרם מסוגי Foundation / SR Legacy (חומרי גלם איכותיים).
 function _usdaToFood(it) {
@@ -989,7 +1000,8 @@ function fdSaveMealAsCustom(meal) {
         if ((e.baseUnit || 'g') === 'unit') {
             comps.push({
                 name: e.name, grams: e.qty || 1, baseUnit: 'unit',
-                per100: { kcal: (p.kcal || 0) / 100, p: (p.p || 0) / 100, c: (p.c || 0) / 100, f: (p.f || 0) / 100 }
+                per100: { kcal: (p.kcal || 0) / 100, p: (p.p || 0) / 100, c: (p.c || 0) / 100, f: (p.f || 0) / 100,
+                          fb: _fdFbOf(p) == null ? undefined : _fdRn(_fdFbOf(p) / 100) }
             });
             return;
         }
@@ -1372,7 +1384,8 @@ function _fdAddComponentFromFood(food) {
     const serv = (food.servings || []).find(s => s.grams && s.grams !== 100);
     _fdMealComponents.push({
         name: food.name, grams: serv ? serv.grams : 100, baseUnit: food.baseUnit || 'g',
-        per100: { kcal: (per.kcal || 0) / scale, p: (per.p || 0) / scale, c: (per.c || 0) / scale, f: (per.f || 0) / scale }
+        per100: { kcal: (per.kcal || 0) / scale, p: (per.p || 0) / scale, c: (per.c || 0) / scale, f: (per.f || 0) / scale,
+                  fb: _fdFbOf(per) == null ? undefined : _fdRn(_fdFbOf(per) / scale) }
     });
     _fdCompPickMode = false;
     closeFoodAdd();          // סוגר את שיט החיפוש — ה-Meal Builder נשאר פתוח מתחתיו
@@ -1441,22 +1454,45 @@ function _fdOpenPortion(food, entry) {
 // בלי זה המזונות השכיחים ביותר היו ממשיכים להיכתב ליומן בלי סיבים גם אחרי v19.6.0.
 // מכוון — קדימה בלבד: משלים את **המזון** במאגר, לא רשומות עבר. רשומות שכבר תועדו
 // שומרות על ה-per100 המוקפא שלהן.
-// מכוסים שני מקורות עם מזהה יציב: OFF לפי ברקוד, וצמ"ת לפי smlmitzrach (מזהה
-// שנשמר ב-id כ-"tz:<sml>"). USDA לא — ה-fdcId אינו נשמר על המזון.
+// מכוסה כל מקור בעל מזהה יציב:
+//   basic:<i>  — הטבלה המובנית, פתרון מקומי מיידי בלי רשת
+//   off:<ברקוד> — משיכה חוזרת מ-Open Food Facts
+//   tz:<sml>   — datastore_search עם filters על smlmitzrach
+//   usda:<fdcId> — שליפת פריט בודד (דורש מפתח USDA; בלעדיו פשוט מדולג)
+// לא מכוסים במכוון: custom/gemini (ערכים של המשתמש או של הסריקה — לא נדרסים),
+// ו-meal (ארוחה שמורה — הסיבים נגזרים מהמרכיבים ב-fdSaveMeal).
 // אחת למזון (_fdFbTried), ובכשל/אופליין פשוט לא קורה כלום.
 const _fdFbTried = {};
 async function _fdBackfillFiber(food) {
     if (!food || _fdFbOf(food.per100) != null) return;
     if (food.edited) return;   // תוקן ידנית — לא נדרס בשום מקרה
 
+    const id = String(food.id || '');
+
+    // מקור מקומי — פתרון מיידי, בלי רשת: הטבלה המובנית כבר נושאת סיבים מאז v19.6.1,
+    // אבל עותקים שנשמרו לקאש לפני כן לא. משווים לפי id ומשלימים במקום.
+    if (id.indexOf('basic:') === 0) {
+        const src = BASIC_FOODS.find(f => f.id === id);
+        const fb = src && _fdFbOf(src.per100);
+        if (fb == null) return;
+        food.per100 = Object.assign({}, food.per100, { fb });
+        StorageManager.upsertFoodToDb({ id: food.id, per100: food.per100 });
+        if (_fdSelectedFood === food && document.getElementById('fd-preview')) _fdUpdatePreview();
+        return;
+    }
+
     let key = null, fetchFresh = null;
     if (food.barcode && (!food.source || food.source === 'off')) {
         key = 'off:' + food.barcode;
         fetchFresh = () => lookupBarcode(String(food.barcode));
-    } else if (food.source === 'tzameret' && /^tz:(.+)$/.test(String(food.id || ''))) {
-        const sml = String(food.id).slice(3);
+    } else if (food.source === 'tzameret' && /^tz:(.+)$/.test(id)) {
+        const sml = id.slice(3);
         key = 'tz:' + sml;
         fetchFresh = () => lookupTzameret(sml);
+    } else if (food.source === 'usda' && /^usda:(.+)$/.test(id)) {
+        const fdc = id.slice(5);
+        key = 'usda:' + fdc;
+        fetchFresh = () => lookupUsdaFood(fdc);
     }
     if (!key || _fdFbTried[key]) return;
     _fdFbTried[key] = 1;
@@ -2433,6 +2469,7 @@ function _fdRenderComponents() {
                     <span class="fd-comp-cell"><input id="fd-mc-p100-${i}" inputmode="decimal" step="any" value="${_fdR(p.p)}" oninput="_fdMealRecalc()"><small class="macro-p">ח</small></span>
                     <span class="fd-comp-cell"><input id="fd-mc-c100-${i}" inputmode="decimal" step="any" value="${_fdR(p.c)}" oninput="_fdMealRecalc()"><small class="macro-c">פ</small></span>
                     <span class="fd-comp-cell"><input id="fd-mc-f100-${i}" inputmode="decimal" step="any" value="${_fdR(p.f)}" oninput="_fdMealRecalc()"><small class="macro-f">ש</small></span>
+                    <span class="fd-comp-cell"><input id="fd-mc-fb100-${i}" inputmode="decimal" step="any" placeholder="—" value="${_fdFbOf(p) != null ? _fdR(_fdFbOf(p)) : ''}" oninput="_fdMealRecalc()"><small>סיב</small></span>
                 </div>
                 <span class="fd-comp-kcal"><b id="fd-mc-kc-${i}">${_fdFmt(kcal)}</b> kcal למרכיב<span class="fd-comp-warn" id="fd-mc-warn-${i}" style="display:none" title=""> <span class="material-symbols-outlined inline-arrow">warning</span></span></span>
             </div>
@@ -2458,6 +2495,9 @@ function _fdMealRecalc() {
         const pEl = document.getElementById('fd-mc-p100-' + i); if (pEl) per.p = Number(pEl.value) || 0;
         const cEl = document.getElementById('fd-mc-c100-' + i); if (cEl) per.c = Number(cEl.value) || 0;
         const fEl = document.getElementById('fd-mc-f100-' + i); if (fEl) per.f = Number(fEl.value) || 0;
+        // סיבים: שדה ריק = לא ידוע (undefined), לא אפס. אפס מפורש נשמר כאפס לגיטימי.
+        const fbEl = document.getElementById('fd-mc-fb100-' + i);
+        if (fbEl) { const v = _fdRn(fbEl.value); if (v == null) delete per.fb; else per.fb = v; }
         const f = c.baseUnit === 'unit' ? c.grams : c.grams / 100;
         const kcal = Math.round((per.kcal || 0) * f);
         tot.kcal += kcal; tot.p += (per.p || 0) * f; tot.c += (per.c || 0) * f; tot.f += (per.f || 0) * f;
@@ -2561,7 +2601,8 @@ function _fdUpsertSavedMeal(id, name, comps, sum) {
     StorageManager.upsertFoodToDb({
         id: id || ('meal:' + Date.now().toString(36)),
         name, brand: '', barcode: null, source: 'meal', baseUnit: 'unit',
-        per100: { kcal: Math.round(sum.kcal) * 100, p: _fdR(sum.p) * 100, c: _fdR(sum.c) * 100, f: _fdR(sum.f) * 100 },
+        per100: { kcal: Math.round(sum.kcal) * 100, p: _fdR(sum.p) * 100, c: _fdR(sum.c) * 100, f: _fdR(sum.f) * 100,
+                  fb: sum.fb == null ? undefined : _fdR(sum.fb) * 100 },
         servings: [{ label: '1 מנה', grams: 1 }],
         components: comps.map(c => ({ name: c.name, grams: c.grams, per100: Object.assign({}, c.per100), baseUnit: c.baseUnit || 'g' }))
     });

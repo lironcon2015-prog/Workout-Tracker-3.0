@@ -1,0 +1,430 @@
+<title>סיבים ביומן התזונה</title>
+<style>
+:root {
+    --board-bg: #eef0f5; --board-panel: #ffffff; --board-line: rgba(12,20,40,.10);
+    --board-ink: #12151c; --board-dim: #5a6273; --board-accent: #1E7A4A;
+
+    --bg: #070708; --surface-1: #101013; --surface-2: #161619; --surface-3: #1e1e22; --surface-4: #26262c;
+    --hairline: rgba(255,255,255,.06); --hairline-hi: rgba(255,255,255,.10);
+    --accent: #0A84FF; --accent-rgb: 10,132,255;
+    --macro-p: #FF9F0A; --macro-c: #0A84FF; --macro-f: #FFD60A;
+    --fiber: #30D158; --fiber-rgb: 48,209,88;
+    --text: #e2e2e2; --text-dim: #8E8E93;
+    --font-app: "Heebo", system-ui, -apple-system, "Segoe UI", "Arial Hebrew", sans-serif;
+}
+:root:not([data-theme="light"]) { color-scheme: dark; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --board-bg: #0b0d12; --board-panel: #12151c; --board-line: rgba(160,185,230,.14);
+        --board-ink: #e8ecf4; --board-dim: #909ab0; --board-accent: #4FD08A;
+    }
+}
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --board-bg: #0b0d12; --board-panel: #12151c; --board-line: rgba(160,185,230,.14);
+    --board-ink: #e8ecf4; --board-dim: #909ab0; --board-accent: #4FD08A;
+}
+:root[data-theme="light"] { color-scheme: light; }
+
+* { box-sizing: border-box; }
+body {
+    margin: 0; direction: rtl; background: var(--board-bg); color: var(--board-ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Arial Hebrew", sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased; padding: 40px 20px 64px;
+}
+@media (max-width: 420px) { body { padding: 26px 8px 44px; } }
+.wrap { max-width: 1020px; margin: 0 auto; }
+
+.eyebrow { font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--board-accent); margin:0 0 10px; }
+h1 { font-size: clamp(1.6rem,4.4vw,2.3rem); font-weight:800; letter-spacing:-.02em; margin:0 0 12px; text-wrap:balance; }
+.lede { margin:0; max-width:62ch; color:var(--board-dim); font-size:.96rem; }
+.rule { height:1px; background:var(--board-line); margin:32px 0; border:0; }
+h2.sec { font-size:1.15rem; font-weight:800; margin:0 0 6px; }
+p.seclede { margin:0 0 22px; color:var(--board-dim); font-size:.9rem; max-width:64ch; }
+
+.decks { display:grid; gap:40px 28px; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); justify-items:center; align-items:start; }
+.deck { width:100%; max-width:372px; display:flex; flex-direction:column; gap:16px; }
+.deck-head { display:flex; flex-direction:column; gap:6px; }
+.deck-tag {
+    align-self:flex-start; font-size:.66rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--board-accent); background:color-mix(in srgb,var(--board-accent) 12%,transparent);
+    border:1px solid color-mix(in srgb,var(--board-accent) 30%,transparent); border-radius:9999px; padding:4px 12px;
+}
+.deck-name { font-size:1.25rem; font-weight:800; margin:0; }
+.deck-sub { margin:0; font-size:.87rem; color:var(--board-dim); }
+
+/* ── Phone ─────────────────────────────────────────────── */
+.phone {
+    width:344px; height:660px; margin:0 auto; border-radius:42px;
+    background:var(--bg); border:1px solid rgba(255,255,255,.09);
+    box-shadow:0 2px 6px rgba(0,0,0,.35), 0 24px 56px rgba(0,0,0,.45);
+    position:relative; overflow:hidden; direction:rtl; font-family:var(--font-app); color:#fff;
+    display:flex; flex-direction:column; padding:44px 0 0;
+}
+@media (max-width:392px){ .phone{ transform:scale(.9); transform-origin:top center; margin-bottom:-64px; } }
+.notch { position:absolute; top:9px; left:50%; transform:translateX(-50%); width:96px; height:24px; border-radius:9999px; background:#000; z-index:5; }
+
+.fd-head { display:flex; align-items:center; justify-content:space-between; padding:6px 18px 12px; }
+.fd-date { display:flex; flex-direction:column; align-items:center; gap:1px; }
+.fd-date-main { font-weight:900; font-style:italic; font-size:1.02rem; }
+.fd-date-dow { font-size:.62rem; color:var(--text-dim); font-weight:700; }
+.fd-arrow { width:30px; height:30px; border-radius:9999px; background:var(--surface-3); border:1px solid var(--hairline); color:var(--text-dim); display:flex; align-items:center; justify-content:center; font-size:.8rem; }
+
+.fd-scroll { flex:1; overflow:hidden; padding:0 14px 14px; display:flex; flex-direction:column; gap:10px; }
+
+.fd-summary { background:var(--surface-2); border:1px solid var(--hairline); border-radius:20px; padding:16px 16px 14px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+.fd-ring-wrap { position:relative; width:118px; height:118px; display:flex; align-items:center; justify-content:center; }
+.fd-ring { position:absolute; inset:0; transform:rotate(-90deg); }
+.fd-ring-track { fill:none; stroke:rgba(255,255,255,.07); stroke-width:8; }
+.fd-ring-prog  { fill:none; stroke:var(--accent); stroke-width:8; }
+.fd-ring-center { display:flex; flex-direction:column; align-items:center; }
+.fd-ring-num { font-size:1.85rem; font-weight:900; font-style:italic; line-height:1; direction:ltr; font-variant-numeric:tabular-nums; }
+.fd-ring-lbl { font-size:.58rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin-top:2px; }
+.fd-kcap-row { display:flex; align-items:center; gap:12px; }
+.fd-kcap { display:flex; flex-direction:column; align-items:center; }
+.fd-kcap-lbl { font-size:.54rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); }
+.fd-kcap-val { font-size:.88rem; font-weight:900; font-style:italic; direction:ltr; font-variant-numeric:tabular-nums; }
+.fd-kcap-val.accent { color:var(--accent); }
+.fd-kcap-sep { width:1px; height:20px; background:var(--hairline-hi); }
+
+/* שורת מאקרו — הבסיס הקיים */
+.fd-macros { display:grid; width:100%; gap:8px; }
+.fd-macros.three { grid-template-columns:repeat(3,1fr); }
+.fd-macros.four  { grid-template-columns:repeat(4,1fr); }
+.fd-mstat { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.fd-mstat-lbl { font-size:.55rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); }
+.fd-mstat-val { font-size:.94rem; font-weight:900; font-style:italic; direction:ltr; font-variant-numeric:tabular-nums; }
+.fd-mstat-val small { font-size:.66em; opacity:.5; font-weight:700; }
+.fd-mline { width:100%; height:3px; border-radius:9999px; background:rgba(255,255,255,.09); overflow:hidden; }
+.fd-mline > span { display:block; height:100%; border-radius:9999px; }
+.macro-p > span { background:var(--macro-p); }
+.macro-c > span { background:var(--macro-c); }
+.macro-f > span { background:var(--macro-f); }
+.macro-fb > span { background:var(--fiber); }
+
+/* וריאנט ב׳ — שורת סיבים נפרדת */
+.fd-fiber-row {
+    width:100%; display:flex; align-items:center; gap:10px;
+    border-top:1px solid var(--hairline); padding-top:11px; margin-top:1px;
+}
+.fd-fiber-l { display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
+.fd-fiber-lbl { font-size:.55rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); }
+.fd-fiber-val { font-size:1.02rem; font-weight:900; font-style:italic; direction:ltr; font-variant-numeric:tabular-nums; }
+.fd-fiber-val small { font-size:.62em; opacity:.5; font-weight:700; }
+.fd-fiber-bars { flex:1; display:flex; flex-direction:column; gap:5px; }
+.fd-fiber-track { width:100%; height:7px; border-radius:9999px; background:rgba(255,255,255,.09); overflow:hidden; }
+.fd-fiber-track > span { display:block; height:100%; background:var(--fiber); border-radius:9999px; }
+.fd-cov { font-size:.56rem; font-weight:700; color:var(--text-dim); }
+.fd-cov b { color:#c9a227; font-weight:800; }
+
+/* חיווי כיסוי בווריאנט א׳ */
+.fd-cov-line { width:100%; font-size:.56rem; font-weight:700; color:var(--text-dim); text-align:center; border-top:1px solid var(--hairline); padding-top:9px; }
+.fd-cov-line b { color:#c9a227; font-weight:800; }
+
+/* ארוחות */
+.fd-meal { background:var(--surface-2); border:1px solid var(--hairline); border-radius:18px; padding:11px 13px; }
+.fd-meal-head { display:flex; align-items:center; justify-content:space-between; }
+.fd-meal-name { font-size:.82rem; font-weight:900; font-style:italic; }
+.fd-meal-kcal { font-size:.72rem; font-weight:800; color:var(--text-dim); direction:ltr; font-variant-numeric:tabular-nums; }
+.fd-item { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding-top:9px; margin-top:9px; border-top:1px solid var(--hairline); }
+.fd-item-name { font-size:.78rem; font-weight:600; color:var(--text); }
+.fd-item-sub { font-size:.6rem; color:var(--text-dim); font-weight:600; direction:ltr; }
+.fd-fb-tag {
+    font-size:.55rem; font-weight:800; letter-spacing:.04em; direction:ltr;
+    color:var(--fiber); background:rgba(var(--fiber-rgb),.12);
+    border:1px solid rgba(var(--fiber-rgb),.28); border-radius:9999px; padding:1px 7px; white-space:nowrap;
+}
+.fd-fb-tag.miss { color:#c9a227; background:rgba(201,162,39,.10); border-color:rgba(201,162,39,.3); }
+
+/* ── Settings snippet ──────────────────────────────────── */
+.snip {
+    background:var(--bg); border:1px solid rgba(255,255,255,.09); border-radius:22px;
+    padding:18px; font-family:var(--font-app); color:#fff; direction:rtl; max-width:400px;
+}
+.snip-title { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--text-dim); margin-bottom:12px; }
+.snip-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; }
+.snip-row + .snip-row { border-top:1px solid var(--hairline); }
+.snip-lbl { font-size:.82rem; font-weight:700; }
+.snip-mode { font-size:.55rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); background:rgba(var(--accent-rgb),.14); border-radius:9999px; padding:2px 8px; }
+.snip-inputs { display:flex; gap:6px; }
+.snip-in {
+    width:58px; text-align:center; background:var(--surface-3); border:1px solid var(--hairline-hi);
+    border-radius:11px; padding:7px 4px; color:#fff; font-family:inherit;
+    font-size:.82rem; font-weight:800; direction:ltr; font-variant-numeric:tabular-nums;
+}
+.snip-in.wide { width:78px; }
+.snip-in.fb { border-color:rgba(var(--fiber-rgb),.4); }
+.snip-cap { font-size:.6rem; color:var(--text-dim); font-weight:600; margin-top:4px; }
+.snip-tiny { font-size:.5rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); text-align:center; }
+
+/* ── Notes / tables ────────────────────────────────────── */
+.notes { display:flex; flex-direction:column; }
+.note { display:grid; grid-template-columns:auto 1fr; gap:10px; padding:10px 0; border-bottom:1px solid var(--board-line); font-size:.85rem; }
+.note:last-child { border-bottom:0; }
+.note dt { font-weight:700; white-space:nowrap; }
+.note dd { margin:0; color:var(--board-dim); }
+
+.panel { background:var(--board-panel); border:1px solid var(--board-line); border-radius:18px; padding:22px 24px; }
+.panel h3 { margin:0 0 4px; font-size:1.02rem; font-weight:800; }
+.panel p.sub { margin:0 0 16px; color:var(--board-dim); font-size:.87rem; }
+.panel ul { margin:0; padding-inline-start:20px; display:flex; flex-direction:column; gap:9px; }
+.panel li { font-size:.88rem; color:var(--board-dim); }
+.panel li b { color:var(--board-ink); font-weight:700; }
+.grid2 { display:grid; gap:20px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); align-items:start; }
+
+.tbl-wrap { overflow-x:auto; }
+table { border-collapse:collapse; width:100%; min-width:460px; font-size:.85rem; }
+th, td { text-align:right; padding:9px 10px; border-bottom:1px solid var(--board-line); vertical-align:top; }
+th { font-size:.68rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--board-dim); }
+td.ok  { color:var(--board-accent); font-weight:700; }
+td.no  { color:#b06a1f; font-weight:700; }
+code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.86em; background:color-mix(in srgb,var(--board-ink) 8%,transparent); padding:1px 5px; border-radius:5px; direction:ltr; display:inline-block; }
+.foot { margin:26px 0 0; font-size:.8rem; color:var(--board-dim); }
+@media (prefers-reduced-motion:reduce){ *{ animation:none!important; transition:none!important; } }
+</style>
+
+<div class="wrap">
+    <p class="eyebrow">GymPro Elite · מוקאפ + תוכנית</p>
+    <h1>סיבים תזונתיים ביומן</h1>
+    <p class="lede">
+        אינדיקציה יומית לסיבים ויעד יומי באותה מתודולוגיה של המאקרו — ביומן המזון בלבד.
+        שני הכיוונים מציגים את אותו יום: 21 גרם סיבים מול יעד 32, כשרק 6 מתוך 9 הרשומות
+        נושאות נתון סיבים בכלל. זה המצב הריאלי בהתחלה, והוא מה שמכתיב את העיצוב.
+    </p>
+
+    <hr class="rule">
+
+    <div class="decks">
+
+        <!-- ══════ א׳ ══════ -->
+        <div class="deck">
+            <div class="deck-head">
+                <span class="deck-tag">כיוון א׳</span>
+                <h2 class="deck-name">רביעייה</h2>
+                <p class="deck-sub">הסיבים נכנסים כעמודה רביעית בשורת המאקרו הקיימת.</p>
+            </div>
+
+            <div class="phone">
+                <div class="notch"></div>
+                <div class="fd-head">
+                    <span class="fd-arrow">›</span>
+                    <div class="fd-date"><span class="fd-date-main">היום</span><span class="fd-date-dow">שישי · 14.8</span></div>
+                    <span class="fd-arrow">‹</span>
+                </div>
+                <div class="fd-scroll">
+                    <div class="fd-summary">
+                        <div class="fd-ring-wrap">
+                            <svg class="fd-ring" viewBox="0 0 120 120" aria-hidden="true">
+                                <circle class="fd-ring-track" cx="60" cy="60" r="54"/>
+                                <circle class="fd-ring-prog" cx="60" cy="60" r="54" stroke-linecap="round"
+                                        stroke-dasharray="339.3" stroke-dashoffset="42.8"/>
+                            </svg>
+                            <div class="fd-ring-center">
+                                <span class="fd-ring-num">265</span>
+                                <span class="fd-ring-lbl">נותרו</span>
+                            </div>
+                        </div>
+                        <div class="fd-kcap-row">
+                            <div class="fd-kcap"><span class="fd-kcap-lbl">נצרכו</span><span class="fd-kcap-val accent">1,835</span></div>
+                            <span class="fd-kcap-sep"></span>
+                            <div class="fd-kcap"><span class="fd-kcap-lbl">יעד</span><span class="fd-kcap-val">2,100</span></div>
+                        </div>
+                        <div class="fd-macros four">
+                            <div class="fd-mstat"><span class="fd-mstat-lbl">חלבון</span><span class="fd-mstat-val">142<small>/165</small></span><span class="fd-mline macro-p"><span style="width:86%"></span></span></div>
+                            <div class="fd-mstat"><span class="fd-mstat-lbl">פחמימה</span><span class="fd-mstat-val">190<small>/210</small></span><span class="fd-mline macro-c"><span style="width:90%"></span></span></div>
+                            <div class="fd-mstat"><span class="fd-mstat-lbl">שומן</span><span class="fd-mstat-val">58<small>/62</small></span><span class="fd-mline macro-f"><span style="width:94%"></span></span></div>
+                            <div class="fd-mstat"><span class="fd-mstat-lbl">סיבים</span><span class="fd-mstat-val">21<small>/32</small></span><span class="fd-mline macro-fb"><span style="width:66%"></span></span></div>
+                        </div>
+                        <div class="fd-cov-line">סיבים מבוססים על <b>6 מתוך 9</b> רשומות — הערך בפועל גבוה יותר</div>
+                    </div>
+
+                    <div class="fd-meal">
+                        <div class="fd-meal-head"><span class="fd-meal-name">בוקר</span><span class="fd-meal-kcal">612 kcal</span></div>
+                        <div class="fd-item">
+                            <span class="fd-item-name">שיבולת שועל</span>
+                            <span class="fd-fb-tag">סיבים 8.4</span>
+                        </div>
+                        <div class="fd-item">
+                            <span class="fd-item-name">חביתה 2 ביצים</span>
+                            <span class="fd-fb-tag miss">סיבים —</span>
+                        </div>
+                    </div>
+                    <div class="fd-meal">
+                        <div class="fd-meal-head"><span class="fd-meal-name">צהריים</span><span class="fd-meal-kcal">744 kcal</span></div>
+                        <div class="fd-item">
+                            <span class="fd-item-name">עדשים מבושלות</span>
+                            <span class="fd-fb-tag">סיבים 9.1</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <dl class="notes">
+                <div class="note"><dt>יתרון</dt><dd>שינוי מינימלי — <code>_fdMacroStat</code> קיים, רק עמודה נוספת ו-<code>grid-template-columns</code> ל-4.</dd></div>
+                <div class="note"><dt>מחיר</dt><dd>ארבע עמודות ב-344px = 78px לעמודה. "פחמימה" כבר צפוף היום, וזה מקטין עוד.</dd></div>
+                <div class="note"><dt>סיכון</dt><dd>הסיבים נראים כמאקרו רביעי — אבל הם <b>לא</b> נכנסים לחישוב הקלוריות. הצורה משקרת מעט.</dd></div>
+            </dl>
+        </div>
+
+        <!-- ══════ ב׳ ══════ -->
+        <div class="deck">
+            <div class="deck-head">
+                <span class="deck-tag">כיוון ב׳</span>
+                <h2 class="deck-name">שורה נפרדת</h2>
+                <p class="deck-sub">המאקרו נשאר שלוש עמודות. לסיבים שורה משלהם מתחת לקו.</p>
+            </div>
+
+            <div class="phone">
+                <div class="notch"></div>
+                <div class="fd-head">
+                    <span class="fd-arrow">›</span>
+                    <div class="fd-date"><span class="fd-date-main">היום</span><span class="fd-date-dow">שישי · 14.8</span></div>
+                    <span class="fd-arrow">‹</span>
+                </div>
+                <div class="fd-scroll">
+                    <div class="fd-summary">
+                        <div class="fd-ring-wrap">
+                            <svg class="fd-ring" viewBox="0 0 120 120" aria-hidden="true">
+                                <circle class="fd-ring-track" cx="60" cy="60" r="54"/>
+                                <circle class="fd-ring-prog" cx="60" cy="60" r="54" stroke-linecap="round"
+                                        stroke-dasharray="339.3" stroke-dashoffset="42.8"/>
+                            </svg>
+                            <div class="fd-ring-center">
+                                <span class="fd-ring-num">265</span>
+                                <span class="fd-ring-lbl">נותרו</span>
+                            </div>
+                        </div>
+                        <div class="fd-kcap-row">
+                            <div class="fd-kcap"><span class="fd-kcap-lbl">נצרכו</span><span class="fd-kcap-val accent">1,835</span></div>
+                            <span class="fd-kcap-sep"></span>
+                            <div class="fd-kcap"><span class="fd-kcap-lbl">יעד</span><span class="fd-kcap-val">2,100</span></div>
+                        </div>
+                        <div class="fd-macros three">
+                            <div class="fd-mstat"><span class="fd-mstat-lbl">חלבון</span><span class="fd-mstat-val">142<small>/165</small></span><span class="fd-mline macro-p"><span style="width:86%"></span></span></div>
+                            <div class="fd-mstat"><span class="fd-mstat-lbl">פחמימה</span><span class="fd-mstat-val">190<small>/210</small></span><span class="fd-mline macro-c"><span style="width:90%"></span></span></div>
+                            <div class="fd-mstat"><span class="fd-mstat-lbl">שומן</span><span class="fd-mstat-val">58<small>/62</small></span><span class="fd-mline macro-f"><span style="width:94%"></span></span></div>
+                        </div>
+                        <div class="fd-fiber-row">
+                            <div class="fd-fiber-l">
+                                <span class="fd-fiber-lbl">סיבים</span>
+                                <span class="fd-fiber-val">21<small>/32 g</small></span>
+                            </div>
+                            <div class="fd-fiber-bars">
+                                <span class="fd-fiber-track"><span style="width:66%"></span></span>
+                                <span class="fd-cov">מבוסס על <b>6 מתוך 9</b> רשומות · חסרות 11 ג׳ ליעד</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="fd-meal">
+                        <div class="fd-meal-head"><span class="fd-meal-name">בוקר</span><span class="fd-meal-kcal">612 kcal</span></div>
+                        <div class="fd-item">
+                            <span class="fd-item-name">שיבולת שועל</span>
+                            <span class="fd-fb-tag">סיבים 8.4</span>
+                        </div>
+                        <div class="fd-item">
+                            <span class="fd-item-name">חביתה 2 ביצים</span>
+                            <span class="fd-fb-tag miss">סיבים —</span>
+                        </div>
+                    </div>
+                    <div class="fd-meal">
+                        <div class="fd-meal-head"><span class="fd-meal-name">צהריים</span><span class="fd-meal-kcal">744 kcal</span></div>
+                        <div class="fd-item">
+                            <span class="fd-item-name">עדשים מבושלות</span>
+                            <span class="fd-fb-tag">סיבים 9.1</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <dl class="notes">
+                <div class="note"><dt>יתרון</dt><dd>הצורה אומרת את האמת: הסיבים אינם מאקרו רביעי, ולכן אינם באותה שורה.</dd></div>
+                <div class="note"><dt>מקום</dt><dd>פס רחב במקום פס של רבע-רוחב, ומקום אמיתי לשורת הכיסוי בלי לדחוס.</dd></div>
+                <div class="note"><dt>מחיר</dt><dd>+26px לגובה כרטיס הסיכום. השורה מוסתרת לגמרי כשאין יעד ואין נתון.</dd></div>
+            </dl>
+        </div>
+    </div>
+
+    <hr class="rule">
+
+    <h2 class="sec">הזנת היעד — אותה מתודולוגיה, עם חריג אחד</h2>
+    <p class="seclede">
+        השדה מצטרף לשורת יעדי המאקרו בהגדרות ונשמר דרך <code>saveMacroTarget</code> — כולל לוג
+        היעדים האפקטיבי-מתאריך, כך ששינוי יעד חל מהיום והלאה וימי עבר שומרים על היעד שהיה בתוקף בהם.
+        החריג: הסיבים <b>אינם</b> נכנסים לחישוב הקלוריות האוטומטי.
+    </p>
+
+    <div class="grid2">
+        <div class="snip">
+            <div class="snip-title">הגדרות · יעד תזונה יומי</div>
+            <div class="snip-row">
+                <span class="snip-lbl">קלוריות <span class="snip-mode">מחושב</span></span>
+                <input class="snip-in wide" value="2100" readonly>
+            </div>
+            <div class="snip-row">
+                <span class="snip-lbl">מאקרו (ג׳)</span>
+                <div class="snip-inputs">
+                    <div><input class="snip-in" value="165" readonly><div class="snip-tiny">חלבון</div></div>
+                    <div><input class="snip-in" value="210" readonly><div class="snip-tiny">פחמ׳</div></div>
+                    <div><input class="snip-in" value="62" readonly><div class="snip-tiny">שומן</div></div>
+                </div>
+            </div>
+            <div class="snip-row">
+                <span class="snip-lbl">סיבים (ג׳)</span>
+                <div class="snip-inputs">
+                    <div><input class="snip-in fb" value="32" readonly><div class="snip-tiny">יעד</div></div>
+                </div>
+            </div>
+            <div class="snip-cap">הסיבים אינם משפיעים על יעד הקלוריות — הם כבר נספרים בתוך הפחמימות.</div>
+        </div>
+
+        <div class="panel">
+            <h3>למה הסיבים בשורה נפרדת גם בהגדרות</h3>
+            <p class="sub">זו לא החלטה עיצובית, זו נכונות חישובית.</p>
+            <ul>
+                <li><b>הקלוריות מחושבות</b> ב-<code>_macroTargetKcal</code> לפי <code>P×4 + C×4 + F×9</code>. אם הסיבים ייכנסו לנוסחה, יעד הקלוריות יתנפח בכ-64 קק"ל על יעד של 32 ג׳.</li>
+                <li><b>סיבים הם תת-קבוצה של הפחמימות</b> ברוב מסדי הנתונים (כולל Open Food Facts) — הם כבר סגורים בתוך ה-<code>carbs</code>. ספירה שנייה היא ספירה כפולה.</li>
+                <li><b>אותו כלל ב-<code>_fdKcalMismatch</code></b> — אזהרת "הקלוריות לא תואמות את המאקרו" חייבת להתעלם מסיבים, אחרת כל מזון עתיר-סיבים יסומן כשגוי.</li>
+            </ul>
+        </div>
+    </div>
+
+    <hr class="rule">
+
+    <h2 class="sec">מאיפה יגיע הנתון</h2>
+    <p class="seclede">
+        זה החלק שקובע אם הפיצ'ר שימושי או מקושט. לכל מקור בנפרד:
+    </p>
+    <div class="tbl-wrap">
+        <table>
+            <thead><tr><th>מקור</th><th>סיבים זמינים?</th><th>מה נדרש</th></tr></thead>
+            <tbody>
+                <tr><td>Open Food Facts (חיפוש/ברקוד)</td><td class="ok">כן</td><td><code>nutriments.fiber_100g</code> — כבר נמשך במלואו, רק למפות</td></tr>
+                <tr><td>מזון מותאם ידני</td><td class="ok">כן</td><td>שדה חמישי בטופס <code>fd-c-fb</code></td></tr>
+                <tr><td>סריקת תווית / הערכת AI</td><td class="ok">כן</td><td>הוספת שדה לפרומפט ולפרסור — Gemini קורא סיבים מתווית</td></tr>
+                <tr><td>הדבקת טקסט תווית</td><td class="ok">כן</td><td>דפוס נוסף ל-<code>fdParsePastedNutrition</code></td></tr>
+                <tr><td>ארוחה שמורה (Meal Builder)</td><td class="ok">כן</td><td>נגזר מסכימת המרכיבים — אוטומטי</td></tr>
+                <tr><td>ימי MyFitnessPal</td><td class="no">חלקית</td><td>עמודת Fiber קיימת ב-CSV הגולמי אך נשמרת תחת <code>micros</code>, לא ב-<code>NUTRITION_DAILY</code>. חילוץ = עבודה נפרדת.</td></tr>
+                <tr><td>גשר Apple Health</td><td class="no">לא</td><td>הגשר שולח kcal ומאקרו בלבד</td></tr>
+                <tr><td>רשומות היסטוריות</td><td class="no">לא</td><td>אין שדה. נשארות <b>חסרות</b> — לא אפס.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <hr class="rule">
+
+    <div class="panel">
+        <h3>חסר אינו אפס — הכלל שמכתיב את כל העיצוב</h3>
+        <p class="sub">בדיוק הלקח מבאג ה-00:00 בשינה, שתועד השבוע ב-PROJECT_KNOWLEDGE.</p>
+        <ul>
+            <li>סכימה עיוורת עם <code>|| 0</code> תציג "21 גרם" כשהאמת היא "21 גרם מתוך 6 רשומות, 3 לא ידועות". המשתמש יסיק שהוא רחוק מהיעד כשאולי הוא עליו.</li>
+            <li>לכן: כל רשומה מחזיקה <code>fb</code> שהוא <b>מספר או undefined</b> — לעולם לא 0 כברירת מחדל. אפס אמיתי (שמן זית) הוא ערך לגיטימי ונשמר כ-0.</li>
+            <li>הכרטיס מונה כיסוי: <code>מלאות / סה"כ</code>. כיסוי מלא → תצוגה רגילה. כיסוי חלקי → שורת "מבוסס על X מתוך Y". אפס כיסוי → <code>—</code>, לא <code>0</code>.</li>
+            <li>שורות היומן נושאות תג סיבים — כולל <code>סיבים —</code> על רשומה חסרה, כדי שיהיה ברור <b>מה</b> להשלים ואיפה.</li>
+        </ul>
+    </div>
+
+    <p class="foot">
+        הפונט במוקאפ הוא תחליף מערכת — Heebo לא נטען מ-CDN בסביבת מוקאפ. הצבעים, הרדיוסים והמשטחים הם טוקני האפליקציה האמיתיים.
+    </p>
+</div>

@@ -1,0 +1,484 @@
+<title>כיווני מסך הלייב</title>
+<style>
+/* ── Board tokens (theme-aware) ─────────────────────────────────────────
+   הלוח מסביב מגיב לערכת המשתמש. מסכי הטלפון עצמם כהים תמיד —
+   האפליקציה היא PWA כהה-בלבד, ומסך מוקאפ בהיר היה משקר לגבי המוצר. */
+:root {
+    --board-bg:     #eef0f5;
+    --board-panel:  #ffffff;
+    --board-line:   rgba(12, 20, 40, 0.10);
+    --board-ink:    #12151c;
+    --board-dim:    #5a6273;
+    --board-accent: #0A6BD6;
+
+    /* ── טוקני האפליקציה (Liquid Obsidian) — קבועים, לא מושפעים מערכה ── */
+    --bg:        #070708;
+    --surface-1: #101013;
+    --surface-2: #161619;
+    --surface-3: #1e1e22;
+    --surface-4: #26262c;
+    --hairline:    rgba(255,255,255,0.06);
+    --hairline-hi: rgba(255,255,255,0.10);
+    --accent:     #0A84FF;
+    --accent-rgb: 10, 132, 255;
+    --type-b:     #47e266;
+    --type-b-rgb: 71, 226, 102;
+    --text-dim:   #8E8E93;
+
+    --font-app: "Heebo", system-ui, -apple-system, "Segoe UI", "Arial Hebrew", sans-serif;
+    --font-board: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Arial Hebrew", sans-serif;
+}
+:root:not([data-theme="light"]) { color-scheme: dark; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --board-bg:     #0b0d12;
+        --board-panel:  #12151c;
+        --board-line:   rgba(160, 185, 230, 0.14);
+        --board-ink:    #e8ecf4;
+        --board-dim:    #909ab0;
+        --board-accent: #5AB0FF;
+    }
+}
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --board-bg:     #0b0d12;
+    --board-panel:  #12151c;
+    --board-line:   rgba(160, 185, 230, 0.14);
+    --board-ink:    #e8ecf4;
+    --board-dim:    #909ab0;
+    --board-accent: #5AB0FF;
+}
+:root[data-theme="light"] { color-scheme: light; }
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    direction: rtl;
+    background: var(--board-bg);
+    color: var(--board-ink);
+    font-family: var(--font-board);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 20px 64px;
+}
+@media (max-width: 420px) { body { padding: 28px 8px 48px; } }
+
+.wrap { max-width: 1020px; margin: 0 auto; }
+
+.eyebrow {
+    font-size: .7rem; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--board-accent); margin: 0 0 10px;
+}
+h1 {
+    font-size: clamp(1.6rem, 4.4vw, 2.3rem);
+    font-weight: 800; letter-spacing: -0.02em; margin: 0 0 12px; text-wrap: balance;
+}
+.lede { margin: 0; max-width: 62ch; color: var(--board-dim); font-size: .96rem; }
+.rule { height: 1px; background: var(--board-line); margin: 32px 0; border: 0; }
+
+.decks {
+    display: grid; gap: 40px 28px;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    justify-items: center; align-items: start;
+}
+.deck { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 18px; }
+.deck-head { display: flex; flex-direction: column; gap: 6px; }
+.deck-tag {
+    align-self: flex-start;
+    font-size: .66rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--board-accent);
+    background: color-mix(in srgb, var(--board-accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--board-accent) 30%, transparent);
+    border-radius: 9999px; padding: 4px 12px;
+}
+.deck-name { font-size: 1.3rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+.deck-sub { margin: 0; font-size: .875rem; color: var(--board-dim); }
+
+/* ── Phone shell ───────────────────────────────────────────────────── */
+.phone {
+    width: 352px; height: 748px; margin: 0 auto;
+    border-radius: 46px;
+    background: var(--bg);
+    border: 1px solid rgba(255,255,255,0.09);
+    box-shadow: 0 2px 6px rgba(0,0,0,.35), 0 26px 60px rgba(0,0,0,.45);
+    position: relative; overflow: hidden;
+    direction: rtl; font-family: var(--font-app); color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    padding: 62px 18px 30px;
+    isolation: isolate;
+}
+@media (max-width: 400px) { .phone { transform: scale(.92); transform-origin: top center; margin-bottom: -58px; } }
+
+.notch {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    width: 104px; height: 26px; border-radius: 9999px; background: #000; z-index: 5;
+}
+.corner {
+    position: absolute; top: 46px; z-index: 4;
+    font-family: inherit; font-size: .62rem; font-weight: 800; letter-spacing: .12em;
+    text-transform: uppercase; color: rgba(255,255,255,.62);
+    background: rgba(255,255,255,.07); border: 1px solid var(--hairline-hi);
+    border-radius: 9999px; padding: 6px 13px; cursor: pointer;
+}
+.corner:hover { background: rgba(255,255,255,.14); color: #fff; }
+.corner:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.corner.l { left: 18px; }
+.corner.r { right: 18px; }
+
+.ex-name {
+    font-weight: 900; font-style: italic; text-transform: uppercase;
+    letter-spacing: -0.02em; line-height: 1.08; margin: 0; text-align: center;
+}
+.num { direction: ltr; font-variant-numeric: tabular-nums; font-weight: 900; font-style: italic; }
+.ring-wrap { position: relative; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-core { display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 2; }
+.ring-time { color: #fff; line-height: 1; letter-spacing: -0.06em; }
+.ring-lbl {
+    font-weight: 900; font-style: italic; text-transform: uppercase;
+    font-size: .64rem; letter-spacing: .28em; color: var(--type-b);
+}
+.head { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+/* ════════════════════ א׳ — הילה ════════════════════ */
+.a-chip {
+    background: var(--surface-3); border: 1px solid var(--hairline-hi);
+    border-radius: 9999px; padding: 5px 14px;
+    font-size: .62rem; font-weight: 900; font-style: italic;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+}
+.a-name { font-size: 1.6rem; }
+.a-ring { width: 250px; height: 250px; }
+.a-time { font-size: 3.9rem; }
+
+/* שני האלמנטים הופכים לקפסולות מלאות — אותו תפקיד, צורה אחת */
+.a-stack { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.a-data {
+    width: 100%; height: 74px; border-radius: 9999px;
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 28px; cursor: pointer; font-family: inherit; color: inherit;
+}
+.a-data:hover { background: var(--surface-3); }
+.a-data:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.a-data-lbl {
+    font-size: .62rem; font-weight: 900; font-style: italic;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--text-dim);
+}
+.a-data-val { font-size: 1.5rem; line-height: 1; }
+.a-data-val small { font-size: .46em; opacity: .55; margin: 0 3px; unicode-bidi: isolate; }
+
+.a-swipe {
+    position: relative; width: 100%; height: 78px; border-radius: 9999px;
+    background: linear-gradient(135deg, rgba(var(--accent-rgb),.20), rgba(94,92,230,.10));
+    border: 1px solid rgba(var(--accent-rgb),.30);
+    display: flex; align-items: center; justify-content: center;
+    cursor: grab; touch-action: pan-y; user-select: none; overflow: hidden;
+}
+.a-swipe:active { cursor: grabbing; }
+.a-swipe-txt { font-size: 1rem; font-weight: 800; font-style: italic; pointer-events: none; }
+.a-swipe-dot {
+    position: absolute; top: 50%; left: 26px; width: 10px; height: 10px;
+    margin-top: -5px; border-radius: 9999px; background: var(--accent);
+    animation: nudge 1.6s cubic-bezier(.2,0,0,1) infinite; pointer-events: none;
+}
+@keyframes nudge {
+    0%, 100% { transform: translateX(0);    opacity: .45; }
+    50%      { transform: translateX(-7px); opacity: 1; }
+}
+.a-swipe.dragging { transition: none; background: linear-gradient(135deg, rgba(var(--type-b-rgb),.24), rgba(var(--type-b-rgb),.10)); border-color: rgba(var(--type-b-rgb),.45); }
+.a-swipe.dragging .a-swipe-dot { background: var(--type-b); animation: none; }
+
+/* ════════════════════ ב׳ — מדרגה ════════════════════ */
+.b-count {
+    font-size: .68rem; font-weight: 900; font-style: italic;
+    letter-spacing: .26em; text-transform: uppercase; color: var(--accent);
+}
+.b-name { font-size: 1.72rem; }
+.b-ring { width: 272px; height: 272px; }
+.b-time { font-size: 4.4rem; }
+
+/* אותם שני אלמנטים — אבל אחד שוקע ואחד מרחף. רוחב = קוטר הטבעת. */
+.b-stack { width: 272px; display: flex; flex-direction: column; gap: 12px; }
+.b-data {
+    width: 100%; border-radius: 26px;
+    background: var(--surface-1); border: 1px solid rgba(0,0,0,.6);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.65), inset 0 -1px 0 rgba(255,255,255,.04);
+    padding: 16px 20px 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer; font-family: inherit; color: inherit;
+}
+.b-data:hover { background: #0c0c0e; }
+.b-data:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.b-data-lbl {
+    font-size: .6rem; font-weight: 900; font-style: italic;
+    letter-spacing: .2em; text-transform: uppercase; color: var(--text-dim);
+}
+.b-data-val { font-size: 1.9rem; line-height: 1; }
+.b-data-val small { font-size: .44em; opacity: .55; margin: 0 3px; unicode-bidi: isolate; }
+
+.b-swipe {
+    position: relative; width: 100%; border-radius: 26px;
+    background: var(--surface-3);
+    border: 1px solid rgba(var(--accent-rgb),.42);
+    box-shadow: 0 6px 18px rgba(0,0,0,.55), 0 0 28px rgba(var(--accent-rgb),.16), inset 0 1px 0 rgba(255,255,255,.06);
+    padding: 21px 20px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    cursor: grab; touch-action: pan-y; user-select: none; overflow: hidden;
+}
+.b-swipe:active { cursor: grabbing; }
+.b-swipe-txt { font-size: .98rem; font-weight: 800; font-style: italic; pointer-events: none; }
+.b-swipe-dot {
+    width: 8px; height: 8px; border-radius: 9999px; background: var(--accent);
+    animation: nudge 1.6s cubic-bezier(.2,0,0,1) infinite; flex-shrink: 0;
+}
+.b-swipe.dragging { transition: none; border-color: rgba(var(--type-b-rgb),.5); box-shadow: 0 6px 18px rgba(0,0,0,.55), 0 0 28px rgba(var(--type-b-rgb),.18); }
+.b-swipe.dragging .b-swipe-dot { background: var(--type-b); animation: none; }
+
+/* ── Annotations ───────────────────────────────────────────────────── */
+.notes { display: flex; flex-direction: column; }
+.note {
+    display: grid; grid-template-columns: auto 1fr; gap: 10px;
+    padding: 11px 0; border-bottom: 1px solid var(--board-line); font-size: .855rem;
+}
+.note:last-child { border-bottom: 0; }
+.note dt { font-weight: 700; white-space: nowrap; color: var(--board-ink); }
+.note dd { margin: 0; color: var(--board-dim); }
+
+.shared {
+    background: var(--board-panel); border: 1px solid var(--board-line);
+    border-radius: 18px; padding: 22px 24px;
+}
+.shared h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 800; }
+.shared p.sub { margin: 0 0 16px; color: var(--board-dim); font-size: .875rem; }
+.shared ul { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 9px; }
+.shared li { font-size: .885rem; color: var(--board-dim); }
+.shared li b { color: var(--board-ink); font-weight: 700; }
+code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86em;
+    background: color-mix(in srgb, var(--board-ink) 8%, transparent);
+    padding: 1px 5px; border-radius: 5px; direction: ltr; display: inline-block;
+}
+.foot { margin: 26px 0 0; font-size: .8rem; color: var(--board-dim); }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+    <p class="eyebrow">GymPro Elite · מוקאפ</p>
+    <h1>מסך Live — שני כיוונים</h1>
+    <p class="lede">
+        אותו מבנה בדיוק כמו היום: טבעת, אלמנט נתונים, אלמנט החלקה. שום דבר לא נוסף ושום דבר לא ירד.
+        שני הכיוונים משנים רק איך שלושת האלמנטים האלה נראים — האחד דרך צורה, השני דרך עומק.
+        אותו רגע בשניהם: סט 3 מתוך 4, 55 שניות מנוחה מתוך 92.
+    </p>
+
+    <hr class="rule">
+
+    <div class="decks">
+
+        <!-- ═══════════════ א׳ — הילה ═══════════════ -->
+        <div class="deck">
+            <div class="deck-head">
+                <span class="deck-tag">כיוון א׳</span>
+                <h2 class="deck-name">הילה</h2>
+                <p class="deck-sub">טבעת עבה עם קצוות מעוגלים, ושני האלמנטים הופכים לקפסולות מלאות.</p>
+            </div>
+
+            <div class="phone">
+                <div class="notch"></div>
+                <button class="corner l">יציאה</button>
+                <button class="corner r">תפריט</button>
+
+                <div class="head">
+                    <span class="a-chip">סט 3 / 4</span>
+                    <h3 class="ex-name a-name">לחיצת חזה בשיפוע</h3>
+                </div>
+
+                <div class="ring-wrap a-ring">
+                    <svg class="ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,.055)" stroke-width="5"></circle>
+                        <circle id="aBar" cx="50" cy="50" r="45" fill="none" stroke="var(--type-b)" stroke-width="5"
+                                stroke-linecap="round" stroke-dasharray="282.7" stroke-dashoffset="107"
+                                style="filter:drop-shadow(0 0 9px rgba(71,226,102,.55))"></circle>
+                    </svg>
+                    <div class="ring-core">
+                        <div class="ring-time a-time num" id="aTime">00:55</div>
+                        <div class="ring-lbl" id="aLbl">מנוחה</div>
+                    </div>
+                </div>
+
+                <div class="a-stack">
+                    <button class="a-data">
+                        <span class="a-data-lbl">סט נוכחי</span>
+                        <span class="a-data-val num">42.5<small>ק״ג</small>× 8</span>
+                    </button>
+                    <div class="a-swipe" id="aSwipe">
+                        <span class="a-swipe-dot"></span>
+                        <span class="a-swipe-txt" id="aTxt">החלק לרישום הסט</span>
+                    </div>
+                </div>
+            </div>
+
+            <dl class="notes">
+                <div class="note"><dt>הטבעת</dt><dd>אותה טבעת, אותו קוטר כמעט — הקו עולה מ-5.6px ל-12.5px עם <code>linecap: round</code>. נקרא מהרצפה, לא רק מקרוב.</dd></div>
+                <div class="note"><dt>הנתונים</dt><dd>הכרטיס הופך לקפסולה בגובה 74px: תווית בימין, ערך בשמאל. שורה אחת במקום שתיים — פחות גובה, אותו מידע.</dd></div>
+                <div class="note"><dt>ההחלקה</dt><dd>קפסולה זהה בגובה 78px. אותה צורה בדיוק כמו הנתונים, רק צבועה — מה שנוגעים בו נבדל בצבע, לא בגיאומטריה.</dd></div>
+                <div class="note"><dt>מונה הסטים</dt><dd>מטקסט חשוף לשבב פיל קטן. סוגר את שפת הקפסולות סביב כל המסך.</dd></div>
+            </dl>
+        </div>
+
+        <!-- ═══════════════ ב׳ — מדרגה ═══════════════ -->
+        <div class="deck">
+            <div class="deck-head">
+                <span class="deck-tag">כיוון ב׳</span>
+                <h2 class="deck-name">מדרגה</h2>
+                <p class="deck-sub">הטבעת מקבלת ראש נוסע. הנתונים שוקעים פנימה, ההחלקה מרחפת מעל.</p>
+            </div>
+
+            <div class="phone">
+                <div class="notch"></div>
+                <button class="corner l">יציאה</button>
+                <button class="corner r">תפריט</button>
+
+                <div class="head">
+                    <span class="b-count">סט 3 / 4</span>
+                    <h3 class="ex-name b-name">לחיצת חזה בשיפוע</h3>
+                </div>
+
+                <div class="ring-wrap b-ring">
+                    <svg class="ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+                        <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="2"></circle>
+                        <circle id="bBar" cx="50" cy="50" r="46" fill="none" stroke="var(--type-b)" stroke-width="2"
+                                stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="110"
+                                style="filter:drop-shadow(0 0 8px rgba(71,226,102,.5))"></circle>
+                        <circle id="bHead" cx="50" cy="4" r="3.4" fill="var(--type-b)"
+                                style="filter:drop-shadow(0 0 7px rgba(71,226,102,.9))"></circle>
+                    </svg>
+                    <div class="ring-core">
+                        <div class="ring-time b-time num" id="bTime">00:55</div>
+                        <div class="ring-lbl" id="bLbl">מנוחה</div>
+                    </div>
+                </div>
+
+                <div class="b-stack">
+                    <button class="b-data">
+                        <span class="b-data-lbl">סט נוכחי</span>
+                        <span class="b-data-val num">42.5<small>ק״ג</small>× 8</span>
+                    </button>
+                    <div class="b-swipe" id="bSwipe">
+                        <span class="b-swipe-dot"></span>
+                        <span class="b-swipe-txt" id="bTxt">החלק לרישום הסט</span>
+                    </div>
+                </div>
+            </div>
+
+            <dl class="notes">
+                <div class="note"><dt>הטבעת</dt><dd>עובי הקו לא זז. נוספת נקודת ראש בקצה הקשת — העין תופסת תנועה במבט חטוף, בלי לקרוא מספר.</dd></div>
+                <div class="note"><dt>הנתונים</dt><dd>אותו כרטיס, אבל <em>שוקע</em>: משטח כהה מהרקע + צל פנימי. מידע שנקרא ולא נלחץ — נסוג אחורה.</dd></div>
+                <div class="note"><dt>ההחלקה</dt><dd>אותו כרטיס, אבל <em>מרחף</em>: משטח בהיר, מסגרת כחולה, צל וזוהר. ההיררכיה נבנית מעומק במקום מגודל.</dd></div>
+                <div class="note"><dt>הרוחב</dt><dd>שני האלמנטים ברוחב קוטר הטבעת (272px) במקום full-bleed. עמודה מרוכזת עם אוויר בצדדים — שקט יותר.</dd></div>
+            </dl>
+        </div>
+    </div>
+
+    <hr class="rule">
+
+    <div class="shared">
+        <h2>מה משותף לשניהם</h2>
+        <p class="sub">החלטות שחלות על שני הכיוונים, לא הבדל ביניהם.</p>
+        <ul>
+            <li><b>המבנה לא זז.</b> טבעת, נתונים, החלקה — בדיוק כמו היום. לא נוספו מדדים, לא נוסף סט קודם, לא נוסף כפתור. ההחלקה נשארת ג׳סטה, לא הפכה לכפתור.</li>
+            <li><b>אפס אייקונים.</b> <code>close</code>, <code>more_horiz</code> ו-<code>arrow_back</code> יורדים לטובת טקסט ונקודה אחת — כלל הפרויקט הוא טקסט בלבד על כפתורים.</li>
+            <li><b>הרדיוס עולה, הסולם לא נשבר.</b> א׳ משתמש ב-<code>--r-pill</code> שכבר קיים; ב׳ עולה מ-<code>--r-md</code> (20px) ל-26px — קרוב ל-<code>--r-lg</code> (28px). אפשר ליישר ל-28 ולא לגעת בטוקנים בכלל.</li>
+            <li><b>הצבעים והטיפוגרפיה כמו שהם.</b> <code>--type-b</code> למנוחה, <code>--accent</code> לפעולה, Heebo italic 900 uppercase, ספרות ב-<code>direction: ltr</code> עם יחידות ב-<code>unicode-bidi: isolate</code>.</li>
+        </ul>
+    </div>
+
+    <p class="foot">
+        הטיימרים רצים משעון אחד כדי שההשוואה תהיה על אותו רגע. אפשר לגרור את אלמנט ההחלקה בשני המסכים.
+        הפונט כאן הוא תחליף מערכת — Heebo לא נטען מ-CDN בסביבת מוקאפ.
+    </p>
+</div>
+
+<script>
+(function () {
+    var TOTAL = 92, HOLD = 2.6;
+    var remain = 55, ready = false, holdLeft = 0;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var aBar = document.getElementById("aBar"), aTime = document.getElementById("aTime"), aLbl = document.getElementById("aLbl");
+    var bBar = document.getElementById("bBar"), bTime = document.getElementById("bTime"), bLbl = document.getElementById("bLbl");
+    var bHead = document.getElementById("bHead");
+    var A_LEN = 2 * Math.PI * 45, B_LEN = 2 * Math.PI * 46;
+
+    function mmss(s) {
+        s = Math.max(0, Math.ceil(s));
+        return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+    }
+    function paint() {
+        var frac = ready ? 1 : remain / TOTAL;
+        var t = ready ? "צא!" : mmss(remain);
+        var l = ready ? "מוכן לסט" : "מנוחה";
+        aBar.style.strokeDasharray = A_LEN; aBar.style.strokeDashoffset = A_LEN * (1 - frac);
+        bBar.style.strokeDasharray = B_LEN; bBar.style.strokeDashoffset = B_LEN * (1 - frac);
+        var ang = 2 * Math.PI * frac;
+        bHead.setAttribute("cx", (50 + 46 * Math.cos(ang)).toFixed(2));
+        bHead.setAttribute("cy", (50 + 46 * Math.sin(ang)).toFixed(2));
+        bHead.style.opacity = frac > 0.02 ? 1 : 0;
+        aTime.textContent = t; bTime.textContent = t;
+        aLbl.textContent = l; bLbl.textContent = l;
+        aTime.style.fontSize = ready ? "2.9rem" : ""; bTime.style.fontSize = ready ? "3.2rem" : "";
+    }
+    paint();
+
+    if (!reduce) {
+        setInterval(function () {
+            if (ready) { holdLeft -= 1; if (holdLeft <= 0) { ready = false; remain = TOTAL; } }
+            else { remain -= 1; if (remain <= 0) { remain = 0; ready = true; holdLeft = HOLD; } }
+            paint();
+        }, 1000);
+    }
+    function restart() { ready = false; remain = TOTAL; paint(); }
+
+    /* גרירת אלמנט ההחלקה — אותה מכניקה כמו .live-swipe-card היום:
+       הכרטיס כולו נגרר, לא ידית נפרדת. */
+    function wireSwipe(el, txtEl, label) {
+        var dragging = false, startX = 0, dx = 0;
+        function maxT() { return el.clientWidth * 0.62; }
+        el.addEventListener("pointerdown", function (e) {
+            dragging = true; startX = e.clientX; el.style.transition = "none";
+            el.classList.add("dragging"); el.setPointerCapture(e.pointerId);
+        });
+        el.addEventListener("pointermove", function (e) {
+            if (!dragging) return;
+            dx = Math.min(0, Math.max(-maxT(), e.clientX - startX));
+            el.style.transform = "translateX(" + dx + "px)";
+        });
+        function release() {
+            if (!dragging) return;
+            dragging = false;
+            el.style.transition = "transform 220ms cubic-bezier(.2,0,0,1)";
+            if (Math.abs(dx) > maxT() * 0.7) {
+                txtEl.textContent = "נרשם";
+                setTimeout(function () {
+                    el.style.transform = "translateX(0)";
+                    el.classList.remove("dragging");
+                    txtEl.textContent = label;
+                    restart();
+                }, 700);
+            } else {
+                el.style.transform = "translateX(0)";
+                el.classList.remove("dragging");
+            }
+            dx = 0;
+        }
+        el.addEventListener("pointerup", release);
+        el.addEventListener("pointercancel", release);
+    }
+    wireSwipe(document.getElementById("aSwipe"), document.getElementById("aTxt"), "החלק לרישום הסט");
+    wireSwipe(document.getElementById("bSwipe"), document.getElementById("bTxt"), "החלק לרישום הסט");
+})();
+</script>

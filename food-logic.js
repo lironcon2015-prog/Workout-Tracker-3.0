@@ -296,6 +296,25 @@ async function searchFoods(q) {
 // ── צמ"ת (מאגר משרד הבריאות) — מקור גנרי עברי דרך CKAN data.gov.il ──
 // טבלת המזונות, ערכים per-100g. מקור רשמי פתוח; cache ל-KEY_FOOD_DB → offline בפעם הבאה.
 const _TZ_RESOURCE = 'c3cb0630-0650-46c1-a068-82d575c094b2';
+// _tzFiber — הבקשה לצמ"ת אינה מגבילה fields, ולכן **כל** עמודות הטבלה חוזרות
+// ברשומה. שם עמודת הסיבים אינו מתועד ואינו יציב בין גרסאות הטבלה, ולכן במקום
+// לנחש שם אחד סורקים את הרשומה אחר מפתח שנראה כמו סיבים. תת-קטגוריות (מסיס/
+// בלתי-מסיס) מוחרגות — הן אינן הסך הכולל. מפתח עם "total"/"dietary" מועדף.
+const _TZ_FIB_KEY  = /fib(er|re)|סיב/i;
+const _TZ_FIB_SKIP = /soluble|insoluble|מסיס/i;
+let _tzFibLogged = false;
+function _tzFiber(r) {
+    const keys = Object.keys(r || {}).filter(k => _TZ_FIB_KEY.test(k) && !_TZ_FIB_SKIP.test(k));
+    if (!keys.length) {
+        // עזר איתור חד-פעמי: אם הטבלה תשנה שוב שמות, העמודות הזמינות יודפסו פעם אחת
+        if (!_tzFibLogged) { _tzFibLogged = true; console.debug('[tzameret] לא נמצאה עמודת סיבים. עמודות:', Object.keys(r || {}).join(', ')); }
+        return undefined;
+    }
+    keys.sort((a, b) => (/total|dietary|תזונתי/i.test(b) ? 1 : 0) - (/total|dietary|תזונתי/i.test(a) ? 1 : 0));
+    for (const k of keys) { const v = _fdRn(r[k]); if (v != null) return v; }
+    return undefined;
+}
+
 function _tzToFood(r) {
     if (!r) return null;
     const name = String(r.shmmitzrach || '').trim();   // שם המזון בעברית
@@ -304,11 +323,22 @@ function _tzToFood(r) {
     return {
         id: 'tz:' + (r.smlmitzrach || r._id || name),
         name, brand: 'צמ"ת', barcode: null, source: 'tzameret',
-        // צמ"ת מחזיר את הסיבים תחת שם עמודה שאינו אחיד בין גרסאות הטבלה — נבדקים כמה
         per100: { kcal: Math.round(kcal), p: _fdR(r.protein), c: _fdR(r.carbohydrates), f: _fdR(r.total_fat),
-                  fb: _fdRn(r.total_dietary_fiber != null ? r.total_dietary_fiber : (r.dietary_fiber != null ? r.dietary_fiber : r.fiber)) },
+                  fb: _tzFiber(r) },
         servings: [{ label: '100 גרם', grams: 100 }]
     };
+}
+
+// lookupTzameret — שליפת רשומת צמ"ת בודדת לפי הקוד (smlmitzrach), להשלמת סיבים
+// למזון שכבר בקאש. datastore_search תומך ב-filters על עמודה מדויקת.
+async function lookupTzameret(sml) {
+    const url = `https://data.gov.il/api/3/action/datastore_search?resource_id=${_TZ_RESOURCE}` +
+        `&filters=${encodeURIComponent(JSON.stringify({ smlmitzrach: String(sml) }))}&limit=1`;
+    const resp = await _fdFetch(url);
+    if (!resp.ok) throw new Error('TZ_' + resp.status);
+    const data = await resp.json();
+    const rec = data && data.result && (data.result.records || [])[0];
+    return rec ? _tzToFood(rec) : null;
 }
 async function searchTzameret(q) {
     const url = `https://data.gov.il/api/3/action/datastore_search?resource_id=${_TZ_RESOURCE}` +
@@ -1411,24 +1441,35 @@ function _fdOpenPortion(food, entry) {
 // בלי זה המזונות השכיחים ביותר היו ממשיכים להיכתב ליומן בלי סיבים גם אחרי v19.6.0.
 // מכוון — קדימה בלבד: משלים את **המזון** במאגר, לא רשומות עבר. רשומות שכבר תועדו
 // שומרות על ה-per100 המוקפא שלהן.
-// תנאים: יש ברקוד, אין fb, ומדובר במוצר OFF. אחת למזון (_fdFbTried), ובכשל/אופליין
-// פשוט לא קורה כלום — התצוגה נשארת כפי שהיא.
+// מכוסים שני מקורות עם מזהה יציב: OFF לפי ברקוד, וצמ"ת לפי smlmitzrach (מזהה
+// שנשמר ב-id כ-"tz:<sml>"). USDA לא — ה-fdcId אינו נשמר על המזון.
+// אחת למזון (_fdFbTried), ובכשל/אופליין פשוט לא קורה כלום.
 const _fdFbTried = {};
 async function _fdBackfillFiber(food) {
-    if (!food || !food.barcode || _fdFbOf(food.per100) != null) return;
-    if (food.source && food.source !== 'off') return;   // מוצר סרוק/מותאם — ערכיו שלו
-    if (food.edited) return;                            // תוקן ידנית — לא נדרס בשום מקרה
-    const key = String(food.barcode);
-    if (_fdFbTried[key]) return;
+    if (!food || _fdFbOf(food.per100) != null) return;
+    if (food.edited) return;   // תוקן ידנית — לא נדרס בשום מקרה
+
+    let key = null, fetchFresh = null;
+    if (food.barcode && (!food.source || food.source === 'off')) {
+        key = 'off:' + food.barcode;
+        fetchFresh = () => lookupBarcode(String(food.barcode));
+    } else if (food.source === 'tzameret' && /^tz:(.+)$/.test(String(food.id || ''))) {
+        const sml = String(food.id).slice(3);
+        key = 'tz:' + sml;
+        fetchFresh = () => lookupTzameret(sml);
+    }
+    if (!key || _fdFbTried[key]) return;
     _fdFbTried[key] = 1;
+
     // כותבים רק למזון שכבר במאגר — upsert על מזון שאינו שם היה יוצר רשומה חלקית ללא שם
-    const inDb = StorageManager.getFoodDb().some(f => f.id === food.id || (f.barcode && String(f.barcode) === key));
+    const inDb = StorageManager.getFoodDb().some(f => f.id === food.id
+        || (f.barcode && food.barcode && String(f.barcode) === String(food.barcode)));
     try {
-        const fresh = await lookupBarcode(key);
+        const fresh = await fetchFresh();
         const fb = fresh && _fdFbOf(fresh.per100);
         if (fb == null) return;
         food.per100 = Object.assign({}, food.per100, { fb });
-        if (inDb) StorageManager.upsertFoodToDb({ id: food.id, barcode: food.barcode, per100: food.per100 });
+        if (inDb) StorageManager.upsertFoodToDb({ id: food.id, barcode: food.barcode || null, per100: food.per100 });
         // רענון רק אם המשתמש עדיין על אותו מזון — אחרת נדרוס תצוגה של מזון אחר
         if (_fdSelectedFood === food && document.getElementById('fd-preview')) _fdUpdatePreview();
     } catch (e) { /* אופליין/כשל רשת — הסיבים פשוט לא מושלמים הפעם */ }

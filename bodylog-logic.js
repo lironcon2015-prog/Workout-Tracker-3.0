@@ -901,7 +901,10 @@ const _NUTRI_EXPORT_README = [
     'source:"app" = תיעוד ישיר באפליקציה: items עם שם מזון, מותג וגרמים; מנות מורכבות כוללות components (מרכיבים).',
     'source:"mfp" = ייבוא MyFitnessPal: item אחד לכל שורת ארוחה, ללא שם מזון (מגבלת המקור), עם מאקרו + micros (מיקרו-נוטריינטים).',
     'source:"summary" = קיים סיכום יומי בלבד (למשל Apple Health) — meals ריק, totals בלבד.',
-    'nutrition_daily / totals הם שורה תחתונה בכוונה; לניתוח הרכב מזון השתמש ב-meals.'
+    'nutrition_daily / totals הם שורה תחתונה בכוונה; לניתוח הרכב מזון השתמש ב-meals.',
+    'fiber (סיבים תזונתיים, גרם): נכתב רק כשקיים נתון. שדה חסר = לא ידוע, ולא אפס — אין להשלים אותו ב-0. ' +
+    'ב-nutrition_daily, fiberKnown מתוך fiberEntries מציין כמה רשומות נשאו נתון; fiberKnown < fiberEntries = הסכום הוא רצפה ולא הסך המלא. ' +
+    'ימי MyFitnessPal אינם נושאים סיבים כלל (לא מחולצים מה-CSV הגולמי), וכך גם ימים מגשר Apple Health.'
 ];
 function exportNutritionDetailedJson(b) {
     const days = _buildNutritionDetailed(b.from, b.to);
@@ -1005,10 +1008,13 @@ function _detailMealsFromEntries(entries) {
             name: e.name || '', brand: e.brand || '', grams: Math.round(grams),
             kcal: Math.round(Number(e.kcal) || 0), protein: _nR(e.p), carbs: _nR(e.c), fat: _nR(e.f)
         };
+        // סיבים — נכתבים רק כשקיים ערך. שדה נעדר = "לא ידוע", לא "אפס סיבים".
+        if (e.fb != null && isFinite(e.fb)) { item.fiber = _nR(e.fb); if (e.fbPartial) item.fiberPartial = true; }
         if (Array.isArray(e.components) && e.components.length) {
             item.components = e.components.map(c => ({
                 name: c.name || '', grams: Math.round(Number(c.grams) || 0),
-                kcal: Math.round(Number(c.kcal) || 0), protein: _nR(c.p), carbs: _nR(c.c), fat: _nR(c.f)
+                kcal: Math.round(Number(c.kcal) || 0), protein: _nR(c.p), carbs: _nR(c.c), fat: _nR(c.f),
+                ...(c.fb != null && isFinite(c.fb) ? { fiber: _nR(c.fb) } : {})
             }));
             // grams מצרפי = סכום הרכיבים (ברמת הפריט המנה הוא 0 — המשקל האמיתי ברכיבים)
             item.grams = item.components.reduce((s, c) => s + c.grams, 0);

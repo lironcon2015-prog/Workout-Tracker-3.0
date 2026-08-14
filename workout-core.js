@@ -1559,7 +1559,8 @@ function _renderNutritionalToggle() {
         ? `במצב מאז ${nutri.startDate} (${_daysInState(nutri.startDate)} ימים)`
         : 'קבע תאריך תחילת מצב';
     const _ap = getAnalyticsPrefs();
-    [['macro-target-p', 'proteinTarget'], ['macro-target-c', 'carbsTarget'], ['macro-target-f', 'fatTarget']].forEach(([id, key]) => {
+    [['macro-target-p', 'proteinTarget'], ['macro-target-c', 'carbsTarget'], ['macro-target-f', 'fatTarget'],
+     ['macro-target-fb', 'fiberTarget']].forEach(([id, key]) => {
         const el = document.getElementById(id); if (el) el.value = _ap[key] || '';
     });
     _syncKcalTargetUI(_ap);
@@ -1646,7 +1647,7 @@ function _syncKcalTargetUI(p) {
 
 // snapshot היעדים הנוכחיים — נלכד לפני המוטציה ומוזן ל-recordTargetChange (לוג אפקטיבי-מתאריך)
 function _targetsOf(p) {
-    return { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null };
+    return { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null, fb: p.fiberTarget || null };
 }
 
 // saveKcalTarget — היעד הקלורי היומי. ערך מפורש = דריסה ידנית (גם אם לא תואם למאקרו).
@@ -1700,7 +1701,7 @@ function openTargetHistorySheet() {
         d.max = `${y.getFullYear()}-${pad(y.getMonth() + 1)}-${pad(y.getDate())}`;
         d.value = '';
     }
-    ['th-kcal', 'th-p', 'th-c', 'th-f'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['th-kcal', 'th-p', 'th-c', 'th-f', 'th-fb'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     _thKcalManual = false;
     _thSyncKcalMode();
     document.getElementById('target-history-overlay').style.display = 'block';
@@ -1784,10 +1785,11 @@ function _renderTargetHistoryList() {
     box.innerHTML = hist.map(h => {
         const macros = (h.p || h.c || h.f)
             ? ` · <i class="macro-p">ח ${h.p || 0}</i> <i class="macro-c">פ ${h.c || 0}</i> <i class="macro-f">ש ${h.f || 0}</i>` : '';
+        const fiber = h.fb ? ` · <i>סיבים ${h.fb}</i>` : '';
         return `<div class="th-row">
             <div class="th-row-main">
                 <span class="th-row-date">החל מ-${fmtD(h.date)}</span>
-                <span class="th-row-vals">${h.kcal ? h.kcal.toLocaleString('he-IL') + ' קק"ל' : 'ללא יעד קלורי'}${macros}</span>
+                <span class="th-row-vals">${h.kcal ? h.kcal.toLocaleString('he-IL') + ' קק"ל' : 'ללא יעד קלורי'}${macros}${fiber}</span>
             </div>
             <button class="th-row-btn" onclick="thEditEntry('${h.date}')" aria-label="ערוך"><span class="material-symbols-outlined">edit</span></button>
             <button class="th-row-btn th-row-btn--del" onclick="thDeleteEntry('${h.date}')" aria-label="מחק"><span class="material-symbols-outlined">delete</span></button>
@@ -1830,7 +1832,7 @@ function thEditEntry(date) {
     const h = StorageManager.getTargetHistory().find(x => x.date === date);
     if (!h) return;
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
-    set('th-date', h.date); set('th-kcal', h.kcal); set('th-p', h.p); set('th-c', h.c); set('th-f', h.f);
+    set('th-date', h.date); set('th-kcal', h.kcal); set('th-p', h.p); set('th-c', h.c); set('th-f', h.f); set('th-fb', h.fb);
     // מצב המחשבון לפי הרשומה: קלוריות ≠ מחושב-מהמאקרו ⇒ הן היו ידניות
     const calc = Math.round((h.p || 0) * 4 + (h.c || 0) * 4 + (h.f || 0) * 9);
     _thKcalManual = !!(h.kcal && h.kcal !== calc);
@@ -1843,11 +1845,11 @@ function thSaveEntry() {
     if (!date) { showAlert('בחר תאריך.'); return; }
     if (date >= StorageManager._todayStr()) { showAlert('העורך מתקן עבר בלבד — ליעד מהיום ואילך השתמש בשדות הרגילים.'); return; }
     const num = id => { const n = parseInt(document.getElementById(id).value, 10); return n > 0 ? n : null; };
-    const entry = { date, kcal: num('th-kcal'), p: num('th-p'), c: num('th-c'), f: num('th-f') };
-    if (!entry.kcal && !entry.p && !entry.c && !entry.f) { showAlert('הזן לפחות ערך אחד (או מחק את הרשומה במקום).'); return; }
+    const entry = { date, kcal: num('th-kcal'), p: num('th-p'), c: num('th-c'), f: num('th-f'), fb: num('th-fb') };
+    if (!entry.kcal && !entry.p && !entry.c && !entry.f && !entry.fb) { showAlert('הזן לפחות ערך אחד (או מחק את הרשומה במקום).'); return; }
     StorageManager.upsertTargetEntry(entry);
     _renderTargetHistoryList();
-    ['th-date', 'th-kcal', 'th-p', 'th-c', 'th-f'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['th-date', 'th-kcal', 'th-p', 'th-c', 'th-f', 'th-fb'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     _thKcalManual = false;
     _thSyncKcalMode();
     if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards();

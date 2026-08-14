@@ -260,6 +260,9 @@ const StorageManager = {
             proteinTarget: null,
             carbsTarget: null,
             fatTarget: null,
+            // יעד סיבים יומי (גרם). מכוון: **אינו** נכנס לחישוב הקלוריות מהמאקרו —
+            // הסיבים כבר נספרים בתוך הפחמימות, וספירה שנייה הייתה מנפחת את היעד.
+            fiberTarget: null,
             // שמות ארוחות ליומן המזון (ניתן להוסיף ארוחות ביניים חופשיות)
             mealLabels: ['בוקר', 'צהריים', 'ערב', 'נשנוש']
             // consistencyGreen / consistencyOrange — נשמרים רק אם הוגדרו ידנית
@@ -1047,7 +1050,7 @@ const StorageManager = {
             if (data.aliases)        prefs.workoutAliases    = data.aliases;
             if (data.analyticsPrefs) {
                 const ap = data.analyticsPrefs;
-                ['heroMetrics','volumeRange','muscleRange','consistencyRange','consistencyGreen','consistencyOrange','microPoints','microAxis','microOrder','formula','units','name','avatar','homePRRange','workoutAliasColors','kcalTarget','kcalTargetManual','proteinTarget','carbsTarget','fatTarget','mealLabels'].forEach(k => {
+                ['heroMetrics','volumeRange','muscleRange','consistencyRange','consistencyGreen','consistencyOrange','microPoints','microAxis','microOrder','formula','units','name','avatar','homePRRange','workoutAliasColors','kcalTarget','kcalTargetManual','proteinTarget','carbsTarget','fatTarget','fiberTarget','mealLabels'].forEach(k => {
                     if (ap[k] !== undefined) prefs[k] = ap[k];
                 });
             }
@@ -1223,14 +1226,14 @@ const StorageManager = {
     getTargetsForDate(date) {
         const live = () => {
             const p = this.getAnalyticsPrefs();
-            return { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null };
+            return { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null, fb: p.fiberTarget || null };
         };
         if (!date || date >= this._todayStr()) return live();
         const hist = this.getTargetHistory();
         if (!hist.length) return live();
         let best = null;
         hist.forEach(h => { if (h.date <= date && (!best || h.date > best.date)) best = h; });
-        return best || { kcal: null, p: null, c: null, f: null };
+        return best || { kcal: null, p: null, c: null, f: null, fb: null };
     },
 
     TARGET_GRACE_MS: 10 * 60 * 1000,   // כמו NUTRITION_GRACE_MS — "משחק בכפתורים" לא מזהם את הלוג
@@ -1241,8 +1244,8 @@ const StorageManager = {
     // להצטבר, וחזרה לערכים שלפניה מקפלת אותה לגמרי — שינוי שגוי/בדיקה לא משאיר עקבות.
     recordTargetChange(prev) {
         const p = this.getAnalyticsPrefs();
-        const now = { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null };
-        const same = (a, b) => !!a && !!b && ['kcal', 'p', 'c', 'f'].every(k => (a[k] || null) === (b[k] || null));
+        const now = { kcal: p.kcalTarget || null, p: p.proteinTarget || null, c: p.carbsTarget || null, f: p.fatTarget || null, fb: p.fiberTarget || null };
+        const same = (a, b) => !!a && !!b && ['kcal', 'p', 'c', 'f', 'fb'].every(k => (a[k] || null) === (b[k] || null));
         if (same(prev, now)) return;   // אין שינוי אפקטיבי
         const today = this._todayStr();
         const nowTs = Date.now();
@@ -1253,7 +1256,7 @@ const StorageManager = {
         if (last && last.date === today && (nowTs - (last.ts || 0)) < this.TARGET_GRACE_MS) {
             hist.pop();
             const tail = hist[hist.length - 1] || null;
-            const emptyNow = !(now.kcal || now.p || now.c || now.f);
+            const emptyNow = !(now.kcal || now.p || now.c || now.f || now.fb);
             if (!(tail ? same(tail, now) : emptyNow)) {
                 hist.push(Object.assign({ date: today, ts: last.ts || nowTs }, now));   // דריסה, שמירת ts המקורי
             }
@@ -1263,7 +1266,7 @@ const StorageManager = {
             return;
         }
 
-        if (!hist.length && prev && (prev.kcal || prev.p || prev.c || prev.f)) {
+        if (!hist.length && prev && (prev.kcal || prev.p || prev.c || prev.f || prev.fb)) {
             hist.push(Object.assign({ date: '2000-01-01' }, prev));
         }
         hist = hist.filter(h => h.date !== today);   // כמה שינויים אמיתיים באותו יום — האחרון קובע
@@ -1276,7 +1279,7 @@ const StorageManager = {
     upsertTargetEntry(entry) {
         if (!entry || !entry.date) return false;
         const hist = this.getTargetHistory().filter(h => h.date !== entry.date);
-        hist.push({ date: entry.date, kcal: entry.kcal || null, p: entry.p || null, c: entry.c || null, f: entry.f || null });
+        hist.push({ date: entry.date, kcal: entry.kcal || null, p: entry.p || null, c: entry.c || null, f: entry.f || null, fb: entry.fb || null });
         hist.sort((a, b) => a.date < b.date ? -1 : 1);
         return this.saveData(this.KEY_TARGET_HISTORY, hist);
     },
@@ -1405,6 +1408,16 @@ const StorageManager = {
             a.fat      += Number(e.f)    || 0;
             return a;
         }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+        // סיבים — נשמרים ליום רק כשקיים ולו ערך אחד, יחד עם מונה הכיסוי. חסר אינו
+        // אפס: רשומה בלי fb אינה תורמת 0 אלא מקטינה את fiberKnown. הצרכן היחיד כרגע
+        // הוא הייצוא המאוחד; מסכי הסיכום אינם מציגים סיבים (החלטת מוצר).
+        let fbSum = 0, fbKnown = 0, fbAny = false;
+        entries.forEach(e => {
+            const v = (e && e.fb != null && isFinite(e.fb)) ? Number(e.fb) : null;
+            if (v == null) return;
+            fbSum += v; fbAny = true;
+            if (!e.fbPartial) fbKnown++;
+        });
         const rec = {
             date,
             calories: Math.round(sum.calories),
@@ -1414,6 +1427,11 @@ const StorageManager = {
             meals:    new Set(entries.map(e => e.meal)).size,
             src: 'app'
         };
+        if (fbAny) {
+            rec.fiber = Math.round(fbSum * 10) / 10;
+            rec.fiberKnown = fbKnown;          // כמה רשומות נושאות נתון סיבים מלא
+            rec.fiberEntries = entries.length; // מתוך כמה — fiberKnown < fiberEntries = תמונה חלקית
+        }
         if (idx >= 0) daily[idx] = rec; else daily.push(rec);
         daily.sort((a, b) => a.date < b.date ? -1 : 1);
         this.saveData(this.KEY_NUTRITION_DAILY, daily);

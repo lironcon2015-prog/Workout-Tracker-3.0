@@ -36,6 +36,13 @@ let _fdReturnEntryId = null;     // רשומת היומן שהייתה פתוח�
 function _fdNowTime() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
 function _fdNum(v) { const n = Number(v); return isFinite(n) ? n : null; }
 function _fdR(v) { const n = Number(v); return isFinite(n) ? Math.round(n * 10) / 10 : 0; }
+// _fdRn — כמו _fdR אבל **משמר "חסר"**: ערך שאינו מספר מחזיר undefined ולא 0.
+// קריטי לסיבים: רוב המקורות והרשומות ההיסטוריות פשוט לא נושאים את השדה, ואפס
+// כברירת מחדל היה מציג "יש 0 גרם סיבים" במקום "לא ידוע" (באג ה-00:00 של השינה,
+// בתחפושת אחרת). אפס אמיתי (שמן זית) עובר כאן כ-0 לגיטימי ונספר ככיסוי מלא.
+function _fdRn(v) { if (v == null || v === '') return undefined; const n = Number(v); return isFinite(n) ? Math.round(n * 10) / 10 : undefined; }
+// _fdFbOf — ערך הסיבים של אובייקט (per100 / רשומה), או undefined כשאין. שדה יחיד: fb.
+function _fdFbOf(o) { return o && o.fb != null && isFinite(o.fb) ? Number(o.fb) : undefined; }
 // בדיקת התאמה בין קלוריות מוצהרות לחישוב מאקרו (Atwater: חלבון/פחמימה=4, שומן=9)
 // מחזיר null אם אין סטייה משמעותית, או יחס הסטייה (0–1+) אם יש
 function _fdKcalMismatch(kcal, p, c, f) {
@@ -107,7 +114,8 @@ function _offToFood(p) {
         brand: String(p.brands || '').split(',')[0].trim(),
         barcode: p.code || null,
         source: 'off',
-        per100: { kcal: Math.round(kcal), p: _fdR(n.proteins_100g), c: _fdR(n.carbohydrates_100g), f: _fdR(n.fat_100g) },
+        per100: { kcal: Math.round(kcal), p: _fdR(n.proteins_100g), c: _fdR(n.carbohydrates_100g), f: _fdR(n.fat_100g),
+                  fb: _fdRn(n.fiber_100g) },
         servings
     };
 }
@@ -293,7 +301,9 @@ function _tzToFood(r) {
     return {
         id: 'tz:' + (r.smlmitzrach || r._id || name),
         name, brand: 'צמ"ת', barcode: null, source: 'tzameret',
-        per100: { kcal: Math.round(kcal), p: _fdR(r.protein), c: _fdR(r.carbohydrates), f: _fdR(r.total_fat) },
+        // צמ"ת מחזיר את הסיבים תחת שם עמודה שאינו אחיד בין גרסאות הטבלה — נבדקים כמה
+        per100: { kcal: Math.round(kcal), p: _fdR(r.protein), c: _fdR(r.carbohydrates), f: _fdR(r.total_fat),
+                  fb: _fdRn(r.total_dietary_fiber != null ? r.total_dietary_fiber : (r.dietary_fiber != null ? r.dietary_fiber : r.fiber)) },
         servings: [{ label: '100 גרם', grams: 100 }]
     };
 }
@@ -371,6 +381,7 @@ function _usdaToFood(it) {
         else if (id === 1003) nut.p = v;      // Protein
         else if (id === 1005) nut.c = v;      // Carbohydrate
         else if (id === 1004) nut.f = v;      // Total fat
+        else if (id === 1079) nut.fb = v;     // Fiber, total dietary
     });
     if (nut.kcal == null) return null;
     const name = String(it.description || '').trim();
@@ -378,7 +389,7 @@ function _usdaToFood(it) {
     return {
         id: 'usda:' + it.fdcId,
         name, brand: String(it.brandName || it.foodCategory || 'USDA'), barcode: null, source: 'usda',
-        per100: { kcal: Math.round(nut.kcal), p: _fdR(nut.p), c: _fdR(nut.c), f: _fdR(nut.f) },
+        per100: { kcal: Math.round(nut.kcal), p: _fdR(nut.p), c: _fdR(nut.c), f: _fdR(nut.f), fb: _fdRn(nut.fb) },
         servings: [{ label: '100 גרם', grams: 100 }]
     };
 }
@@ -436,9 +447,11 @@ async function _callGeminiFood(base64, mimeType) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
     const prompt = 'אתה קורא תווית ערך תזונתי או ברקוד ממוצר מזון בתמונה. החזר JSON בלבד: ' +
-        '{"barcode": string|null, "name": string|null, "kcal": number|null, "protein": number|null, "carbs": number|null, "fat": number|null, "per": "100g"|"serving"|null}. ' +
+        '{"barcode": string|null, "name": string|null, "kcal": number|null, "protein": number|null, "carbs": number|null, "fat": number|null, "fiber": number|null, "per": "100g"|"serving"|null}. ' +
         'אם רואים ברקוד (EAN/UPC) — החזר אותו ב-barcode (ספרות בלבד). אחרת קרא את ערכי התזונה: ' +
-        'kcal/protein/carbs/fat, וציין ב-per אם הם ל-100 גרם או למנה. ערך לא קריא = null. אל תוסיף טקסט.';
+        'kcal/protein/carbs/fat, וציין ב-per אם הם ל-100 גרם או למנה. ' +
+        'fiber = סיבים תזונתיים (dietary fiber) — רק אם מופיע מפורשות בתווית; אם לא מופיע החזר null ואל תנחש. ' +
+        'ערך לא קריא = null. אל תוסיף טקסט.';
     const parts = [{ text: prompt }, { inlineData: { mimeType, data: base64 } }];
     // תחבורה דרך השכבה המשותפת (workout-core) — thinking מותאם-מודל + מודל מועדף
     return _geminiRequest({
@@ -453,7 +466,8 @@ async function _callGeminiMeal(base64, mimeType) {
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
     const prompt = 'אתה תזונאי. בתמונה יש מנת אוכל אמיתית (צלחת/מנה). זהה כל מרכיב בנפרד והערך עבורו ' +
         'משקל בגרמים וערכים תזונתיים (סך הכל למרכיב — לא ל-100 גרם). ' +
-        'החזר JSON בלבד: {"name": string, "items": [{"name": string, "grams": number, "kcal": number, "protein": number, "carbs": number, "fat": number}, ...]}. ' +
+        'החזר JSON בלבד: {"name": string, "items": [{"name": string, "grams": number, "kcal": number, "protein": number, "carbs": number, "fat": number, "fiber": number|null}, ...]}. ' +
+        'fiber = סיבים תזונתיים; אם אינך בטוח לגבי מרכיב מסוים החזר null עבורו במקום לנחש. ' +
         'name = תיאור קצר בעברית של המנה כולה. items = רשימת המרכיבים שזוהו (למשל חזה עוף, אורז, שמן), כל אחד עם ההערכה שלו. ' +
         'אם לא בטוח — תן הערכה סבירה ביותר. אל תוסיף טקסט.';
     const parts = [{ text: prompt }, { inlineData: { mimeType, data: base64 } }];
@@ -636,7 +650,10 @@ function fdRender() {
     // יעדי היום המוצג — לפי הלוג האפקטיבי-מתאריך: יום עבר מציג את היעד שהיה בתוקף בו (v16.91)
     const targets = StorageManager.getTargetsForDate(_fdDate);
     _fdSwipeOpen = null;   // ה-DOM נבנה מחדש — הפניה לשורה פתוחה מתיישנת
-    scroll.innerHTML = _fdSummaryHTML(totals, mfpOwned, targets) + _fdNoteHTML(note) + _fdMealsHTML(entries, mfpOwned);
+    // סיבים — תמיד מהרשומות הפנימיות, גם ביום שבבעלות MFP: ימי MFP אינם נושאים
+    // סיבים ב-NUTRITION_DAILY, ולכן אין מה לגבור עליו (בניגוד לקלוריות/מאקרו).
+    const fib = _fdFiberOfDay(entries);
+    scroll.innerHTML = _fdSummaryHTML(totals, mfpOwned, targets, fib) + _fdNoteHTML(note) + _fdMealsHTML(entries, mfpOwned);
     _fdAnimateRing(scroll);
 }
 
@@ -673,19 +690,36 @@ function _fdRingSVG(consumed, target) {
 }
 
 // סטט מאקרו — ערך בלבן, הצבע רק בקו הדק (ריסון יוקרתי)
-function _fdMacroStat(lbl, val, target, cls) {
+// sub = תת-שורה אופציונלית מתחת לפס (משמשת לסיבים בעמודת הפחמימה)
+function _fdMacroStat(lbl, val, target, cls, sub) {
     const pct = target > 0 ? Math.min(100, Math.round(val / target * 100)) : 0;
     const tgt = target > 0 ? `<small>/${target}</small>` : '';
     return `<div class="fd-mstat">
         <span class="fd-mstat-lbl">${lbl}</span>
         <span class="fd-mstat-val">${Math.round(val)}${tgt}</span>
         <span class="fd-mline ${cls}"><span style="width:${pct}%"></span></span>
+        ${sub || ''}
     </div>`;
+}
+
+// _fdFiberSubHTML — תת-שורת הסיבים בתוך עמודת הפחמימה (הסיבים הם תת-קבוצה של
+// הפחמימות, ולכן זה מקומם). מוצגת רק כשיש יעד או שיש נתון — אחרת אין מה לומר.
+// "+" = כיסוי חלקי: יש רשומות ביום בלי נתון סיבים, אז המספר הוא רצפה ולא סכום מלא.
+// חשוב: ימי MFP אינם נושאים סיבים כלל (הוחלט לא לחלץ מה-CSV) — שם השורה תיעלם.
+function _fdFiberSubHTML(fib, target) {
+    if (!fib) return '';
+    const has = fib.sum != null;
+    if (!has && !(target > 0)) return '';
+    const partial = has && fib.complete < fib.total;
+    const val = has ? `${_fdR(fib.sum)}${partial ? '+' : ''}` : '—';
+    const tgt = target > 0 ? `/${Math.round(target)}` : '';
+    const title = partial ? ` title="${fib.complete} מתוך ${fib.total} רשומות נושאות נתון סיבים"` : '';
+    return `<span class="fd-fiber-sub"${title}>סיבים <b>${val}${tgt}</b></span>`;
 }
 
 // tg = יעדי היום המוצג ({kcal,p,c,f} מ-getTargetsForDate) — לא ההגדרות החיות,
 // כדי ששינוי יעד לא יחול רטרואקטיבית על ימי עבר
-function _fdSummaryHTML(t, mfpOwned, tg) {
+function _fdSummaryHTML(t, mfpOwned, tg, fib) {
     tg = tg || StorageManager.getTargetsForDate(_fdDate);
     const kcalT = Number(tg.kcal) || 0;
     const consumed = Math.round(t.kcal);
@@ -719,7 +753,7 @@ function _fdSummaryHTML(t, mfpOwned, tg) {
         <div class="fd-kcal-caption">${caption}</div>
         <div class="fd-macros">
             ${_fdMacroStat('חלבון', t.p, Number(tg.p) || 0, 'macro-p')}
-            ${_fdMacroStat('פחמימה', t.c, Number(tg.c) || 0, 'macro-c')}
+            ${_fdMacroStat('פחמימה', t.c, Number(tg.c) || 0, 'macro-c', _fdFiberSubHTML(fib, Number(tg.fb) || 0))}
             ${_fdMacroStat('שומן', t.f, Number(tg.f) || 0, 'macro-f')}
         </div>
         ${mfpOwned ? '<div class="fd-mfp-note"><span class="material-symbols-outlined">info</span>הסיכום היומי מקורו ב-MyFitnessPal וגובר על תיעוד פנימי</div>' : ''}
@@ -796,7 +830,7 @@ function _fdMealsHTML(entries, mfpOwned) {
                         </div>
                         <div class="fd-entry-macros">
                             <span class="fd-entry-kcal">${_fdFmt(e.kcal)}<small>kcal</small></span>
-                            <span class="fd-entry-pcf"><i class="macro-p">P ${Math.round(e.p)}</i><i class="macro-c">C ${Math.round(e.c)}</i><i class="macro-f">F ${Math.round(e.f)}</i></span>
+                            <span class="fd-entry-pcf"><i class="macro-p">P ${Math.round(e.p)}</i><i class="macro-c">C ${Math.round(e.c)}</i><i class="macro-f">F ${Math.round(e.f)}</i>${_fdFbOf(e) != null ? `<i class="macro-fb">Fb ${_fdR(_fdFbOf(e))}${e.fbPartial ? '+' : ''}</i>` : ''}</span>
                         </div>
                     </button>
                     </div>
@@ -1180,7 +1214,8 @@ async function _fdAiNutrition(q) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
     const prompt = 'אתה מסד נתונים תזונתי. החזר ערכים תזונתיים סטנדרטיים ל-100 גרם של המזון: "' + q + '". ' +
-        'החזר JSON בלבד: {"found": boolean, "name": string, "kcal": number, "protein": number, "carbs": number, "fat": number}. ' +
+        'החזר JSON בלבד: {"found": boolean, "name": string, "kcal": number, "protein": number, "carbs": number, "fat": number, "fiber": number|null}. ' +
+        'fiber = סיבים תזונתיים ל-100 גרם; אם אינך בטוח החזר null במקום לנחש. ' +
         'name = שם תקני קצר בעברית. אם המחרוזת אינה מזון מוכר — found=false. אל תוסיף טקסט.';
     return _geminiRequest({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -1195,7 +1230,7 @@ async function _fdAiFood(q) {
     const food = {
         id: 'ai:' + _fdNorm(q), name: res.name || q, brand: 'הערכת AI',
         barcode: null, source: 'gemini',
-        per100: { kcal: Math.round(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat) },
+        per100: { kcal: Math.round(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat), fb: _fdRn(res.fiber) },
         servings: [{ label: '100 גרם', grams: 100 }]
     };
     StorageManager.upsertFoodToDb(food);
@@ -1385,7 +1420,23 @@ function _fdComputeGrams() {
 function _fdMacrosFor(grams) {
     const p100 = _fdSelectedFood.per100;
     const f = grams / 100;
-    return { kcal: Math.round(p100.kcal * f), p: _fdR(p100.p * f), c: _fdR(p100.c * f), f: _fdR(p100.f * f) };
+    const fb100 = _fdFbOf(p100);
+    // סיבים נגררים רק כשהמזון נושא ערך. אין ערך → השדה נשאר undefined, לא 0.
+    return { kcal: Math.round(p100.kcal * f), p: _fdR(p100.p * f), c: _fdR(p100.c * f), f: _fdR(p100.f * f),
+             fb: fb100 == null ? undefined : _fdRn(fb100 * f) };
+}
+
+// _fdFiberOfDay — סכום הסיבים של היום + כיסוי. חסר אינו אפס: רשומה בלי fb אינה
+// תורמת 0 אלא מסמנת שהתמונה חלקית — ומכאן ה-"+" ליד המספר בכרטיס הסיכום.
+function _fdFiberOfDay(entries) {
+    let sum = 0, complete = 0, any = false;
+    (entries || []).forEach(e => {
+        const v = _fdFbOf(e);
+        if (v == null) return;
+        sum += v; any = true;
+        if (!e.fbPartial) complete++;
+    });
+    return { sum: any ? Math.round(sum * 10) / 10 : null, complete, total: (entries || []).length };
 }
 
 // תווית סיכום הכמות בעורך המנה — מציגה משקל/נפח כולל למזון רגיל, אך לא ל"יחידה"
@@ -1407,7 +1458,7 @@ function _fdUpdatePreview() {
     const m = _fdMacrosFor(g.grams);
     const mismatch = _fdKcalMismatch(m.kcal, m.p, m.c, m.f);
     prev.innerHTML = `<span class="fd-preview-kcal">${m.kcal}<small>kcal</small></span>
-        <span class="fd-preview-pcf">חלבון ${m.p}g · פחמימה ${m.c}g · שומן ${m.f}g</span>
+        <span class="fd-preview-pcf">חלבון ${m.p}g · פחמימה ${m.c}g · שומן ${m.f}g${m.fb != null ? ` · סיבים ${m.fb}g` : ''}</span>
         <span class="fd-preview-g">${_fdQtyDisplayLabel(g)}</span>
         ${mismatch ? `<div class="fd-kcal-warn"><span class="material-symbols-outlined inline-arrow">warning</span> הקלוריות לא תואמות את פירוט המאקרו (סטייה ${Math.round(mismatch * 100)}%) — ייתכן נתון מקור שגוי</div>` : ''}`;
 }
@@ -1436,7 +1487,9 @@ function fdSavePortion() {
         // unitLabel — שם היחידה שנבחרה (סקופ/פרוסה...) לשחזור נאמן בעריכה ובתצוגת היומן.
         qty: g.qtyVal, unit: g.unit, gramsPerUnit: (food.baseUnit === 'unit') ? null : (g.gramsPerUnit || null),
         unitLabel: g.unit === 'serving' ? (g.label || null) : null, baseUnit: food.baseUnit || 'g',
-        per100: food.per100, kcal: m.kcal, p: m.p, c: m.c, f: m.f
+        per100: food.per100, kcal: m.kcal, p: m.p, c: m.c, f: m.f,
+        // fb נכתב רק כשידוע — רשומה בלי השדה = "לא ידוע", לא "אפס סיבים"
+        ...(m.fb != null ? { fb: m.fb } : {})
     };
     if (_fdEditEntryId) {
         StorageManager.updateFoodEntry(_fdDate, _fdEditEntryId, entry);
@@ -1551,6 +1604,8 @@ function _fdShowCustomFoodForm(food) {
     const vP = editMode ? _fdR((p.p || 0) * factor) : '';
     const vC = editMode ? _fdR((p.c || 0) * factor) : '';
     const vF = editMode ? _fdR((p.f || 0) * factor) : '';
+    // סיבים — ריק כשאין ערך במזון (ולא 0), כדי שעריכה לא תמציא נתון שלא היה
+    const vFb = (editMode && _fdFbOf(p) != null) ? _fdR(_fdFbOf(p) * factor) : '';
     const vUnitName = editMode ? (food.unitName || '') : '';
     const vUnitGrams = hasUnitW ? Number(food.unitGrams) : '';
     if (!editMode) { const meals = _fdMealLabels(); _fdMeal = meals[0]; }
@@ -1586,6 +1641,10 @@ function _fdShowCustomFoodForm(food) {
         <div class="fd-portion-row">
             <label class="fd-field"><span>פחמימה</span><input type="number" id="fd-c-c" inputmode="decimal" min="0" value="${vC}" oninput="_fdCustomCheckMismatch()"></label>
             <label class="fd-field"><span>שומן</span><input type="number" id="fd-c-f" inputmode="decimal" min="0" value="${vF}" oninput="_fdCustomCheckMismatch()"></label>
+        </div>
+        <div class="fd-portion-row">
+            <label class="fd-field"><span>סיבים <small class="fd-field-opt">אופציונלי</small></span><input type="number" id="fd-c-fb" inputmode="decimal" min="0" value="${vFb}" placeholder="—"></label>
+            <div class="fd-field fd-field--hint"><small>הסיבים כלולים בפחמימות ואינם משפיעים על הקלוריות. השאר ריק אם אינו ידוע.</small></div>
         </div>
         <div class="fd-kcal-warn" id="fd-c-warn"></div>
         ${editMode ? '' : `<div class="fd-meal-chips" id="fd-meal-chips">${_fdMealChipsHTML(_fdMeal)}</div>`}
@@ -1682,6 +1741,9 @@ function _fdParseNutritionText(text) {
     // שומן: קודם שורה ללא רווי/טראנס; אם אין (הכל בשורה אחת) — המספר הצמוד ל"שומן" הוא הכללי
     let f = firstMatch(/שומ[נן]|fat/i, /רווי|טראנס|בלתי|כולסטרול|saturat|trans|unsaturat/i);
     if (f == null) f = firstMatch(/שומ[נן]|fat/i);
+    // סיבים — לא מופיעים בכל תווית. null נשאר null (לא ידוע), לעולם לא 0.
+    // "כשירים" (סיבים תזונתיים כשירים) מוחרג — הוא תת-קטגוריה ולא הסך.
+    const fb = firstMatch(/סיבים\s*תזונתיים|סיבים|dietary\s*fib(?:re|er)|fib(?:re|er)/i, /כשיר|soluble|insoluble/i);
     // בסיס הערכים
     let unit = 'g', basis = 100;
     if (/100\s*(?:מ["״]?['׳]?ל|ml)/i.test(t)) unit = 'ml';
@@ -1699,7 +1761,7 @@ function _fdParseNutritionText(text) {
     }
     const scale = basis > 0 && basis !== 100 ? 100 / basis : 1;
     const sc = v => v == null ? null : _fdR(v * scale);
-    return { name, kcal: sc(kcal), p: sc(p), c: sc(c), f: sc(f), unit, basis };
+    return { name, kcal: sc(kcal), p: sc(p), c: sc(c), f: sc(f), fb: fb == null ? undefined : sc(fb), unit, basis };
 }
 
 // Gemini: ניתוח טקסט תווית חופשי — fallback כשהפרסר המקומי לא זיהה קלוריות
@@ -1707,14 +1769,15 @@ async function _fdAiParseLabelText(text) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
     const prompt = 'הטקסט הבא הוא ערכים תזונתיים של מוצר מזון (הועתק מתווית או מאתר). נרמל את הערכים ל-100 גרם או 100 מ"ל. ' +
-        'החזר JSON בלבד: {"found": boolean, "name": string|null, "kcal": number, "protein": number, "carbs": number, "fat": number, "per": "100g"|"100ml"}. ' +
+        'החזר JSON בלבד: {"found": boolean, "name": string|null, "kcal": number, "protein": number, "carbs": number, "fat": number, "fiber": number|null, "per": "100g"|"100ml"}. ' +
+        'fiber = סיבים תזונתיים; אם לא מופיע בטקסט החזר null ואל תנחש. ' +
         'name = שם המוצר אם מופיע בטקסט, אחרת null. אם אין בטקסט ערכים תזונתיים — found=false. אל תוסיף טקסט.\n---\n' + String(text).slice(0, 2000);
     const res = await _geminiRequest({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0, maxOutputTokens: 200, responseMimeType: 'application/json' }
     }, { json: true });
     if (!res || res.found === false || res.kcal == null) return null;
-    return { name: res.name || null, kcal: _fdR(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat), unit: res.per === '100ml' ? 'ml' : 'g', basis: 100, ai: true };
+    return { name: res.name || null, kcal: _fdR(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat), fb: _fdRn(res.fiber), unit: res.per === '100ml' ? 'ml' : 'g', basis: 100, ai: true };
 }
 
 async function fdParsePastedNutrition() {
@@ -1744,6 +1807,7 @@ function _fdApplyParsedNutrition(r) {
     if (unitSel && (r.unit === 'g' || r.unit === 'ml')) { unitSel.value = r.unit; _fdCustomUnitChanged(); }
     set('fd-c-kcal', Math.round(r.kcal));
     set('fd-c-p', r.p); set('fd-c-c', r.c); set('fd-c-f', r.f);
+    if (r.fb != null) set('fd-c-fb', r.fb);   // לא מאפסים שדה קיים כשהניתוח לא זיהה סיבים
     _fdCustomCheckMismatch();
     const msg = document.getElementById('fd-paste-msg');
     if (msg) {
@@ -1764,6 +1828,8 @@ function fdSaveCustomFood(logAfter) {
     const rawP = Number(document.getElementById('fd-c-p').value) || 0;
     const rawC = Number(document.getElementById('fd-c-c').value) || 0;
     const rawF = Number(document.getElementById('fd-c-f').value) || 0;
+    // ריק = לא ידוע (undefined), לא 0. אפס מפורש שהוזן נשמר כאפס לגיטימי.
+    const rawFb = _fdRn(document.getElementById('fd-c-fb') ? document.getElementById('fd-c-fb').value : '');
     const unitNameEl = document.getElementById('fd-c-unit-name');
     const unitGramsEl = document.getElementById('fd-c-unit-grams');
     const unitName = unit === 'unit' ? ((unitNameEl && unitNameEl.value) || '').trim() : '';
@@ -1773,17 +1839,17 @@ function fdSaveCustomFood(logAfter) {
         // יחידה עם משקל ידוע — הערכים שהוזנו הם ליחידה אחת; המרה ל-100 ג' אמיתי + serving של היחידה,
         // כך שבתיעוד אפשר לבחור גם לפי יחידות וגם לפי גרמים
         const k = 100 / unitGrams;
-        per100 = { kcal: Math.round(kcal * k), p: _fdR(rawP * k), c: _fdR(rawC * k), f: _fdR(rawF * k) };
+        per100 = { kcal: Math.round(kcal * k), p: _fdR(rawP * k), c: _fdR(rawC * k), f: _fdR(rawF * k), fb: rawFb == null ? undefined : _fdRn(rawFb * k) };
         baseUnit = 'g';
         // המשקל מוצג ליד שם היחידה — "סקופ (33 גרם)"; התווית מתפשטת לפיקר, לרשומה וליומן
         servings = [{ label: `${unitName || 'יחידה'} (${unitGrams} גרם)`, grams: unitGrams }, { label: '100 גרם', grams: 100 }];
     } else if (unit === 'unit') {
         // יחידה ללא משקל — טריק ×100: per100 מאחסן את ערכי היחידה מוכפלים (הכל מחושב לפי /100)
-        per100 = { kcal: Math.round(kcal * 100), p: _fdR(rawP * 100), c: _fdR(rawC * 100), f: _fdR(rawF * 100) };
+        per100 = { kcal: Math.round(kcal * 100), p: _fdR(rawP * 100), c: _fdR(rawC * 100), f: _fdR(rawF * 100), fb: rawFb == null ? undefined : _fdRn(rawFb * 100) };
         baseUnit = 'unit';
         servings = [{ label: unitName || '1 יחידה', grams: 1 }];
     } else {
-        per100 = { kcal: Math.round(kcal), p: _fdR(rawP), c: _fdR(rawC), f: _fdR(rawF) };
+        per100 = { kcal: Math.round(kcal), p: _fdR(rawP), c: _fdR(rawC), f: _fdR(rawF), fb: rawFb };
         baseUnit = unit;
         servings = [{ label: unit === 'ml' ? '100 מ"ל' : '100 גרם', grams: 100 }];
     }
@@ -2001,7 +2067,7 @@ function _fdLabelViaGemini(file, box) {
         if (res && res.kcal != null) {
             const bc = _fdPendingBarcode || (res.barcode ? String(res.barcode).replace(/\D/g, '') : null);
             _fdPendingBarcode = null;
-            const per100 = { kcal: Math.round(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat) }; // מנה≈100g כברירת מחדל; המשתמש יתקן
+            const per100 = { kcal: Math.round(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat), fb: _fdRn(res.fiber) }; // מנה≈100g כברירת מחדל; המשתמש יתקן
             const food = { id: bc ? 'off:' + bc : 'gemini:' + Date.now().toString(36), name: res.name || 'מזון מהתמונה', brand: '', barcode: bc, source: 'gemini', per100, servings: [{ label: '100 גרם', grams: 100 }] };
             StorageManager.upsertFoodToDb(food);
             _fdOpenPortion(food, null);
@@ -2207,7 +2273,9 @@ function _fdCompFromEstimate(it) {
             kcal: Math.round((Number(it.kcal) || 0) * f),
             p: _fdR((Number(it.protein) || 0) * f),
             c: _fdR((Number(it.carbs) || 0) * f),
-            f: _fdR((Number(it.fat) || 0) * f)
+            f: _fdR((Number(it.fat) || 0) * f),
+            // סיבים — רק כשההערכה החזירה ערך. null/חסר נשאר undefined, לא 0.
+            fb: it.fiber == null ? undefined : _fdRn(Number(it.fiber) * f)
         }
     };
 }
@@ -2222,7 +2290,7 @@ function _fdOnMealPhoto(file) {
             comps = res.items.filter(it => it && it.kcal != null).map(_fdCompFromEstimate);
         } else if (res && res.kcal != null) {
             // נפילה לאחור: הערכה מאוחדת → מרכיב יחיד
-            comps = [_fdCompFromEstimate({ name: res.name || 'מנה', grams: res.grams, kcal: res.kcal, protein: res.protein, carbs: res.carbs, fat: res.fat })];
+            comps = [_fdCompFromEstimate({ name: res.name || 'מנה', grams: res.grams, kcal: res.kcal, protein: res.protein, carbs: res.carbs, fat: res.fat, fiber: res.fiber })];
         }
         if (!comps.length) {
             if (box) box.innerHTML = '<div class="fd-empty"><span class="material-symbols-outlined inline-arrow">warning</span> לא הצלחתי להעריך את המנה — נסה תמונה ברורה יותר או חפש ידנית.</div>';
@@ -2370,11 +2438,19 @@ function fdSaveMeal() {
         return {
             name: (c.name || '').trim() || 'מרכיב', grams: c.grams, per100: c.per100, baseUnit: c.baseUnit || 'g',
             kcal: Math.round((c.per100.kcal || 0) * f), p: _fdR((c.per100.p || 0) * f),
-            c: _fdR((c.per100.c || 0) * f), f: _fdR((c.per100.f || 0) * f)
+            c: _fdR((c.per100.c || 0) * f), f: _fdR((c.per100.f || 0) * f),
+            ...(_fdFbOf(c.per100) != null ? { fb: _fdRn(_fdFbOf(c.per100) * f) } : {})
         };
     });
     if (!comps.length) { showAlert('הוסף לפחות מרכיב אחד עם כמות.'); return; }
     const sum = comps.reduce((a, x) => { a.kcal += x.kcal; a.p += x.p; a.c += x.c; a.f += x.f; return a; }, { kcal: 0, p: 0, c: 0, f: 0 });
+    // סיבים למנה מורכבת: סכום המרכיבים שיש להם ערך. מרכיב אחד בלי ערך → המנה
+    // מסומנת fbPartial, וכך היום כולו יודע שהתמונה חלקית (ה-"+" בכרטיס).
+    const fbComps = comps.filter(x => x.fb != null);
+    if (fbComps.length) {
+        sum.fb = _fdRn(fbComps.reduce((a, x) => a + x.fb, 0));
+        if (fbComps.length < comps.length) sum.fbPartial = true;
+    }
     const name = (document.getElementById('fd-meal-name-inp')?.value || 'מנה').trim() || 'מנה';
     // מצב 'saved' — כתיבה למאגר המותאמים בלבד, ללא נגיעה ביומן
     if (_fdMealMode === 'saved') {

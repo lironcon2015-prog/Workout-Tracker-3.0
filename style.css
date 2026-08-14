@@ -6335,6 +6335,10 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-mstat-val small { font-size: 0.56em; color: var(--text-dim); font-weight: 400; margin-inline-start: 2px; }
 .fd-mline { width: 42px; height: 3px; border-radius: var(--r-pill); background: rgba(255,255,255,0.08); overflow: hidden; }
 .fd-mline span { display: block; height: 100%; border-radius: var(--r-pill); transition: width 0.6s var(--ease); }
+/* תת-שורת הסיבים — יושבת בתוך עמודת הפחמימה (הסיבים הם תת-קבוצה שלה).
+   מכוון: ללא צבע ייחודי — מדד משני, נשאר ב-text-dim כמו שאר המטא בכרטיס. */
+.fd-fiber-sub { font-size: 0.52rem; color: var(--text-dim); font-weight: 600; letter-spacing: 0.02em; line-height: 1; }
+.fd-fiber-sub b { font-weight: 700; direction: ltr; display: inline-block; }
 .fd-mline.macro-p span { background: var(--macro-p); }
 .fd-mline.macro-c span { background: var(--macro-c); }
 .fd-mline.macro-f span { background: var(--macro-f); }
@@ -6453,6 +6457,8 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-entry-pcf i.macro-p { color: var(--text-dim); }
 .fd-entry-pcf i.macro-c { color: var(--text-dim); }
 .fd-entry-pcf i.macro-f { color: var(--text-dim); }
+/* שבב הסיבים בשורת הרשומה — אותו אפור כמו P/C/F. מוצג רק כשיש נתון. */
+.fd-entry-pcf i.macro-fb { color: var(--text-dim); }
 .fd-meal-emptyrow {
     display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
     background: none; border: none; color: var(--text-dim);
@@ -6626,6 +6632,10 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-portion-row { display: flex; gap: 8px; margin-bottom: 14px; }
 .fd-field { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .fd-field--full { flex-basis: 100%; }
+/* תא-הסבר לצד שדה הסיבים בטופס המזון המותאם — טקסט בלבד, מיושר לגובה השדה */
+.fd-field--hint { justify-content: center; }
+.fd-field--hint small { font-size: 0.62rem; color: var(--text-dim); font-weight: 600; line-height: 1.35; text-align: start; text-transform: none; letter-spacing: 0; }
+.fd-field-opt { text-transform: none; letter-spacing: 0; opacity: 0.65; font-weight: 600; }
 /* שלושה חלונות בשורה אחת — משקלים שמבטיחים רוחב מספיק לשעה (גם בלוקאל 12 שעות) */
 .fd-field--qty  { flex: 0.85; }
 .fd-field--unit { flex: 1.1; }

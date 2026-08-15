@@ -3019,14 +3019,21 @@ function _roundRecommendedWeight(w) {
     return Math.round(w / 2.5) * 2.5;
 }
 
+// לטריגר ההמלצה שתי חזיתות: השבב ב-ui-main והשבב בכרטיס הנתונים של ה-Live.
+// שתיהן חייבות להיות כפופות לאותו תנאי הצגה (קיום מפתח Gemini) ולאותו מצב disabled,
+// אחרת ייווצר כפתור מת במסך אחד. מקור אמת יחיד — ראה "כלל אחידות הפיקרים".
+function _setRecTriggers() {
+    return ['set-rec-trigger', 'live-rec-trigger']
+        .map(id => document.getElementById(id)).filter(Boolean);
+}
+
 function _resetSetRecState() {
     _pendingAIRecommendation = null;
-    const trigger = document.getElementById('set-rec-trigger');
-    if (trigger) {
-        const hasKey = !!StorageManager.getAIConfig().apiKey;
-        trigger.style.display = hasKey ? 'inline-flex' : 'none';
-        trigger.removeAttribute('disabled');
-    }
+    const hasKey = !!StorageManager.getAIConfig().apiKey;
+    _setRecTriggers().forEach(t => {
+        t.style.display = hasKey ? 'inline-flex' : 'none';
+        t.removeAttribute('disabled');
+    });
     _closeSetRecSheet(true);
 }
 
@@ -3272,12 +3279,12 @@ async function _callGeminiOneShot(prompt, opts = {}) {
 
 async function requestAIRecommendation() {
     if (!state.currentExName) return;
-    const trigger = document.getElementById('set-rec-trigger');
     const result  = document.getElementById('set-rec-result');
-    if (!trigger || !result) return;
+    const triggers = _setRecTriggers();
+    if (!triggers.length || !result) return;
 
     haptic('light');
-    trigger.setAttribute('disabled', 'true');
+    triggers.forEach(t => t.setAttribute('disabled', 'true'));
     result.className = 'set-rec-result loading';
     result.innerHTML = '<span class="material-symbols-outlined inline-arrow">hourglass_top</span> המאמן חושב על הסט הבא...';
     _openSetRecSheet();
@@ -3340,6 +3347,10 @@ function applyAIRecommendation() {
     syncStepperDisplay('weight');
     syncStepperDisplay('reps');
     syncStepperDisplay('rir');
+    // syncStepperDisplay מעדכן את ui-main בלבד. בלי שתי השורות הבאות, אישור המלצה
+    // מתוך ה-Live היה מעדכן את הפיקרים אבל משאיר את המספר בכרטיס "סט נוכחי" הישן.
+    if (typeof _syncLiveEditSheetDisplays === 'function') _syncLiveEditSheetDisplays();
+    if (typeof updateLiveViewContent === 'function') updateLiveViewContent();
 
     dismissAIRecommendation();
     haptic('success');
@@ -3362,8 +3373,7 @@ function _setPickerValue(select, val) {
 function dismissAIRecommendation() {
     _pendingAIRecommendation = null;
     _closeSetRecSheet();
-    const trigger = document.getElementById('set-rec-trigger');
-    if (trigger) trigger.removeAttribute('disabled');
+    _setRecTriggers().forEach(t => t.removeAttribute('disabled'));
     haptic('light');
 }
 

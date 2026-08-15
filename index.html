@@ -1960,6 +1960,9 @@
                 <span class="live-target-lbl" id="live-target-lbl">סט נוכחי</span>
                 <span class="live-drop-chip" id="live-drop-chip" style="display:none;">דרופ</span>
                 <span class="material-symbols-outlined live-target-edit-icon">edit</span>
+                <!-- stopPropagation: הכרטיס כולו פותח את "ערוך סט נוכחי"; השבב פותח את ההמלצה -->
+                <button id="live-rec-trigger" class="live-rec-trigger" style="display:none;"
+                        onclick="event.stopPropagation();requestAIRecommendation()">המלצה</button>
             </div>
             <span class="live-target-val" id="live-target-val">—</span>
         </div>

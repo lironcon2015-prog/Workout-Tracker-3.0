@@ -1,0 +1,325 @@
+<title>המלצת מאמן במסך לייב</title>
+<style>
+:root {
+    --board-bg:#eef0f5; --board-panel:#ffffff; --board-line:rgba(12,20,40,.10);
+    --board-ink:#12151c; --board-dim:#5a6273; --board-accent:#0A6BD6;
+
+    /* טוקני האפליקציה — ערכים אמיתיים מ-style.css */
+    --bg:#070708; --surface-3:#1e1e22; --surface-4:#26262c;
+    --hairline:rgba(255,255,255,.06); --hairline-hi:rgba(255,255,255,.10);
+    --accent:#0A84FF; --accent-rgb:10,132,255; --secondary:#47e266; --type-b-rgb:71,226,102;
+    --text-dim:#8E8E93;
+    --fs-xs:.65rem; --fs-sm:.72rem; --fs-md:.8rem; --fs-lg:.9rem; --fs-xl:1.05rem;
+    --r-md:20px; --r-lg:28px; --r-pill:9999px;
+    --font-app:"Heebo", system-ui, -apple-system, "Segoe UI", "Arial Hebrew", sans-serif;
+}
+:root:not([data-theme="light"]){ color-scheme:dark; }
+@media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+        --board-bg:#0b0d12; --board-panel:#12151c; --board-line:rgba(160,185,230,.14);
+        --board-ink:#e8ecf4; --board-dim:#909ab0; --board-accent:#5AB0FF;
+    }
+}
+:root[data-theme="dark"]{
+    color-scheme:dark;
+    --board-bg:#0b0d12; --board-panel:#12151c; --board-line:rgba(160,185,230,.14);
+    --board-ink:#e8ecf4; --board-dim:#909ab0; --board-accent:#5AB0FF;
+}
+:root[data-theme="light"]{ color-scheme:light; }
+
+*{ box-sizing:border-box; }
+body{
+    margin:0; direction:rtl; background:var(--board-bg); color:var(--board-ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Arial Hebrew",sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased; padding:40px 20px 64px;
+}
+@media (max-width:420px){ body{ padding:26px 10px 44px; } }
+.wrap{ max-width:1040px; margin:0 auto; }
+.eyebrow{ font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--board-accent); margin:0 0 10px; }
+h1{ font-size:clamp(1.6rem,4.4vw,2.3rem); font-weight:800; letter-spacing:-.02em; margin:0 0 12px; text-wrap:balance; }
+.lede{ margin:0; max-width:64ch; color:var(--board-dim); font-size:.96rem; }
+.rule{ height:1px; background:var(--board-line); margin:34px 0; border:0; }
+h2.sec{ font-size:1.18rem; font-weight:800; margin:0 0 6px; }
+p.seclede{ margin:0 0 22px; color:var(--board-dim); font-size:.9rem; max-width:66ch; }
+
+.opts{ display:grid; gap:36px 26px; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); justify-items:center; align-items:start; }
+.opt{ width:100%; max-width:372px; display:flex; flex-direction:column; gap:16px; }
+.opt-head{ display:flex; flex-direction:column; gap:6px; }
+.opt-tag{ align-self:flex-start; font-size:.64rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--board-accent); background:color-mix(in srgb,var(--board-accent) 12%,transparent);
+    border:1px solid color-mix(in srgb,var(--board-accent) 30%,transparent); border-radius:9999px; padding:4px 12px; }
+.opt-tag.rec{ color:#fff; background:var(--board-accent); border-color:var(--board-accent); }
+.opt-name{ font-size:1.2rem; font-weight:800; margin:0; }
+.opt-sub{ margin:0; font-size:.87rem; color:var(--board-dim); }
+
+/* ── מסך לייב — משוחזר מ-style.css ── */
+.phone{
+    width:344px; height:700px; margin:0 auto; border-radius:44px;
+    background:var(--bg); border:1px solid rgba(255,255,255,.09);
+    box-shadow:0 2px 6px rgba(0,0,0,.35), 0 24px 56px rgba(0,0,0,.45);
+    position:relative; overflow:hidden; direction:rtl; font-family:var(--font-app); color:#fff;
+    display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    padding:62px 16px 30px;
+}
+@media (max-width:392px){ .phone{ transform:scale(.9); transform-origin:top center; margin-bottom:-70px; } }
+.notch{ position:absolute; top:9px; left:50%; transform:translateX(-50%); width:96px; height:24px; border-radius:9999px; background:#000; z-index:5; }
+.corner{
+    position:absolute; top:44px; z-index:4; width:38px; height:38px; border-radius:9999px;
+    background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:1rem; line-height:1;
+}
+.corner.l{ left:16px; } .corner.r{ right:16px; }
+
+.live-header{ text-align:center; }
+.badge-row{ display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:6px; }
+.live-set-counter{ font-style:italic; font-weight:900; font-size:var(--fs-sm); color:var(--accent); letter-spacing:2.5px; text-transform:uppercase; }
+.live-ex-name{ font-style:italic; font-weight:900; font-size:1.62rem; color:#fff; margin:0; line-height:1.1; letter-spacing:-.02em; text-transform:uppercase; }
+
+.live-timer-wrap{ position:relative; width:238px; height:238px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.live-timer-svg{ position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg); }
+.live-timer-text{ font-style:italic; font-weight:900; font-size:3.9rem; color:#fff; line-height:1; letter-spacing:-.06em; direction:ltr; font-variant-numeric:tabular-nums; text-shadow:0 0 30px rgba(var(--type-b-rgb),.3); }
+.live-timer-lbl{ position:absolute; bottom:44px; font-style:italic; font-weight:900; font-size:var(--fs-xs); color:var(--secondary); letter-spacing:3px; text-transform:uppercase; }
+
+.live-stack{ width:100%; display:flex; flex-direction:column; gap:12px; }
+.live-next-target{
+    width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.10);
+    border-radius:var(--r-md); padding:18px 22px;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.live-target-head{ display:flex; align-items:center; justify-content:center; gap:8px; }
+.live-target-lbl{ font-style:italic; font-weight:700; font-size:var(--fs-md); color:rgba(255,255,255,.55); letter-spacing:1.6px; text-transform:uppercase; }
+.live-target-edit{ font-size:var(--fs-xl); color:rgba(255,255,255,.4); line-height:1; }
+.live-target-val{ font-style:italic; font-weight:900; font-size:1.78rem; color:#fff; direction:ltr; letter-spacing:-.02em; line-height:1.1; }
+.live-target-val small{ font-size:.5em; font-weight:700; opacity:.55; margin:0 3px; unicode-bidi:isolate; }
+
+.live-swipe-card{
+    width:100%; background:linear-gradient(135deg, rgba(var(--accent-rgb),.18), rgba(94,92,230,.10));
+    border:1px solid rgba(var(--accent-rgb),.28); border-radius:var(--r-md); padding:18px;
+    display:flex; align-items:center; justify-content:center; gap:12px;
+}
+.live-swipe-icon{ width:34px; height:34px; border-radius:9999px; background:rgba(var(--accent-rgb),.25); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex-shrink:0; }
+.live-swipe-text{ font-style:italic; font-weight:700; font-size:var(--fs-lg); color:#fff; }
+
+/* ── התוספת: כיוון א׳ — שבב בכותרת ── */
+.rec-chip{
+    display:inline-flex; align-items:center; gap:5px;
+    background:linear-gradient(135deg, rgba(var(--accent-rgb),.18), rgba(94,92,230,.14));
+    border:1px solid rgba(var(--accent-rgb),.45); border-radius:9999px;
+    padding:3px 11px; color:#aac7ff;
+    font-style:italic; font-weight:900; font-size:.6rem; letter-spacing:.1em; text-transform:uppercase;
+    cursor:pointer;
+}
+.rec-chip:hover{ background:rgba(var(--accent-rgb),.28); }
+.rec-chip .spark{ width:5px; height:5px; border-radius:9999px; background:#aac7ff; }
+
+/* ── התוספת: כיוון ב׳ — נגיעה בכרטיס הנתונים ── */
+.rec-inline{
+    font-style:italic; font-weight:800; font-size:.62rem; letter-spacing:.12em; text-transform:uppercase;
+    color:#8fb8ee; cursor:pointer; padding:2px 9px; border-radius:9999px;
+    border:1px solid rgba(var(--accent-rgb),.32); background:rgba(var(--accent-rgb),.10);
+    line-height:1.5;
+}
+.rec-inline:hover{ background:rgba(var(--accent-rgb),.2); color:#c5dcff; }
+
+/* ── הגיליון הקיים (זהה בשני הכיוונים) ── */
+.sheet-demo{
+    background:var(--bg); border:1px solid rgba(255,255,255,.09); border-radius:var(--r-lg);
+    padding:14px; direction:rtl; font-family:var(--font-app); color:#fff; max-width:372px; margin:0 auto;
+}
+.sheet-in{
+    background:color-mix(in srgb, var(--surface-3) 92%, transparent);
+    border:1px solid var(--hairline-hi); border-top-left-radius:var(--r-lg); border-top-right-radius:var(--r-lg);
+    padding:16px 18px 18px;
+}
+.sheet-handle{ width:36px; height:4px; background:var(--surface-4); border-radius:9999px; margin:0 auto 16px; }
+.set-rec-header{ display:flex; align-items:center; justify-content:center; gap:8px; font-size:var(--fs-sm); font-weight:900; font-style:italic; letter-spacing:.1em; color:#aac7ff; text-transform:uppercase; }
+.set-rec-vals{ display:flex; gap:20px; align-items:baseline; justify-content:center; margin:10px 0; direction:ltr; }
+.set-rec-num{ font-weight:900; font-style:italic; color:#fff; font-size:2.1rem; letter-spacing:-.02em; }
+.set-rec-unit{ font-size:var(--fs-md); color:rgba(255,255,255,.45); font-weight:700; margin-right:2px; }
+.set-rec-reason{ font-size:var(--fs-lg); color:rgba(255,255,255,.75); line-height:1.55; text-align:center; }
+.set-rec-actions{ display:flex; gap:10px; margin-top:14px; }
+.set-rec-apply{ flex:1; background:var(--accent); color:#fff; border:0; border-radius:9999px; padding:12px; font-family:inherit; font-weight:900; font-style:italic; font-size:var(--fs-xl); }
+.set-rec-dismiss{ padding:12px 20px; background:transparent; border:1px solid var(--hairline-hi); color:rgba(255,255,255,.7); border-radius:9999px; font-family:inherit; font-weight:800; font-style:italic; font-size:var(--fs-md); }
+
+.notes{ display:flex; flex-direction:column; }
+.note{ display:grid; grid-template-columns:auto 1fr; gap:10px; padding:10px 0; border-bottom:1px solid var(--board-line); font-size:.85rem; }
+.note:last-child{ border-bottom:0; }
+.note dt{ font-weight:700; white-space:nowrap; }
+.note dd{ margin:0; color:var(--board-dim); }
+
+.panel{ background:var(--board-panel); border:1px solid var(--board-line); border-radius:18px; padding:22px 24px; }
+.panel h3{ margin:0 0 4px; font-size:1.02rem; font-weight:800; }
+.panel p.sub{ margin:0 0 16px; color:var(--board-dim); font-size:.87rem; }
+.panel ul{ margin:0; padding-inline-start:20px; display:flex; flex-direction:column; gap:9px; }
+.panel li{ font-size:.88rem; color:var(--board-dim); }
+.panel li b{ color:var(--board-ink); font-weight:700; }
+code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.86em; background:color-mix(in srgb,var(--board-ink) 8%,transparent); padding:1px 5px; border-radius:5px; direction:ltr; display:inline-block; }
+.foot{ margin:26px 0 0; font-size:.8rem; color:var(--board-dim); }
+@media (prefers-reduced-motion:reduce){ *{ animation:none!important; transition:none!important; } }
+</style>
+
+<div class="wrap">
+    <p class="eyebrow">GymPro Elite · מוקאפ</p>
+    <h1>המלצת מאמן במסך לייב</h1>
+    <p class="lede">
+        הכפתור קיים היום ב-<code>ui-main</code> בלבד — שבב 26px בשורת התגיות ליד "SET 1/3",
+        שפותח גיליון עם משקל/חזרות/RIR ולחצני אישור. שני הכיוונים מוסיפים נקודת כניסה
+        לאותו מנגנון בדיוק במסך הלייב, בלי לשנות את המבנה (טבעת, נתונים, החלקה).
+    </p>
+
+    <hr class="rule">
+
+    <div class="opts">
+
+        <!-- ── א׳ ── -->
+        <div class="opt">
+            <div class="opt-head">
+                <span class="opt-tag">כיוון א׳</span>
+                <h3 class="opt-name">שבב בכותרת</h3>
+                <p class="opt-sub">בדיוק במקום שבו הוא נמצא במסך המפורט — ליד מונה הסטים.</p>
+            </div>
+
+            <div class="phone">
+                <div class="notch"></div>
+                <div class="corner l">✕</div>
+                <div class="corner r">⋯</div>
+
+                <div class="live-header">
+                    <div class="badge-row">
+                        <span class="rec-chip"><span class="spark"></span>מאמן</span>
+                        <span class="live-set-counter">SET 3/4</span>
+                    </div>
+                    <h1 class="live-ex-name">לחיצת חזה בשיפוע</h1>
+                </div>
+
+                <div class="live-timer-wrap">
+                    <svg class="live-timer-svg" viewBox="0 0 100 100" aria-hidden="true">
+                        <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="2"></circle>
+                        <circle cx="50" cy="50" r="46" fill="none" stroke="var(--secondary)" stroke-width="2"
+                                stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="110"
+                                style="filter:drop-shadow(0 0 8px rgba(71,226,102,.5))"></circle>
+                    </svg>
+                    <div class="live-timer-text">00:55</div>
+                    <div class="live-timer-lbl">Rest</div>
+                </div>
+
+                <div class="live-stack">
+                    <div class="live-next-target">
+                        <div class="live-target-head">
+                            <span class="live-target-lbl">סט נוכחי</span>
+                            <span class="live-target-edit">✎</span>
+                        </div>
+                        <span class="live-target-val">42.5<small>ק״ג</small>× 8</span>
+                    </div>
+                    <div class="live-swipe-card">
+                        <span class="live-swipe-icon">←</span>
+                        <span class="live-swipe-text">החלק לרישום הסט</span>
+                    </div>
+                </div>
+            </div>
+
+            <dl class="notes">
+                <div class="note"><dt>עקביות</dt><dd>אותו מיקום יחסי כמו ב-<code>ui-main</code> — ליד מונה הסטים. מי שמכיר את הכפתור במסך אחד ימצא אותו מיד בשני.</dd></div>
+                <div class="note"><dt>עדינות</dt><dd>גובה 22px בשורה שכבר קיימת. אפס פיקסלים נוספים למסך.</dd></div>
+                <div class="note"><dt>מחיר</dt><dd>הכותרת הופכת משורה אחת נקייה לשתי ישויות. וגם: הוא רחוק מהמספרים שהוא משנה.</dd></div>
+            </dl>
+        </div>
+
+        <!-- ── ב׳ ── -->
+        <div class="opt">
+            <div class="opt-head">
+                <span class="opt-tag rec">כיוון ב׳ · מומלץ</span>
+                <h3 class="opt-name">בכרטיס הנתונים</h3>
+                <p class="opt-sub">בשורת הכותרת של "סט נוכחי" — על הדבר עצמו שההמלצה משנה.</p>
+            </div>
+
+            <div class="phone">
+                <div class="notch"></div>
+                <div class="corner l">✕</div>
+                <div class="corner r">⋯</div>
+
+                <div class="live-header">
+                    <div class="badge-row">
+                        <span class="live-set-counter">SET 3/4</span>
+                    </div>
+                    <h1 class="live-ex-name">לחיצת חזה בשיפוע</h1>
+                </div>
+
+                <div class="live-timer-wrap">
+                    <svg class="live-timer-svg" viewBox="0 0 100 100" aria-hidden="true">
+                        <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="2"></circle>
+                        <circle cx="50" cy="50" r="46" fill="none" stroke="var(--secondary)" stroke-width="2"
+                                stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="110"
+                                style="filter:drop-shadow(0 0 8px rgba(71,226,102,.5))"></circle>
+                    </svg>
+                    <div class="live-timer-text">00:55</div>
+                    <div class="live-timer-lbl">Rest</div>
+                </div>
+
+                <div class="live-stack">
+                    <div class="live-next-target">
+                        <div class="live-target-head">
+                            <span class="live-target-lbl">סט נוכחי</span>
+                            <span class="live-target-edit">✎</span>
+                            <span class="rec-inline">המלצה</span>
+                        </div>
+                        <span class="live-target-val">42.5<small>ק״ג</small>× 8</span>
+                    </div>
+                    <div class="live-swipe-card">
+                        <span class="live-swipe-icon">←</span>
+                        <span class="live-swipe-text">החלק לרישום הסט</span>
+                    </div>
+                </div>
+            </div>
+
+            <dl class="notes">
+                <div class="note"><dt>הקשר</dt><dd>ההמלצה משנה בדיוק את המספרים בכרטיס הזה. נקודת הכניסה יושבת על מה שהיא מזיזה — ולא בקצה השני של המסך.</dd></div>
+                <div class="note"><dt>עדינות</dt><dd>נכנס לשורה שכבר קיימת (<code>.live-target-head</code>, כבר <code>flex</code> עם <code>gap:8px</code>). אפס פיקסלים נוספים.</dd></div>
+                <div class="note"><dt>הכותרת נשארת</dt><dd>"SET 3/4" + שם התרגיל נשארים שורה נקייה אחת, בלי ישות נוספת לידם.</dd></div>
+                <div class="note"><dt>מחיר</dt><dd>שונה מהמיקום ב-<code>ui-main</code>. אם זה מפריע — אפשר להזיז גם שם לאותו מקום בסבב נפרד.</dd></div>
+            </dl>
+        </div>
+    </div>
+
+    <hr class="rule">
+
+    <h2 class="sec">הגיליון עצמו — לא משתנה</h2>
+    <p class="seclede">
+        שני הכיוונים פותחים את <code>#set-rec-sheet</code> הקיים. הוא כבר מוצג נכון מעל מסך
+        הלייב: <code>body.live-mode-active .bottom-sheet</code> מקבל <code>z-index:10006</code>
+        לעומת <code>9999</code> של ה-overlay. אין עבודת שכבות.
+    </p>
+    <div class="sheet-demo">
+        <div class="sheet-in">
+            <div class="sheet-handle"></div>
+            <div class="set-rec-header"><span>✦</span>המלצת המאמן</div>
+            <div class="set-rec-vals">
+                <span><span class="set-rec-num">45</span><span class="set-rec-unit">kg</span></span>
+                <span><span class="set-rec-num">×7</span></span>
+                <span><span class="set-rec-num">2</span><span class="set-rec-unit">RIR</span></span>
+            </div>
+            <div class="set-rec-reason">בסט הקודם השלמת 9 חזרות ב-RIR 1 — יש מקום לעלות 2.5 ק״ג ולרדת לטווח 7.</div>
+            <div class="set-rec-actions">
+                <button class="set-rec-apply">אשר</button>
+                <button class="set-rec-dismiss">בטל</button>
+            </div>
+        </div>
+    </div>
+
+    <hr class="rule">
+
+    <div class="panel">
+        <h3>שתי נקודות שצריך לטפל בהן בקוד</h3>
+        <p class="sub">מעבר להוספת הכפתור עצמו.</p>
+        <ul>
+            <li><b>סנכרון התצוגה אחרי "אשר".</b> <code>applyAIRecommendation()</code> כותב ל-<code>weight-picker</code>/<code>reps-picker</code>/<code>rir-picker</code> וקורא ל-<code>syncStepperDisplay</code> — שמעדכן את מסך <code>ui-main</code> בלבד. במצב Live צריך גם <code>_syncLiveEditSheetDisplays()</code> ו-<code>updateLiveViewContent()</code>, אחרת המספר בכרטיס יישאר הישן. זה בדיוק <b>כלל אחידות הפיקרים</b> בהוראות הפרויקט: פיצ'ר בפיקרים חייב לחול על שתי החזיתות.</li>
+            <li><b>תנאי ההצגה.</b> הכפתור הקיים מוצג רק כשיש מפתח Gemini (<code>_resetSetRecState</code>). הכפתור החדש חייב להיות כפוף לאותו תנאי ולהתעדכן באותה נקודה — אחרת יופיע כפתור מת למי שאין לו מפתח.</li>
+        </ul>
+    </div>
+
+    <p class="foot">
+        הפונט כאן הוא תחליף מערכת — Heebo לא נטען מ-CDN בסביבת מוקאפ. שאר הערכים
+        (גדלים, משקלים, צבעים, רדיוסים) הועתקו מ-<code>style.css</code>.
+        האייקונים במוקאפ (✕ ⋯ ✎ ← ✦) הם תחליפי טקסט ל-Material Symbols שבקוד.
+    </p>
+</div>

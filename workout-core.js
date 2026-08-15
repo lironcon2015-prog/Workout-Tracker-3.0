@@ -6055,6 +6055,15 @@ function buildSystemPrompt(opts = {}) {
 - **אל תציע כלל שכבר נמצא שם.** לפני כל <propose-memory> קרא את הרשימה למטה ובדוק אם הכלל כבר מופיע — גם אם הוא מנוסח אחרת או מסווג בקטגוריה אחרת. אם כן: אל תפלוט בלוק, ואל תזכיר שהכלל כבר קיים אלא אם נשאלת. הצעה חוזרת על כלל קיים היא תקלה.
 - אם המתאמן חוזר על כלל שכבר בתיבה — זו אינה סיבה להצעה חדשה; פשוט פעל לפיו.
 
+# יצירת מזון מותאם — הצעה לשמירה במאגר
+- כשהמתאמן מבקש **ליצור מזון / להכניס למערכת / לשמור את המוצר** (או ניסוח דומה) אחרי שהערכת עבורו ערכים תזונתיים — פלוט בסוף התשובה בלוק בפורמט מדויק:
+  <propose-food name="שם המוצר" unit="g|ml|unit" kcal="0" protein="0" carbs="0" fat="0" fiber="" serving="" />
+- כל הערכים **ל-100 גרם / 100 מ״ל**, ואם unit="unit" — ליחידה אחת. serving = משקל מנה נפוצה בגרמים (אופציונלי, ריק אם לא ידוע).
+- fiber = סיבים תזונתיים. **ריק אם אינך יודע** — אל תנחש. אפס הוא ערך אמיתי ותקף (שמן, בשר).
+- הבלוק מוסתר מהתצוגה ופותח למתאמן טופס מזון מותאם מלא-מראש לאישור ותיקון. **כלום לא נשמר עד שהוא מאשר** — אל תכריז "יצרתי" / "שמרתי" / "הוספתי למאגר".
+- בלוק אחד לכל תשובה, ורק כשהתבקשת. אם דיברת על מזון בלי שביקשו ליצור אותו — אל תפלוט בלוק.
+- אם חסרים לך נתונים כדי להעריך (לא ידוע מה המוצר, אין כמות) — שאל, אל תפלוט בלוק עם ניחושים.
+
 # תיקון של המתאמן
 - כשהמתאמן מתקן טעות שלך, אמת קודם את התיקון מול הידע שלך. אישור אוטומטי אסור. אם התיקון נכון — הודה בטעות ותאר את מקורה המדויק (מושג שהוחלף, נתון שפוספס). אם התיקון שגוי — אמור זאת בכבוד. אישור בלי אימות הוא ריצוי.
 - אין להמציא ידע ביומכני, פיזיולוגי או תזונתי. אם אינך בטוח בסיווג של תרגיל (אקסיאלי/לא, מפרק ראשוני, וקטור עומס) — אמור "לא בטוח" במקום לנחש.
@@ -6425,10 +6434,30 @@ function _createBubble(role, text) {
     div.className = `chat-bubble ${role === 'user' ? 'user' : 'ai'}`;
     if (role === 'model') {
         div.innerHTML = `<div class="bubble-label">AI Coach</div>${_renderMarkdown(text)}`;
+        _maybeAddFoodChip(div, text);
     } else {
         div.textContent = text;
     }
     return div;
+}
+
+// _maybeAddFoodChip — נפילה לאחור לשיחות שכבר התקיימו: כשהמאמן לא פלט <propose-food>
+// אבל הטקסט עצמו נקרא כערכים תזונתיים, מוצג שבב "צור מזון" שמזרים אותו לאותו זיהוי
+// מלל של יוצר המזון. סף מכוון: קלוריות **ולפחות שניים** מהמאקרו — אזכור חולף של
+// קלוריות בשיחה על תוכנית תזונה לא אמור לייצר כפתור.
+function _maybeAddFoodChip(bubble, text) {
+    if (typeof _fdParseNutritionText !== 'function') return;
+    let r = null;
+    try { r = _fdParseNutritionText(text); } catch (e) { return; }
+    if (!r || r.kcal == null) return;
+    const macros = ['p', 'c', 'f'].filter(k => r[k] != null).length;
+    if (macros < 2) return;
+    const btn = document.createElement('button');
+    btn.className = 'chat-food-chip';
+    btn.textContent = 'צור מזון';
+    btn.dataset.text = String(text).slice(0, 2000);
+    btn.setAttribute('onclick', 'fdCreateFoodFromCoachBubble(this)');
+    bubble.appendChild(btn);
 }
 
 // _renderMarkdown — רינדור Markdown בסיסי ובטוח (escape תחילה למניעת XSS).
@@ -6559,7 +6588,10 @@ async function sendAIMessage() {
         const rawText = await callGeminiAPI(text);
 
         // חילוץ בלוקי <propose-memory> — מוסתרים מהתצוגה, מוצעים באישור נפרד
-        const { clean: responseText, proposals } = _extractMemoryProposals(rawText);
+        const _mem = _extractMemoryProposals(rawText);
+        const _food = _extractFoodProposal(_mem.clean);
+        const responseText = _food.clean;
+        const proposals = _mem.proposals;
 
         // עדכון זיכרון — שומרים את הטקסט הנקי (בלי הבלוקים) בהיסטוריה
         const now = Date.now();
@@ -6578,6 +6610,8 @@ async function sendAIMessage() {
 
         // אם המאמן הציע להוסיף לתיבה — פותחים מסך אישור
         if (proposals.length) openMemoryProposalSheet(proposals);
+        // אם הציע ליצור מזון — פותחים את טופס המזון המותאם מלא-מראש (כלום לא נשמר עד אישור)
+        if (_food.food && typeof fdOpenFoodFromProposal === 'function') fdOpenFoodFromProposal(_food.food);
 
         // רענון זיכרון המאמן ברקע — לא חוסם, רץ רק כשנצבר מספיק
         _maybeUpdateCoachMemory();
@@ -6738,6 +6772,42 @@ function _extractMemoryProposals(text) {
         return '';
     }).replace(/\n{3,}/g, '\n\n').trim();
     return { clean, proposals };
+}
+
+// _extractFoodProposal — מחלץ בלוק <propose-food> מתשובת המודל, באותה תבנית בדיוק
+// כמו <propose-memory>: הבלוק מוסר מהתצוגה, והדאטה חוזרת מובנית. עדיף על פרסור
+// הפרוזה — שם המוצר, היחידה, גודל המנה והסיבים אובדים ברגקס על משפטים.
+// מחזיר { clean, food } — food הוא null כשלא נפלט בלוק.
+function _extractFoodProposal(text) {
+    if (!text) return { clean: '', food: null };
+    let food = null;
+    // התוחם נלכד ונדרש להיסגר בעצמו — שמות מזון בעברית מכילים גרש (קוטג', צ'יפס),
+    // ותבנית ["']([^"']*)["'] הייתה נחתכת עליו באמצע השם.
+    const attr = (raw, k) => {
+        const m = raw.match(new RegExp(k + '\\s*=\\s*(["\'])([\\s\\S]*?)\\1', 'i'));
+        return m ? m[2].trim() : '';
+    };
+    // מספר אופציונלי: ריק/לא-מספרי → undefined (כמו _fdRn). אפס נשאר אפס לגיטימי.
+    const num = v => { if (v === '' || v == null) return undefined; const n = Number(v); return isFinite(n) ? n : undefined; };
+    const re = /<propose-food\b([^>]*?)\/?>(?:\s*<\/propose-food>)?/i;
+    const clean = text.replace(re, (whole, raw) => {
+        const name = attr(raw, 'name');
+        const kcal = num(attr(raw, 'kcal'));
+        if (!name || kcal == null) return '';   // בלוק פגום — מוסר מהתצוגה, לא נפתח טופס
+        const u = String(attr(raw, 'unit') || 'g').toLowerCase();
+        food = {
+            name: name.slice(0, 80),
+            unit: (u === 'ml' || u === 'unit') ? u : 'g',
+            kcal,
+            p: num(attr(raw, 'protein')),
+            c: num(attr(raw, 'carbs')),
+            f: num(attr(raw, 'fat')),
+            fb: num(attr(raw, 'fiber')),
+            serving: num(attr(raw, 'serving'))
+        };
+        return '';
+    }).replace(/\n{3,}/g, '\n\n').trim();
+    return { clean, food };
 }
 
 // ─── מסך אישור הצעות מהמאמן ─────────────────────────────────────────────────

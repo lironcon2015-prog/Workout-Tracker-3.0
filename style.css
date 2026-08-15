@@ -3490,6 +3490,18 @@ body::before {
 .chat-bubble.ai { align-self: flex-start; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.09); border-bottom-right-radius: 4px; color: var(--text); }
 .chat-bubble.user { align-self: flex-end; background: var(--accent); border-bottom-left-radius: 4px; color: white; }
 .bubble-label { font-size: 8px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); margin-bottom: 5px; }
+/* שבב "צור מזון" בבועת המאמן — נפילה לאחור לשיחות בלי בלוק <propose-food>.
+   טקסט בלבד, מיושר לתחילת השורה, ומופיע רק כשהטקסט נקרא כערכים תזונתיים. */
+.chat-food-chip {
+    display: inline-block; margin-top: 8px;
+    font-family: 'Heebo', sans-serif; font-style: italic; font-weight: 800;
+    font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #8fb8ee; background: rgba(var(--accent-rgb),0.10);
+    border: 1px solid rgba(var(--accent-rgb),0.32); border-radius: var(--r-pill);
+    padding: 3px 11px; cursor: pointer;
+    transition: transform var(--dur-1) var(--ease), background var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
+}
+.chat-food-chip:active { transform: scale(0.94); background: rgba(var(--accent-rgb),0.22); color: #c5dcff; }
 .ai-typing {
     align-self: flex-start; display: flex; gap: 4px; align-items: center; padding: 12px 16px;
     background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.09);

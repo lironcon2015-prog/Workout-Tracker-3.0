@@ -1781,6 +1781,54 @@ function _fdShowCustomFoodForm(food) {
 
 function fdNewCustomFood() { _fdShowCustomFoodForm(null); }
 
+// fdOpenFoodFromProposal — נקודת הנחיתה של <propose-food> מצ'אט המאמן.
+// מכוון: לא נפתח מסלול שמירה חדש. נפתח **טופס המזון המותאם הקיים** מלא-מראש,
+// והמשתמש מאשר/מתקן ולוחץ "שמור בלבד" או "שמור ותעד" — בדיוק כמו כל מזון מותאם.
+// עקבי עם תיבת הזיכרון: המאמן מציע, המשתמש מאשר, המערכת כותבת.
+function fdOpenFoodFromProposal(f) {
+    if (!f || !f.name || f.kcal == null) return;
+    _fdShowCustomFoodForm(null);
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+    const nameEl = document.getElementById('fd-c-name');
+    if (nameEl) nameEl.value = f.name;
+    // יחידה — 'unit' פותח גם את שדות שם היחידה/משקל היחידה דרך _fdCustomUnitChanged
+    const unitSel = document.getElementById('fd-c-unit');
+    if (unitSel && (f.unit === 'g' || f.unit === 'ml' || f.unit === 'unit')) {
+        unitSel.value = f.unit;
+        if (typeof _fdCustomUnitChanged === 'function') _fdCustomUnitChanged();
+    }
+    set('fd-c-kcal', Math.round(f.kcal));
+    set('fd-c-p', f.p); set('fd-c-c', f.c); set('fd-c-f', f.f);
+    if (f.fb != null) set('fd-c-fb', f.fb);            // ריק = לא ידוע, לא אפס
+    if (f.unit === 'unit' && f.serving > 0) set('fd-c-unit-grams', f.serving);
+    if (typeof _fdCustomCheckMismatch === 'function') _fdCustomCheckMismatch();
+    // חיווי מקור — כדי שיהיה ברור שהערכים הם הערכה של המאמן וטעונים בדיקה
+    const msg = document.getElementById('fd-paste-msg');
+    const box = document.getElementById('fd-paste-box');
+    if (msg && box) {
+        box.style.display = 'block';
+        msg.innerHTML = '<span class="material-symbols-outlined inline-arrow">auto_awesome</span> הערכים מהמאמן — בדוק ותקן לפני שמירה. כלום לא נשמר עד שתלחץ "שמור".';
+    }
+    if (typeof haptic === 'function') haptic('success');
+}
+
+// _fdCoachTextToFood — נפילה לאחור לשיחות שהתקיימו לפני שהמאמן ידע לפלוט בלוק:
+// מזרים את טקסט הבועה לאותו זיהוי מלל של יוצר המזון (מקומי, ובכשל — AI).
+async function _fdCoachTextToFood(text) {
+    _fdShowCustomFoodForm(null);
+    const box = document.getElementById('fd-paste-box');
+    const ta = document.getElementById('fd-paste-text');
+    if (box) box.style.display = 'block';
+    if (ta) ta.value = String(text || '').slice(0, 2000);
+    if (typeof fdParsePastedNutrition === 'function') await fdParsePastedNutrition();
+}
+
+// fdCreateFoodFromCoachBubble — נקרא מהשבב בבועת הצ'אט (ראה _createBubble)
+function fdCreateFoodFromCoachBubble(btn) {
+    const txt = btn && btn.dataset ? btn.dataset.text : '';
+    if (txt) _fdCoachTextToFood(txt);
+}
+
 function fdEditCustomFood(id) {
     const food = _fdFoodCache[id] || StorageManager.getFoodDb().find(f => f.id === id);
     if (!food) return;

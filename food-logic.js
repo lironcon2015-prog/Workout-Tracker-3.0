@@ -1394,6 +1394,17 @@ function _fdAddComponentFromFood(food) {
 }
 
 // ════════ PORTION EDITOR ════════
+// _fdUnitToPickerVal — ממפה יחידה שמורה (רשומה או "נעשה בו שימוש לאחרונה") לערך
+// ב-select. 'serving' נפתר לפי **התווית** ולא לפי אינדקס קבוע: למזון יכולות להיות
+// כמה מנות (סקופ / 100 גרם), ו-'s0' עיוור היה מציג את הראשונה במקום זו שנבחרה.
+function _fdUnitToPickerVal(servings, unit, unitLabel, fallbackUnit) {
+    if (unit === 'serving') {
+        const i = (servings || []).findIndex(sv => sv && sv.label === unitLabel);
+        return 's' + (i >= 0 ? i : 0);
+    }
+    return unit || fallbackUnit || 's0';
+}
+
 function _fdOpenPortion(food, entry) {
     _fdCompPickMode = false;   // נתיב עורך כמות — לא מצב בחירת מרכיב
     _fdSelectedFood = food;
@@ -1410,9 +1421,16 @@ function _fdOpenPortion(food, entry) {
     const fallbackUnit = baseUnit === 'unit' ? null : (baseUnit === 'ml' ? 'ml' : 'g');
     const fallbackOpt = fallbackUnit ? `<option value="${fallbackUnit}">${fallbackUnit === 'ml' ? 'מ"ל' : 'גרם'}</option>` : '';
     const unitOpts = servings.map((s, i) => `<option value="s${i}">${_fdEsc(s.label)}</option>`).join('') + fallbackOpt;
-    const qty = entry ? entry.qty : (servings[0].grams && servings[0].grams !== 100 ? 1 : 100);
-    const unit = entry ? (entry.unit === 'serving' ? 's0' : (entry.unit || fallbackUnit || 's0'))
-        : (servings[0].grams && servings[0].grams !== 100 ? 's0' : (fallbackUnit || 's0'));
+    // ברירת מחדל לתיעוד חדש: הכמות והיחידה שבהן המזון תועד לאחרונה. אין היסטוריה
+    // (מזון חדש) → ההתנהגות הישנה: מנה מוגדרת אם יש, אחרת 100 גרם.
+    // בעריכת רשומה קיימת — תמיד ערכי הרשומה עצמה, לא ה"אחרון".
+    const last = (!entry && food.id && typeof StorageManager.getFoodLastPortion === 'function')
+        ? StorageManager.getFoodLastPortion(food.id) : null;
+    const qty = entry ? entry.qty
+        : (last ? last.qty : (servings[0].grams && servings[0].grams !== 100 ? 1 : 100));
+    const unit = entry ? _fdUnitToPickerVal(servings, entry.unit, entry.unitLabel, fallbackUnit)
+        : (last ? _fdUnitToPickerVal(servings, last.unit, last.unitLabel, fallbackUnit)
+                : (servings[0].grams && servings[0].grams !== 100 ? 's0' : (fallbackUnit || 's0')));
     const time = entry ? entry.time : _fdNowTime();
     const curMeal = entry ? entry.meal : _fdMeal;
 
@@ -1616,6 +1634,11 @@ function fdSavePortion() {
     } else {
         StorageManager.addFoodEntry(_fdDate, entry);
         if (food.id) StorageManager.bumpFoodUsage(food.id, entry.meal);
+    }
+    // ברירת המחדל לפעם הבאה — נשמרת גם בעדכון רשומה, כי תיקון כמות הוא בדיוק
+    // האינדיקציה החזקה ביותר למה שהמשתמש באמת אוכל
+    if (food.id && typeof StorageManager.setFoodLastPortion === 'function') {
+        StorageManager.setFoodLastPortion(food.id, { qty: entry.qty, unit: entry.unit, unitLabel: entry.unitLabel });
     }
     closeFoodPortion();
     closeFoodAdd();

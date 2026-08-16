@@ -1454,6 +1454,24 @@ const StorageManager = {
     },
 
     // bumpFoodUsage — מעדכן שימוש גלובלי וגם שימוש לפי ארוחה (mealUse) לדירוג מותאם-ארוחה
+    // setFoodLastPortion — הכמות והיחידה שבהן המזון תועד לאחרונה, לשחזור כברירת מחדל
+    // בפתיחה הבאה של עורך הכמות. unitLabel נשמר (ולא רק האינדקס) כי רשימת ה-servings
+    // עשויה להשתנות אחרי "עריכת ערכי המוצר" — אינדקס היה מצביע על מנה אחרת.
+    // נכתב רק למזון שכבר במאגר; upsert על מזון שאינו שם היה יוצר רשומה חלקית ללא שם.
+    setFoodLastPortion(id, portion) {
+        if (!id || !portion) return;
+        const db = this.getFoodDb();
+        const f = db.find(x => x.id === id); if (!f) return;
+        const qty = Number(portion.qty);
+        if (!isFinite(qty) || qty <= 0) return;
+        f.lastPortion = { qty, unit: portion.unit || 'g', unitLabel: portion.unitLabel || null };
+        this.saveData(this.KEY_FOOD_DB, db);
+    },
+    getFoodLastPortion(id) {
+        const f = this.getFoodDb().find(x => x.id === id);
+        return (f && f.lastPortion && Number(f.lastPortion.qty) > 0) ? f.lastPortion : null;
+    },
+
     bumpFoodUsage(id, meal) {
         const db = this.getFoodDb();
         const f = db.find(x => x.id === id); if (!f) return;

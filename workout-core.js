@@ -5035,7 +5035,11 @@ function _buildCoachSummaryPrompt(scope) {
 
     // שינה + התאוששות — אותו מקטע שמוזרק לצ'אט המאמן (autoregulation). מאפשר לסיכום
     // לשקלל התאוששות: לא לפרש ביצוע מופחת כרגרסיה כשההתאוששות בבוקר האימון הייתה נמוכה.
-    const recovery = (typeof _buildSleepAIContext === 'function' && _buildSleepAIContext(false)) || '';
+    const _wDate = (() => {
+        try { const d = new Date(ts); const p = x => String(x).padStart(2, '0');
+              return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; } catch (e) { return null; }
+    })();
+    const recovery = (typeof _buildSleepAIContext === 'function' && _buildSleepAIContext(false, _wDate)) || '';
 
     const template = StorageManager.getCoachPrompt(scope);
     const filled = _fillTemplate(template, {
@@ -5837,7 +5841,9 @@ function _buildTdeeAIContext(slim) {
 
 // _buildSleepAIContext — סיכום שינה + התאוששות ל-AI (רק נתונים אמיתיים, לא דמה).
 // מאפשר למאמן לשקלל התאוששות בהמלצות (autoregulation).
-function _buildSleepAIContext(slim) {
+// refDate (YYYY-MM-DD, אופציונלי) — תאריך האימון שעליו נכתב הסיכום. בלעדיו: היום.
+// משמש כדי לומר למאמן **במפורש** אם הלילה האחרון הוא אכן הלילה שלפני האימון.
+function _buildSleepAIContext(slim, refDate) {
     const nights = (typeof StorageManager.getSleepDaily === 'function') ? StorageManager.getSleepDaily() : [];
     if (!nights || !nights.length) return '';   // אין נתוני שינה אמיתיים → לא מזריקים דמה ל-AI
     const idx = nights.length - 1;
@@ -5865,9 +5871,19 @@ function _buildSleepAIContext(slim) {
         if (_ok('efficiency', n.efficiency)) parts.push(`יעילות ${Math.round(n.efficiency * 100)}%`);
         if (n.deepMin > 0 || n.remMin > 0) parts.push(`עמוקה ${fmtH(n.deepMin)} · REM ${fmtH(n.remMin)}`);
     }
-    if (_ok('hrv', n.hrv))      parts.push(`HRV ${n.hrv}ms`);
-    if (_ok('rhr', n.rhr))      parts.push(`דופק מנוחה ${n.rhr}`);
-    if (_ok('respRate', n.respRate)) parts.push(`נשימה ${n.respRate}`);
+    // ── גרירת ויטלים — התאמה לתצוגה ולציון ──────────────────────────────────
+    // באג שתוקן: הפרומפט קרא n.hrv/n.rhr גולמיים בזמן ש-computeReadiness מחשב את
+    // הציון מ-_carriedVital. אפל כותבת HRV/דופק באיחור, ולכן ברשומת "היום" הם לרוב
+    // עדיין חסרים — והמאמן קיבל **רצועה בלי המדדים שמאחוריה** ("בינוני" ואז "אין
+    // נתונים"). כאן נגררים אותם ערכים בדיוק, עם תיוג גיל כמו בכרטיס.
+    const carry = (k) => (typeof _carriedVital === 'function')
+        ? _carriedVital(nights, idx, k)
+        : { v: _ok(k, n[k]) ? n[k] : null, carried: false, gap: 0 };
+    const ageTag = (c) => c.carried ? ` (מלפני ${c.gap === 1 ? 'יום' : c.gap + ' ימים'})` : '';
+    const cHrv = carry('hrv'), cRhr = carry('rhr'), cResp = carry('respRate');
+    if (cHrv.v != null)  parts.push(`HRV ${cHrv.v}ms${ageTag(cHrv)}`);
+    if (cRhr.v != null)  parts.push(`דופק מנוחה ${cRhr.v}${ageTag(cRhr)}`);
+    if (cResp.v != null) parts.push(`נשימה ${cResp.v}${ageTag(cResp)}`);
 
     let s = `\n=== שינה והתאוששות (Apple Health) ===\n`;
     s += `לילה אחרון (${n.date}): ${parts.length ? parts.join(' | ') : 'אין מדדים תקינים'}`;
@@ -5875,17 +5891,32 @@ function _buildSleepAIContext(slim) {
     // מוצג מאותו סף שבו הוא מוצג למתאמן בכרטיס (5 לילות) — אחרת המאמן "לא יודע" על
     // נתון שהמתאמן רואה מולו. עד 14 לילות מסומן "בסיס ראשוני", כך שהמאמן יכול לדבר
     // עליו אבל לא להתייחס אליו כאות מבוסס.
-    if (typeof _recoveryBaseline === 'function' && n.wristTempDev != null) {
+    const cTemp = carry('wristTempDev');
+    if (typeof _recoveryBaseline === 'function' && cTemp.v != null) {
         const bT = _recoveryBaseline(nights, idx, 'wristTempDev');
         const showMin = (typeof TEMP_SHOW_MIN_NIGHTS !== 'undefined') ? TEMP_SHOW_MIN_NIGHTS : 5;
         const scoreMin = (typeof TEMP_MIN_NIGHTS !== 'undefined') ? TEMP_MIN_NIGHTS : 14;
         if (bT.med != null && bT.n >= showMin) {
-            const dev = Math.round((n.wristTempDev - bT.med) * 10) / 10;
-            s += ` | סטיית טמפ׳ ${dev > 0 ? '+' : ''}${dev}°`;
+            const dev = Math.round((cTemp.v - bT.med) * 10) / 10;
+            s += ` | סטיית טמפ׳ ${dev > 0 ? '+' : ''}${dev}°${ageTag(cTemp)}`;
             if (bT.n < scoreMin) s += ` (בסיס ראשוני — ${bT.n} לילות, לא משוקלל בציון)`;
         }
     }
     s += `\n`;
+    // ── יחס התאריכים — מפורש, לא משתמע ─────────────────────────────────────
+    // בלי זה המאמן רואה "לילה אחרון (13.8)" מול אימון ב-14.8 ומסיק בצדק שאין לו
+    // את הלילה שלפני האימון — גם כשהציון עצמו הוזרק. עכשיו נאמר לו ישירות.
+    const _ref = refDate || (StorageManager._todayStr ? StorageManager._todayStr() : null);
+    if (_ref) {
+        if (n.date === _ref) {
+            s += `הלילה שלעיל (${n.date}) הוא **הלילה שלפני האימון** — הנתונים והציון מתייחסים אליו.\n`;
+        } else {
+            const dGap = Math.round((new Date(_ref + 'T00:00:00') - new Date(n.date + 'T00:00:00')) / 86400000);
+            s += `שים לב: האימון מתוארך ${_ref}, והלילה האחרון שנמשך הוא ${n.date}` +
+                 (dGap > 0 ? ` (${dGap === 1 ? 'לילה אחד' : dGap + ' לילות'} לפני כן)` : '') +
+                 ` — כלומר **אינו** הלילה שלפני האימון. התייחס לנתונים כרקע ולא כמצב הבוקר של האימון.\n`;
+        }
+    }
     // אזהרה מפורשת כשמדידת השינה חסרה. בלי זה המאמן קרא asleepMin=0 גולמי והצהיר
     // "00:00 שינה" כעובדה — הנתון פשוט טרם נכתב ב-Apple בזמן המשיכה.
     if (!nightSleepOk) {

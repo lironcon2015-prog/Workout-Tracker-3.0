@@ -39,6 +39,7 @@ async function maybeShowCloudSyncBanner() {
     // v19.7.3: ניסיון חוזר *לפני* ההצגה — באנר מוצג רק אם הכשל שרד גם עכשיו.
     // קודם הוא הופיע על סמך כשל ישן (לפעמים מלפני ימים) שכבר לא רלוונטי.
     if (typeof FirebaseManager.pendingSyncStores === 'function' && FirebaseManager.pendingSyncStores().length) {
+        _lastCloudRetryAt = Date.now();   // מונע סבב כפול אם המשתמש יוצא וחוזר מיד
         try { await FirebaseManager.retryFailedSyncs(); } catch (e) {}
     }
     const sync = FirebaseManager.getSyncStatus();
@@ -83,10 +84,17 @@ function _syncFailSince(sync, failed) {
 
 // _retryCloudSyncSilently — דחיפה חוזרת של מסלולים שנכשלו, בלי שום UI.
 // נקרא בחזרת הרשת ובחזרה לפרונט. רק סגירה מלאה משנה משהו על המסך.
+// v19.7.4: throttle של 2 דק'. כל סבב מסרלל מחדש את הארכיון והקונפיג המלאים
+// (JSON.stringify על ה-thread הראשי) ומעלה אותם — וכשמסלול נכשל דרך קבע, כל חזרה
+// לפרונט הפכה את האפליקציה לאיטית לכמה שניות. כשל שנמשך ייסגר בסבב הבא, לא במיידי.
+let _lastCloudRetryAt = 0;
+const CLOUD_RETRY_THROTTLE_MS = 120000;
 function _retryCloudSyncSilently() {
     if (typeof FirebaseManager === 'undefined' || !FirebaseManager.isConfigured()) return;
     if (typeof FirebaseManager.pendingSyncStores !== 'function') return;
     if (!FirebaseManager.pendingSyncStores().length) return;
+    if (Date.now() - _lastCloudRetryAt < CLOUD_RETRY_THROTTLE_MS) return;
+    _lastCloudRetryAt = Date.now();
     FirebaseManager.retryFailedSyncs().then(left => {
         if (left !== 0) return;
         dismissCloudSyncBanner();
@@ -7568,11 +7576,16 @@ async function syncHealthNutrition(manual = false, force = false) {
         const blActive = blScreen && blScreen.classList.contains('active');
         // renderBodyLog מכסה כעת גם את תצוגת השינה, ולכן _refreshActiveView נדרש רק
         // בענף ה-changed=0 (רענון החותמת) — לא עוד רינדור כפול של אותה תצוגה.
-        if (blActive) {
-            if (changed > 0 && typeof renderBodyLog === 'function') renderBodyLog();
-            else if (typeof _refreshActiveView === 'function') _refreshActiveView();
-        }
-        if ((changed > 0 || manual) && typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
+        // v19.7.4: הרינדור מבודד מהמשיכה. חריגה ברינדור (רשומה פגומה בדאטה) נתפסה
+        // ב-catch של המשיכה, החזירה את החותמת אחורה, דיווחה "משיכה נכשלה" ודילגה על
+        // הגיבוי לענן — למרות שהמשיכה עצמה הצליחה והנתונים כבר נשמרו במכשיר.
+        try {
+            if (blActive) {
+                if (changed > 0 && typeof renderBodyLog === 'function') renderBodyLog();
+                else if (typeof _refreshActiveView === 'function') _refreshActiveView();
+            }
+            if ((changed > 0 || manual) && typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
+        } catch (e) { console.error('GymPro: health sync render failed', e); }
         if (changed > 0) {
             if (typeof FirebaseManager !== 'undefined') {
                 _saveConfigToCloudResilient('גיבוי בריאות לענן');

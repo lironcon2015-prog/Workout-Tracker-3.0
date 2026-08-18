@@ -16,13 +16,15 @@ let _bodyImportMap = {};      // מיפוי תווית "שלב" גולמית →
 const _BL_STATE_LBL = { cut: 'Cut', maintenance: 'Maintenance', surplus: 'Surplus' };
 
 // ─── עזרי תאריך ─────────────────────────────────────────────────────────────
-function _blDTs(d) { const [y, m, da] = d.split('-').map(Number); return new Date(y, m - 1, da).getTime(); }
+function _blDTs(d) { const [y, m, da] = String(d || '').split('-').map(Number); return new Date(y, m - 1, da).getTime(); }
 // תאריך מקומי — לא UTC! toISOString החזיר את "אתמול" בין חצות ל-03:00 שעון ישראל,
 // מה שמנע מהיום שהסתיים להיסגר (להופיע בהיסטוריה/ממוצע/גרפים) עד לפנות בוקר
 function _blLocalDateStr(d) { const p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
 function _blTodayStr() { return _blLocalDateStr(new Date()); }
-function _blShortDate(d) { const p = d.split('-'); return `${p[2]}.${p[1]}`; }          // DD.MM (ציר הגרף)
-function _blListDate(d) { const p = d.split('-'); return `${p[2]}.${p[1]}.${p[0]}`; }   // DD.MM.YYYY (לוג השקילות)
+// v19.7.4: פורמט הגנתי. רשומה אחת עם תאריך פגום (null/undefined) זרקה כאן חריגה
+// שהפילה את *כל* מסך התזונה ואת כרטיסי הבית — פונקציית תצוגה לא מפילה מסך.
+function _blShortDate(d) { const p = String(d || '').split('-'); return p.length === 3 ? `${p[2]}.${p[1]}` : '—'; }          // DD.MM (ציר הגרף)
+function _blListDate(d) { const p = String(d || '').split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : '—'; }   // DD.MM.YYYY (לוג השקילות)
 function _blCutoff(days) { return _blLocalDateStr(new Date(Date.now() - days * 86400000)); }
 
 // ─── רינדור ראשי ────────────────────────────────────────────────────────────
@@ -152,13 +154,16 @@ function _blFilter(log) {
 }
 
 // ─── תצוגת תזונה (MyFitnessPal) ──────────────────────────────────────────────
+// כל מקטע מבודד (v19.7.4): עד כאן חריגה בכרטיס הראשון מנעה את רינדור הכרטיסים
+// והגרפים שאחריו — והמסך כולו נראה ריק למרות שהדאטה קיימת.
 function _renderNutritionView() {
     const all = StorageManager.getNutritionDaily();
-    _renderNutritionDaily(all);
-    _renderNutritionCard(all);
-    _renderTdeeCard();
-    _renderNutritionCharts(all);
-    _renderNutritionList(all);
+    const step = (name, fn) => { try { fn(); } catch (e) { console.error('GymPro: nutrition view — ' + name, e); } };
+    step('daily',  () => _renderNutritionDaily(all));
+    step('avg',    () => _renderNutritionCard(all));
+    step('tdee',   () => _renderTdeeCard());
+    step('charts', () => _renderNutritionCharts(all));
+    step('list',   () => _renderNutritionList(all));
 }
 
 // ─── מנוע TDEE / מאזן אנרגיה ─────────────────────────────────────────────────

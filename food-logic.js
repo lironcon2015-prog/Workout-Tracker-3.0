@@ -533,6 +533,14 @@ function _fdPruneCacheOnce() {
     } catch (e) {}
 }
 
+// _fdEnsureDate — היום של היומן חייב להיות תקין לפני כל כתיבה. עד v19.7.3 מסלולים
+// שנפתחו מחוץ ליומן (טופס המזון של המאמן) רצו עם _fdDate=null, וכתיבה כזו יצרה
+// יום 'null' ביומן ורשומת סיכום בלי תאריך — שהפילה את כל מסך התזונה בחריגה.
+function _fdEnsureDate() {
+    if (!_fdDate || !/^\d{4}-\d{2}-\d{2}$/.test(_fdDate)) _fdDate = _blTodayStr();
+    return _fdDate;
+}
+
 function openFoodDiary(date) {
     _fdPruneCacheOnce();
     _fdDate = date || _blTodayStr();
@@ -1406,6 +1414,7 @@ function _fdUnitToPickerVal(servings, unit, unitLabel, fallbackUnit) {
 }
 
 function _fdOpenPortion(food, entry) {
+    _fdEnsureDate();           // עורך המנה נפתח גם מחוץ ליומן (צ'אט המאמן) — יום חייב להיות
     _fdCompPickMode = false;   // נתיב עורך כמות — לא מצב בחירת מרכיב
     _fdSelectedFood = food;
     _fdEditEntryId = entry ? entry.id : null;
@@ -1643,6 +1652,9 @@ function fdSavePortion() {
     closeFoodPortion();
     closeFoodAdd();
     fdRender();
+    // תיעוד יכול להגיע גם כשהיומן עצמו סגור (טופס המזון של המאמן) — ואז closeFoodDiary
+    // לא ירוץ ולא ירענן את כרטיסי הבית
+    try { if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards(); } catch (e) {}
     _fdSyncCloud();
     haptic('medium');
 }
@@ -1724,6 +1736,7 @@ function _fdCustomCheckMismatch() {
 
 // food=null → יצירת מזון מותאם חדש; food קיים → עריכה במקום (אותו id, משמר היסטוריית שימוש/מועדפים)
 function _fdShowCustomFoodForm(food) {
+    _fdEnsureDate();           // "שמור ותעד" מכאן מגיע ל-addFoodEntry — גם כשהיומן מעולם לא נפתח
     const sheet = document.getElementById('fd-portion-sheet');
     const body = document.getElementById('fd-portion-body');
     if (!sheet || !body) return;

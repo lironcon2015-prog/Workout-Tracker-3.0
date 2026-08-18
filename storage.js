@@ -2035,9 +2035,13 @@ const FirebaseManager = {
     NUTRITION_RAW_CHUNK_SIZE: 1000,         // שורות per-meal לכל מסמך (~150KB) — מניעה מוחלטת של חריגת 1MB
     FOOD_LOG_CHUNK_DAYS: 90,                // ימי יומן-מזון לכל מסמך (v17.15) — הוצא מ-config שגדל ללא גבול
     DOC_SIZE_WARN: 800 * 1024,              // סף אזהרה מקדימה לפני מחסום ה-1MB/doc של Firestore
+    WRITE_TIMEOUT_MS: 15000,                // תקרת המתנה לכתיבה לענן — עם persistence פעיל
+                                            // הבטחה של set/commit לא נדחית באופליין אלא נשארת
+                                            // תלויה לנצח; בלי התקרה הגיבוי "נתקע" בלי הצלחה ובלי כשל
+    READ_TIMEOUT_MS: 8000,                  // תקרת המתנה לקריאת meta (נסבל להיכשל — ברירת מחדל 0)
     _db: null,
     _initialized: false,
-    _authReady: null,  // Promise שמסתיים כשה-Anonymous Auth הושלם
+    _authReady: null,  // Promise שמסתיים כשה-Anonymous Auth הושלם (null = צריך לנסות שוב)
 
     // בודק אם Firebase מוגדר (יש config ב-LocalStorage)
     isConfigured() {
@@ -2098,8 +2102,7 @@ const FirebaseManager = {
             try { this._db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch (e) { /* כבר מאותחל / לא נתמך */ }
             this._initialized = true;
             // כניסה אנונימית — נדרשת לכללי Firestore (request.auth != null)
-            this._authReady = firebase.auth().signInAnonymously()
-                .catch(e => console.error('GymPro: anonymous auth failed', e));
+            this._startAuth();
             return true;
         } catch(e) {
             console.error('GymPro Firebase init error:', e);
@@ -2107,15 +2110,39 @@ const FirebaseManager = {
         }
     },
 
-    // ממתין לסיום האתחול ול-Auth לפני פעולות Firestore
+    // _startAuth — כניסה אנונימית. כשל מאפס את _authReady ל-null כדי שהפעולה הבאה
+    // תנסה שוב. עד v19.7.2 הכשל נבלע ב-catch שרק כתב ל-console, _ensureReady החזיר
+    // true, וכל הכתיבות בסשן יצאו ללא אימות ונדחו — עד רענון הדף.
+    _startAuth() {
+        try {
+            this._authReady = firebase.auth().signInAnonymously()
+                .then(() => true)
+                .catch(e => {
+                    console.error('GymPro: anonymous auth failed', e);
+                    this._authReady = null;
+                    return false;
+                });
+        } catch (e) {
+            console.error('GymPro: auth start failed', e);
+            this._authReady = null;
+        }
+        return this._authReady;
+    },
+
+    // ממתין לסיום האתחול ול-Auth לפני פעולות Firestore.
+    // מחזיר false על כשל auth — הקורא רושם כשל אמיתי במקום לכתוב בלי הרשאה.
     async _ensureReady() {
         // טעינת ה-SDK on-demand אם עוד לא נטען (lazy load מ-index.html)
         if (typeof firebase === 'undefined' && typeof window.loadFirebaseSDK === 'function') {
             try { await window.loadFirebaseSDK(); } catch (e) { return false; }
         }
         if (!this.init()) return false;
-        await this._authReady;
-        return true;
+        if (!this._authReady) this._startAuth();          // ניסיון חוזר אחרי כשל קודם
+        if (!this._authReady) return false;
+        let ok;
+        try { ok = await this._withTimeout(this._authReady, 12000); }
+        catch (e) { this._authReady = null; return false; }   // timeout — ניסיון נקי בפעם הבאה
+        return ok !== false;
     },
 
     // ── Live Session (גשר שעון⇄טלפון) ──────────────────────────────────────────
@@ -2234,6 +2261,10 @@ const FirebaseManager = {
             const s = this.getSyncStatus();
             s[store + 'Ok'] = ok;
             s[store + 'At'] = Date.now();
+            // OkAt — הסנכרון המוצלח האחרון של המסלול (בניגוד ל-At שהוא הניסיון האחרון).
+            // FailAt — מתי הכשל *התחיל*; לא נדרס בכשלים חוזרים, כדי שה-UI יגיד "מאז מתי".
+            if (ok) { s[store + 'OkAt'] = Date.now(); delete s[store + 'FailAt']; }
+            else if (!s[store + 'FailAt']) s[store + 'FailAt'] = Date.now();
             if (ok || !errType) delete s[store + 'Err']; else s[store + 'Err'] = errType;
             localStorage.setItem(this.KEY_SYNC_STATUS, JSON.stringify(s));
         } catch { /* מקרה קצה — אחסון מלא; לא קריטי */ }
@@ -2259,6 +2290,39 @@ const FirebaseManager = {
         const msg = String((e && e.message) || e || '');
         return ((e && e.code === 'invalid-argument') && /size|bytes|exceeds|larger|1048487/i.test(msg)) ||
                /maximum allowed size|1048487/i.test(msg);
+    },
+
+    // ── ניסיון חוזר אוטומטי (v19.7.3) ────────────────────────────────────────
+    // עד כאן כשל סנכרון היה סופי: הדגל נשאר false עד שפעולת-משתמש אקראית הפעילה
+    // שמירה מוצלחת — ובינתיים הדאטה ישבה רק במכשיר, לפעמים ימים. עכשיו כל מסלול
+    // שנכשל נדחף שוב אוטומטית: בעליית האפליקציה, בחזרה לפרונט, ובחזרת הרשת.
+    _SYNC_FNS: { archive: 'saveArchiveToCloud', config: 'saveConfigToCloud',
+                 raw: 'saveNutritionRawToCloud', ai: 'saveAIHistoryToCloud' },
+    _retryRunning: false,
+
+    // מסלולים שהניסיון האחרון בהם נכשל. סטטוס הסנכרון עצמו הוא התור — אין מבנה נפרד.
+    pendingSyncStores() {
+        const s = this.getSyncStatus();
+        return Object.keys(this._SYNC_FNS).filter(k => s[k + 'Ok'] === false);
+    },
+
+    // retryFailedSyncs — דחיפה חוזרת שקטה. מחזיר כמה מסלולים נותרו כושלים
+    // (0 = הכל נסגר, ‎-1 = לא רץ). סדרתי בכוונה — לא מציפים רשת סלולרית חלשה.
+    async retryFailedSyncs() {
+        if (this._retryRunning) return -1;
+        if (!this.isConfigured() || !this._isSyncArmed()) return -1;
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return -1;
+        const stores = this.pendingSyncStores();
+        if (!stores.length) return 0;
+        this._retryRunning = true;
+        try {
+            for (const st of stores) {
+                // כשל גודל (מחסום 1MB) לא ייפתר בניסיון חוזר — דילוג, לא שריפת רשת
+                if (this.getSyncStatus()[st + 'Err'] === 'size') continue;
+                try { await this[this._SYNC_FNS[st]](); } catch (e) { /* הסטטוס כבר נרשם */ }
+            }
+        } finally { this._retryRunning = false; }
+        return this.pendingSyncStores().length;
     },
 
     // תיאור הכשל האחרון של מסלול — להודעות UI מדויקות במקום "בדוק חיבור" גנרי
@@ -2287,7 +2351,7 @@ const FirebaseManager = {
             // כמה chunks היו קודם — כדי למחוק עודפים אם הארכיון התכווץ
             let prevCount = 0;
             try {
-                const metaDoc = await col.doc('archive_meta').get();
+                const metaDoc = await this._withTimeout(col.doc('archive_meta').get(), this.READ_TIMEOUT_MS);
                 if (metaDoc.exists) prevCount = metaDoc.data().chunkCount || 0;
             } catch { /* אין meta קודם — מיגרציה ראשונה */ }
 
@@ -2304,7 +2368,7 @@ const FirebaseManager = {
             // מחיקת מסמך הארכיון הישן (מיגרציה ממבנה single-doc) — מקור אמת יחיד
             batch.delete(col.doc('archive'));
 
-            await batch.commit();
+            await this._withTimeout(batch.commit(), this.WRITE_TIMEOUT_MS);
             this._recordSync('archive', true);
             return true;
         } catch(e) {
@@ -2379,7 +2443,7 @@ const FirebaseManager = {
 
             let prevCount = 0;
             try {
-                const metaDoc = await col.doc('nutrition_raw_meta').get();
+                const metaDoc = await this._withTimeout(col.doc('nutrition_raw_meta').get(), this.READ_TIMEOUT_MS);
                 if (metaDoc.exists) prevCount = metaDoc.data().chunkCount || 0;
             } catch { /* פעם ראשונה */ }
 
@@ -2399,7 +2463,7 @@ const FirebaseManager = {
                 total:   rows.length,
                 updatedAt: now
             });
-            await batch.commit();
+            await this._withTimeout(batch.commit(), this.WRITE_TIMEOUT_MS);
             this._recordSync('raw', true);
             return true;
         } catch(e) {
@@ -2484,7 +2548,8 @@ const FirebaseManager = {
             // אזהרה מקדימה על התקרבות למגבלת 1MB — כדי לדעת חודשים מראש, לא בדיעבד
             const bytes = this._estimateDocSize(configData);
             this._recordSizeWarn('config', bytes > this.DOC_SIZE_WARN ? bytes : null);
-            await this._db.collection('gympro_data').doc('config').set(configData);
+            await this._withTimeout(
+                this._db.collection('gympro_data').doc('config').set(configData), this.WRITE_TIMEOUT_MS);
             await this._saveFoodLogChunks();
             this._recordSync('config', true);
             return true;
@@ -2509,7 +2574,7 @@ const FirebaseManager = {
 
         let prevCount = 0;
         try {
-            const metaDoc = await col.doc('food_log_meta').get();
+            const metaDoc = await this._withTimeout(col.doc('food_log_meta').get(), this.READ_TIMEOUT_MS);
             if (metaDoc.exists) prevCount = metaDoc.data().chunkCount || 0;
         } catch { /* פעם ראשונה */ }
 
@@ -2523,7 +2588,7 @@ const FirebaseManager = {
         // מחיקת chunks מיותרים (היומן התכווץ מאז הסנכרון הקודם)
         for (let i = chunkCount; i < prevCount; i++) batch.delete(col.doc(`food_log_${i}`));
         batch.set(col.doc('food_log_meta'), { chunkCount, total: dates.length, updatedAt: now });
-        await batch.commit();
+        await this._withTimeout(batch.commit(), this.WRITE_TIMEOUT_MS);
     },
 
     // איחוד chunks של יומן המזון וטעינה ל-localStorage. לא דורס מקומי אם אין בענן.
@@ -2639,7 +2704,8 @@ const FirebaseManager = {
             // 300 הודעות ארוכות + זיכרון מאמן יכולים להתקרב ל-1MB — אזהרה מקדימה
             const bytes = this._estimateDocSize(payload);
             this._recordSizeWarn('ai', bytes > this.DOC_SIZE_WARN ? bytes : null);
-            await this._db.collection('gympro_data').doc('ai_history').set(payload);
+            await this._withTimeout(
+                this._db.collection('gympro_data').doc('ai_history').set(payload), this.WRITE_TIMEOUT_MS);
             this._recordSync('ai', true);
             return true;
         } catch(e) {

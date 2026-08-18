@@ -47,9 +47,14 @@
                 document.head.appendChild(s);
             });
         }
-        // טעינה משורשרת — כל SDK ממתין לקודמו (firestore תלוי ב-app)
+        // טעינה משורשרת — כל SDK ממתין לקודמו (firestore תלוי ב-app).
+        // v19.7.3: כשל טעינה מאפס את ה-cache — אחרת ניתוק רשת יחיד בעליית האפליקציה
+        // הותיר promise דחוי שמור לנצח, וכל הסנכרון בסשן נכשל עד רענון הדף.
         return function () {
-            if (!promise) promise = urls.reduce((chain, u) => chain.then(() => inject(u)), Promise.resolve());
+            if (!promise) {
+                promise = urls.reduce((chain, u) => chain.then(() => inject(u)), Promise.resolve())
+                    .catch(e => { promise = null; throw e; });
+            }
             return promise;
         };
     })();

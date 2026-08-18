@@ -69,6 +69,11 @@ const StorageManager = {
     getUsdaKey() { return localStorage.getItem(this.KEY_USDA_KEY) || ''; },
     saveUsdaKey(k) { localStorage.setItem(this.KEY_USDA_KEY, (k || '').trim()); },
 
+    // isDateKey — שומר-סף יחיד לכל דאטה שמפתחה יום ('YYYY-MM-DD'). כל הצרכנים
+    // עושים date.split, ולכן מפתח לא-תקין אינו "רשומה חריגה" אלא חריגה שמפילה מסך.
+    isDateKey(d) { return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d); },
+    _todayKey() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; },
+
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); }
         catch(e) { console.error('GymPro: storage read error', key, e); return null; }
@@ -115,6 +120,9 @@ const StorageManager = {
             state.workoutMeta = {};
             this.saveData(this.KEY_META, state.workoutMeta);
         }
+
+        // ריפוי דאטה שנכתבה עם מפתח-יום פגום (v19.7.4) — לפני הרינדור הראשון
+        this.sanitizeDayKeyedData();
     },
 
     // ── Session ──────────────────────────────────────────────────────────
@@ -1099,8 +1107,14 @@ const StorageManager = {
     },
 
     // ── MyFitnessPal Nutrition (ייבוא מ-Gmail דרך Apps Script) ───────────
+    // קריאה הגנתית (v19.7.4): רשומה בלי תאריך תקין מסוננת החוצה. היא נדחפת תמיד
+    // לסוף המערך (השוואת מיון מול null/undefined תמיד false), ובדיוק על האיבר האחרון
+    // עובדים כרטיס "תזונה היום" ו-_renderNutritionDaily — כך רשומה אחת פגומה מחקה
+    // מהמסך את כל התזונה. הסינון כאן הוא קו ההגנה האחרון; המקור נחסם ב-addFoodEntry.
     getNutritionDaily() {
-        return this.getData(this.KEY_NUTRITION_DAILY) || [];
+        const all = this.getData(this.KEY_NUTRITION_DAILY) || [];
+        if (!Array.isArray(all)) return [];
+        return all.filter(d => d && this.isDateKey(d.date));
     },
 
     // ── Sleep / Recovery (שינה + התאוששות מ-Apple Health) ─────────────────
@@ -1356,7 +1370,49 @@ const StorageManager = {
     getFoodLogDay(date) { return this.getFoodLog()[date] || []; },
     _saveFoodLog(log) { this.saveData(this.KEY_FOOD_LOG, log); },
 
+    // sanitizeDayKeyedData (v19.7.4) — ריפוי חד-פעמי ואידמפוטנטי של דאטה שנכתבה
+    // עם מפתח-יום פגום לפני שהשומר-סף נוסף. שתי התנהגויות שונות בכוונה:
+    //   • יומן המזון — דאטת משתמש: היום הפגום *מועבר* להיום הנוכחי, לא נמחק.
+    //     הרשומות חוזרות להיות גלויות ביומן והמשתמש יכול לתקן/למחוק אותן.
+    //   • NUTRITION_DAILY — דאטה נגזרת: רשומה בלי תאריך תקין נמחקת ומחושבת מחדש.
+    // מחזיר true אם היה מה לתקן.
+    sanitizeDayKeyedData() {
+        let touched = false;
+        const today = this._todayKey();
+        try {
+            const log = this.getFoodLog();
+            const bad = Object.keys(log).filter(k => !this.isDateKey(k));
+            if (bad.length) {
+                bad.forEach(k => {
+                    const entries = Array.isArray(log[k]) ? log[k] : [];
+                    delete log[k];
+                    if (!entries.length) return;
+                    if (!Array.isArray(log[today])) log[today] = [];
+                    entries.forEach(e => {
+                        if (e && !log[today].some(x => x && x.id === e.id)) log[today].push(e);
+                    });
+                });
+                this._saveFoodLog(log);
+                touched = true;
+            }
+            const daily = this.getData(this.KEY_NUTRITION_DAILY);
+            if (Array.isArray(daily) && daily.some(d => !d || !this.isDateKey(d.date))) {
+                this.saveData(this.KEY_NUTRITION_DAILY, daily.filter(d => d && this.isDateKey(d.date)));
+                touched = true;
+            }
+            if (touched) this.recomputeNutritionDay(today);
+        } catch (e) { console.error('GymPro: sanitizeDayKeyedData failed', e); }
+        return touched;
+    },
+
     addFoodEntry(date, entry) {
+        // שומר-סף (v19.7.4): יום לא תקין נרשם להיום. הנתיב שנפל בפועל — טופס מזון
+        // שנפתח מצ'אט המאמן בלי שהיומן נפתח קודם (_fdDate עוד null) — יצר מפתח 'null'
+        // ביומן ורשומת סיכום עם date:null. עדיף יום שגוי וגלוי מרשומה יתומה שמרעילה מסך.
+        if (!this.isDateKey(date)) {
+            console.warn('GymPro: addFoodEntry ללא תאריך תקין — נרשם להיום', date);
+            date = this._todayKey();
+        }
         const log = this.getFoodLog();
         if (!log[date]) log[date] = [];
         if (!entry.id) entry.id = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -1367,6 +1423,7 @@ const StorageManager = {
     },
 
     updateFoodEntry(date, id, patch) {
+        if (!this.isDateKey(date)) return;
         const log = this.getFoodLog();
         const arr = log[date]; if (!arr) return;
         const i = arr.findIndex(e => e.id === id); if (i < 0) return;
@@ -1376,6 +1433,7 @@ const StorageManager = {
     },
 
     deleteFoodEntry(date, id) {
+        if (!this.isDateKey(date)) return;
         const log = this.getFoodLog();
         const arr = log[date]; if (!arr) return;
         log[date] = arr.filter(e => e.id !== id);
@@ -1387,6 +1445,7 @@ const StorageManager = {
     // recomputeNutritionDay — מסכם את רשומות היום וכותב ל-NUTRITION_DAILY עם src:'app'.
     // עדיפות (אושר ע"י המשתמש): MFP מנצח — יום שמקורו MFP (src ריק/'mfp') לא נדרס.
     recomputeNutritionDay(date) {
+        if (!this.isDateKey(date)) return;   // אין יום — אין מה לסכם (ובוודאי לא לכתוב רשומה בלי תאריך)
         const entries = this.getFoodLogDay(date);
         const daily = this.getNutritionDaily();
         const idx = daily.findIndex(d => d.date === date);
@@ -2611,6 +2670,7 @@ const FirebaseManager = {
             });
             if (!Object.keys(log).length) return false;
             StorageManager.saveData(StorageManager.KEY_FOOD_LOG, log);
+            StorageManager.sanitizeDayKeyedData();   // יומן מהענן עלול לשאת יום עם מפתח פגום
             return true;
         } catch(e) {
             console.error('GymPro loadFoodLog error:', e);
@@ -2687,6 +2747,8 @@ const FirebaseManager = {
         if (data.hiddenThumbs)   StorageManager.saveData('gympro_hidden_thumbs', data.hiddenThumbs);
         if (data.photoIndex)     StorageManager.savePhotoIndex(data.photoIndex);
         if (data.photoTrend && Object.keys(data.photoTrend).length) StorageManager.savePhotoTrend(data.photoTrend);
+        // הענן עלול לשאת עותק של הדאטה הפגומה שנוצרה לפני v19.7.4 — מרפאים אחרי הכתיבה
+        StorageManager.sanitizeDayKeyedData();
     },
 
 

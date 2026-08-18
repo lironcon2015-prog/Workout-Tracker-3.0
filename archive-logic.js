@@ -3185,9 +3185,11 @@ function _homePRDrawChart(sessions, _all) {
 
 // ─── HOME TODAY CARDS — תזונה + הרכב גוף במסך הבית ──────────────────────
 
+// שני הכרטיסים מבודדים זה מזה (v19.7.4): רשומת תזונה פגומה אחת הפילה בחריגה גם את
+// כרטיס הרכב הגוף — שני הכרטיסים נשארו על '—' למרות שהדאטה קיימת במכשיר.
 function renderHomeTodayCards() {
-    _homeTodayRenderNutrition();
-    _homeTodayRenderBody();
+    try { _homeTodayRenderNutrition(); } catch (e) { console.error('GymPro: home nutrition card', e); }
+    try { _homeTodayRenderBody(); }      catch (e) { console.error('GymPro: home body card', e); }
 }
 
 function _homeTodayRenderNutrition() {

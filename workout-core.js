@@ -34,8 +34,13 @@ function showCloudToast(msg, success, state) {
 
 // באנר התראה מתמשך כשהגיבוי האחרון לענן נכשל (#3) — מוצג ב-load, לא קשור ללוגיקת ההעתקה.
 // v17.15: מכסה את כל ארבעת מסלולי הסנכרון + אזהרת גודל מקדימה (התקרבות ל-1MB/doc).
-function maybeShowCloudSyncBanner() {
+async function maybeShowCloudSyncBanner() {
     if (typeof FirebaseManager === 'undefined' || !FirebaseManager.isConfigured()) return;
+    // v19.7.3: ניסיון חוזר *לפני* ההצגה — באנר מוצג רק אם הכשל שרד גם עכשיו.
+    // קודם הוא הופיע על סמך כשל ישן (לפעמים מלפני ימים) שכבר לא רלוונטי.
+    if (typeof FirebaseManager.pendingSyncStores === 'function' && FirebaseManager.pendingSyncStores().length) {
+        try { await FirebaseManager.retryFailedSyncs(); } catch (e) {}
+    }
     const sync = FirebaseManager.getSyncStatus();
     if (!sync) return;
     const labels = { archive: 'ארכיון אימונים', config: 'נתונים ותזונה', raw: 'קובץ MFP', ai: 'שיחות AI' };
@@ -49,7 +54,7 @@ function maybeShowCloudSyncBanner() {
         if (failed.length) {
             const why = failed.some(s => sync[s + 'Err'] === 'size') ? ' (מסמך גדול מדי)' : '';
             txt.textContent = 'הגיבוי לענן נכשל: ' + failed.map(s => labels[s]).join(', ') + why +
-                              '. הנתונים נשמרו במכשיר אך לא בענן.';
+                              _syncFailSince(sync, failed) + '. הנתונים נשמרו במכשיר אך לא בענן.';
         } else {
             const pct = Math.round(Math.max(...warned.map(s => sync[s + 'Warn'])) / 1048576 * 100);
             txt.textContent = `מסמך הגיבוי בענן הגיע ל-${pct}% ממגבלת Firestore — הגיבוי ימשיך לעבוד, אבל כדאי לפנות מקום בקרוב.`;
@@ -64,6 +69,45 @@ function notifyCloudSaveFailure(ok, store, label) {
     if (ok || typeof FirebaseManager === 'undefined') return;
     if (!FirebaseManager.isConfigured() || !FirebaseManager._isSyncArmed()) return;
     showCloudToast('' + label + ' נכשל — ' + FirebaseManager.describeSyncFailure(store), false);
+}
+
+// _syncFailSince — "(מאז 16.08)" לפי הכשל הוותיק ביותר. שקט כשהכשל מהיום —
+// כשל של דקה וכשל של שבוע אינם אותו דבר, וזה מה שקובע כמה דחוף לטפל.
+function _syncFailSince(sync, failed) {
+    const times = failed.map(s => sync[s + 'FailAt']).filter(Boolean);
+    if (!times.length) return '';
+    const d = new Date(Math.min(...times));
+    if (Date.now() - d.getTime() < 20 * 3600 * 1000) return '';
+    return ' (מאז ' + d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) + ')';
+}
+
+// _retryCloudSyncSilently — דחיפה חוזרת של מסלולים שנכשלו, בלי שום UI.
+// נקרא בחזרת הרשת ובחזרה לפרונט. רק סגירה מלאה משנה משהו על המסך.
+function _retryCloudSyncSilently() {
+    if (typeof FirebaseManager === 'undefined' || !FirebaseManager.isConfigured()) return;
+    if (typeof FirebaseManager.pendingSyncStores !== 'function') return;
+    if (!FirebaseManager.pendingSyncStores().length) return;
+    FirebaseManager.retryFailedSyncs().then(left => {
+        if (left !== 0) return;
+        dismissCloudSyncBanner();
+        if (typeof updateFirebaseStatus === 'function') updateFirebaseStatus();
+    }).catch(() => {});
+}
+
+// שמירת config לענן עמידה לקר-סטארט: נקודות שיורות שניות אחרי עליית האפליקציה
+// (משיכת Health) רצות לפני שה-SDK/auth/רשת מוכנים, וכשל שם הוא כמעט תמיד זמני.
+// ניסיון חוזר אחד אחרי 20ש' לפני שמדווחים כשל — בדיוק כמו משיכת ה-Health עצמה.
+function _saveConfigToCloudResilient(label) {
+    FirebaseManager.saveConfigToCloud()
+        .then(ok => {
+            if (ok) return;
+            setTimeout(() => {
+                FirebaseManager.saveConfigToCloud()
+                    .then(ok2 => notifyCloudSaveFailure(ok2, 'config', label))
+                    .catch(() => {});
+            }, 20000);
+        })
+        .catch(() => {});
 }
 
 function dismissCloudSyncBanner() {
@@ -343,7 +387,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof _refreshProfileReviewBadge === 'function') _refreshProfileReviewBadge();
     // מציג את הסקשן לפי ההעדפה (כרטיסי "היום" / גרף PR) ומרנדר את הפעיל
     if (typeof applyHomeSectionPref === 'function') applyHomeSectionPref();
-    maybeShowCloudSyncBanner();
+    // השהיה קצרה: הבאנר מציג מסקנה *אחרי* ניסיון חוזר, והרשת בקר-סטארט
+    // (במיוחד סלולר) לא תמיד זמינה בשנייה הראשונה — הצגה מיידית ייצרה אזעקת שווא.
+    setTimeout(() => maybeShowCloudSyncBanner(), 3000);
     // רענון לא-רצוני בלי אימון פעיל — חזרה לטאב שבו המשתמש עמד, בלי לקפוץ הביתה
     if (_bootUIState && !_bootRestoredSession) restoreUIState(_bootUIState);
     // מעקב אחר מיקום הגלילה (throttle של שנייה) — כדי שהחזרה תהיה לאותה נקודה
@@ -399,13 +445,19 @@ document.addEventListener('DOMContentLoaded', () => {
 // חזרה לאפליקציה מהרקע (PWA ב-iOS נשאר בזיכרון) = "כניסה" — משיכת Health שקטה.
 // force=true: כל העלאה לפרונט מושכת מחדש, גם אם האפליקציה לא נסגרה (עוקף throttle).
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { syncHealthNutrition(false, true); _refreshSettingsIfOpen(); }
+    if (document.visibilityState === 'visible') {
+        syncHealthNutrition(false, true); _refreshSettingsIfOpen(); _retryCloudSyncSilently();
+    }
     // ביציאה מהאפליקציה — דחיפת snapshot טרי לווידג'ט (beacon, שורד סגירת דף)
     if (document.visibilityState === 'hidden') {
         StorageManager.pushWidgetSnapshotBeacon();
         _afterConnectionChange();   // שינוי חיבורים שנעשה בסשן — לא יוצאים בלי גיבוי
     }
 });
+// חזרת רשת אחרי ניתוק — הזדמנות ראשונה לסגור סנכרון שנפל. ה-PWA לא רץ ברקע,
+// אז זה מכסה את המקרה של אפליקציה פתוחה שהרשת חזרה אליה.
+window.addEventListener('online', () => _retryCloudSyncSilently());
+
 // iOS PWA: שחזור מ-bfcache לא תמיד יורה visibilitychange — pageshow מכסה את המקרה
 window.addEventListener('pageshow', (e) => {
     if (e.persisted) syncHealthNutrition(false, true);
@@ -7523,9 +7575,7 @@ async function syncHealthNutrition(manual = false, force = false) {
         if ((changed > 0 || manual) && typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
         if (changed > 0) {
             if (typeof FirebaseManager !== 'undefined') {
-                FirebaseManager.saveConfigToCloud()
-                    .then(ok => notifyCloudSaveFailure(ok, 'config', 'גיבוי בריאות לענן'))
-                    .catch(() => {});
+                _saveConfigToCloudResilient('גיבוי בריאות לענן');
             }
             // טוסט רק במשיכה ידנית — סנכרון אוטומטי (פתיחה/שעתי) שקט לחלוטין
             if (manual) {

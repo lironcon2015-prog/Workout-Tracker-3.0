@@ -1423,13 +1423,22 @@ function updateFirebaseStatus() {
         const sync = FirebaseManager.getSyncStatus();
         const stores = [['archive', 'ארכיון'], ['config', 'נתונים'], ['raw', 'MFP'], ['ai', 'שיחות AI']];
         const failed = stores.filter(([k]) => sync[k + 'Ok'] === false);
-        const times  = stores.map(([k]) => sync[k + 'At']).filter(Boolean);
+        // v19.7.3: "סונכרן" = הזמן שממנו *כל* המסלולים מעודכנים — כלומר ההצלחה
+        // הישנה ביותר, לא החדשה. עד כאן הוצג max של זמני ה-*ניסיון*, וזה הסתיר
+        // מסלול שלא סונכרן חודשיים מאחורי מסלול שסונכרן לפני דקה.
+        const okTimes = stores.map(([k]) => sync[k + 'OkAt'] || (sync[k + 'Ok'] === true ? sync[k + 'At'] : null)).filter(Boolean);
         if (failed.length) {
             const list = failed.map(([k, l]) => l + (sync[k + 'Err'] === 'size' ? ' (גדול מדי)' : '')).join(', ');
-            html += `<br><span style="color:var(--danger);font-weight:700;font-size:0.85em;">&#9888; כשל סנכרון: ${list} — גבה ידנית</span>`;
-        } else if (times.length) {
-            const when = new Date(Math.max(...times)).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-            html += `<br><span style="color:var(--text-dim);font-size:0.85em;">&#10003; סונכרן: ${when}</span>`;
+            const fTimes = failed.map(([k]) => sync[k + 'FailAt']).filter(Boolean);
+            const since = fTimes.length
+                ? ' מאז ' + new Date(Math.min(...fTimes)).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                : '';
+            html += `<br><span style="color:var(--danger);font-weight:700;font-size:0.85em;">&#9888; כשל סנכרון: ${list}${since} — גבה ידנית</span>`;
+        } else if (okTimes.length) {
+            const when = new Date(Math.min(...okTimes)).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const partial = okTimes.length < stores.length
+                ? ` (${stores.length - okTimes.length} מסלולים טרם גובו במכשיר הזה)` : '';
+            html += `<br><span style="color:var(--text-dim);font-size:0.85em;">&#10003; הכל מגובה עד: ${when}${partial}</span>`;
         }
         // אזהרת גודל מקדימה — המסמך מתקרב למחסום ה-1MB של Firestore
         const warns = ['config', 'ai'].filter(k => sync[k + 'Warn']);

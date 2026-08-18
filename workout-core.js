@@ -460,8 +460,24 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
         StorageManager.pushWidgetSnapshotBeacon();
         _afterConnectionChange();   // שינוי חיבורים שנעשה בסשן — לא יוצאים בלי גיבוי
+        _flushAIHistoryOnExit();    // שיחה פתוחה לא יוצאת מהמכשיר בלי גיבוי
     }
 });
+
+// _flushAIHistoryOnExit — מסלול ה-AI נדחף עד v19.7.5 **רק** ב-closeAICoach(), ולכן
+// שיחה שהמודל שלה לא נסגר בכפתור (יציאה מהאפליקציה, רענון, iOS שמשחרר את ה-PWA)
+// נשארה על המכשיר בלבד עד הגיבוי הידני הבא. כאן זו רשת שנייה: ביציאה לרקע, אם
+// PendingAt של 'ai' פתוח — דוחפים. Firestore עם persistence מתעד את הכתיבה מקומית
+// גם אם הדף נהרג לפני שהיא הושלמה, והרשת השלישית (retryFailedSyncs בעלייה) סוגרת
+// את מה שלא הספיק.
+function _flushAIHistoryOnExit() {
+    try {
+        if (typeof FirebaseManager === 'undefined' || !FirebaseManager.isConfigured()) return;
+        const s = FirebaseManager.getSyncStatus();
+        if (!(s.aiPendingAt > 0)) return;
+        FirebaseManager.saveAIHistoryToCloud().catch(() => {});   // שקט — אין UI ביציאה
+    } catch (e) { /* הגנתי */ }
+}
 // חזרת רשת אחרי ניתוק — הזדמנות ראשונה לסגור סנכרון שנפל. ה-PWA לא רץ ברקע,
 // אז זה מכסה את המקרה של אפליקציה פתוחה שהרשת חזרה אליה.
 window.addEventListener('online', () => _retryCloudSyncSilently());

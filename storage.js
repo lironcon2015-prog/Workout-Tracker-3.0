@@ -1933,6 +1933,12 @@ const StorageManager = {
     saveAIHistory(arr) {
         // שמור עד 300 הודעות אחרונות — מניעת גדילה בלתי מוגבלת
         const limited = arr.length > 300 ? arr.slice(-300) : arr;
+        // v19.7.6: סימון "ממתין לגיבוי" כבר ברגע השינוי — לא בתחילת השמירה לענן.
+        // למסלול ה-AI טריגר דחיפה יחיד וצר (closeAICoach), ולכן שיחה שהמודל שלה
+        // לא נסגר בכפתור (יציאה מהאפליקציה / רענון / iOS ששחרר את ה-PWA) נשארה
+        // על המכשיר בלבד עד הגיבוי הידני הבא. הדגל הופך אותה לגלויה ולניתנת
+        // לדחיפה חוזרת — ב-visibilitychange, בעלייה, ובחזרת הרשת.
+        this._markCloudDirty('ai');
         try {
             localStorage.setItem(this.KEY_AI_HISTORY, JSON.stringify(limited));
         } catch(e) {
@@ -1963,8 +1969,19 @@ const StorageManager = {
         catch(e) { return { text: '', coveredLen: 0, updatedAt: 0 }; }
     },
     setCoachMemory(mem) {
+        this._markCloudDirty('ai');   // רוכב על מסמך ה-ai_history — אותו דגל המתנה
         try { localStorage.setItem(this.KEY_COACH_MEMORY, JSON.stringify(mem)); }
         catch(e) { console.error('GymPro: coach memory write error', e); }
+    },
+
+    // _markCloudDirty — גשר מ-StorageManager ל-FirebaseManager. עטוף כי StorageManager
+    // נטען קודם ורץ גם כשאין Firebase מוגדר כלל.
+    _markCloudDirty(store) {
+        try {
+            if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
+                FirebaseManager._markSyncPending(store);
+            }
+        } catch (e) { /* לא קריטי */ }
     },
 
     // ── תיבת זיכרון וניסיון (v17.86) ─────────────────────────────────────
@@ -2315,8 +2332,17 @@ const FirebaseManager = {
 
     // ── Sync Status (#3, הורחב ב-v17.15) ───────────────────────────────────────
     // מעקב אחר הצלחת הסנכרון האחרון של כל ארבעת המסלולים (archive/config/raw/ai).
-    // מפתחות: <store>Ok, <store>At, <store>Err ('size'/'other'), <store>Warn (bytes).
+    // מפתחות: <store>Ok, <store>At, <store>OkAt, <store>FailAt, <store>PendingAt,
+    //         <store>Err ('size'/'other'), <store>Warn (bytes).
     // הבאנר בעליית האפליקציה ושורת הסטטוס בהגדרות נשענים על זה — כשל לעולם לא שקט.
+    //
+    // v19.7.6 — PendingAt: "יש שינוי מקומי שטרם נדחף". עד כאן הסטטוס ידע רק **מתי
+    // נדחף לאחרונה**, ומזה נגזרה התצוגה — ולכן מסלול בלי טריגר שוטף (MFP נדחף רק
+    // בייבוא) קיבע את שורת "הכל מגובה עד" על גיבוי ידני ישן, גם כשכל השאר סונכרן
+    // לפני דקה. שני מצבים הפוכים נראו זהים: "אין מה לדחוף" מול "יש ולא נדחף".
+    // PendingAt מפריד ביניהם — הוא הסיגנל האמיתי לחשיפת דאטה.
+
+    PENDING_STALE_MS: 60000,   // מעליו PendingAt פתוח = כתיבה שנקטעה, לא כתיבה בתעופה
 
     getSyncStatus() {
         try { return JSON.parse(localStorage.getItem(this.KEY_SYNC_STATUS)) || {}; }
@@ -2330,11 +2356,34 @@ const FirebaseManager = {
             s[store + 'At'] = Date.now();
             // OkAt — הסנכרון המוצלח האחרון של המסלול (בניגוד ל-At שהוא הניסיון האחרון).
             // FailAt — מתי הכשל *התחיל*; לא נדרס בכשלים חוזרים, כדי שה-UI יגיד "מאז מתי".
-            if (ok) { s[store + 'OkAt'] = Date.now(); delete s[store + 'FailAt']; }
+            if (ok) { s[store + 'OkAt'] = Date.now(); delete s[store + 'FailAt']; delete s[store + 'PendingAt']; }
             else if (!s[store + 'FailAt']) s[store + 'FailAt'] = Date.now();
             if (ok || !errType) delete s[store + 'Err']; else s[store + 'Err'] = errType;
             localStorage.setItem(this.KEY_SYNC_STATUS, JSON.stringify(s));
         } catch { /* מקרה קצה — אחסון מלא; לא קריטי */ }
+    },
+
+    // _markSyncPending — "יש כאן דאטה שטרם הגיעה לענן". נפתח בתחילת כל שמירה
+    // (ולמסלול ה-AI גם ברגע שינוי הדאטה — ראה saveAIHistory), ונסגר רק בהצלחה.
+    // לא נדרס: הזמן שנשמר הוא של השינוי **הראשון** שעדיין ממתין, כדי שה-UI יגיד
+    // "מאז מתי" ולא "מאז הפעם האחרונה שניסינו".
+    _markSyncPending(store) {
+        try {
+            const s = this.getSyncStatus();
+            if (s[store + 'PendingAt']) return;
+            s[store + 'PendingAt'] = Date.now();
+            localStorage.setItem(this.KEY_SYNC_STATUS, JSON.stringify(s));
+        } catch { /* לא קריטי */ }
+    },
+
+    // pendingSyncInfo — תמונת מצב לתצוגה: מי נכשל, מי ממתין, ומתי ההמתנה התחילה.
+    pendingSyncInfo() {
+        const s = this.getSyncStatus();
+        const keys = Object.keys(this._SYNC_FNS);
+        const failed  = keys.filter(k => s[k + 'Ok'] === false);
+        const waiting = keys.filter(k => s[k + 'Ok'] !== false && s[k + 'PendingAt'] > 0);
+        const since   = waiting.map(k => s[k + 'PendingAt']);
+        return { failed, waiting, since: since.length ? Math.min(...since) : null };
     },
 
     // אזהרת גודל מקדימה: נרשמת כשהמסמך מעל DOC_SIZE_WARN, נמחקת כשחוזר מתחת לסף.
@@ -2367,10 +2416,17 @@ const FirebaseManager = {
                  raw: 'saveNutritionRawToCloud', ai: 'saveAIHistoryToCloud' },
     _retryRunning: false,
 
-    // מסלולים שהניסיון האחרון בהם נכשל. סטטוס הסנכרון עצמו הוא התור — אין מבנה נפרד.
+    // מסלולים שצריכים דחיפה חוזרת. סטטוס הסנכרון עצמו הוא התור — אין מבנה נפרד.
+    // שני מקרים: (1) הניסיון האחרון נכשל. (2) v19.7.6 — PendingAt פתוח מעל
+    // PENDING_STALE_MS, כלומר כתיבה שהתחילה ולא הסתיימה (הדף נסגר/נהרג באמצע).
+    // בלי (2) כתיבה קטועה לא הייתה נסגרת לעולם: Ok נשאר true מהצלחה קודמת, ולכן
+    // שום ניסיון חוזר לא נגע בה — והדאטה נשארה על המכשיר בשקט מוחלט.
     pendingSyncStores() {
         const s = this.getSyncStatus();
-        return Object.keys(this._SYNC_FNS).filter(k => s[k + 'Ok'] === false);
+        const now = Date.now();
+        return Object.keys(this._SYNC_FNS).filter(k =>
+            s[k + 'Ok'] === false ||
+            (s[k + 'PendingAt'] > 0 && now - s[k + 'PendingAt'] > this.PENDING_STALE_MS));
     },
 
     // retryFailedSyncs — דחיפה חוזרת שקטה. מחזיר כמה מסלולים נותרו כושלים
@@ -2407,6 +2463,7 @@ const FirebaseManager = {
 
     async saveArchiveToCloud() {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת ארכיון (הגנת ענן)'); return false; }
+        this._markSyncPending('archive');   // הדגל נסגר רק בהצלחה — ראה _recordSync
         if (!await this._ensureReady()) { this._recordSync('archive', false, 'other'); return false; }
         try {
             const archive = StorageManager.getArchive();
@@ -2499,6 +2556,7 @@ const FirebaseManager = {
     // של חריגת 1MB-למסמך, בדיוק כמו הארכיון. ה-header/dateIdx נשמרים ב-meta.
     async saveNutritionRawToCloud() {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת raw (הגנת ענן)'); return false; }
+        this._markSyncPending('raw');   // הדגל נסגר רק בהצלחה — ראה _recordSync
         if (!await this._ensureReady()) { this._recordSync('raw', false, 'other'); return false; }
         try {
             const raw = StorageManager.getNutritionRaw();           // { header, rows, dateIdx } | null
@@ -2579,6 +2637,7 @@ const FirebaseManager = {
 
     async saveConfigToCloud() {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת קונפיג (הגנת ענן)'); return false; }
+        this._markSyncPending('config');   // הדגל נסגר רק בהצלחה — ראה _recordSync
         if (!await this._ensureReady()) { this._recordSync('config', false, 'other'); return false; }
         try {
             const configData = {
@@ -2764,6 +2823,7 @@ const FirebaseManager = {
 
     async saveAIHistoryToCloud() {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת AI (הגנת ענן)'); return false; }
+        this._markSyncPending('ai');   // הדגל נסגר רק בהצלחה — ראה _recordSync
         if (!await this._ensureReady()) { this._recordSync('ai', false, 'other'); return false; }
         try {
             const payload = {
@@ -2806,6 +2866,10 @@ const FirebaseManager = {
         if (!doc.exists || !doc.data().messages) return false;
         StorageManager.saveAIHistory(doc.data().messages);
         if (doc.data().coachMemory) StorageManager.setCoachMemory(doc.data().coachMemory);
+        // הכתיבות למעלה מדליקות PendingAt (כל שינוי בהיסטוריה מסמן "ממתין לגיבוי"),
+        // אבל כאן הדאטה הגיעה **מהענן** — מקומי וענן זהים, אין חוב. בלי זה כל שחזור
+        // היה מסתיים ב"ממתין לגיבוי" ובדחיפה חוזרת מיותרת של מה שזה עתה נמשך.
+        this._recordSync('ai', true);
         return true;
     },
 

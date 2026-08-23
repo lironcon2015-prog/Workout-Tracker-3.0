@@ -27,6 +27,39 @@ function _blShortDate(d) { const p = String(d || '').split('-'); return p.length
 function _blListDate(d) { const p = String(d || '').split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : '—'; }   // DD.MM.YYYY (לוג השקילות)
 function _blCutoff(days) { return _blLocalDateStr(new Date(Date.now() - days * 86400000)); }
 
+// ─── ISO-8601 עם היסט אזור זמן מפורש ─── TZISO-START (נצרך גם ע"י test/iso-jerusalem.test.js)
+// toISOString() פולט UTC ("...Z"). בייצוא המאוחד החותמת נקראה בטעות כשעון קיר
+// ישראלי ו"נראתה" 3 שעות אחורה. ההיסט נגזר דינמית מה-IANA tz — ישראל עוברת
+// ל-+02:00 בסוף אוקטובר, ולכן היסט קשיח היה נשבר פעמיים בשנה.
+const _BL_EXPORT_TZ = 'Asia/Jerusalem';
+
+// היסט אזור הזמן בדקות עבור רגע נתון (חיובי = מזרחית ל-UTC)
+function _blTzOffsetMinutes(date, timeZone) {
+    const p = {};
+    for (const { type, value } of new Intl.DateTimeFormat('en-US', {
+        timeZone, hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).formatToParts(date)) p[type] = value;
+    const hour = p.hour === '24' ? '00' : p.hour;   // חלק מהמנועים פולטים "24" לחצות
+    const wallAsUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +hour, +p.minute, +p.second);
+    // עיגול המקור לשנייה שלמה — ל-formatToParts אין ms, ובלעדיו ההפרש אינו כפולה של דקה
+    return Math.round((wallAsUtc - Math.floor(date.getTime() / 1000) * 1000) / 60000);
+}
+
+// "2026-08-23T08:48:02+03:00" — שעת קיר באזור הזמן + היסט מפורש. חד-משמעי,
+// ו-new Date() מפרסר אותו חזרה לאותו רגע בדיוק.
+function _blIsoWithTz(date, timeZone) {
+    const off = _blTzOffsetMinutes(date, timeZone);
+    const p = x => String(x).padStart(2, '0');
+    const wall = new Date(Math.floor(date.getTime() / 1000) * 1000 + off * 60000);
+    const abs = Math.abs(off);
+    return `${wall.getUTCFullYear()}-${p(wall.getUTCMonth() + 1)}-${p(wall.getUTCDate())}`
+        + `T${p(wall.getUTCHours())}:${p(wall.getUTCMinutes())}:${p(wall.getUTCSeconds())}`
+        + `${off < 0 ? '-' : '+'}${p(Math.floor(abs / 60))}:${p(abs % 60)}`;
+}
+// ─── TZISO-END ──────────────────────────────────────────────────────────────
+
 // ─── רינדור ראשי ────────────────────────────────────────────────────────────
 function renderBodyLog() {
     const log = StorageManager.getBodyLog();
@@ -1741,7 +1774,7 @@ function exportUnifiedData(range) {
         readme: _NUTRI_EXPORT_README.concat(
             'הקובץ מכיל 6 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימונים), sleep_recovery (שינה + התאוששות), memory_box (כללים מאושרים לתיבת זיכרון המאמן — אין להם תאריך, נכללים במלואם בכל טווח).'
         ),
-        generated: new Date().toISOString(),
+        generated: _blIsoWithTz(new Date(), _BL_EXPORT_TZ),
         range: { label: r.label, from: r.from, to: r.to },
         counts: {
             weights: weights.length, nutrition_daily: nutritionDaily.length,

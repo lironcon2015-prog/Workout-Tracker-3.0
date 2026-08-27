@@ -28,6 +28,7 @@
     <script defer src="bodylog-logic.js"></script>
     <script defer src="food-logic.js"></script>
     <script defer src="photos-logic.js"></script>
+    <script defer src="voice-logic.js"></script>
 
     <!-- Firebase SDK (Compat) — טעינה lazy/non-blocking. לא חוסם DOMContentLoaded.
          נטען ברקע רק למשתמשים עם cloud מוגדר, או on-demand דרך FirebaseManager. -->
@@ -1972,12 +1973,30 @@
             <span class="live-target-val" id="live-target-val">—</span>
         </div>
 
-        <div class="live-swipe-card" id="live-swipe-card">
-            <div class="live-swipe-icon">
-                <span class="material-symbols-outlined">arrow_back</span>
+        <div class="live-bottom-wrap">
+            <div class="vc-status" id="vc-status"></div>
+
+            <div class="live-bottom-row">
+                <button id="vc-mic-btn" class="vc-mic-btn" type="button" style="display:none;" aria-label="תיעוד סט בקול — לחץ והחזק">
+                    <svg class="vc-ring" viewBox="0 0 64 64" aria-hidden="true">
+                        <circle class="vc-ring-bg" cx="32" cy="32" r="29"></circle>
+                        <circle id="vc-ring-bar" class="vc-ring-bar" cx="32" cy="32" r="29"></circle>
+                    </svg>
+                    <span class="vc-mic-txt" id="vc-mic-txt">דבר</span>
+                    <span class="vc-mic-count" id="vc-mic-count"></span>
+                </button>
+
+                <div class="live-swipe-card" id="live-swipe-card">
+                    <div class="live-swipe-icon">
+                        <span class="material-symbols-outlined">arrow_back</span>
+                    </div>
+                    <span class="live-swipe-text">החלק לרישום הסט</span>
+                </div>
             </div>
-            <span class="live-swipe-text">החלק לרישום הסט</span>
-        </div>
+        </div><!-- /live-bottom-wrap -->
+
+        <!-- תופס את נגיעת הביטול בזמן הספירה — בלי זה הנגיעה נופלת על כרטיס ההחלקה ורושמת סט -->
+        <div id="vc-catch" class="vc-catch" style="display:none;"></div>
     </div>
 
     <!-- TAB BAR -->
@@ -2104,6 +2123,7 @@
                 </button>
             </div>
         </div>
+        <div class="vc-heard" id="vc-heard" style="display:none;"></div>
         <div class="live-edit-grid">
             <div class="live-edit-card">
                 <div class="live-edit-card-lbl wmode-toggle" id="live-weight-mode-lbl" onclick="cycleWeightMode()">משקל <span class="material-symbols-outlined inline-arrow">swap_horiz</span></div>

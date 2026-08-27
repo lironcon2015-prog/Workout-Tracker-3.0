@@ -187,6 +187,7 @@ version.json: { "version": "19.MINOR.PATCH" }
 | `editor-logic.js` | עורך תוכנית + `renderWorkoutMenu` + `checkForUpdate` |
 | `bodylog-logic.js` | מסך Composition: שקילות (משקל/שומן) + תזונה (MyFitnessPal: גרפים, ממוצעים, ייצוא) |
 | `photos-logic.js` | תמונות התקדמות (תת-טאב "תמונות" ב-Composition): IndexedDB (cache) + Drive (מקור אמת), מסך צילום עם Ghost Overlay, גלריה/השוואה, ניתוח AI משורשר (`_ppRunAnalysis`) |
+| `voice-logic.js` | תיעוד סטים בקול (Live בלבד): הקלטה → WAV 16k → תמלול Gemini → פרסינג עברית מקומי (regex) → מילוי הפיקרים → ספירה לאחור 3ש' → `nextStep()` |
 | `food-logic.js` | יומן מזון מובנה: חיפוש Open Food Facts, ברקוד/תווית דרך Gemini, עורך מנה/ארוחה/שעה, מועדפים/אחרונים/מותאמים. כותב ל-NUTRITION_DAILY דרך `recomputeNutritionDay` |
 | `storage.js` | StorageManager (localStorage) + FirebaseManager (סנכרון ענן) |
 | `data.js` | נתוני ברירת מחדל |
@@ -215,7 +216,7 @@ version.json: { "version": "19.MINOR.PATCH" }
 ---
 
 ## גרסה נוכחית
-19.7.7
+19.8.0
 
 ---
 

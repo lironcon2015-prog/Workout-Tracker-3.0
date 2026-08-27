@@ -5452,6 +5452,116 @@ body.live-mode-active { overflow: hidden; }
     font-style: italic; font-weight: 700;
     font-size: var(--fs-lg); color: #fff;
 }
+/* ════════════════════════════════════════════════════════════════════
+   VOICE SET LOGGING — תיעוד סט בקול (Live בלבד)
+   כפתור טקסטואלי (ללא אייקון), טבעת ספירה לאחור, ופעימה לפי עוצמת קול.
+   ════════════════════════════════════════════════════════════════════ */
+.live-bottom-wrap {
+    width: 100%;
+    display: flex; flex-direction: column; gap: 6px;
+}
+.live-bottom-row {
+    width: 100%;
+    display: flex; align-items: center; gap: 12px;
+}
+.live-bottom-row .live-swipe-card { flex: 1 1 auto; min-width: 0; }
+
+.vc-mic-btn {
+    position: relative; flex: 0 0 auto;
+    width: 64px; height: 64px;
+    border-radius: var(--r-pill);
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #fff; cursor: pointer; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;                 /* לחיצה ארוכה — לא גלילה/זום */
+    user-select: none; -webkit-user-select: none;
+    transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease),
+                transform var(--dur-1) var(--ease), box-shadow 90ms linear;
+}
+.vc-mic-btn:active { transform: scale(0.94); }
+
+.vc-mic-txt {
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: var(--fs-sm); letter-spacing: 0.5px;
+    pointer-events: none;
+}
+.vc-mic-count {
+    position: absolute;
+    font-family: 'Heebo', sans-serif;
+    font-style: italic; font-weight: 900;
+    font-size: 1.7rem; line-height: 1; direction: ltr;
+    color: var(--secondary);
+    pointer-events: none;
+}
+
+/* טבעת הספירה — אותה שפה של טבעת הטיימר (SVG מסובב 90-) */
+.vc-ring {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    transform: rotate(-90deg);
+    pointer-events: none;
+}
+.vc-ring-bg { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 2; }
+.vc-ring-bar {
+    fill: none; stroke: var(--secondary);
+    stroke-width: 2; stroke-linecap: round;
+    stroke-dasharray: 182;              /* 2πr, r=29 */
+    stroke-dashoffset: 182;
+    filter: drop-shadow(0 0 6px rgba(var(--type-b-rgb),0.5));
+}
+
+/* מקליט — הילה שגדלה עם עוצמת הקול (--vc-amp מתעדכן מ-AnalyserNode) */
+.vc-mic-btn[data-state="rec"] {
+    background: rgba(var(--type-b-rgb),0.18);
+    border-color: rgba(var(--type-b-rgb),0.55);
+    box-shadow: 0 0 0 calc(3px + var(--vc-amp, 0) * 13px) rgba(var(--type-b-rgb),0.12);
+}
+.vc-mic-btn[data-state="rec"] .vc-mic-txt { color: #b6f0c4; }
+.vc-mic-btn[data-state="busy"] { opacity: 0.65; }
+.vc-mic-btn[data-state="busy"] .vc-mic-txt { font-size: var(--fs-xs); }
+.vc-mic-btn[data-state="pending"] {
+    background: rgba(var(--type-b-rgb),0.12);
+    border-color: rgba(var(--type-b-rgb),0.45);
+}
+
+.vc-status {
+    width: 100%; text-align: center;
+    font-family: 'Heebo', sans-serif; font-weight: 700;
+    font-size: var(--fs-sm); color: rgba(255,255,255,0.60);
+    min-height: 16px; line-height: 16px;
+    opacity: 0; transition: opacity var(--dur-2) var(--ease);
+}
+.vc-status.is-on { opacity: 1; }
+
+/* לוכד נגיעת הביטול בזמן הספירה — מתחת לכפתור היציאה (10000), מעל התוכן */
+.vc-catch { position: fixed; inset: 0; z-index: 9990; background: transparent; }
+
+/* שבב "שמעתי" בגיליון עריכת הסט — מוצג רק כשהפענוח לא היה ודאי */
+.vc-heard {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--r-sm);
+    padding: 10px 14px; margin-bottom: 14px;
+}
+.vc-heard-note {
+    display: block;
+    font-family: 'Heebo', sans-serif; font-weight: 900; font-style: italic;
+    font-size: var(--fs-sm); color: var(--danger);
+    margin-bottom: 3px;
+}
+.vc-heard-txt {
+    display: block;
+    font-family: 'Heebo', sans-serif; font-weight: 400;
+    font-size: var(--fs-md); color: rgba(255,255,255,0.72);
+}
+
+@media (max-height: 600px) {
+    .vc-mic-btn { width: 56px; height: 56px; }
+}
+
 .live-action-btn {
     width: 100%;
     background: var(--type-b); color: #000;

@@ -3269,6 +3269,92 @@ async function _geminiRequest(payload, opts = {}) {
     throw err;
 }
 
+// ─── תמלול דיבור (Gemini 3.5 Transcribe) ───────────────────────────────────
+// מודל ה-STT הייעודי של גוגל יושב על Interactions API — endpoint שונה מ-
+// generateContent (header במקום query param, אין thinkingConfig, אין רשימת
+// מודלים). לכן הוא לא עובר דרך _geminiRequest אלא דרך פונקציה משלו, עם
+// נפילה חזרה ל-generateContent + אודיו inline אם ה-endpoint לא זמין למפתח.
+const GEMINI_TRANSCRIBE_MODEL = 'gemini-3.5-transcribe';
+const GEMINI_TRANSCRIBE_URL   = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+// אחרי כישלון קבוע (4xx) לא מנסים שוב בכל סט — סיבוב רשת מבוזבז לפני כל תמלול
+const GEMINI_TRANSCRIBE_OFF_KEY = 'gympro_transcribe_api_off';
+
+// חילוץ טקסט סובלני — מבנה התשובה של Interactions שונה מזה של generateContent,
+// ולכן סורקים את הצורות המוכרות במקום להסתמך על נתיב יחיד.
+function _pickTranscriptText(data) {
+    if (!data) return '';
+    if (typeof data.text === 'string' && data.text.trim()) return data.text.trim();
+    if (typeof data.transcript === 'string' && data.transcript.trim()) return data.transcript.trim();
+    const fromParts = (arr) => (arr || []).map(p => (p && (p.text || p.transcript)) || '').join('').trim();
+    if (Array.isArray(data.output)) {
+        const t = data.output.map(o => fromParts(o && (o.content || o.parts))).join(' ').trim();
+        if (t) return t;
+    }
+    if (Array.isArray(data.candidates)) {
+        const t = fromParts(data.candidates[0]?.content?.parts);
+        if (t) return t;
+    }
+    if (Array.isArray(data.results)) {
+        const t = data.results.map(r => (r.alternatives && r.alternatives[0] && r.alternatives[0].transcript) || '').join(' ').trim();
+        if (t) return t;
+    }
+    return '';
+}
+
+async function _transcribeViaInteractions(base64, mimeType, timeoutMs, apiKey) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let response;
+    try {
+        response = await fetch(GEMINI_TRANSCRIBE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+            body: JSON.stringify({
+                model: GEMINI_TRANSCRIBE_MODEL,
+                input: [{ type: 'audio', mime_type: mimeType, data: base64 }]
+            }),
+            signal: ctrl.signal
+        });
+    } finally { clearTimeout(timer); }
+    if (!response.ok) {
+        const err = new Error('TRANSCRIBE_HTTP_' + response.status);
+        // 400/403/404 = ה-endpoint או המבנה לא נתמכים למפתח הזה — כיבוי קבוע
+        err._permanent = [400, 401, 403, 404].includes(response.status);
+        throw err;
+    }
+    return _pickTranscriptText(await response.json());
+}
+
+/**
+ * _geminiTranscribe — אודיו base64 (רצוי audio/wav) → טקסט מתומלל.
+ * מנסה קודם את מודל התמלול הייעודי; אם אינו זמין — generateContent רב-מודלי.
+ */
+async function _geminiTranscribe(base64, mimeType, opts = {}) {
+    const config = StorageManager.getAIConfig();
+    if (!config.apiKey) throw new Error('API_KEY_MISSING');
+    const timeoutMs = opts.timeoutMs || 20000;
+
+    let skip = false;
+    try { skip = localStorage.getItem(GEMINI_TRANSCRIBE_OFF_KEY) === '1'; } catch (e) {}
+    if (!skip) {
+        try {
+            const t = await _transcribeViaInteractions(base64, mimeType, timeoutMs, config.apiKey);
+            if (t) return t;
+        } catch (e) {
+            if (e && e._permanent) { try { localStorage.setItem(GEMINI_TRANSCRIBE_OFF_KEY, '1'); } catch (e2) {} }
+        }
+    }
+
+    const prompt = 'תמלל את ההקלטה. זו אמירה קצרה בעברית של מתאמן שמדווח סט אימון ' +
+        '(משקל, חזרות, RIR). החזר אך ורק את הטקסט המתומלל — בלי הסבר, בלי מרכאות, בלי תוספות. ' +
+        'מספרים — כתוב בספרות. אם לא נשמע דיבור — החזר מחרוזת ריקה.';
+    const res = await _geminiRequest({
+        contents: [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType, data: base64 } }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 120 }
+    }, { timeoutMs });
+    return (res.text || '').trim();
+}
+
 async function _callGeminiOneShot(prompt, opts = {}) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
@@ -7929,6 +8015,7 @@ async function exitWorkoutLiveMode(silent = false) {
     overlay.style.display = 'none';
     overlay.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('live-mode-active');
+    if (typeof _vcReset === 'function') _vcReset();   // הקלטה/ספירה פתוחות — לא שורדות יציאה מ-Live
 
     try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) {}
     // שחרור ה-lock ביציאה — אלא אם הצלילים דולקים (הם מחזיקים lock משלהם בכוונה)
@@ -8028,6 +8115,7 @@ function _liveLogSetFromSheet() {
 }
 
 function closeLiveEditSheet() {
+    if (typeof _vcClearHeard === 'function') _vcClearHeard();
     const overlay = document.getElementById('live-edit-overlay');
     const sheet = document.getElementById('live-edit-sheet');
     if (!overlay || !sheet) return;
@@ -8094,6 +8182,7 @@ function editLivePickerValue(field) {
 // קורא לנתוני state ומסנכרן את ה-DOM של ה-overlay
 function updateLiveViewContent() {
     if (!document.body.classList.contains('live-mode-active')) return;
+    if (typeof vcSyncMicBtn === 'function') vcSyncMicBtn();   // כפתור הקול — מוסתר בלי מפתח/רשת
 
     const setN = (state.setIdx || 0) + 1;
     const setTotal = (state.currentEx && state.currentEx.sets) ? state.currentEx.sets.length : 1;

@@ -2875,6 +2875,16 @@ function cycleWeightMode() {
 
 const EX_NOTE_IDS = ['ex-note-input', 'live-ex-note-input'];
 
+// גובה אוטומטי — השדה הוא textarea כדי שהערה ארוכה תיגלל לשורה נוספת
+// במקום להיחתך בקצה; שורה אחת כשהוא ריק.
+function _autoGrowExNote(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    // border-box: scrollHeight אינו כולל את הגבול, ובלי התוספת השורה האחרונה נחתכת ב-2px
+    const border = el.offsetHeight - el.clientHeight;
+    el.style.height = (el.scrollHeight + border) + 'px';
+}
+
 // עדכון מהקלדה — כותב ל-state וממרר לחזית השנייה (ui-main ⇄ live-edit-sheet)
 function syncExNote(val) {
     if (!state.currentExName) return;
@@ -2887,6 +2897,7 @@ function syncExNote(val) {
         if (!el) return;
         if (el.value !== val) el.value = val;   // מירור בלי לקטוע הקלדה בשדה המקור
         el.classList.toggle('has-val', !!v);
+        _autoGrowExNote(el);
     });
     StorageManager.saveSessionState();
 }
@@ -2898,6 +2909,7 @@ function _loadExNoteUI() {
         if (!el) return;
         el.value = v;
         el.classList.toggle('has-val', !!v);
+        _autoGrowExNote(el);
     });
 }
 

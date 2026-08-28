@@ -1363,7 +1363,7 @@
                     </div>
                     <h2 id="ex-display-name" class="mt-md"></h2>
                     <div id="last-set-info" class="history-pill"></div>
-                    <input type="text" id="ex-note-input" class="ex-note-input" placeholder="+ הערה לתרגיל (חלה על כל הסטים)" oninput="syncExNote(this.value, 'main')">
+                    <textarea id="ex-note-input" class="ex-note-input" rows="1" placeholder="+ הערה לתרגיל (חלה על כל הסטים)" oninput="syncExNote(this.value)"></textarea>
                 </div>
                 <div class="input-grid">
                     <div class="glass-card compact stepper-card">
@@ -2132,6 +2132,7 @@
             </div>
         </div>
         <div class="vc-heard" id="vc-heard" style="display:none;"></div>
+        <textarea id="live-ex-note-input" class="ex-note-input live-ex-note-input" rows="1" placeholder="+ הערה לתרגיל (חלה על כל הסטים)" oninput="syncExNote(this.value)"></textarea>
         <div class="live-edit-grid">
             <div class="live-edit-card">
                 <div class="live-edit-card-lbl wmode-toggle" id="live-weight-mode-lbl" onclick="cycleWeightMode()">משקל <span class="material-symbols-outlined inline-arrow">swap_horiz</span></div>
@@ -2161,7 +2162,6 @@
                 </div>
             </div>
         </div>
-        <input type="text" id="live-ex-note-input" class="ex-note-input live-ex-note-input" placeholder="+ הערה לתרגיל (חלה על כל הסטים)" oninput="syncExNote(this.value, 'live')">
         <div id="live-cues-row" class="cues-row" style="display:none;"></div>
         <div class="live-edit-notes-wrap">
             <label class="live-edit-notes-lbl" for="live-edit-notes">הערה לסט</label>

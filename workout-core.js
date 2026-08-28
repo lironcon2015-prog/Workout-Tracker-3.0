@@ -3150,6 +3150,11 @@ function initPickers() {
 
     const rPick = document.getElementById('reps-picker'); rPick.innerHTML = "";
     for (let i = 1; i <= 30; i++) { let o = new Option(i, i); if (i === defaultR) o.selected = true; rPick.add(o); }
+    // ערך שהוזן ידנית ונופל מחוץ ל-1..30 (למשל 40 חזרות) — מוזרק כ-option משלו.
+    // בלעדיו אף option לא מסומן, הדפדפן בוחר את הראשון, והסט הבא נפתח על 1
+    // במקום על מה שנרשם בפועל. אותה הגנה שכבר קיימת בבורר המשקל.
+    const _rDef = Math.round(defaultR);
+    if (rPick.selectedIndex <= 0 && _rDef > 1) _insertSortedOption(rPick, _rDef, String(_rDef));
 
     const rirPick = document.getElementById('rir-picker'); rirPick.innerHTML = "";
     [0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5].forEach(v => {
@@ -3157,6 +3162,12 @@ function initPickers() {
         if (parseFloat(v) === parseFloat(defaultRIR)) o.selected = true;
         rirPick.add(o);
     });
+    // אותה תקלה ב-RIR: ערך ידני שאינו ברשימה (למשל 6) היה נופל ל-option הראשון,
+    // כלומר Fail — הפוך בדיוק מהכוונה.
+    const _rirDef = parseFloat(defaultRIR);
+    if (rirPick.selectedIndex <= 0 && !isNaN(_rirDef) && _rirDef > 0) {
+        _insertSortedOption(rirPick, _rirDef, String(_rirDef));
+    }
 
     syncStepperDisplay('weight');
     syncStepperDisplay('reps');

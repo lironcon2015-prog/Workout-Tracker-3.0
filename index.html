@@ -156,6 +156,12 @@
                     <input type="checkbox" id="conf-ex-uni" class="archive-checkbox">
                 </div>
                 <div>
+                    <label class="input-label m-0 mb-xs">תגיות תרגיל</label>
+                    <div class="conf-cue-hint">המתג קובע את מצב התגית בתחילת כל סט. סימון ידני חל על אותו סט בלבד.</div>
+                    <div id="conf-ex-cues" class="conf-cues"></div>
+                    <button type="button" class="conf-cue-add" onclick="addConfCue()">+ הוסף תגית</button>
+                </div>
+                <div>
                     <label class="input-label m-0 mb-xs">שיטת משקל</label>
                     <select id="conf-ex-wmode" class="minimal-input m-0 bg-card">
                         <option value="kg">משקל (ק״ג)</option>
@@ -1357,6 +1363,7 @@
                     </div>
                     <h2 id="ex-display-name" class="mt-md"></h2>
                     <div id="last-set-info" class="history-pill"></div>
+                    <input type="text" id="ex-note-input" class="ex-note-input" placeholder="+ הערה לתרגיל (חלה על כל הסטים)" oninput="syncExNote(this.value, 'main')">
                 </div>
                 <div class="input-grid">
                     <div class="glass-card compact stepper-card">
@@ -1387,6 +1394,7 @@
                         </div>
                     </div>
                 </div>
+                <div id="cues-row" class="cues-row" style="display:none;"></div>
                 <input type="text" id="set-notes" class="minimal-input" placeholder="הערות לסט (אופציונלי)">
                 <button id="btn-submit-set" class="btn-main primary-gradient pulse" onclick="nextStep()">LOG SET &nbsp;<span class="material-symbols-outlined inline-arrow">arrow_forward</span></button>
                 <div id="drop-pill-row" class="drop-pill-row" style="display:none;">
@@ -2153,6 +2161,8 @@
                 </div>
             </div>
         </div>
+        <input type="text" id="live-ex-note-input" class="ex-note-input live-ex-note-input" placeholder="+ הערה לתרגיל (חלה על כל הסטים)" oninput="syncExNote(this.value, 'live')">
+        <div id="live-cues-row" class="cues-row" style="display:none;"></div>
         <div class="live-edit-notes-wrap">
             <label class="live-edit-notes-lbl" for="live-edit-notes">הערה לסט</label>
             <input type="text" id="live-edit-notes" class="live-edit-notes-input" placeholder="אופציונלי — הוסף הערה לסט הזה" oninput="_syncLiveNoteToMain()">

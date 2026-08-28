@@ -5453,6 +5453,149 @@ body.live-mode-active { overflow: hidden; }
     font-size: var(--fs-lg); color: #fff;
 }
 /* ════════════════════════════════════════════════════════════════════
+   הערת תרגיל + תגיות תרגיל (v19.9)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* הערת תרגיל — שקטה כשריקה, ענברית כשיש בה תוכן */
+.ex-note-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-xs);
+    color: var(--text);
+    font-family: inherit;
+    font-size: var(--fs-md);
+    text-align: center;
+    padding: 7px 12px;
+    margin-top: 6px;
+    transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
+}
+.ex-note-input::placeholder { color: var(--text-dim); }
+.ex-note-input:focus {
+    outline: none;
+    border-color: rgba(var(--accent-rgb),0.45);
+    background: rgba(var(--accent-rgb),0.06);
+}
+.ex-note-input.has-val {
+    background: rgba(var(--warn-rgb),0.07);
+    border-color: rgba(var(--warn-rgb),0.22);
+    color: #f0e3a8;
+    text-align: right;
+}
+.live-ex-note-input { margin-top: 0; margin-bottom: 2px; }
+
+/* שורת תגיות הסט — ui-main וגיליון ה-Live חולקים את אותו רכיב */
+.cues-row {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+}
+.cues-lbl {
+    font-size: var(--fs-xs);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 700;
+}
+.cue-chip {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--hairline-hi);
+    color: rgba(255,255,255,0.38);
+    border-radius: var(--r-pill);
+    padding: 5px 13px;
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease),
+                color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+.cue-chip:active { transform: scale(0.94); }
+.cue-chip.on {
+    background: rgba(var(--success-rgb),0.14);
+    border-color: rgba(var(--success-rgb),0.42);
+    color: var(--success);
+}
+
+/* עורך התגיות במודל הגדרת התרגיל */
+.conf-cue-hint {
+    font-size: var(--fs-sm);
+    color: var(--text-dim);
+    line-height: 1.45;
+    margin-bottom: 8px;
+}
+.conf-cues { display: flex; flex-direction: column; gap: 8px; }
+.conf-cue-empty {
+    font-size: var(--fs-sm);
+    color: var(--text-dim);
+    line-height: 1.5;
+    padding: 4px 0 2px;
+}
+.conf-cue-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-xs);
+    padding: 7px 10px;
+}
+.conf-cue-name {
+    flex: 1; min-width: 0;
+    background: transparent; border: none;
+    color: var(--text);
+    font-family: inherit; font-size: var(--fs-md);
+    padding: 2px 0;
+}
+.conf-cue-name:focus { outline: none; }
+.conf-cue-def {
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--hairline-hi);
+    color: rgba(255,255,255,0.38);
+    border-radius: var(--r-pill);
+    padding: 4px 12px;
+    font-family: inherit; font-size: var(--fs-xs); font-weight: 700;
+    cursor: pointer;
+}
+.conf-cue-def.on {
+    background: rgba(var(--success-rgb),0.14);
+    border-color: rgba(var(--success-rgb),0.42);
+    color: var(--success);
+}
+.conf-cue-del {
+    flex-shrink: 0;
+    background: none; border: none;
+    color: var(--text-dim);
+    font-family: inherit; font-size: var(--fs-sm); font-weight: 700;
+    cursor: pointer; padding: 4px 2px;
+}
+.conf-cue-del:active { color: var(--danger); }
+.conf-cue-add {
+    align-self: flex-start;
+    margin-top: 8px;
+    background: var(--surface-4);
+    border: 1px dashed rgba(255,255,255,0.2);
+    color: var(--text-dim);
+    border-radius: var(--r-pill);
+    padding: 6px 15px;
+    font-family: inherit; font-size: var(--fs-sm); font-weight: 700;
+    cursor: pointer;
+}
+
+/* הערת תרגיל בכרטיס הארכיון */
+.summary-ex-note {
+    font-size: var(--fs-sm);
+    color: #f0e3a8;
+    background: rgba(var(--warn-rgb),0.07);
+    border-right: 2px solid rgba(var(--warn-rgb),0.5);
+    border-radius: 0 var(--r-xs) var(--r-xs) 0;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    line-height: 1.45;
+}
+
+/* ════════════════════════════════════════════════════════════════════
    VOICE SET LOGGING — תיעוד סט בקול (Live בלבד)
    כפתור טקסטואלי (ללא אייקון), טבעת ספירה לאחור, ופעימה לפי עוצמת קול.
    ════════════════════════════════════════════════════════════════════ */

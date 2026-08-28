@@ -272,7 +272,12 @@ let state = {
     dropArmed: false,   // הדרופ מסומן לסט הנוכחי (מהתוכנית או מהפיל/טוגל)
     dropMode: false,    // כרגע מתעדים דרופ — הפיקרים מציגים ערכי דרופ
     dropDone: false,    // דרופ נרשם והמסך מציג "המשך / + דרופ נוסף"
-    dropLevel: 0        // 1..DROP_MAX
+    dropLevel: 0,       // 1..DROP_MAX
+
+    // הערות ותגיות תרגיל (v19.9) — נשמרים אוטומטית ב-saveSessionState
+    exNotes: {},        // { [exName]: 'הערה שתקפה לכל הסטים בתרגיל' }
+    setCues: {},        // { [cueLabel]: bool } — מצב התגיות של הסט הנוכחי בלבד
+    cuesKey: ''         // מזהה הסט שאליו setCues שייך — מונע איפוס ברינדור חוזר
 };
 
 let managerState = {
@@ -2857,6 +2862,92 @@ function cycleWeightMode() {
     StorageManager.saveSessionState();
 }
 
+// ═══ הערת תרגיל + תגיות תרגיל (v19.9) ═════════════════════════════════════
+// הערת תרגיל — טקסט אחד שתקף לכל הסטים בתרגיל. נשמר ב-state.exNotes לפי **שם
+// התרגיל** ולא לפי אינדקס: ב-nextStep מסלול הסבב מחליף את currentEx באמצע,
+// ומיפתוח לפי אינדקס היה מערבב בין תרגילי סופרסט.
+//
+// תגיות תרגיל — מוגדרות על התרגיל במאגר (ex.cues = [{label, def}]).
+// המצב מתאפס לברירות המחדל בכל סט חדש, כדי ששורת סט תתאר את הסט שלה בלבד
+// ותאפשר להבחין בסט חריג במכוון. הן נכתבות **לתוך הערת הסט** בסוגריים
+// מרובעים — כך פורמט השורה ("80kg x 8 (RIR 2) | ...") לא משתנה, ו-
+// _parseSetString / _setStrVol / עריכת סט בארכיון / הייצוא נשארים שלמים.
+
+const EX_NOTE_IDS = ['ex-note-input', 'live-ex-note-input'];
+
+// עדכון מהקלדה — כותב ל-state וממרר לחזית השנייה (ui-main ⇄ live-edit-sheet)
+function syncExNote(val) {
+    if (!state.currentExName) return;
+    const v = (val || '').trim();
+    if (!state.exNotes) state.exNotes = {};
+    if (v) state.exNotes[state.currentExName] = v;
+    else   delete state.exNotes[state.currentExName];
+    EX_NOTE_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.value !== val) el.value = val;   // מירור בלי לקטוע הקלדה בשדה המקור
+        el.classList.toggle('has-val', !!v);
+    });
+    StorageManager.saveSessionState();
+}
+
+function _loadExNoteUI() {
+    const v = (state.exNotes && state.exNotes[state.currentExName]) || '';
+    EX_NOTE_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = v;
+        el.classList.toggle('has-val', !!v);
+    });
+}
+
+function _exCueDefs() {
+    const cues = (state.currentEx && state.currentEx.cues) || [];
+    return Array.isArray(cues) ? cues.filter(c => c && c.label) : [];
+}
+
+// דרופ הוא המשך של אותו סט ולא סט חדש — ולכן יורש את מצב התגיות ולא מתאפס.
+// cuesKey מזהה את הסט שהמצב הנוכחי שייך לו: initPickers נקראת גם על אותו סט
+// (החלפת שיטת משקל, שחזור אחרי רענון) — ואיפוס שם היה מוחק סימון ידני.
+function _initSetCues() {
+    if (state.dropMode) { renderCueChips(); return; }
+    const key = state.currentExName + '#' + state.setIdx;
+    if (state.cuesKey === key && state.setCues) { renderCueChips(); return; }
+    const map = {};
+    _exCueDefs().forEach(c => { map[c.label] = !!c.def; });
+    state.setCues = map;
+    state.cuesKey = key;
+    renderCueChips();
+}
+
+function toggleCue(label) {
+    if (!state.setCues || !(label in state.setCues)) return;
+    state.setCues[label] = !state.setCues[label];
+    haptic('light');
+    renderCueChips();
+    StorageManager.saveSessionState();
+}
+
+function renderCueChips() {
+    const defs = _exCueDefs();
+    const chips = defs.map(c => {
+        const on = !!(state.setCues && state.setCues[c.label]);
+        return `<button type="button" class="cue-chip${on ? ' on' : ''}" onclick="toggleCue('${escapeJsAttr(c.label)}')">${escapeHtml(c.label)}</button>`;
+    }).join('');
+    ['cues-row', 'live-cues-row'].forEach(id => {
+        const row = document.getElementById(id);
+        if (!row) return;
+        row.innerHTML = defs.length ? `<span class="cues-lbl">תגיות</span>${chips}` : '';
+        row.style.display = defs.length ? 'flex' : 'none';
+    });
+}
+
+// קידומת להערת הסט: "[ספוטר] [עצירה של שנייה]"
+function _cuesNotePrefix() {
+    const on = _exCueDefs().filter(c => state.setCues && state.setCues[c.label]);
+    return on.map(c => `[${c.label}]`).join(' ');
+}
+
 // ─── INIT PICKERS ──────────────────────────────────────────────────────────
 
 function initPickers() {
@@ -2913,6 +3004,8 @@ function initPickers() {
     // clamp — חזרה לתרגיל שכל הסטים שלו נרשמו עלולה להציב setIdx מעבר לגבול המערך
     const target = state.currentEx.sets[Math.min(state.setIdx, state.currentEx.sets.length - 1)] || {};
     document.getElementById('set-notes').value = '';
+    _loadExNoteUI();
+    _initSetCues();
 
     let defaultW = 0;
     let defaultR = 8;
@@ -3698,7 +3791,9 @@ function nextStep() {
     }
 
     const wVal = parseFloat(document.getElementById('weight-picker').value);
-    const noteVal = document.getElementById('set-notes').value.trim();
+    const rawNote = document.getElementById('set-notes').value.trim();
+    const cuePrefix = _cuesNotePrefix();
+    const noteVal = cuePrefix ? (rawNote ? cuePrefix + ' ' + rawNote : cuePrefix) : rawNote;
     const wMode = _effWeightMode();
 
     const entry = {
@@ -5030,6 +5125,8 @@ function _saveToArchive(note) {
         });
         totalVol += exVol;
         details[exName] = { sets: data.sets, vol: exVol };
+        const exNote = state.exNotes && state.exNotes[exName];
+        if (exNote) details[exName].note = exNote;
     });
 
     // ── summaryLines — segment-based to preserve cluster round structure ──
@@ -5061,6 +5158,7 @@ function _saveToArchive(note) {
             const mainTag = exMap[exName] && exMap[exName].isMain ? (exTM != null ? ` (Main, TM: ${exTM}kg)` : ' (Main)') : '';
             const uniTag = isUnilateral(exName) ? ' (צד אחד)' : '';
             summaryLines.push(`${exName}${mainTag}${uniTag} (Vol: ${volStr}):`);
+            if (state.exNotes && state.exNotes[exName]) summaryLines.push(`הערת תרגיל: ${state.exNotes[exName]}`);
             _groupSetsWithDrops(seg.sets).forEach(g => {
                 summaryLines.push(_setLineText(g.entry, g.drops, true));
             });
@@ -8077,6 +8175,8 @@ function openLiveEditSheet() {
     const mainNotes = document.getElementById('set-notes');
     const liveNotes = document.getElementById('live-edit-notes');
     if (mainNotes && liveNotes) liveNotes.value = mainNotes.value || '';
+    _loadExNoteUI();
+    renderCueChips();
     // הסתר את LOG SET כשהסט האחרון כבר נרשם (action panel פעיל) — אחרת ניצור log כפול
     const logBtn = document.getElementById('live-edit-log-btn');
     if (logBtn) {

@@ -343,6 +343,65 @@ function openEditorUI() {
     navigate('ui-workout-editor');
 }
 
+// ─── תגיות תרגיל (v19.9) ───────────────────────────────────────────────────
+// עותק עבודה שנכתב לתרגיל רק ב-save — ביטול המודל לא משאיר שאריות.
+let _confCues = [];
+
+function _renderConfCues() {
+    const box = document.getElementById('conf-ex-cues');
+    if (!box) return;
+    if (!_confCues.length) {
+        box.innerHTML = '<div class="conf-cue-empty">אין תגיות. תגית היא תזכורת קבועה לתרגיל — למשל "ספוטר" או "עצירה של שנייה".</div>';
+        return;
+    }
+    box.innerHTML = _confCues.map((c, i) => `
+        <div class="conf-cue-row">
+            <input type="text" class="conf-cue-name" value="${escapeHtml(c.label)}" placeholder="שם התגית" oninput="setConfCueLabel(${i}, this.value)">
+            <button type="button" class="conf-cue-def${c.def ? ' on' : ''}" onclick="toggleConfCueDef(${i})">${c.def ? 'דלוקה' : 'כבויה'}</button>
+            <button type="button" class="conf-cue-del" onclick="removeConfCue(${i})" aria-label="הסר תגית">הסר</button>
+        </div>`).join('');
+}
+
+// עדכון בלבד, בלי רינדור — רינדור בכל הקלדה היה מאבד את הפוקוס בשדה
+function setConfCueLabel(i, val) {
+    if (_confCues[i]) _confCues[i].label = val;
+}
+
+function toggleConfCueDef(i) {
+    if (!_confCues[i]) return;
+    _confCues[i].def = !_confCues[i].def;
+    _renderConfCues();
+    haptic('light');
+}
+
+function removeConfCue(i) {
+    _confCues.splice(i, 1);
+    _renderConfCues();
+    haptic('light');
+}
+
+function addConfCue() {
+    if (_confCues.length >= 6) { showAlert('מקסימום 6 תגיות לתרגיל.'); return; }
+    _confCues.push({ label: '', def: false });
+    _renderConfCues();
+    const rows = document.querySelectorAll('#conf-ex-cues .conf-cue-name');
+    if (rows.length) rows[rows.length - 1].focus();
+    haptic('light');
+}
+
+// ניקוי לפני שמירה — תגית בלי שם נזרקת, כפילויות מוסרות
+function _collectConfCues() {
+    const out = [];
+    const seen = new Set();
+    _confCues.forEach(c => {
+        const label = (c.label || '').trim();
+        if (!label || seen.has(label)) return;
+        seen.add(label);
+        out.push({ label, def: !!c.def });
+    });
+    return out;
+}
+
 // ─── EXERCISE MANAGER (CREATE / EDIT) ──────────────────────────────────────
 
 function openExerciseCreator() {
@@ -355,6 +414,8 @@ function openExerciseCreator() {
     document.getElementById('conf-ex-max').value = "";
     document.getElementById('conf-ex-uni').checked = false;
     document.getElementById('conf-ex-wmode').value = "kg";
+    _confCues = [];
+    _renderConfCues();
 
     document.getElementById('btn-delete-ex').classList.add('d-none');
     // תחליפים דורשים תרגיל קיים במאגר — לא זמין במצב יצירה
@@ -380,6 +441,8 @@ function openExerciseEditor(exName) {
     document.getElementById('conf-ex-muscle').value = muscleVal;
     document.getElementById('conf-ex-step').value = ex.step || "2.5";
     document.getElementById('conf-ex-uni').checked = !!ex.isUnilateral;
+    _confCues = (ex.cues || []).map(c => ({ label: c.label || '', def: !!c.def }));
+    _renderConfCues();
     // שיטת משקל — weightMode מפורש גובר; דגל isBW ישן ממופה למשקל גוף
     document.getElementById('conf-ex-wmode').value = ex.weightMode || (ex.isBW ? 'bw' : 'kg');
 
@@ -480,6 +543,7 @@ function saveExerciseConfig() {
             step,
             isUnilateral: isUni,
             weightMode: wMode,
+            cues: _collectConfCues(),
             manualRange: {
                 base: isNaN(base) ? undefined : base,
                 min: isNaN(min) ? undefined : min,
@@ -541,6 +605,7 @@ function _finishSaveExConfig(exIndex, musclesArr, step, isUni, base, min, max, w
     state.exercises[exIndex].isUnilateral = isUni;
     // weightMode מפורש תמיד — גובר על דגל isBW ישן בתרגילי ברירת המחדל
     state.exercises[exIndex].weightMode = wMode || 'kg';
+    state.exercises[exIndex].cues = _collectConfCues();
 
     if (!state.exercises[exIndex].manualRange) state.exercises[exIndex].manualRange = {};
     state.exercises[exIndex].manualRange.base = isNaN(base) ? undefined : base;

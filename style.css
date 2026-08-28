@@ -5456,8 +5456,11 @@ body.live-mode-active { overflow: hidden; }
    הערת תרגיל + תגיות תרגיל (v19.9)
    ════════════════════════════════════════════════════════════════════ */
 
-/* הערת תרגיל — שקטה כשריקה, ענברית כשיש בה תוכן */
+/* הערת תרגיל — שקטה כשריקה, ענברית כשיש בה תוכן.
+   textarea ולא input: הערה ארוכה נגללת לשורה נוספת במקום להיחתך בקצה.
+   הגובה מחושב ב-_autoGrowExNote; resize ידני מבוטל כדי לא לשבור את הפריסה. */
 .ex-note-input {
+    display: block;
     width: 100%;
     box-sizing: border-box;
     background: transparent;
@@ -5466,9 +5469,12 @@ body.live-mode-active { overflow: hidden; }
     color: var(--text);
     font-family: inherit;
     font-size: var(--fs-md);
+    line-height: 1.45;
     text-align: center;
-    padding: 7px 12px;
-    margin-top: 6px;
+    padding: 8px 12px;
+    margin: 10px 0 0;
+    resize: none;
+    overflow: hidden;
     transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
 }
 .ex-note-input::placeholder { color: var(--text-dim); }
@@ -5483,7 +5489,11 @@ body.live-mode-active { overflow: hidden; }
     color: #f0e3a8;
     text-align: right;
 }
-.live-ex-note-input { margin-top: 0; margin-bottom: 2px; }
+/* בגיליון ה-Live היא יושבת מתחת לכותרת ומעל הפיקרים — אותו סדר כמו ב-ui-main.
+   מרווחים מפורשים: הגיליון בנוי על margin per-block ולא על gap, ולכן בלעדיהם
+   הרכיב נצמד לשכניו. אותה סיבה למרווח של שורת התגיות מתחת לפיקרים. */
+.live-ex-note-input { margin: 0 0 14px; }
+.live-edit-sheet .cues-row { margin-top: 14px; }
 
 /* שורת תגיות הסט — ui-main וגיליון ה-Live חולקים את אותו רכיב */
 .cues-row {

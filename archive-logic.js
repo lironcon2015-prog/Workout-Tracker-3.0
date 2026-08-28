@@ -503,6 +503,7 @@ function buildArchiveDetailHTML(item) {
                         <div class="summary-ex-title">${escapeHtml(exName)}</div>
                         <div class="summary-ex-vol">${volStr}</div>
                     </div>
+                    ${_exNoteHtml(item, exName)}
                     ${setRows}
                 </div>`;
             } else {
@@ -577,6 +578,7 @@ function buildArchiveDetailHTML(item) {
                     <div class="summary-ex-title">${escapeHtml(exName)}</div>
                     <div class="summary-ex-vol">${volStr}</div>
                 </div>
+                ${_exNoteHtml(item, exName)}
                 ${setRows}
             </div>`;
         });
@@ -584,6 +586,13 @@ function buildArchiveDetailHTML(item) {
 
     // "נפח כולל" הוסר מהתצוגה — הנפח עדיין נכלל בטקסט ההעתקה (שורות ה-Vol לכל תרגיל)
     return html;
+}
+
+// הערת תרגיל (v19.9) — נשמרת ב-details[ex].note ומוצגת מתחת לכותרת התרגיל.
+// כרטיס קלאסטר מאגד כמה תרגילים ולכן אין לו שורת הערה יחידה.
+function _exNoteHtml(item, exName) {
+    const n = item && item.details && item.details[exName] && item.details[exName].note;
+    return n ? `<div class="summary-ex-note">${escapeHtml(n)}</div>` : '';
 }
 
 function openArchiveDetail(idx) {
@@ -774,6 +783,7 @@ function _buildArchiveEditHTML_withLog(item) {
                     <div class="summary-ex-title">${escapeHtml(exName)}</div>
                     <div class="summary-ex-vol">${volStr}</div>
                 </div>
+                ${_exNoteHtml(item, exName)}
                 ${setRows}
             </div>`;
         } else {
@@ -865,6 +875,7 @@ function _buildArchiveEditHTML_detailsOnly(item) {
                 <div class="summary-ex-title">${escapeHtml(exName)}</div>
                 <div class="summary-ex-vol">${volStr}</div>
             </div>
+            ${_exNoteHtml(item, exName)}
             ${setRows}
         </div>`;
     });
@@ -1149,6 +1160,7 @@ function _rebuildArchiveSummary(item) {
             if (!exData || !exData.sets || exData.sets.length === 0) return;
             const volStr = exData.vol >= 1000 ? (exData.vol / 1000).toFixed(1) + 't' : exData.vol + 'kg';
             lines.push(`${exName} (Vol: ${volStr}):`);
+            if (exData.note) lines.push(`הערת תרגיל: ${exData.note}`);
             exData.sets.forEach(s => lines.push(s));
             lines.push('');
         });

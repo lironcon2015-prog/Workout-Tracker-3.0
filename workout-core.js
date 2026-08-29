@@ -8015,15 +8015,30 @@ function _watchAttach(rec, entryDate, by) {
 // _linkWatchWorkouts — משייך אימוני שעון לרשומות ארכיון לפי חפיפת זמנים.
 // רשומה ששויכה ידנית לא נדרסת, ואימון שכבר נושא watch לא נבדק שוב.
 function _linkWatchWorkouts() {
-    const pool = StorageManager.getWatchWorkouts().filter(w => w && !w.linkedTs);
+    const pool = StorageManager.getWatchWorkouts();
     if (!pool.length) return 0;
     const archive = StorageManager.getArchive();
     let linked = 0;
 
     archive.forEach(entry => {
+        if (!entry || !entry.timestamp) return;
+        // רשומה משויכת שהמקור שלה התעדכן — דחיפה מאוחרת של אותו אימון מביאה
+        // שדות שלא היו קיימים בדחיפה הראשונה (בראשן התאוששות הדופק, שנמדדת
+        // בדקה שאחרי הסיום). בלי הרענון הזה הרשומה הייתה נשארת חלקית לנצח.
+        if (entry.watch) {
+            const src = pool.find(r => r && r.id === entry.watch.srcId);
+            if (src && _watchGains(src, entry.watch)) {
+                const by = entry.watch.linkedBy;
+                entry.watch = _watchAttach(src, entry.date, by);
+                StorageManager.updateArchiveEntry(entry.timestamp, entry);
+                StorageManager.markWatchLinked(src.id, entry.timestamp, by);
+                linked++;
+            }
+            return;
+        }
         // watch === null = המשתמש ביטל שיוך ביודעין; לא משייכים מחדש אוטומטית
         // (הוא עדיין יכול לבחור אימון מרשימת המועמדים).
-        if (!entry || entry.watch !== undefined || !entry.timestamp) return;
+        if (entry.watch !== undefined) return;
         const endTs = entry.timestamp;
         const startTs = endTs - (entry.duration || 0) * 60000;
         let best = null, bestOverlap = 0;
@@ -8042,6 +8057,21 @@ function _linkWatchWorkouts() {
         linked++;
     });
     return linked;
+}
+
+// _watchGains — האם רשומת המקור נושאת נתון שהרשומה השמורה חסרה. משמש גם
+// לרענון רשומה משויכת וגם כתנאי העצירה של המשיכה האוטומטית.
+const WATCH_NUM_FIELDS = ['hrAvg', 'hrMax', 'activeKcal', 'hrRecovery1'];
+function _watchGains(src, w) {
+    if (!src || !w) return false;
+    const hasSeries = o => Array.isArray(o.hrSeries) && o.hrSeries.length > 0;
+    if (hasSeries(src) && !hasSeries(w)) return true;
+    return WATCH_NUM_FIELDS.some(k => (src[k] > 0) && !(w[k] > 0));
+}
+
+// _watchComplete — רשומה שאין טעם להמשיך לחכות לה: יש סדרת דופק ויש התאוששות.
+function _watchComplete(w) {
+    return !!(w && Array.isArray(w.hrSeries) && w.hrSeries.length && w.hrRecovery1 > 0);
 }
 
 // linkWatchWorkout / unlinkWatchWorkout — שיוך ידני מתוך מסך הסיכום.
@@ -8105,10 +8135,11 @@ function startWatchAutoPull(archiveTs) {
 
     // ניסיון מקומי לפני כל רשת: ייתכן שהאימון כבר במאגר מהמשיכה הקודמת ורק לא
     // שויך, כי רשומת הארכיון נוצרה אחריה.
-    if (_linkWatchWorkouts() > 0) { _refreshMetricsPane(archiveTs); return; }
+    if (_linkWatchWorkouts() > 0) _refreshMetricsPane(archiveTs);
 
     const entry = StorageManager.getArchive().find(a => a.timestamp === archiveTs);
-    if (!entry || entry.watch !== undefined) return;   // כבר יש, או שהשיוך בוטל ביודעין
+    if (!entry || entry.watch === null) return;                 // השיוך בוטל ביודעין
+    if (entry.watch && _watchComplete(entry.watch)) return;     // רשומה מלאה — אין מה לחפש
 
     _watchPollTs = archiveTs;
     _watchPollIdx = 0;
@@ -8132,8 +8163,11 @@ function _scheduleWatchPoll() {
         // manual=false → שקט לחלוטין; force=true → עוקף את ה-throttle של 15 דק'
         try { await syncHealthNutrition(false, true); } catch (e) {}
         if (_watchPollTs !== ts) return;        // הופסק/הוחלף בזמן ההמתנה לרשת
+        // עוצרים רק על רשומה **מלאה**. דחיפה מיידית בסיום האימון מביאה אגרגטים
+        // בלי התאוששות דופק (היא נמדדת בדקה שאחרי), ועצירה עליה הייתה מפספסת
+        // את הדחיפה המשלימה. הכרטיס כבר מציג את מה שהגיע — ההמתנה שקופה.
         const entry = StorageManager.getArchive().find(a => a.timestamp === ts);
-        if (entry && entry.watch) { stopWatchAutoPull(); return; }   // הגיע — הרינדור כבר קרה בסנכרון
+        if (entry && _watchComplete(entry.watch)) { stopWatchAutoPull(); return; }
         _scheduleWatchPoll();
     }, delay);
 }

@@ -420,7 +420,7 @@
     <div id="unified-export-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>ייצוא קובץ מאוחד (לניתוח)</h3>
-            <p class="sub-text" style="margin-bottom:16px;">קובץ JSON אחד: שקילות, תזונה (יומית + מפורטת), היסטוריית אימונים, שינה+התאוששות ותיבת זיכרון המאמן. בחר טווח.</p>
+            <p class="sub-text" style="margin-bottom:16px;">קובץ JSON אחד: שקילות, תזונה (יומית + מפורטת), היסטוריית אימונים (כולל נתוני Apple Watch לאימון), שינה+התאוששות ותיבת זיכרון המאמן. בחר טווח.</p>
             <div class="vertical-stack">
                 <button class="btn-main primary-gradient" onclick="exportUnifiedData('all')">הכל</button>
                 <button class="btn-text" onclick="exportUnifiedData(7)">7 ימים אחרונים</button>
@@ -1060,6 +1060,10 @@
                                 <input type="password" id="health-bridge-token-input" class="stg-ai-input" placeholder="ה-token שהגדרת בסקריפט" autocomplete="off">
                             </div>
                             <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>משוך גם אימוני שעון</span>
+                                <span class="stg-switch"><input type="checkbox" id="health-pull-workouts-toggle" class="bridge-subtoggle"><span class="stg-switch-slider"></span></span>
+                            </label>
+                            <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span>משוך גם תזונה (MFP)</span>
                                 <span class="stg-switch"><input type="checkbox" id="health-pull-nutrition-toggle" class="bridge-subtoggle"><span class="stg-switch-slider"></span></span>
                             </label>
@@ -1068,6 +1072,22 @@
                             </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">המקור המומלץ הוא <b>Health Auto Export</b> (טוטלים יומיים מעובדים, תואמים לאפליקציית Health), שנדחף לגשר בתזמון דטרמיניסטי דרך קיצורי דרך; האפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. ה-token נשמר מקומית בלבד. "משוך גם תזונה" כבוי כברירת מחדל — הדלק רק אם חזרת ל-MFP. ראה docs/hae-automation-recipe.md.</div>
+                    </div>
+
+                    <!-- אזורי דופק — גבולות לחישוב הזמן בכל אזור מסדרת הדופק -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">אזורי דופק</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>חישוב אוטומטי</span>
+                                <span class="stg-switch"><input type="checkbox" id="hrz-auto-toggle" class="bridge-toggle" onchange="toggleHrZoneAuto()"><span class="stg-switch-slider"></span></span>
+                            </label>
+                            <div id="hrz-body"></div>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--save" onclick="saveHrZoneSettings()">שמור הגדרות</button>
+                            </div>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">אזורי הדופק אינם נתון שנשמר ב-Apple Health — הם מחושבים לתצוגה. בחישוב האוטומטי הגבולות נגזרים מרזרבת הדופק (60/70/80/90 אחוז): דופק המנוחה מגיע מחציון לילות הגשר, והדופק המרבי מהגיל שבפרופיל הגוף. כיבוי המתג פותח ארבעה שדות להעתקה ישירה ממסך ה-Fitness.</div>
                     </div>
 
                     <!-- גשר אפל-ווטש (אימון חי) -->

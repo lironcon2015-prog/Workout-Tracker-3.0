@@ -37,7 +37,9 @@ const SECRET_TOKEN = 'CHANGE_ME_to_a_random_secret';
 
 const NUTRI_KEY = 'health_days';   // תזונה: [cal,prot,carb,fat]
 const SLEEP_KEY = 'sleep_days';    // שינה: [asleep,inbed,deep,rem,core,awake,rhr,hrv,resp,temp]
+const WORK_KEY  = 'workout_sessions'; // אימוני Apple Watch: אובייקט לפי חותמת התחלה (ISO)
 const MAX_DAYS  = 120;             // שמירת ~4 חודשים אחרונים לכל סוג
+const MAX_WORKOUTS = 60;           // אימונים אחרונים שנשמרים (כולל סדרות דופק)
 
 // 🐞 דיבאג: כשדלוק — שומר את גוף ה-POST הגולמי האחרון, לשליפה בדפדפן דרך
 //    <URL>?token=…&raw=1 (לאימות פורמט מקור חדש). ברירת מחדל כבוי; הדלק בעת הצורך.
@@ -78,6 +80,10 @@ function doPost(e) {
 
   var incNutri = Array.isArray(body.days)  ? body.days  : [];
   var incSleep = Array.isArray(body.sleep) ? body.sleep : [];
+  // אימונים — Health Auto Export שולח אותם במסלול נפרד ({data:{workouts:[…]}}),
+  // ולכן אוטומציית Workouts מגיעה כ-POST משל עצמה ואינה מתערבבת בשינה.
+  var incWork = Array.isArray(body.workouts) ? body.workouts
+              : (body.data && Array.isArray(body.data.workouts)) ? body.data.workouts : [];
   // Health Auto Export (REST API): { data:{ metrics:[…] } } — ממזג לפי תאריך.
   var haeDiag = null;
   if (!incSleep.length && body.data && Array.isArray(body.data.metrics)) {
@@ -85,7 +91,7 @@ function doPost(e) {
     incSleep = _parseHAE(body.data.metrics, haeDiag);
     // כשל שקט הוא האויב: אם HAE שלחה מדדים ולא יצא מהם ולו לילה אחד — מחזירים
     // שגיאה מפורשת עם רמז, במקום NO_DATA גנרי שנראה כמו "אין נתונים".
-    if (!incSleep.length && !incNutri.length) {
+    if (!incSleep.length && !incNutri.length && !incWork.length) {
       // מתעדים גם כישלון — זו בדיוק הראיה ש"הטריגר ירה אבל המכשיר היה נעול".
       _logPush(haeDiag.unaggregated ? 'hae:ERR_RAW' : 'hae:ERR_EMPTY', '', null);
       return _json({ ok: false,
@@ -104,7 +110,7 @@ function doPost(e) {
       body.hrv != null || body.rhr != null || body.resp != null || body.temp != null)) {
     incSleep = [body];
   }
-  if (!incNutri.length && !incSleep.length) {
+  if (!incNutri.length && !incSleep.length && !incWork.length) {
     _logPush('ERR_NO_DATA', '', null);
     return _json({ ok: false, error: 'NO_DATA' });
   }
@@ -141,6 +147,20 @@ function doPost(e) {
     } else if (incNutri.length) {
       _logPush('nutri', '', null);
     }
+
+    if (incWork.length) {
+      var wMap = _load(WORK_KEY), wStored = 0;
+      incWork.forEach(function (w) {
+        var rec = _parseWorkout(w);
+        if (!rec) return;
+        // upsert לפי חותמת ההתחלה: ייצוא חוזר על אותו טווח מעדכן ולא מכפיל.
+        wMap[rec.id] = rec;
+        wStored++;
+      });
+      _saveWorkouts(wMap);
+      out.workouts_stored = wStored;
+      _logPush('workouts:' + wStored, '', null);
+    }
     return _json(out);
   } finally {
     lock.releaseLock();
@@ -173,7 +193,9 @@ function doGet(e) {
         rhr: v[6], hrv: v[7], respRate: v[8], wristTempDev: v[9]
       };
     });
-    result = { ok: true, days: days, sleep: sleep, pushes: _loadPushLog() };
+    var wMap = _load(WORK_KEY);
+    var workouts = Object.keys(wMap).sort().map(function (k) { return wMap[k]; });
+    result = { ok: true, days: days, sleep: sleep, workouts: workouts, pushes: _loadPushLog() };
   }
 
   var json = JSON.stringify(result);
@@ -319,6 +341,93 @@ function _mergeNight(prev, d) {
     fresh(p[9], _f(d.temp))
   ];
 }
+
+/* ─── אימון מ-Health Auto Export → רשומה פנימית ────────────────────────────
+ * HAE שולח לכל אימון: name, start, end, duration, activeEnergy/totalEnergy,
+ * avgHeartRate/maxHeartRate/minHeartRate, heartRateRecovery, ו-heartRateData[]
+ * (מקטע לכל דגימה: {date, Min, Avg, Max}). חלק מהשדות הם אובייקט {qty,units}
+ * וחלק מספר — _q מטפל בשניהם, ו-_kcal ממיר kJ לקלוריות לפי היחידה המדווחת.
+ *
+ * hrSeries נשמרת מדוללת ל-SERIES_STEP שניות ובפורמט [שניות, min, avg, max] —
+ * ארבעת המספרים דרושים לגרף הנרות ולחישוב הזמן בכל אזור. שדה זמן חסר או תאריך
+ * לא-תקין פוסלים את האימון: בלי start/end אין מה לשייך אליו רשומת ארכיון. */
+var SERIES_STEP = 30;   // שניות בין נקודות בסדרה המדוללת
+
+function _parseWorkout(w) {
+  if (!w) return null;
+  var start = _ms(w.start), end = _ms(w.end);
+  if (!start) return null;
+  var durMin = w.duration != null ? Math.round(_q(w.duration) / 60) : null;   // HAE מדווח שניות
+  if (!end && durMin) end = start + durMin * 60000;
+  if (!end) return null;
+  if (!durMin) durMin = Math.round((end - start) / 60000);
+
+  var series = _parseHrSeries(w.heartRateData, start);
+  var rec = {
+    id: _iso(start),
+    start: start, end: end, durMin: durMin,
+    wType: String(w.name || w.workoutActivityType || '').trim(),
+    hrAvg: _r(_q(w.avgHeartRate)), hrMax: _r(_q(w.maxHeartRate)), hrMin: _r(_q(w.minHeartRate)),
+    activeKcal: _kcal(w.activeEnergy != null ? w.activeEnergy : w.activeEnergyBurned),
+    totalKcal:  _kcal(w.totalEnergy),
+    hrRecovery1: _r(_q(w.heartRateRecovery)),
+    hrSeries: series.length ? series : null
+  };
+  // אם אין אגרגטים אבל יש סדרה — גוזרים מהסדרה, כדי שאימון לא יגיע ריק.
+  if (!rec.hrAvg && series.length) {
+    var sum = 0; for (var i = 0; i < series.length; i++) sum += series[i][2];
+    rec.hrAvg = Math.round(sum / series.length);
+  }
+  if (!rec.hrMax && series.length) {
+    var mx = 0; for (var j = 0; j < series.length; j++) if (series[j][3] > mx) mx = series[j][3];
+    rec.hrMax = mx;
+  }
+  return rec;
+}
+
+// _parseHrSeries — [שניות-מההתחלה, min, avg, max], מדולל ל-SERIES_STEP.
+function _parseHrSeries(rows, start) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  var out = [], lastSec = -SERIES_STEP;
+  rows.forEach(function (r) {
+    var t = _ms(r && (r.date || r.startDate));
+    if (!t) return;
+    var sec = Math.round((t - start) / 1000);
+    if (sec < 0 || sec - lastSec < SERIES_STEP) return;
+    var avg = _q(r.Avg != null ? r.Avg : (r.avg != null ? r.avg : r.qty));
+    if (!avg) return;
+    var mn = _q(r.Min != null ? r.Min : r.min) || avg;
+    var mx = _q(r.Max != null ? r.Max : r.max) || avg;
+    out.push([sec, Math.round(mn), Math.round(avg), Math.round(mx)]);
+    lastSec = sec;
+  });
+  return out;
+}
+
+function _saveWorkouts(map) {
+  var ids = Object.keys(map).sort();
+  while (ids.length > MAX_WORKOUTS) delete map[ids.shift()];
+  PropertiesService.getScriptProperties().setProperty(WORK_KEY, JSON.stringify(map));
+}
+
+// _q — ערך מתוך מספר או מתוך אובייקט {qty,units}
+function _q(v) {
+  if (v == null) return 0;
+  if (typeof v === 'object') return Number(v.qty) || 0;
+  var n = Number(v);
+  return isFinite(n) ? n : 0;
+}
+// _kcal — קלוריות; ממיר kJ אם היחידה מדווחת ככזו (HAE מכבד את העדפת המשתמש)
+function _kcal(v) {
+  var n = _q(v);
+  if (!n) return 0;
+  var u = (v && typeof v === 'object' && v.units) ? String(v.units).toLowerCase() : '';
+  if (u.indexOf('kj') > -1) n = n / 4.184;
+  return Math.round(n);
+}
+function _r(n) { return n ? Math.round(n) : 0; }
+function _ms(s) { var t = Date.parse(String(s || '').replace(' ', 'T')); return isNaN(t) ? 0 : t; }
+function _iso(ms) { return new Date(ms).toISOString(); }
 
 function _save(key, map) {
   var dates = Object.keys(map).sort();

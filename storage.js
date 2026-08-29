@@ -38,6 +38,9 @@ const StorageManager = {
     KEY_HEALTH_BRIDGE_TOKEN: 'gympro_health_bridge_token',  // token סודי לגשר ה-Health
     KEY_HEALTH_BRIDGE_ON:    'gympro_health_bridge_on',     // האם גשר Health פעיל (ברירת מחדל: דלוק)
     KEY_HEALTH_PULL_NUTRITION: 'gympro_health_pull_nutrition', // משיכת תזונה מהגשר (כבוי כברירת מחדל; הגשר לשינה)
+    KEY_HEALTH_PULL_WORKOUTS:  'gympro_health_pull_workouts',  // משיכת אימוני שעון מהגשר (דלוק כברירת מחדל)
+    KEY_WATCH_WORKOUTS:      'gympro_watch_workouts',       // מאגר-ביניים של אימוני Apple Watch (טרם שויכו)
+    KEY_HR_ZONES:            'gympro_hr_zones',             // גבולות אזורי דופק: אוטומטי מרזרבה, או ידני
     KEY_HEALTH_LAST_SYNC:    'gympro_health_last_sync',     // timestamp משיכה מוצלחת אחרונה מהגשר
     KEY_WATCH_BRIDGE_URL:   'gympro_watch_bridge_url',    // Apps Script proxy לגשר השעון
     KEY_WATCH_BRIDGE_TOKEN: 'gympro_watch_bridge_token',  // SECRET_TOKEN לגשר השעון
@@ -444,6 +447,8 @@ const StorageManager = {
             this.KEY_HEALTH_BRIDGE_TOKEN,
             this.KEY_HEALTH_BRIDGE_ON,
             this.KEY_HEALTH_PULL_NUTRITION,
+            this.KEY_HEALTH_PULL_WORKOUTS,
+            this.KEY_HR_ZONES,
             this.KEY_WATCH_BRIDGE_URL,
             this.KEY_WATCH_BRIDGE_TOKEN,
             this.KEY_WATCH_BRIDGE_ON,
@@ -563,6 +568,7 @@ const StorageManager = {
             'שקילות (משקל/שומן)': n(this.getBodyLog()),
             'ימי תזונה (סיכום יומי)': n(this.getNutritionDaily()),
             'לילות שינה והתאוששות': n(this.getSleepDaily()),
+            'אימוני שעון שטרם שויכו': n(this.getWatchWorkouts().filter(w => w && !w.linkedTs)),
             'ימי יומן מזון': foodDays,
             'מצבים תזונתיים (היסטוריה)': n(this.getNutritionLog()),
             'כולל גם': 'פרופיל AI, פרומפטי מאמן, יעדים, פרופיל גוף, הגדרות, וחיבורי גשרים (URL/token)'
@@ -1002,6 +1008,7 @@ const StorageManager = {
             nutritionLog: this.getNutritionLog(),
             nutritionDaily: this.getNutritionDaily(),
             sleepDaily: this.getSleepDaily(),
+            watchWorkouts: this.getWatchWorkouts(),
             nutritionNotes: this.getNutritionNotes(),
             targetHistory: this.getTargetHistory(),
             nutritionRaw: this.getNutritionRaw(),
@@ -1067,6 +1074,7 @@ const StorageManager = {
             if (data.nutritionLog)   this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) this.saveData(this.KEY_NUTRITION_DAILY, data.nutritionDaily);
             if (data.sleepDaily)     this.saveData(this.KEY_SLEEP_DAILY, data.sleepDaily);
+            if (Array.isArray(data.watchWorkouts)) this.saveWatchWorkouts(data.watchWorkouts);
             if (data.nutritionNotes) this.saveData(this.KEY_NUTRITION_NOTES, data.nutritionNotes);
             if (data.targetHistory)  this.saveData(this.KEY_TARGET_HISTORY, data.targetHistory);
             if (data.nutritionRaw)   this.saveData(this.KEY_NUTRITION_RAW, data.nutritionRaw);
@@ -1213,6 +1221,84 @@ const StorageManager = {
         const merged = Object.values(map).sort((a, b) => a.date < b.date ? -1 : 1);
         this.saveData(this.KEY_SLEEP_DAILY, merged);
         return changed;
+    },
+
+    // ── Watch workouts (סיכומי אימון מ-Apple Watch דרך גשר ה-Health) ──────
+    // מאגר-ביניים בלבד: הרשומה הקבועה של אימון שויּך יושבת בתוך רשומת הארכיון
+    // (entry.watch). כאן נשמרים גם אימונים שלא שויכו (הליכות/קרדיו) לשיוך ידני
+    // בדיעבד. מוגבל ל-WATCH_POOL_MAX, ו-hrSeries נגזרת מרשומה ששויכה כדי לא
+    // לשמור את אותה סדרה פעמיים.
+    WATCH_POOL_MAX: 40,
+
+    getWatchWorkouts() {
+        return this.getData(this.KEY_WATCH_WORKOUTS) || [];
+    },
+    saveWatchWorkouts(arr) {
+        const list = (arr || []).slice().sort((a, b) => (a.start || 0) - (b.start || 0));
+        this.saveData(this.KEY_WATCH_WORKOUTS, list.slice(-this.WATCH_POOL_MAX));
+    },
+    // mergeWatchWorkouts — upsert לפי id (חותמת ההתחלה). שדות שכבר קיימים ואינם
+    // מגיעים בדחיפה החדשה נשמרים (הגשר עשוי לשלוח ייצוא חלקי), ושיוך קיים
+    // (linkedTs) לעולם לא נמחק ע"י משיכה חוזרת.
+    mergeWatchWorkouts(list) {
+        if (!Array.isArray(list) || !list.length) return 0;
+        const map = {};
+        this.getWatchWorkouts().forEach(w => { if (w && w.id) map[w.id] = w; });
+        let changed = 0;
+        list.forEach(w => {
+            if (!w || !w.id || !w.start) return;
+            const prev = map[w.id];
+            const merged = Object.assign({}, prev || {});
+            Object.keys(w).forEach(k => { if (w[k] !== undefined && w[k] !== null) merged[k] = w[k]; });
+            if (prev && prev.linkedTs) { merged.linkedTs = prev.linkedTs; merged.linkedBy = prev.linkedBy; }
+            if (prev && JSON.stringify(prev) === JSON.stringify(merged)) return;
+            map[w.id] = merged;
+            changed++;
+        });
+        if (!changed) return 0;
+        this.saveWatchWorkouts(Object.values(map));
+        return changed;
+    },
+    // markWatchLinked — מסמן רשומה כמשויכת ומשחרר את הסדרה הכבדה ממנה
+    // (היא כבר הועתקה במלואה לתוך רשומת הארכיון).
+    markWatchLinked(id, archiveTs, by) {
+        const list = this.getWatchWorkouts();
+        const w = list.find(x => x && x.id === id);
+        if (!w) return false;
+        w.linkedTs = archiveTs;
+        w.linkedBy = by || 'auto';
+        delete w.hrSeries;
+        this.saveWatchWorkouts(list);
+        return true;
+    },
+    unmarkWatchLinked(archiveTs) {
+        const list = this.getWatchWorkouts();
+        let hit = false;
+        list.forEach(w => { if (w && w.linkedTs === archiveTs) { delete w.linkedTs; delete w.linkedBy; hit = true; } });
+        if (hit) this.saveWatchWorkouts(list);
+        return hit;
+    },
+
+    // ── אזורי דופק ──────────────────────────────────────────────────────
+    // auto=true (ברירת מחדל): הגבולות נגזרים מרזרבת הדופק (Karvonen) — 60/70/80/90%
+    // בין דופק המנוחה (חציון הלילות מהגשר) לדופק המרבי (220 פחות הגיל מפרופיל הגוף).
+    // auto=false: ארבעה ערכים ידניים, כפי שמופיעים במסך ה-Fitness.
+    getHrZones() {
+        const z = this.getData(this.KEY_HR_ZONES) || {};
+        return {
+            auto:   z.auto !== false,
+            maxHr:  z.maxHr  != null ? z.maxHr  : null,   // דריסה ידנית של הדופק המרבי
+            restHr: z.restHr != null ? z.restHr : null,   // דריסה ידנית של דופק המנוחה
+            bounds: Array.isArray(z.bounds) && z.bounds.length === 4 ? z.bounds : null
+        };
+    },
+    saveHrZones(z) {
+        this.saveData(this.KEY_HR_ZONES, {
+            auto:   z.auto !== false,
+            maxHr:  z.maxHr  != null ? z.maxHr  : null,
+            restHr: z.restHr != null ? z.restHr : null,
+            bounds: Array.isArray(z.bounds) && z.bounds.length === 4 ? z.bounds : null
+        });
     },
 
     // clearNutrition — מוחק את כל נתוני התזונה (סיכום יומי + קובץ גולמי).
@@ -1734,6 +1820,15 @@ const StorageManager = {
     },
     setHealthPullNutrition(on) {
         localStorage.setItem(this.KEY_HEALTH_PULL_NUTRITION, on ? '1' : '0');
+    },
+
+    // משיכת אימוני שעון מהגשר — דלוק כברירת מחדל (הגשר כבר מוגדר; חסרה רק
+    // אוטומציית Workouts ב-HAE, ובלעדיה המשיכה פשוט מחזירה מערך ריק).
+    isHealthPullWorkouts() {
+        return localStorage.getItem(this.KEY_HEALTH_PULL_WORKOUTS) !== '0';
+    },
+    setHealthPullWorkouts(on) {
+        localStorage.setItem(this.KEY_HEALTH_PULL_WORKOUTS, on ? '1' : '0');
     },
 
     getHealthLastSync() {
@@ -2649,6 +2744,8 @@ const FirebaseManager = {
                 nutritionLog:   StorageManager.getNutritionLog(),
                 nutritionDaily: StorageManager.getNutritionDaily(),
                 sleepDaily:     StorageManager.getSleepDaily(),
+                watchWorkouts:  StorageManager.getWatchWorkouts(),
+                hrZones:        StorageManager.getHrZones(),
                 nutritionNotes: StorageManager.getNutritionNotes(),
                 targetHistory:  StorageManager.getTargetHistory(),
                 // v17.15: foodLog הוצא מכאן — גדל ללא גבול (רשומה ליום) והיה מוביל את
@@ -2799,6 +2896,8 @@ const FirebaseManager = {
         if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
         if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
         if (data.sleepDaily)     StorageManager.saveData(StorageManager.KEY_SLEEP_DAILY, data.sleepDaily);
+        if (Array.isArray(data.watchWorkouts)) StorageManager.saveWatchWorkouts(data.watchWorkouts);
+        if (data.hrZones)        StorageManager.saveHrZones(data.hrZones);
         if (data.nutritionNotes) StorageManager.saveData(StorageManager.KEY_NUTRITION_NOTES, data.nutritionNotes);
         if (data.targetHistory)  StorageManager.saveData(StorageManager.KEY_TARGET_HISTORY, data.targetHistory);
         if (data.foodLog)        StorageManager.saveData(StorageManager.KEY_FOOD_LOG, data.foodLog);

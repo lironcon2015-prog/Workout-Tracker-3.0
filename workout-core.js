@@ -8069,9 +8069,13 @@ function _watchGains(src, w) {
     return WATCH_NUM_FIELDS.some(k => (src[k] > 0) && !(w[k] > 0));
 }
 
-// _watchComplete — רשומה שאין טעם להמשיך לחכות לה: יש סדרת דופק ויש התאוששות.
+// _watchComplete — רשומה שאין טעם להמשיך לחכות לה. הסף הוא **סדרת הדופק**:
+// היא מגיעה יחד עם האימון עצמו, ואיתה יש גרף ואזורים.
+// התאוששות הדופק במפורש **אינה** תנאי: היא נמדדת על הדקה שאחרי הסיום ולכן
+// דורשת דחיפה שנייה מושהית — מחיר גבוה על מדד שאינו נדרש כאן. אם היא בכל זאת
+// תגיע בדחיפה מאוחרת (אוטומציה יומית), `_watchGains` יכניס אותה לרשומה.
 function _watchComplete(w) {
-    return !!(w && Array.isArray(w.hrSeries) && w.hrSeries.length && w.hrRecovery1 > 0);
+    return !!(w && Array.isArray(w.hrSeries) && w.hrSeries.length);
 }
 
 // linkWatchWorkout / unlinkWatchWorkout — שיוך ידני מתוך מסך הסיכום.

@@ -697,6 +697,13 @@ function openArchiveDetail(idx) {
     document.getElementById('btn-archive-cancel-edit').onclick = () => exitArchiveEditMode();
 
     navigate('ui-archive-detail');
+
+    // אימון מהיממה האחרונה בלי נתוני שעון — משיכה אוטומטית, כמו במסך הסיכום.
+    // אימון ישן לא מפעיל משיכה: הנתונים שלו לא בדרך, והמאגר בגשר נגזם ל-21 יום.
+    if (typeof startWatchAutoPull === 'function' && item.watch === undefined &&
+        Date.now() - item.timestamp < 24 * 3600000) {
+        startWatchAutoPull(item.timestamp);
+    }
 }
 
 // ─── ARCHIVE EDIT MODE ───────────────────────────────────────────────────
@@ -742,6 +749,7 @@ function exitArchiveEditMode() {
 }
 
 function _renderArchiveEditView() {
+    if (typeof stopWatchAutoPull === 'function') stopWatchAutoPull();
     const item = _archiveEditItem;
     const contentEl = document.getElementById('archive-detail-content');
 

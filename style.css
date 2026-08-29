@@ -7778,3 +7778,125 @@ body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
     border-color: rgba(var(--warn-strong-rgb), 0.38) !important;
     background: rgba(var(--warn-strong-rgb), 0.06) !important;
 }
+
+/* ═══ נתוני שעון + לשונית מדדים (v19.10) ═══════════════════════════════════
+   הכרטיסים חיים בשתי חזיתות — מסך הסיכום (#sum-tab-metrics) ופרטי אימון
+   בארכיון (#arch-tab-metrics) — ולכן אין להם תלות במסך המארח. */
+.wc {
+    background: var(--surface-2);
+    border: 1px solid var(--hairline); border-top-color: var(--hairline-hi);
+    border-radius: var(--r-md); padding: 16px; margin-bottom: 12px;
+    box-shadow: var(--top-glint), var(--elev-2);
+}
+.wc--empty { background: var(--surface-1); box-shadow: none; }
+.wc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.wc-title { font-size: var(--fs-lg); font-weight: 900; color: #fff; }
+.wc-pill {
+    font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim);
+    background: var(--surface-4); border-radius: var(--r-pill); padding: 4px 10px;
+}
+.wc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.wc-m {
+    background: var(--surface-3); border: 1px solid var(--hairline);
+    border-radius: var(--r-sm); padding: 11px 4px; text-align: center;
+}
+.wc-m .v { font-size: 1.05rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.1; direction: ltr; }
+.wc-m .k { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; margin-top: 4px; }
+.wc-m .v.v-hr  { color: var(--danger-soft); }
+.wc-m .v.v-cal { color: var(--warn-strong); }
+.wc-m .v.v-rec { color: var(--success); }
+
+/* גרף דופק — נרות: נר לכל מקטע דגימה, מהמינימום עד המקסימום שלו,
+   בצבע האזור של הממוצע. פער דגימה נשאר ריק ולא "נמתח" בקו. */
+.wc-zones { margin-top: 14px; }
+.wc-zlabel { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+.wc-zlabel .a { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); }
+.wc-zlabel .b { font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.hrchart { display: block; width: 100%; height: auto; }
+.hrchart .c.z1 { fill: rgba(var(--accent-rgb), 0.85); }
+.hrchart .c.z2 { fill: var(--success); }
+.hrchart .c.z3 { fill: var(--warn); }
+.hrchart .c.z4 { fill: var(--warn-strong); }
+.hrchart .c.z5 { fill: var(--danger); }
+.hrx { display: flex; justify-content: space-between; margin-top: 3px; }
+.hrx span { font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* שורות אזורי דופק */
+.zrows { display: flex; flex-direction: column; gap: 6px; }
+.zrow { display: flex; align-items: center; gap: 8px; }
+.zrow .zn { font-size: var(--fs-xs); font-weight: 800; width: 24px; flex-shrink: 0; }
+.zrow .zt { flex: 1; height: 7px; border-radius: var(--r-pill); background: var(--surface-4); overflow: hidden; }
+.zrow .zt i { display: block; height: 100%; border-radius: var(--r-pill); }
+.zrow .zv { font-size: var(--fs-xs); font-weight: 800; font-variant-numeric: tabular-nums; direction: ltr; width: 42px; text-align: left; }
+.zrow .zr { font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim); direction: ltr; width: 58px; text-align: left; }
+.zrow.off .zn, .zrow.off .zv { opacity: var(--opacity-disabled); }
+.zrow .z1 { background: rgba(var(--accent-rgb), 0.6); }
+.zrow .z2 { background: var(--success); }
+.zrow .z3 { background: var(--warn); }
+.zrow .z4 { background: var(--warn-strong); }
+.zrow .z5 { background: var(--danger); }
+.zn1 { color: var(--accent); } .zn2 { color: var(--success); } .zn3 { color: var(--warn); }
+.zn4 { color: var(--warn-strong); } .zn5 { color: var(--danger-soft); }
+
+.wc-meta {
+    margin-top: 14px; padding-top: 11px; border-top: 1px solid var(--hairline);
+    font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; line-height: 1.7;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.wc-empty-txt { font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.7; }
+.wc-actions { display: flex; gap: 8px; margin-top: 14px; }
+.wc-btn {
+    font-family: 'Heebo', sans-serif; font-size: var(--fs-sm); font-weight: 800;
+    padding: 9px 16px; border-radius: var(--r-pill); border: 1px solid transparent;
+    background: var(--surface-4); color: var(--text); cursor: pointer;
+    transition: opacity var(--dur-1) var(--ease);
+}
+.wc-btn:active { opacity: 0.7; }
+.wc-btn--primary { background: rgba(var(--accent-rgb), 0.16); color: var(--accent); border-color: rgba(var(--accent-rgb), 0.3); }
+.wc-btn--link { background: transparent; color: var(--text-dim); padding: 4px 0; font-size: var(--fs-xs); font-weight: 700; text-decoration: underline; }
+
+/* מועמדים לשיוך ידני */
+.wc-cands { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.wc-cands-t { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); margin-bottom: 8px; }
+.wc-cand {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--r-sm);
+    padding: 11px 13px; margin-bottom: 7px; text-align: right; cursor: pointer;
+    font-family: 'Heebo', sans-serif; color: var(--text);
+}
+.wc-cand:active { border-color: rgba(var(--accent-rgb), 0.45); }
+.wc-cand-i { display: flex; flex-direction: column; gap: 3px; }
+.wc-cand-i .n { font-size: var(--fs-md); font-weight: 800; }
+.wc-cand-i .d { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; font-variant-numeric: tabular-nums; }
+.wc-cand-g { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); direction: ltr; flex-shrink: 0; }
+
+/* מוכנות הבוקר */
+.rd { display: flex; align-items: center; gap: 14px; }
+.rd-ring { width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; }
+.rd-ring span {
+    width: 44px; height: 44px; border-radius: 50%; background: var(--surface-2);
+    display: grid; place-items: center; font-size: var(--fs-lg); font-weight: 900;
+    color: #fff; font-variant-numeric: tabular-nums;
+}
+.rd-txt .a { font-size: var(--fs-lg); font-weight: 900; color: #fff; }
+.rd-txt .b { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; line-height: 1.5; }
+.wc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.wc-chip {
+    font-size: var(--fs-xs); font-weight: 700; padding: 4px 9px; border-radius: var(--r-pill);
+    background: var(--surface-4); color: var(--text); display: inline-flex; gap: 5px; align-items: center;
+}
+.wc-chip .ar { font-weight: 900; }
+.wc-chip.up .ar { color: var(--success); }
+.wc-chip.down .ar { color: var(--danger-soft); }
+
+/* שורות הקשר (מצב תזונתי / משקל) */
+.krow {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: var(--fs-md); font-weight: 700; padding: 9px 0;
+    border-bottom: 1px solid var(--hairline);
+}
+.krow:last-child { border-bottom: none; }
+.krow .kv { color: var(--text-dim); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* הבורר בשני מסכי הסיכום — אותו רכיב, ריווח מותאם */
+.summary-seg, .archive-detail-seg { margin: 4px 0 16px; }

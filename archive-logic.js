@@ -396,6 +396,9 @@ function _archiveCopyText(item, withCoachOverride) {
     const withCoach = (typeof withCoachOverride === 'boolean') ? withCoachOverride : _coachToggleState();
     let txt = item.summary || '';
     if (!withCoach) txt = _stripCoachFromSummary(txt);
+    // נתוני השעון נוספים כשורה אחת אחרי גוף האימון ולפני סיכום המאמן
+    const wLine = (typeof watchSummaryLine === 'function') ? watchSummaryLine(item) : '';
+    if (wLine) txt += `\n\n${wLine}`;
     if (withCoach && item.aiSummary) {
         txt += `\n\n=== סיכום המאמן ===\n${item.aiSummary}`;
     }
@@ -466,6 +469,25 @@ function buildArchiveDetailHTML(item) {
     if (item.note) {
         html += `<div class="summary-ex-card" style="font-size:0.9em;color:var(--text-dim);margin-bottom:10px;">הערה: ${escapeHtml(item.note)}</div>`;
     }
+
+    // ── שלוש לשוניות, זהות למסך הסיכום ─────────────────────────────────────
+    // עד כאן (סקירה + הערה) — קבוע. משם והלאה: מאמן / מדדים / ביצוע.
+    // סיכום המאמן נשמר ברשומה מאז ומתמיד אך מעולם לא הוצג כאן — רק בהעתקה.
+    const hasCoach = !!(item.aiSummary && item.aiSummary.trim());
+    const metricsHtml = (typeof buildMetricsPaneHTML === 'function') ? buildMetricsPaneHTML(item) : '';
+    const defaultTab = hasCoach ? 'coach' : 'log';
+    html += `<div class="segment-wrapper archive-detail-seg">
+        ${hasCoach ? `<button class="seg-btn${defaultTab === 'coach' ? ' active' : ''}" data-archtab="coach" onclick="setArchiveDetailTab('coach')">מאמן</button>` : ''}
+        <button class="seg-btn" data-archtab="metrics" onclick="setArchiveDetailTab('metrics')">מדדים</button>
+        <button class="seg-btn${defaultTab === 'log' ? ' active' : ''}" data-archtab="log" onclick="setArchiveDetailTab('log')">ביצוע</button>
+    </div>`;
+    html += `<div id="arch-tab-coach" class="tab-content${defaultTab === 'coach' ? ' active' : ''}">${
+        hasCoach ? `<div class="coach-summary-card">
+            <div class="coach-card-header"><span class="coach-card-title">סיכום המאמן</span></div>
+            <div class="coach-card-body">${escapeHtml(item.aiSummary).replace(/\n/g, '<br>')}</div>
+        </div>` : ''}</div>`;
+    html += `<div id="arch-tab-metrics" class="tab-content${defaultTab === 'metrics' ? ' active' : ''}" data-ts="${item.timestamp}">${metricsHtml}</div>`;
+    html += `<div id="arch-tab-log" class="tab-content${defaultTab === 'log' ? ' active' : ''}">`;
 
     if (item.log && item.log.length > 0) {
         const segs = [];
@@ -584,8 +606,22 @@ function buildArchiveDetailHTML(item) {
         });
     }
 
+    html += `</div>`;   // סגירת #arch-tab-log
+
     // "נפח כולל" הוסר מהתצוגה — הנפח עדיין נכלל בטקסט ההעתקה (שורות ה-Vol לכל תרגיל)
     return html;
+}
+
+// setArchiveDetailTab — החלפת לשונית במסך פרטי אימון. מקבילה ל-setSummaryTab.
+function setArchiveDetailTab(tab) {
+    document.querySelectorAll('.archive-detail-seg .seg-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.archtab === tab);
+    });
+    ['coach', 'metrics', 'log'].forEach(t => {
+        const el = document.getElementById('arch-tab-' + t);
+        if (el) el.classList.toggle('active', t === tab);
+    });
+    haptic('light');
 }
 
 // הערת תרגיל (v19.9) — נשמרת ב-details[ex].note ומוצגת מתחת לכותרת התרגיל.

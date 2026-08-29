@@ -5004,6 +5004,20 @@ function buildSummaryUI() {
             <span>כלול סיכום מאמן בהעתקה</span>
         </label>` : '';
 
+    // ── שלוש לשוניות: מאמן / מדדים / ביצוע ────────────────────────────────
+    // הכותרת והמספרים נשארים מעל הבורר, וההערה + "שמור וסגור" מתחתיו — הם
+    // פעולת המסך, לא אחת הקריאות. בלי מפתח AI אין לשונית "מאמן" כלל, וברירת
+    // המחדל עוברת ל"ביצוע" במקום לשונית ריקה.
+    const archiveTs = state.archivedTimestamp;
+    const archiveEntry = archiveTs ? StorageManager.getArchive().find(a => a.timestamp === archiveTs) : null;
+    const metricsHtml = archiveEntry ? buildMetricsPaneHTML(archiveEntry) : '';
+    const defaultTab = hasAIKey ? 'coach' : 'log';
+    const segHtml = `<div class="segment-wrapper summary-seg">
+        ${hasAIKey ? `<button class="seg-btn${defaultTab === 'coach' ? ' active' : ''}" data-sumtab="coach" onclick="setSummaryTab('coach')">מאמן</button>` : ''}
+        <button class="seg-btn" data-sumtab="metrics" onclick="setSummaryTab('metrics')">מדדים</button>
+        <button class="seg-btn${defaultTab === 'log' ? ' active' : ''}" data-sumtab="log" onclick="setSummaryTab('log')">ביצוע</button>
+    </div>`;
+
     const html = `
         <div class="summary-header">
             <div class="summary-subtitle">${dateStr} • ${timeStr}</div>
@@ -5026,11 +5040,13 @@ function buildSummaryUI() {
             </div>
         </div>
 
-        ${coachCardHtml}
+        ${segHtml}
+
+        <div id="sum-tab-coach" class="tab-content${defaultTab === 'coach' ? ' active' : ''}">${coachCardHtml}</div>
+        <div id="sum-tab-metrics" class="tab-content${defaultTab === 'metrics' ? ' active' : ''}" data-ts="${archiveTs || ''}">${metricsHtml}</div>
+        <div id="sum-tab-log" class="tab-content${defaultTab === 'log' ? ' active' : ''}">${cardsHtml}</div>
 
         <input type="text" id="summary-note" class="summary-note-input" placeholder="איך היה האימון? (הערה כללית לארכיון)...">
-
-        ${cardsHtml}
 
         ${copyToggleHtml}
         <button id="summary-save-btn" class="btn-main primary-gradient pulse" onclick="copyResult()" style="margin-top:10px;box-shadow: 0 15px 40px rgba(62,144,255,0.25), inset 0 1px 0 rgba(255,255,255,0.2);">שמור וסגור</button>
@@ -5040,6 +5056,19 @@ function buildSummaryUI() {
 
     // יצירת סיכום המאמן אוטומטית (אם יש API key) — לא חוסם את המסך
     if (hasAIKey) generateCoachSummary();
+}
+
+// setSummaryTab — מחליף לשונית במסך הסיכום. הבורר הוא אותו רכיב
+// (.segment-wrapper/.seg-btn) של הארכיון ומסך ה-Composition.
+function setSummaryTab(tab) {
+    document.querySelectorAll('.summary-seg .seg-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.sumtab === tab);
+    });
+    ['coach', 'metrics', 'log'].forEach(t => {
+        const el = document.getElementById('sum-tab-' + t);
+        if (el) el.classList.toggle('active', t === tab);
+    });
+    haptic('light');
 }
 
 async function copyResult() {
@@ -5073,6 +5102,8 @@ async function copyResult() {
                || StorageManager.getArchive()[0];
     if (entry) {
         let clipboardText = entry.summary || '';
+        const _wLine = watchSummaryLine(entry);
+        if (_wLine) clipboardText += `\n\n${_wLine}`;
         if (includeCoach && entry.aiSummary) {
             clipboardText += `\n\n=== סיכום המאמן ===\n${entry.aiSummary}`;
         }
@@ -7587,13 +7618,28 @@ const BRIDGES = {
         savedMsg: 'הגדרות גשר ה-Health נשמרו!', label: 'גשר ה-Health',
         get: () => StorageManager.getHealthBridge(),
         save: (on, u, t) => StorageManager.saveHealthBridge(on, u, t),
+        statusExtra: () => {
+            const last = StorageManager.getHealthLastSync();
+            const nights = StorageManager.getSleepDaily().length;
+            const bits = [];
+            if (last) bits.push('עודכן ' + new Date(last).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }));
+            if (nights) bits.push(nights + ' לילות');
+            const w = StorageManager.getWatchWorkouts().length;
+            if (w) bits.push(w + ' אימוני שעון');
+            return bits.length ? ' · ' + bits.join(' · ') : '';
+        },
         syncExtraUI: () => {
             const nt = document.getElementById('health-pull-nutrition-toggle');
             if (nt) nt.checked = StorageManager.isHealthPullNutrition();
+            const wt = document.getElementById('health-pull-workouts-toggle');
+            if (wt) wt.checked = StorageManager.isHealthPullWorkouts();
+            if (typeof renderHrZoneSettings === 'function') renderHrZoneSettings();
         },
         extraSave: () => {
             const nt = document.getElementById('health-pull-nutrition-toggle');
             StorageManager.setHealthPullNutrition(!!(nt || {}).checked);
+            const wt = document.getElementById('health-pull-workouts-toggle');
+            if (wt) StorageManager.setHealthPullWorkouts(!!wt.checked);
         },
         apply: on => { if (on) syncHealthNutrition(true); }   // משיכה מיידית — פידבק שהחיבור עובד
     },
@@ -7776,7 +7822,8 @@ async function syncHealthNutrition(manual = false, force = false) {
         }
         const days  = Array.isArray(data.days)  ? data.days  : [];   // תזונה (אופציונלי)
         const sleep = Array.isArray(data.sleep) ? data.sleep : [];   // שינה (המקור העיקרי כעת)
-        if (!days.length && !sleep.length) {
+        const works = Array.isArray(data.workouts) ? data.workouts : [];   // אימוני שעון
+        if (!days.length && !sleep.length && !works.length) {
             if (manual) showCloudToast('הגשר ריק — ודא שהקיצור רץ לפחות פעם אחת', true);
             return true;
         }
@@ -7791,7 +7838,20 @@ async function syncHealthNutrition(manual = false, force = false) {
         if (days.length && StorageManager.isHealthPullNutrition()) {
             nutChanged = StorageManager.mergeHealthNutritionDays(days);
         }
-        const changed = sleepChanged + nutChanged;
+
+        // אימוני שעון — מיזוג למאגר ואז שיוך לרשומות הארכיון. הרינדור מבודד
+        // בהמשך, כמו בשינה, כדי שכשל רינדור לא יסמן משיכה תקינה ככושלת.
+        let watchChanged = 0, watchLinked = 0;
+        if (works.length && StorageManager.isHealthPullWorkouts()) {
+            watchChanged = StorageManager.mergeWatchWorkouts(works);
+            if (watchChanged) {
+                watchLinked = _linkWatchWorkouts();
+                if (watchLinked && typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
+                    FirebaseManager.saveArchiveToCloud().catch(() => {});
+                }
+            }
+        }
+        const changed = sleepChanged + nutChanged + watchChanged;
 
         // רינדור מחדש גם כש-changed=0: חותמת "מסונכרן · עודכן HH:MM" במסך השינה חייבת
         // לזוז אחרי משיכה מוצלחת, אחרת סנכרון תקין נראה למשתמש כאילו כלום לא קרה.
@@ -7808,6 +7868,9 @@ async function syncHealthNutrition(manual = false, force = false) {
                 else if (typeof _refreshActiveView === 'function') _refreshActiveView();
             }
             if ((changed > 0 || manual) && typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
+            // לשונית "מדדים" פתוחה (מסך סיכום/פרטי אימון) — לרענן כדי ש"ממתין"
+            // יתחלף בנתונים ברגע שהם הגיעו, בלי לצאת מהמסך ולחזור אליו.
+            if (watchChanged) _refreshOpenMetricsPanes();
         } catch (e) { console.error('GymPro: health sync render failed', e); }
         if (changed > 0) {
             if (typeof FirebaseManager !== 'undefined') {
@@ -7818,6 +7881,7 @@ async function syncHealthNutrition(manual = false, force = false) {
                 const parts = [];
                 if (sleepChanged) parts.push(`${sleepChanged} לילות שינה`);
                 if (nutChanged)   parts.push(`${nutChanged} ימי תזונה`);
+                if (watchChanged) parts.push(`${watchChanged} אימוני שעון${watchLinked ? ` (${watchLinked} שויכו)` : ''}`);
                 showCloudToast(`עודכנו ${parts.join(' + ')} מ-Health`, true);
             }
         } else if (manual) {
@@ -7843,6 +7907,440 @@ function _scheduleHealthHourlySync() {
         syncHealthNutrition(false);
         _scheduleHealthHourlySync();
     }, msToNextHour);
+}
+
+/* ═══ נתוני Apple Watch לאימון ═══════════════════════════════════════════════
+ * סיכום האימון מהשעון (דופק, קלוריות, התאוששות, סדרת דופק) נמשך דרך אותו גשר
+ * Health, ומשויך לרשומת ארכיון לפי חפיפת זמנים. הרשומה הקבועה יושבת בתוך
+ * entry.watch — כך שהיא נשמרת, מסונכרנת ומיוצאת יחד עם האימון, בלי תלות
+ * במאגר-הביניים שנגזם.
+ *
+ * אזורי דופק **אינם נתון ב-HealthKit** — אפל מחשבת אותם לתצוגה בלבד. לכן הם
+ * מחושבים כאן מסדרת הדופק מול גבולות אישיים, ונשמרים ברשומה יחד עם הגבולות
+ * ששימשו לחישוב (zoneBounds) — אימון ישן לא משנה את אזוריו כשדופק המנוחה זז.
+ * ══════════════════════════════════════════════════════════════════════════*/
+
+// WATCHZONES-START — בלוק טהור, נבדק ב-test/watch-zones.test.js (אל תסיר את הסמנים)
+const WATCH_LINK_MAX_GAP_MS = 45 * 60 * 1000;   // חלון חיפוש סביב האימון
+const WATCH_HR_GAP_CAP_SEC  = 60;               // פער דגימה מעל זה = ניתוק, לא זמן באזור
+// סוגי אימון מהשעון שמשויכים אוטומטית. הליכה/ריצה/רכיבה נשארות במאגר לשיוך ידני.
+const WATCH_STRENGTH_RE = /strength|כוח|functional|core|hiit|cross/i;
+
+// _watchRestHr — דופק מנוחה לחישוב הרזרבה: חציון 28 הלילות שקדמו לתאריך.
+// ברירת המחדל היא הערך שכבר נאסף בגשר, כך שאין מה להזין ידנית.
+function _watchRestHr(beforeDate) {
+    const nights = (typeof StorageManager.getSleepDaily === 'function') ? StorageManager.getSleepDaily() : [];
+    const vals = nights
+        .filter(n => n && n.date && (!beforeDate || n.date <= beforeDate) && n.rhr > 25 && n.rhr < 120)
+        .slice(-28).map(n => n.rhr).sort((a, b) => a - b);
+    if (!vals.length) return null;
+    const m = Math.floor(vals.length / 2);
+    return vals.length % 2 ? vals[m] : Math.round((vals[m - 1] + vals[m]) / 2);
+}
+
+// _hrZoneBounds — ארבעת הגבולות [Z2,Z3,Z4,Z5]. ידני גובר; אחרת Karvonen:
+// 60/70/80/90 אחוז מרזרבת הדופק (מרבי פחות מנוחה). ללא גיל ובלי דריסה ידנית
+// אי אפשר לגזור — מחזיר null, והאזורים פשוט לא מוצגים.
+function _hrZoneBounds(beforeDate) {
+    const z = StorageManager.getHrZones();
+    if (!z.auto && z.bounds) return { bounds: z.bounds.slice(), maxHr: z.maxHr, restHr: z.restHr, manual: true };
+    const age = (StorageManager.getBodyProfile() || {}).age;
+    const maxHr = z.maxHr || (age > 0 && age < 120 ? 220 - age : null);
+    const restHr = z.restHr || _watchRestHr(beforeDate);
+    if (!maxHr || !restHr || maxHr <= restHr) return null;
+    const reserve = maxHr - restHr;
+    return {
+        bounds: [0.6, 0.7, 0.8, 0.9].map(p => Math.round(restHr + reserve * p)),
+        maxHr, restHr, manual: false
+    };
+}
+
+// _watchZoneSec — שניות בכל אזור מתוך סדרת הדופק. לכל דגימה מיוחס המרווח עד
+// הבאה, חסום ב-WATCH_HR_GAP_CAP_SEC: פער גדול יותר הוא ניתוק מדידה ולא זמן
+// אימון. זו הסיבה שסכום האזורים קטן ממשך האימון — בדיוק כמו במסך של אפל
+// ("Estimated time in each heart rate zone").
+function _watchZoneSec(series, bounds) {
+    const out = [0, 0, 0, 0, 0];
+    if (!Array.isArray(series) || !series.length || !bounds) return out;
+    const zoneOf = bpm => bpm < bounds[0] ? 0 : bpm < bounds[1] ? 1 : bpm < bounds[2] ? 2 : bpm < bounds[3] ? 3 : 4;
+    // לדגימה האחרונה אין "הבאה" שממנה נגזר המרווח. ייחוס ה-cap המלא לה מנפח
+    // אימון קצר בדקה שלמה, ולכן משתמשים ברזולוציית הדגימה עצמה — המרווח החיובי
+    // הקטן ביותר בסדרה (הפערים הגדולים הם ניתוקים, לא קצב דגימה).
+    let step = Infinity;
+    for (let i = 1; i < series.length; i++) {
+        const d = series[i][0] - series[i - 1][0];
+        if (d > 0 && d < step) step = d;
+    }
+    const tailSpan = Math.min(isFinite(step) ? step : WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_CAP_SEC);
+    for (let i = 0; i < series.length; i++) {
+        const cur = series[i], next = series[i + 1];
+        const span = next ? (next[0] - cur[0]) : tailSpan;
+        if (!(span > 0)) continue;
+        out[zoneOf(cur[2])] += Math.min(span, WATCH_HR_GAP_CAP_SEC);
+    }
+    return out.map(Math.round);
+}
+
+// WATCHZONES-END
+// _watchAttach — בונה את אובייקט ה-watch שנשמר ברשומת הארכיון.
+function _watchAttach(rec, entryDate, by) {
+    const zb = _hrZoneBounds(entryDate);
+    const watch = {
+        srcId: rec.id, start: rec.start, end: rec.end, durMin: rec.durMin,
+        wType: rec.wType || '', hrAvg: rec.hrAvg || 0, hrMax: rec.hrMax || 0,
+        activeKcal: rec.activeKcal || 0, hrRecovery1: rec.hrRecovery1 || 0,
+        linkedBy: by || 'auto'
+    };
+    if (rec.hrMin) watch.hrMin = rec.hrMin;
+    if (rec.totalKcal) watch.totalKcal = rec.totalKcal;
+    if (Array.isArray(rec.hrSeries) && rec.hrSeries.length) {
+        watch.hrSeries = rec.hrSeries;
+        if (zb) { watch.zoneSec = _watchZoneSec(rec.hrSeries, zb.bounds); watch.zoneBounds = zb.bounds; }
+    }
+    return watch;
+}
+
+// _linkWatchWorkouts — משייך אימוני שעון לרשומות ארכיון לפי חפיפת זמנים.
+// רשומה ששויכה ידנית לא נדרסת, ואימון שכבר נושא watch לא נבדק שוב.
+function _linkWatchWorkouts() {
+    const pool = StorageManager.getWatchWorkouts().filter(w => w && !w.linkedTs);
+    if (!pool.length) return 0;
+    const archive = StorageManager.getArchive();
+    let linked = 0;
+
+    archive.forEach(entry => {
+        // watch === null = המשתמש ביטל שיוך ביודעין; לא משייכים מחדש אוטומטית
+        // (הוא עדיין יכול לבחור אימון מרשימת המועמדים).
+        if (!entry || entry.watch !== undefined || !entry.timestamp) return;
+        const endTs = entry.timestamp;
+        const startTs = endTs - (entry.duration || 0) * 60000;
+        let best = null, bestOverlap = 0;
+        pool.forEach(rec => {
+            if (rec.linkedTs) return;
+            if (!WATCH_STRENGTH_RE.test(rec.wType || '')) return;
+            const overlap = Math.min(endTs, rec.end) - Math.max(startTs, rec.start);
+            const near = Math.abs(rec.end - endTs) <= WATCH_LINK_MAX_GAP_MS;
+            if (overlap > bestOverlap && (overlap > 0 || near)) { best = rec; bestOverlap = overlap; }
+        });
+        if (!best || bestOverlap <= 0) return;
+        entry.watch = _watchAttach(best, entry.date, 'auto');
+        best.linkedTs = endTs;
+        StorageManager.updateArchiveEntry(endTs, entry);
+        StorageManager.markWatchLinked(best.id, endTs, 'auto');
+        linked++;
+    });
+    return linked;
+}
+
+// linkWatchWorkout / unlinkWatchWorkout — שיוך ידני מתוך מסך הסיכום.
+function linkWatchWorkout(archiveTs, srcId) {
+    const rec = StorageManager.getWatchWorkouts().find(w => w && w.id === srcId);
+    const entry = StorageManager.getArchive().find(a => a.timestamp === archiveTs);
+    if (!rec || !entry) { showAlert('האימון לא נמצא.'); return; }
+    entry.watch = _watchAttach(rec, entry.date, 'manual');
+    StorageManager.updateArchiveEntry(archiveTs, entry);
+    StorageManager.markWatchLinked(srcId, archiveTs, 'manual');
+    if (typeof FirebaseManager !== 'undefined') FirebaseManager.saveArchiveToCloud().catch(() => {});
+    haptic('success');
+    _refreshMetricsPane(archiveTs);
+}
+function unlinkWatchWorkout(archiveTs) {
+    const entry = StorageManager.getArchive().find(a => a.timestamp === archiveTs);
+    if (!entry) return;
+    StorageManager.updateArchiveEntry(archiveTs, { watch: null });
+    StorageManager.unmarkWatchLinked(archiveTs);
+    if (typeof FirebaseManager !== 'undefined') FirebaseManager.saveArchiveToCloud().catch(() => {});
+    haptic('light');
+    _refreshMetricsPane(archiveTs);
+}
+
+// _refreshMetricsPane — מרנדר מחדש את לשונית המדדים בכל מסך שבו היא פתוחה.
+// ה-timestamp של האימון שהלשונית מציגה נשמר על האלמנט עצמו (data-ts), כדי
+// שרענון אחרי משיכה לא ידרוס לשונית שמציגה אימון אחר.
+function _refreshMetricsPane(archiveTs) {
+    const entry = StorageManager.getArchive().find(a => a.timestamp === archiveTs);
+    if (!entry) return;
+    ['sum-tab-metrics', 'arch-tab-metrics'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && String(el.dataset.ts || '') === String(archiveTs)) el.innerHTML = buildMetricsPaneHTML(entry);
+    });
+}
+function _refreshOpenMetricsPanes() {
+    ['sum-tab-metrics', 'arch-tab-metrics'].forEach(id => {
+        const el = document.getElementById(id);
+        const ts = el && parseInt(el.dataset.ts, 10);
+        if (!ts) return;
+        const entry = StorageManager.getArchive().find(a => a.timestamp === ts);
+        if (entry) el.innerHTML = buildMetricsPaneHTML(entry);
+    });
+}
+
+/* ─── רינדור לשונית "מדדים" ──────────────────────────────────────────────── */
+
+function _fmtClock(sec) {
+    const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+function _fmtHm(ts) {
+    return new Date(ts).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+}
+
+// _watchChartHtml — גרף נרות בסגנון מסך ה-Fitness: נר לכל מקטע דגימה, מהמינימום
+// עד המקסימום שלו, בצבע האזור שאליו נופל הממוצע. פערי דגימה נשארים ריקים.
+function _watchChartHtml(series, bounds) {
+    if (!Array.isArray(series) || series.length < 2) return '';
+    const W = 300, H = 46, PAD = 3;
+    let lo = Infinity, hi = -Infinity;
+    series.forEach(p => { if (p[1] < lo) lo = p[1]; if (p[3] > hi) hi = p[3]; });
+    if (!(hi > lo)) return '';
+    lo = Math.max(30, lo - 4); hi = hi + 4;
+    const span = series[series.length - 1][0] - series[0][0] || 1;
+    const t0 = series[0][0];
+    const y = bpm => +(H - ((bpm - lo) / (hi - lo)) * (H - PAD)).toFixed(1);
+    const zoneOf = bpm => !bounds ? 1 : bpm < bounds[0] ? 1 : bpm < bounds[1] ? 2 : bpm < bounds[2] ? 3 : bpm < bounds[3] ? 4 : 5;
+    const bw = Math.max(1.4, Math.min(3, (W - 6) / series.length * 0.62));
+    const rects = series.map(p => {
+        const x = +(PAD + ((p[0] - t0) / span) * (W - 6 - bw)).toFixed(1);
+        const yTop = y(p[3]);
+        const h = Math.max(2, +(y(p[1]) - yTop).toFixed(1));
+        return `<rect class="c z${zoneOf(p[2])}" x="${x}" y="${yTop}" width="${bw.toFixed(1)}" height="${h}" rx="${(bw / 2).toFixed(1)}"></rect>`;
+    }).join('');
+    return `<svg class="hrchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="גרף דופק לאורך האימון">${rects}</svg>`;
+}
+
+function _watchZonesHtml(zoneSec, bounds) {
+    if (!Array.isArray(zoneSec) || !bounds) return '';
+    const total = zoneSec.reduce((a, b) => a + b, 0);
+    if (!total) return '';
+    const ranges = [`<${bounds[0]}`, `${bounds[0]}–${bounds[1] - 1}`, `${bounds[1]}–${bounds[2] - 1}`,
+                    `${bounds[2]}–${bounds[3] - 1}`, `${bounds[3]}+`];
+    const rows = zoneSec.map((sec, i) => {
+        const pct = Math.round((sec / total) * 100);
+        return `<div class="zrow${sec ? '' : ' off'}">
+            <span class="zn zn${i + 1}">Z${i + 1}</span>
+            <span class="zt">${sec ? `<i class="z${i + 1}" style="width:${Math.max(pct, 2)}%"></i>` : ''}</span>
+            <span class="zv">${_fmtClock(sec)}</span>
+            <span class="zr">${ranges[i]}</span>
+        </div>`;
+    }).join('');
+    return `<div class="wc-zones">
+        <div class="wc-zlabel"><span class="a">אזורי דופק</span><span class="b">${_fmtClock(total)}</span></div>
+        <div class="zrows">${rows}</div>
+    </div>`;
+}
+
+// _watchCardHtml — כרטיס נתוני השעון. אריח בלי נתון פשוט אינו מוצג.
+function _watchCardHtml(entry) {
+    const w = entry.watch;
+    if (!w) return _watchEmptyHtml(entry);
+    const tiles = [];
+    if (w.hrAvg)       tiles.push(['v-hr', w.hrAvg, 'דופק ממוצע']);
+    if (w.hrMax)       tiles.push(['v-hr', w.hrMax, 'דופק מרבי']);
+    if (w.activeKcal)  tiles.push(['v-cal', w.activeKcal, 'קק״ל פעילות']);
+    if (w.hrRecovery1) tiles.push(['v-rec', w.hrRecovery1, 'התאוששות ׳1']);
+    const tilesHtml = tiles.length
+        ? `<div class="wc-grid" style="grid-template-columns:repeat(${tiles.length},1fr)">${
+            tiles.map(t => `<div class="wc-m"><div class="v ${t[0]}">${t[1]}</div><div class="k">${t[2]}</div></div>`).join('')
+          }</div>` : '';
+    const chart = _watchChartHtml(w.hrSeries, w.zoneBounds);
+    const chartHtml = chart ? `<div class="wc-zones">
+            <div class="wc-zlabel"><span class="a">דופק לאורך האימון</span><span class="b">${w.hrMax || ''}</span></div>
+            ${chart}
+            <div class="hrx"><span>${_fmtHm(w.start)}</span><span>${_fmtHm(w.end)}</span></div>
+        </div>` : '';
+    const metaBits = [w.wType, `${_fmtHm(w.start)}–${_fmtHm(w.end)}`, `${w.durMin} דק׳`].filter(Boolean);
+    return `<div class="wc">
+        <div class="wc-head">
+            <span class="wc-title">נתוני שעון</span>
+            <span class="wc-pill">${w.linkedBy === 'manual' ? 'שויך ידנית' : 'Apple Watch'}</span>
+        </div>
+        ${tilesHtml}${chartHtml}${_watchZonesHtml(w.zoneSec, w.zoneBounds)}
+        <div class="wc-meta">${escapeHtml(metaBits.join(' · '))}
+            <button class="wc-btn wc-btn--link" onclick="unlinkWatchWorkout(${entry.timestamp})">בטל שיוך</button>
+        </div>
+    </div>`;
+}
+
+// _watchEmptyHtml — אין עדיין נתוני שעון: הסבר + משיכה ידנית + מועמדים לשיוך.
+function _watchEmptyHtml(entry) {
+    const cands = _watchCandidates(entry);
+    const candHtml = cands.length ? `<div class="wc-cands">
+        <div class="wc-cands-t">אימוני שעון בסביבת האימון</div>
+        ${cands.map(c => `<button class="wc-cand" onclick="linkWatchWorkout(${entry.timestamp},'${c.rec.id}')">
+            <span class="wc-cand-i">
+                <span class="n">${escapeHtml(c.rec.wType || 'אימון')}</span>
+                <span class="d">${_fmtHm(c.rec.start)}–${_fmtHm(c.rec.end)} · ${c.rec.durMin} דק׳${
+                    c.rec.hrAvg ? ` · ${c.rec.hrAvg}/${c.rec.hrMax || '—'}` : ''}${
+                    c.rec.activeKcal ? ` · ${c.rec.activeKcal} קק״ל` : ''}</span>
+            </span>
+            <span class="wc-cand-g">פער ׳${Math.round(c.gap / 60000)}</span>
+        </button>`).join('')}
+    </div>` : '';
+    return `<div class="wc wc--empty">
+        <div class="wc-head"><span class="wc-title">נתוני שעון</span><span class="wc-pill">ממתין</span></div>
+        <div class="wc-empty-txt">טרם התקבל סיכום מ-Apple Watch לאימון הזה. הנתונים מגיעים דרך גשר ה-Health
+            בייצוא הבא — בדרך כלל תוך דקות מרגע פתיחת הטלפון.</div>
+        <div class="wc-actions">
+            <button class="wc-btn wc-btn--primary" onclick="syncHealthNutrition(true)">משוך עכשיו</button>
+        </div>
+        ${candHtml}
+    </div>`;
+}
+
+// _watchCandidates — אימוני שעון לא-משויכים סביב האימון, לפי קרבת זמן הסיום.
+function _watchCandidates(entry) {
+    const endTs = entry.timestamp;
+    return StorageManager.getWatchWorkouts()
+        .filter(w => w && !w.linkedTs && Math.abs(w.end - endTs) <= 6 * 3600000)
+        .map(rec => ({ rec, gap: Math.abs(rec.end - endTs) }))
+        .sort((a, b) => a.gap - b.gap).slice(0, 4);
+}
+
+// _readinessCardHtml — המוכנות של בוקר האימון, מאותו מנוע שמזין את מסך השינה.
+function _readinessCardHtml(entry) {
+    if (typeof computeReadiness !== 'function' || typeof StorageManager.getSleepDaily !== 'function') return '';
+    const nights = StorageManager.getSleepDaily();
+    if (!nights.length) return '';
+    const dstr = (typeof _blLocalDateStr === 'function') ? _blLocalDateStr(new Date(entry.timestamp)) : null;
+    const idx = dstr ? nights.findIndex(n => n && n.date === dstr) : -1;
+    if (idx < 0) return '';
+    const n = nights[idx];
+    let rd;
+    try { rd = computeReadiness(nights, idx); } catch (e) { return ''; }
+    if (!rd || rd.building || rd.score == null) return '';
+    const sleepTxt = (typeof _slFmtDur === 'function' && n.asleepMin > 0) ? `שינה ${_slFmtDur(n.asleepMin)}` : '';
+    const chips = (rd.drivers || []).map(d =>
+        `<span class="wc-chip ${d.dir}">${escapeHtml(d.label)} <span class="ar">${escapeHtml(d.delta)}</span></span>`).join('');
+    const pct = Math.max(0, Math.min(100, rd.score));
+    return `<div class="wc">
+        <div class="wc-head"><span class="wc-title">מוכנות הבוקר</span><span class="wc-pill">${sleepTxt}</span></div>
+        <div class="rd">
+            <div class="rd-ring" style="background:conic-gradient(${rd.color} 0 ${pct}%, var(--surface-4) ${pct}% 100%)">
+                <span>${rd.score}</span>
+            </div>
+            <div class="rd-txt">
+                <div class="a">${rd.band}</div>
+                <div class="b">מבוסס על ${rd.usedCount} מתוך ${rd.totalCount} מדדים</div>
+            </div>
+        </div>
+        ${chips ? `<div class="wc-chips">${chips}</div>` : ''}
+    </div>`;
+}
+
+// _contextCardHtml — הקשר האימון: מצב תזונתי בזמנו, ומשקל אחרון עד אותו יום.
+function _contextCardHtml(entry) {
+    const rows = [];
+    const nutri = (typeof _nutriStateLabel === 'function') ? _nutriStateLabel(entry) : '';
+    if (nutri && nutri !== '—') rows.push(['מצב תזונתי', nutri]);
+    try {
+        const dstr = (typeof _blLocalDateStr === 'function') ? _blLocalDateStr(new Date(entry.timestamp)) : null;
+        const log = StorageManager.getBodyLog().filter(e => e && e.weight && (!dstr || e.date <= dstr))
+            .sort((a, b) => a.date < b.date ? -1 : 1);
+        const last = log[log.length - 1];
+        if (last) rows.push(['משקל אחרון', `${last.weight} ק״ג`]);
+    } catch (e) {}
+    if (!rows.length) return '';
+    return `<div class="wc">${rows.map(r =>
+        `<div class="krow"><span>${r[0]}</span><span class="kv">${escapeHtml(String(r[1]))}</span></div>`).join('')}</div>`;
+}
+
+// watchSummaryLine — שורת נתוני השעון לטקסט ההעתקה של האימון. מוצגת רק כשיש
+// מה להציג; אזורים ריקים לא נכנסים (Z4/Z5 באפס הם רעש, לא מידע).
+function watchSummaryLine(entry) {
+    const w = entry && entry.watch;
+    if (!w) return '';
+    const bits = [];
+    if (w.hrAvg)       bits.push(`דופק ממוצע ${w.hrAvg}`);
+    if (w.hrMax)       bits.push(`מרבי ${w.hrMax}`);
+    if (w.activeKcal)  bits.push(`${w.activeKcal} קק"ל`);
+    if (w.hrRecovery1) bits.push(`התאוששות ${w.hrRecovery1}`);
+    if (Array.isArray(w.zoneSec)) {
+        const zones = w.zoneSec.map((sec, i) => sec >= 30 ? `Z${i + 1} ${Math.round(sec / 60)}׳` : null).filter(Boolean);
+        if (zones.length) bits.push(zones.join(' / '));
+    }
+    return bits.length ? `שעון: ${bits.join(' · ')}` : '';
+}
+
+// buildMetricsPaneHTML — לשונית "מדדים", משותפת למסך הסיכום ולפרטי אימון בארכיון.
+function buildMetricsPaneHTML(entry) {
+    if (!entry) return '';
+    return _watchCardHtml(entry) + _readinessCardHtml(entry) + _contextCardHtml(entry);
+}
+
+/* ─── הגדרות אזורי דופק ──────────────────────────────────────────────────── */
+
+// renderHrZoneSettings — גוף קבוצת ההגדרות: במצב אוטומטי מוצגים הגבולות
+// המחושבים וממה נגזרו; במצב ידני — ארבעה שדות להזנה.
+function renderHrZoneSettings() {
+    const host = document.getElementById('hrz-body');
+    const tg = document.getElementById('hrz-auto-toggle');
+    if (!host) return;
+    const z = StorageManager.getHrZones();
+    if (tg) tg.checked = z.auto;
+
+    if (z.auto) {
+        const zb = _hrZoneBounds();
+        if (!zb) {
+            const age = (StorageManager.getBodyProfile() || {}).age;
+            host.innerHTML = `<div class="ai-security-note" style="padding:0;">
+                ${!age ? 'חסר גיל בפרופיל הגוף — בלעדיו אי אפשר לגזור דופק מרבי. מלא אותו בהגדרות → פרופיל גוף, או כבה את החישוב האוטומטי והזן את הגבולות ידנית.'
+                       : 'טרם נאסף דופק מנוחה מגשר ה-Health. הגבולות יחושבו אחרי הלילה הראשון, או שאפשר לכבות את החישוב האוטומטי ולהזין ידנית.'}
+            </div>`;
+            return;
+        }
+        const labels = ['Z2', 'Z3', 'Z4', 'Z5'];
+        const pcts = ['60%', '70%', '80%', '90%'];
+        host.innerHTML = `
+            <div class="zrows">${zb.bounds.map((b, i) => `<div class="zrow">
+                <span class="zn zn${i + 2}">${labels[i]}</span>
+                <span style="flex:1;font-size:var(--fs-sm);color:var(--text-dim);font-weight:700;">מ-${pcts[i]} רזרבה</span>
+                <span class="zv">${b}</span>
+            </div>`).join('')}</div>
+            <div class="ai-security-note" style="padding:0;margin-top:10px;">דופק מנוחה ${zb.restHr} · דופק מרבי ${zb.maxHr}</div>`;
+    } else {
+        const b = z.bounds || [];
+        const labels = [['Z2', 'סף אזור 2'], ['Z3', 'סף אזור 3'], ['Z4', 'סף אזור 4'], ['Z5', 'סף אזור 5']];
+        host.innerHTML = labels.map((l, i) => `<div class="stg-ai-field">
+            <label class="stg-ai-label">${l[1]} (BPM)</label>
+            <input type="number" inputmode="numeric" id="hrz-b${i}" class="stg-ai-input" value="${b[i] != null ? b[i] : ''}" placeholder="למשל ${[128, 140, 153, 165][i]}">
+        </div>`).join('');
+    }
+}
+
+function toggleHrZoneAuto() {
+    const tg = document.getElementById('hrz-auto-toggle');
+    const z = StorageManager.getHrZones();
+    z.auto = !!(tg && tg.checked);
+    StorageManager.saveHrZones(z);
+    renderHrZoneSettings();
+    haptic('light');
+}
+
+function saveHrZoneSettings() {
+    const tg = document.getElementById('hrz-auto-toggle');
+    const auto = !!(tg && tg.checked);
+    const z = StorageManager.getHrZones();
+    z.auto = auto;
+    if (!auto) {
+        const vals = [0, 1, 2, 3].map(i => {
+            const el = document.getElementById('hrz-b' + i);
+            const v = el ? parseInt(el.value, 10) : NaN;
+            return isNaN(v) ? null : v;
+        });
+        if (vals.some(v => v == null)) { showAlert('יש למלא את ארבעת הגבולות.'); return; }
+        if (vals.some(v => v < 60 || v > 230)) { showAlert('גבול דופק לא תקין (60–230).'); return; }
+        for (let i = 1; i < 4; i++) {
+            if (vals[i] <= vals[i - 1]) { showAlert('הגבולות חייבים לעלות: Z2 < Z3 < Z4 < Z5.'); return; }
+        }
+        z.bounds = vals;
+    }
+    StorageManager.saveHrZones(z);
+    if (typeof FirebaseManager !== 'undefined') {
+        FirebaseManager.saveConfigToCloud().catch(() => {});
+    }
+    renderHrZoneSettings();
+    haptic('success');
+    showAlert('אזורי הדופק נשמרו. אימונים קיימים שומרים את הגבולות שלפיהם חושבו.');
 }
 
 // ─── גשר אפל-ווטש ────────────────────────────────────────────────────────────

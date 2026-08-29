@@ -1758,6 +1758,7 @@ function exportUnifiedData(range) {
             // ה-storage עצמו (gympro_archive) נשאר ב-DD.MM.YYYY — לא נוגעים בו כדי לא לשבור רינדור/סנכרון.
             c.date = _blLocalDateStr(new Date(w.timestamp));
             delete c.aiSummary;
+            if (c.watch === null) delete c.watch;   // שיוך שעון שבוטל — לא מייצאים מפתח ריק
             if (typeof _stripCoachFromSummary === 'function') c.summary = _stripCoachFromSummary(c.summary);
             return c;
         });
@@ -1772,7 +1773,13 @@ function exportUnifiedData(range) {
     const payload = {
         app: 'GYMPRO ELITE', type: 'unified_export',
         readme: _NUTRI_EXPORT_README.concat(
-            'הקובץ מכיל 6 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימונים), sleep_recovery (שינה + התאוששות), memory_box (כללים מאושרים לתיבת זיכרון המאמן — אין להם תאריך, נכללים במלואם בכל טווח).'
+            'הקובץ מכיל 6 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימונים), sleep_recovery (שינה + התאוששות), memory_box (כללים מאושרים לתיבת זיכרון המאמן — אין להם תאריך, נכללים במלואם בכל טווח).',
+            'workouts[].watch = סיכום האימון מ-Apple Watch, כשקיים: hrAvg/hrMax (דופק), activeKcal (קלוריות פעילות), ' +
+            'hrRecovery1 (ירידת הדופק בדקה הראשונה), hrSeries ([שניות-מההתחלה, min, avg, max] בדילול 30ש\'), ' +
+            'zoneSec (שניות בכל אחד מחמשת אזורי הדופק) ו-zoneBounds (הגבולות ששימשו לחישוב, נשמרים כדי שאימון ישן ' +
+            'לא ישנה את אזוריו כשדופק המנוחה זז). אזורי דופק אינם נתון ב-HealthKit — הם מחושבים מ-hrSeries. ' +
+            'סכום zoneSec קטן ממשך האימון כשהיו פערי דגימה (מרווח מעל 60ש\' אינו נספר), בדיוק כמו במסך של אפל. ' +
+            'linkedBy: auto = שויך לפי חפיפת זמנים, manual = שויך ידנית. אימון בלי watch = לא נלבש שעון או שהסיכום טרם הגיע.'
         ),
         generated: _blIsoWithTz(new Date(), _BL_EXPORT_TZ),
         range: { label: r.label, from: r.from, to: r.to },
@@ -1780,6 +1787,7 @@ function exportUnifiedData(range) {
             weights: weights.length, nutrition_daily: nutritionDaily.length,
             nutrition_detailed_days: nutritionDetailed.length, workouts: workouts.length,
             sleep_recovery: sleepRecovery.length,
+            workouts_with_watch: workouts.filter(w => w.watch).length,
             memory_box: memoryBox.length
         },
         weights, nutrition_daily: nutritionDaily, nutrition_detailed: nutritionDetailed, workouts,

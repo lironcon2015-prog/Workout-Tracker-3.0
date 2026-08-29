@@ -7922,7 +7922,8 @@ function _scheduleHealthHourlySync() {
 
 // WATCHZONES-START — בלוק טהור, נבדק ב-test/watch-zones.test.js (אל תסיר את הסמנים)
 const WATCH_LINK_MAX_GAP_MS = 45 * 60 * 1000;   // חלון חיפוש סביב האימון
-const WATCH_HR_GAP_CAP_SEC  = 60;               // פער דגימה מעל זה = ניתוק, לא זמן באזור
+const WATCH_HR_GAP_CAP_SEC  = 60;               // רצפת התקרה לפער דגימה (ניתוק, לא זמן באזור)
+const WATCH_HR_GAP_MAX_SEC  = 120;              // תקרה מוחלטת — גם בקיבוץ-דקות פער ארוך הוא ניתוק
 // סוגי אימון מהשעון שמשויכים אוטומטית. הליכה/ריצה/רכיבה נשארות במאגר לשיוך ידני.
 const WATCH_STRENGTH_RE = /strength|כוח|functional|core|hiit|cross/i;
 
@@ -7963,20 +7964,26 @@ function _watchZoneSec(series, bounds) {
     const out = [0, 0, 0, 0, 0];
     if (!Array.isArray(series) || !series.length || !bounds) return out;
     const zoneOf = bpm => bpm < bounds[0] ? 0 : bpm < bounds[1] ? 1 : bpm < bounds[2] ? 2 : bpm < bounds[3] ? 3 : 4;
-    // לדגימה האחרונה אין "הבאה" שממנה נגזר המרווח. ייחוס ה-cap המלא לה מנפח
-    // אימון קצר בדקה שלמה, ולכן משתמשים ברזולוציית הדגימה עצמה — המרווח החיובי
-    // הקטן ביותר בסדרה (הפערים הגדולים הם ניתוקים, לא קצב דגימה).
+    // רזולוציית הדגימה בפועל = המרווח החיובי הקטן ביותר. הפערים הגדולים הם
+    // ניתוקי מדידה, לא קצב דגימה, ולכן הם לא מייצגים אותה.
     let step = Infinity;
     for (let i = 1; i < series.length; i++) {
         const d = series[i][0] - series[i - 1][0];
         if (d > 0 && d < step) step = d;
     }
-    const tailSpan = Math.min(isFinite(step) ? step : WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_CAP_SEC);
+    // התקרה נגזרת מהרזולוציה: פער גדול מ-1.5 מרווחי דגימה הוא ניתוק. קבוע
+    // אחיד לא היה עובד לשני המקורות — HAE מייצאת או בקיבוץ דקות או בשניות,
+    // ורצפה של 60ש' הייתה גוזמת שיטתית כל דגימה בקיבוץ-דקות.
+    const res = isFinite(step) ? step : WATCH_HR_GAP_CAP_SEC;
+    const cap = Math.min(Math.max(WATCH_HR_GAP_CAP_SEC, Math.round(res * 1.5)), WATCH_HR_GAP_MAX_SEC);
+    // לדגימה האחרונה אין "הבאה" שממנה נגזר המרווח — מיוחסת לה הרזולוציה עצמה,
+    // אחרת אימון קצר מתנפח בתקרה שלמה.
+    const tailSpan = Math.min(res, cap);
     for (let i = 0; i < series.length; i++) {
         const cur = series[i], next = series[i + 1];
         const span = next ? (next[0] - cur[0]) : tailSpan;
         if (!(span > 0)) continue;
-        out[zoneOf(cur[2])] += Math.min(span, WATCH_HR_GAP_CAP_SEC);
+        out[zoneOf(cur[2])] += Math.min(span, cap);
     }
     return out.map(Math.round);
 }

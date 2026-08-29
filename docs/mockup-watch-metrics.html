@@ -100,20 +100,33 @@ p.seclede{ margin:0 0 24px; color:var(--board-dim); font-size:.88rem; max-width:
 .v-cal{ color:var(--warn-strong); }
 .v-rec{ color:var(--success); }
 
-/* פס אזורי דופק */
-.wc-zones{ margin-top:12px; }
-.wc-zlabel{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+/* גרף דופק */
+.wc-zones{ margin-top:14px; }
+.wc-zlabel{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px; }
 .wc-zlabel .a{ font-size:.62rem; font-weight:800; color:var(--text-dim); }
 .wc-zlabel .b{ font-size:.62rem; font-weight:700; color:var(--text-dim); font-variant-numeric:tabular-nums; }
-.zbar{ display:flex; height:9px; border-radius:var(--r-pill); overflow:hidden; background:var(--surface-4); }
-.zbar i{ display:block; height:100%; }
-.z1{ background:rgba(var(--accent-rgb),.55); }
-.z2{ background:rgba(var(--success-rgb),.7); }
-.z3{ background:rgba(var(--warn-rgb),.75); }
-.z4{ background:rgba(var(--warn-strong-rgb),.85); }
-.z5{ background:rgba(var(--danger-rgb),.9); }
-.zleg{ display:flex; justify-content:space-between; margin-top:6px; }
-.zleg span{ font-size:.55rem; font-weight:700; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.hrchart{ display:block; width:100%; height:52px; }
+.hrchart .fill{ fill:rgba(var(--danger-rgb),.13); }
+.hrchart .line{ fill:none; stroke:var(--danger-soft); stroke-width:1.6; stroke-linejoin:round; }
+.hrchart .grid{ stroke:var(--hairline-hi); stroke-width:1; }
+.hrx{ display:flex; justify-content:space-between; margin-top:3px; }
+.hrx span{ font-size:.53rem; font-weight:700; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+
+/* שורות אזורי דופק */
+.zrows{ margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+.zrow{ display:flex; align-items:center; gap:8px; }
+.zrow .zn{ font-size:.6rem; font-weight:800; width:26px; flex-shrink:0; font-variant-numeric:tabular-nums; }
+.zrow .zt{ flex:1; height:7px; border-radius:var(--r-pill); background:var(--surface-4); overflow:hidden; }
+.zrow .zt i{ display:block; height:100%; border-radius:var(--r-pill); }
+.zrow .zv{ font-size:.6rem; font-weight:800; font-variant-numeric:tabular-nums; direction:ltr; width:40px; text-align:left; }
+.zrow .zr{ font-size:.53rem; font-weight:700; color:var(--text-dim); font-variant-numeric:tabular-nums;
+    direction:ltr; width:56px; text-align:left; }
+.zrow.off .zn, .zrow.off .zv{ opacity:.45; }
+.z1{ background:rgba(var(--accent-rgb),.6); } .zn1{ color:var(--accent); }
+.z2{ background:rgba(var(--success-rgb),.75); } .zn2{ color:var(--success); }
+.z3{ background:rgba(var(--warn-rgb),.8); } .zn3{ color:var(--warn); }
+.z4{ background:rgba(var(--warn-strong-rgb),.85); } .zn4{ color:var(--warn-strong); }
+.z5{ background:rgba(var(--danger-rgb),.9); } .zn5{ color:var(--danger-soft); }
 .wc-meta{ margin-top:12px; padding-top:10px; border-top:1px solid var(--hairline);
     font-size:.63rem; color:var(--text-dim); font-weight:600; line-height:1.6; }
 
@@ -210,8 +223,8 @@ p.seclede{ margin:0 0 24px; color:var(--board-dim); font-size:.88rem; max-width:
                 <div class="ph-body">
                     <div class="ov">
                         <div class="ov-col"><div class="ov-v" style="color:var(--type-a)">A</div><div class="ov-k">סוג אימון</div></div>
-                        <div class="ov-col"><div class="ov-v">69m</div><div class="ov-k">משך</div></div>
-                        <div class="ov-col"><div class="ov-v">29.08</div><div class="ov-k">18:42</div></div>
+                        <div class="ov-col"><div class="ov-v">77m</div><div class="ov-k">משך</div></div>
+                        <div class="ov-col"><div class="ov-v">29.08</div><div class="ov-k">10:34</div></div>
                         <div class="ov-col"><div class="ov-v">גירעון</div><div class="ov-k">מצב תזונתי</div></div>
                     </div>
 
@@ -221,24 +234,36 @@ p.seclede{ margin:0 0 24px; color:var(--board-dim); font-size:.88rem; max-width:
                             <span class="wc-pill">Apple Watch</span>
                         </div>
                         <div class="wc-grid">
-                            <div class="wc-m"><div class="v v-hr">128</div><div class="k">דופק ממוצע</div></div>
-                            <div class="wc-m"><div class="v v-hr">164</div><div class="k">דופק מרבי</div></div>
-                            <div class="wc-m"><div class="v v-cal">412</div><div class="k">קק״ל פעילות</div></div>
-                            <div class="wc-m"><div class="v v-rec">32</div><div class="k">התאוששות ׳1</div></div>
+                            <div class="wc-m"><div class="v v-hr">110</div><div class="k">דופק ממוצע</div></div>
+                            <div class="wc-m"><div class="v v-hr">146</div><div class="k">דופק מרבי</div></div>
+                            <div class="wc-m"><div class="v v-cal">388</div><div class="k">קק״ל פעילות</div></div>
+                            <div class="wc-m"><div class="v v-rec">24</div><div class="k">התאוששות ׳1</div></div>
                         </div>
+
                         <div class="wc-zones">
-                            <div class="wc-zlabel"><span class="a">אזורי דופק</span><span class="b">69:00 דק׳</span></div>
-                            <div class="zbar">
-                                <i class="z1" style="width:9%"></i><i class="z2" style="width:26%"></i>
-                                <i class="z3" style="width:42%"></i><i class="z4" style="width:20%"></i>
-                                <i class="z5" style="width:3%"></i>
-                            </div>
-                            <div class="zleg">
-                                <span>Z1 6׳</span><span>Z2 18׳</span><span>Z3 29׳</span><span>Z4 14׳</span><span>Z5 2׳</span>
+                            <div class="wc-zlabel"><span class="a">דופק לאורך האימון</span><span class="b">82–146</span></div>
+                            <svg class="hrchart" viewBox="0 0 300 52" preserveAspectRatio="none" role="img" aria-label="גרף דופק לאורך האימון">
+                                <line class="grid" x1="0" y1="51" x2="300" y2="51"></line>
+                                <polygon class="fill" points="4,51 4.0,39.9 10.5,32.5 17.0,38.4 23.5,42.5 30.0,23.7 36.4,32.5 42.9,41.2 49.4,22.1 55.9,27.2 62.4,33.8 68.9,27.1 75.4,19.7 81.9,28.3 88.4,20.6 94.8,15.5 101.3,23.6 107.8,23.8 114.3,8.3 120.8,13.3 127.3,25.8 133.8,8.8 140.3,14.2 146.8,18.9 153.2,20.4 159.7,11.6 166.2,23.3 172.7,24.8 179.2,8.3 185.7,19.2 192.2,25.4 198.7,13.9 205.2,15.2 211.6,27.4 218.1,27.3 224.6,19.3 231.1,31.0 237.6,28.5 244.1,19.5 250.6,29.2 257.1,36.0 263.6,26.4 270.0,29.2 276.5,38.2 283.0,32.8 289.5,31.5 296.0,42.4 296,51"></polygon>
+                                <polyline class="line" points="4.0,39.9 10.5,32.5 17.0,38.4 23.5,42.5 30.0,23.7 36.4,32.5 42.9,41.2 49.4,22.1 55.9,27.2 62.4,33.8 68.9,27.1 75.4,19.7 81.9,28.3 88.4,20.6 94.8,15.5 101.3,23.6 107.8,23.8 114.3,8.3 120.8,13.3 127.3,25.8 133.8,8.8 140.3,14.2 146.8,18.9 153.2,20.4 159.7,11.6 166.2,23.3 172.7,24.8 179.2,8.3 185.7,19.2 192.2,25.4 198.7,13.9 205.2,15.2 211.6,27.4 218.1,27.3 224.6,19.3 231.1,31.0 237.6,28.5 244.1,19.5 250.6,29.2 257.1,36.0 263.6,26.4 270.0,29.2 276.5,38.2 283.0,32.8 289.5,31.5 296.0,42.4"></polyline>
+                            </svg>
+                            <div class="hrx"><span>10:34</span><span>11:00</span><span>11:25</span><span>11:51</span></div>
+                        </div>
+
+                        <div class="wc-zones">
+                            <div class="wc-zlabel"><span class="a">אזורי דופק</span><span class="b">57:58 מתוך 77:00</span></div>
+                            <div class="zrows">
+                                <div class="zrow"><span class="zn zn1">Z1</span><span class="zt"><i class="z1" style="width:87%"></i></span><span class="zv">50:27</span><span class="zr">&lt;127</span></div>
+                                <div class="zrow"><span class="zn zn2">Z2</span><span class="zt"><i class="z2" style="width:12%"></i></span><span class="zv">06:43</span><span class="zr">128–139</span></div>
+                                <div class="zrow"><span class="zn zn3">Z3</span><span class="zt"><i class="z3" style="width:2%"></i></span><span class="zv">00:48</span><span class="zr">140–152</span></div>
+                                <div class="zrow off"><span class="zn zn4">Z4</span><span class="zt"></span><span class="zv">00:00</span><span class="zr">153–164</span></div>
+                                <div class="zrow off"><span class="zn zn5">Z5</span><span class="zt"></span><span class="zv">00:00</span><span class="zr">165+</span></div>
                             </div>
                         </div>
+
                         <div class="wc-meta">
-                            אימון כוח מסורתי · 18:42–19:51 · נמשך אוטומטית 07:12
+                            אימון כוח מסורתי · 10:34–11:51 · נמשך אוטומטית 12:06<br>
+                            אזורים מחושבים מרזרבת דופק · מנוחה 50 · מרבי 178
                         </div>
                     </div>
 
@@ -347,9 +372,25 @@ p.seclede{ margin:0 0 24px; color:var(--board-dim); font-size:.88rem; max-width:
                             <button class="wc-btn wc-btn--primary">שמור הגדרות</button>
                         </div>
                     </div>
-                    <div class="stg-note">
-                        דורש אוטומציה שלישית ב-Health Auto Export עם <b>Data Type: Workouts</b>,
-                        לאותה כתובת גשר ואותו token. אין מפתח סודי חדש לגבות.
+                    <div class="stg-group-label" style="margin-top:16px;">אזורי דופק</div>
+                    <div class="stg-bento">
+                        <div class="stg-row sub">
+                            <span>
+                                חישוב אוטומטי
+                                <div class="hint">מרזרבת דופק — מנוחה 50 · מרבי 178</div>
+                            </span>
+                            <span class="sw on"></span>
+                        </div>
+                        <div class="zrows" style="margin-top:0;">
+                            <div class="zrow"><span class="zn zn2">Z2</span><span class="zr" style="width:auto;flex:1;text-align:right;direction:rtl;">מ-60% רזרבה</span><span class="zv">128</span></div>
+                            <div class="zrow"><span class="zn zn3">Z3</span><span class="zr" style="width:auto;flex:1;text-align:right;direction:rtl;">מ-70% רזרבה</span><span class="zv">140</span></div>
+                            <div class="zrow"><span class="zn zn4">Z4</span><span class="zr" style="width:auto;flex:1;text-align:right;direction:rtl;">מ-80% רזרבה</span><span class="zv">153</span></div>
+                            <div class="zrow"><span class="zn zn5">Z5</span><span class="zr" style="width:auto;flex:1;text-align:right;direction:rtl;">מ-90% רזרבה</span><span class="zv">165</span></div>
+                        </div>
+                        <div class="stg-note" style="padding:0;margin:0;">
+                            דופק המנוחה נלקח מחציון 28 הלילות האחרונים שכבר נאספים בגשר.
+                            כיבוי המתג פותח ארבעה שדות להזנה ידנית מתוך מסך ה-Fitness.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -365,30 +406,34 @@ p.seclede{ margin:0 0 24px; color:var(--board-dim); font-size:.88rem; max-width:
         <div class="panel">
             <h3>שדות</h3>
             <table class="tbl">
-                <tr><th>שדה</th><th>מקור HAE</th><th>הצגה</th></tr>
-                <tr><td class="mono">hrAvg / hrMax</td><td>heartRateData</td><td>שני אריחים ראשונים</td></tr>
-                <tr><td class="mono">activeKcal</td><td>activeEnergyBurned</td><td>אריח שלישי</td></tr>
-                <tr><td class="mono">hrRecovery1</td><td>heartRateRecovery</td><td>אריח רביעי</td></tr>
-                <tr><td class="mono">zones[5]</td><td>נגזר מ-hr + גיל</td><td>פס אזורים</td></tr>
-                <tr><td class="mono">start / end / durMin</td><td>start, end</td><td>שורת המטא</td></tr>
-                <tr><td class="mono">wType</td><td>name</td><td>שורת המטא</td></tr>
+                <tr><th>שדה</th><th>מקור</th><th>הצגה</th></tr>
+                <tr><td class="mono">hrAvg / hrMax</td><td>נשאב</td><td>שני אריחים ראשונים</td></tr>
+                <tr><td class="mono">activeKcal</td><td>נשאב</td><td>אריח שלישי</td></tr>
+                <tr><td class="mono">hrRecovery1</td><td>נשאב</td><td>אריח רביעי</td></tr>
+                <tr><td class="mono">start / end / durMin</td><td>נשאב</td><td>שורת המטא</td></tr>
+                <tr><td class="mono">wType</td><td>נשאב (name)</td><td>שורת המטא</td></tr>
+                <tr><td class="mono">hrSeries[]</td><td>נשאב ומדולל</td><td>גרף הדופק</td></tr>
+                <tr><td class="mono">zones[5]</td><td><b>מחושב</b> מ-hrSeries</td><td>חמש שורות האזורים</td></tr>
                 <tr><td class="mono">linkedBy</td><td>auto / manual</td><td>שורת המטא</td></tr>
             </table>
-            <p class="note">אריח שאין לו נתון פשוט לא מוצג — הכרטיס מתכווץ ל-2–3 אריחים במקום להציג "—".</p>
+            <p class="note"><b>אזורי דופק אינם נתון ב-HealthKit</b> — אפל מחשבת אותם לתצוגה בלבד. לכן הם
+                נבנים מחדש כאן: סדרת הדופק × גבולות האזורים. אריח שאין לו נתון פשוט לא מוצג.</p>
         </div>
 
         <div class="panel">
             <h3>בייצוא</h3>
             <p class="note" style="margin:0 0 8px;">שורה אחת בהעתקת הסיכום (<code>_archiveCopyText</code>):</p>
-            <div class="code">שעון: דופק ממוצע 128 · מרבי 164 · 412 קק"ל
-· התאוששות 32 · Z3 29׳ / Z4 14׳</div>
+            <div class="code">שעון: דופק ממוצע 110 · מרבי 146 · 388 קק"ל
+· התאוששות 24 · Z1 50׳ / Z2 7׳ / Z3 1׳</div>
             <p class="note" style="margin:14px 0 8px;">ובקובץ המאוחד, בתוך כל אימון:</p>
             <div class="code">"watch": {
-  "hrAvg": 128, "hrMax": 164,
-  "activeKcal": 412, "hrRecovery1": 32,
-  "zones": [6, 18, 29, 14, 2],
-  "start": "2026-08-29T18:42:11+03:00",
-  "durMin": 69, "wType": "strength",
+  "hrAvg": 110, "hrMax": 146,
+  "activeKcal": 388, "hrRecovery1": 24,
+  "zoneSec": [3027, 403, 48, 0, 0],
+  "zoneBounds": [127, 140, 153, 165],
+  "hrSeries": [[0,88],[30,94],[60,112], …],
+  "start": "2026-08-29T10:34:07+03:00",
+  "durMin": 77, "wType": "strength",
   "linkedBy": "auto"
 }</div>
             <p class="note">אימוני שעון שלא שויכו (הליכות, ריצות) נשמרים בנפרד ומיוצאים כמקטע

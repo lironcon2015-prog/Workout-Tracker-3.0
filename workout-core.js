@@ -5056,6 +5056,9 @@ function buildSummaryUI() {
 
     // יצירת סיכום המאמן אוטומטית (אם יש API key) — לא חוסם את המסך
     if (hasAIKey) generateCoachSummary();
+
+    // משיכה אוטומטית של נתוני השעון — כדי שהכרטיס יתמלא מעצמו בלי משיכה ידנית
+    if (archiveTs) startWatchAutoPull(archiveTs);
 }
 
 // setSummaryTab — מחליף לשונית במסך הסיכום. הבורר הוא אותו רכיב
@@ -7844,11 +7847,13 @@ async function syncHealthNutrition(manual = false, force = false) {
         let watchChanged = 0, watchLinked = 0;
         if (works.length && StorageManager.isHealthPullWorkouts()) {
             watchChanged = StorageManager.mergeWatchWorkouts(works);
-            if (watchChanged) {
-                watchLinked = _linkWatchWorkouts();
-                if (watchLinked && typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
-                    FirebaseManager.saveArchiveToCloud().catch(() => {});
-                }
+            // השיוך רץ **תמיד**, לא רק כשהמיזוג שינה משהו: אם אימון השעון נמשך
+            // למאגר לפני שרשומת הארכיון בכלל נוצרה (השעון דוחף בסיום, המשתמש
+            // מתעד באפליקציה אחר כך), המשיכה הבאה מחזירה בדיוק אותו מידע —
+            // changed=0 — והאימון היה נשאר "ממתין" לנצח.
+            watchLinked = _linkWatchWorkouts();
+            if (watchLinked && typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
+                FirebaseManager.saveArchiveToCloud().catch(() => {});
             }
         }
         const changed = sleepChanged + nutChanged + watchChanged;
@@ -7870,7 +7875,7 @@ async function syncHealthNutrition(manual = false, force = false) {
             if ((changed > 0 || manual) && typeof renderHomeTodayCards === 'function') renderHomeTodayCards();
             // לשונית "מדדים" פתוחה (מסך סיכום/פרטי אימון) — לרענן כדי ש"ממתין"
             // יתחלף בנתונים ברגע שהם הגיעו, בלי לצאת מהמסך ולחזור אליו.
-            if (watchChanged) _refreshOpenMetricsPanes();
+            if (watchChanged || watchLinked) _refreshOpenMetricsPanes();
         } catch (e) { console.error('GymPro: health sync render failed', e); }
         if (changed > 0) {
             if (typeof FirebaseManager !== 'undefined') {
@@ -8061,6 +8066,78 @@ function unlinkWatchWorkout(archiveTs) {
     _refreshMetricsPane(archiveTs);
 }
 
+/* ─── משיכה אוטומטית בסיום אימון ──────────────────────────────────────────
+ * אוטומציית סוף-האימון ב-iOS ממתינה ~3 דקות לפני שהיא דוחפת לגשר (סנכרון
+ * השעון לטלפון + חישוב התאוששות הדופק), ולכן משיכה בודדת בשנייה שאחרי הסיום
+ * תמיד תחזור ריקה. במקום זה: סדרת משיכות שקטות שנפרשת על ~6.5 דקות ונעצרת
+ * ברגע שהנתונים הגיעו. אין טוסטים ואין כפתור — המשתמש רואה "מחפש…" ואז את
+ * הכרטיס מתמלא מעצמו.
+ *
+ * המשיכה נעצרת גם כשעוזבים את המסך: אין טעם להמשיך לרשת בשביל תצוגה שאיננה. */
+const WATCH_POLL_STEPS = [5000, 25000, 60000, 60000, 60000, 60000, 60000, 60000];
+let _watchPollTimer = null, _watchPollIdx = 0, _watchPollTs = null;
+
+// _watchPollPane — לשונית המדדים שמציגה כרגע את האימון הנמשך, אם היא על המסך.
+// המסכים מוסתרים ולא נמחקים, ולכן לא די בקיום האלמנט — נדרש שהמסך יהיה פעיל.
+function _watchPollPane() {
+    const pairs = [['sum-tab-metrics', 'ui-summary'], ['arch-tab-metrics', 'ui-archive-detail']];
+    for (const [paneId, screenId] of pairs) {
+        const pane = document.getElementById(paneId);
+        const scr = document.getElementById(screenId);
+        if (pane && scr && scr.classList.contains('active') &&
+            String(pane.dataset.ts || '') === String(_watchPollTs)) return pane;
+    }
+    return null;
+}
+
+function stopWatchAutoPull() {
+    if (_watchPollTimer) clearTimeout(_watchPollTimer);
+    _watchPollTimer = null;
+    _watchPollTs = null;
+}
+
+// startWatchAutoPull — נקרא בפתיחת מסך סיכום/פרטי אימון שאין בו נתוני שעון.
+function startWatchAutoPull(archiveTs) {
+    stopWatchAutoPull();
+    if (!archiveTs) return;
+    if (!StorageManager.isHealthBridgeOn() || !StorageManager.isHealthPullWorkouts()) return;
+    if (!StorageManager.getHealthBridge().url) return;
+
+    // ניסיון מקומי לפני כל רשת: ייתכן שהאימון כבר במאגר מהמשיכה הקודמת ורק לא
+    // שויך, כי רשומת הארכיון נוצרה אחריה.
+    if (_linkWatchWorkouts() > 0) { _refreshMetricsPane(archiveTs); return; }
+
+    const entry = StorageManager.getArchive().find(a => a.timestamp === archiveTs);
+    if (!entry || entry.watch !== undefined) return;   // כבר יש, או שהשיוך בוטל ביודעין
+
+    _watchPollTs = archiveTs;
+    _watchPollIdx = 0;
+    _scheduleWatchPoll();
+    _refreshMetricsPane(archiveTs);   // הכרטיס מתחלף ל"מחפש…"
+}
+
+function _scheduleWatchPoll() {
+    const delay = WATCH_POLL_STEPS[_watchPollIdx];
+    if (delay == null) {                       // תם החלון — חזרה ל"ממתין" עם כפתור ידני
+        const ts = _watchPollTs;
+        stopWatchAutoPull();
+        if (ts) { _watchPollTs = ts; _refreshMetricsPane(ts); _watchPollTs = null; }
+        return;
+    }
+    _watchPollIdx++;
+    _watchPollTimer = setTimeout(async () => {
+        _watchPollTimer = null;
+        const ts = _watchPollTs;
+        if (!ts || !_watchPollPane()) { stopWatchAutoPull(); return; }
+        // manual=false → שקט לחלוטין; force=true → עוקף את ה-throttle של 15 דק'
+        try { await syncHealthNutrition(false, true); } catch (e) {}
+        if (_watchPollTs !== ts) return;        // הופסק/הוחלף בזמן ההמתנה לרשת
+        const entry = StorageManager.getArchive().find(a => a.timestamp === ts);
+        if (entry && entry.watch) { stopWatchAutoPull(); return; }   // הגיע — הרינדור כבר קרה בסנכרון
+        _scheduleWatchPoll();
+    }, delay);
+}
+
 // _refreshMetricsPane — מרנדר מחדש את לשונית המדדים בכל מסך שבו היא פתוחה.
 // ה-timestamp של האימון שהלשונית מציגה נשמר על האלמנט עצמו (data-ts), כדי
 // שרענון אחרי משיכה לא ידרוס לשונית שמציגה אימון אחר.
@@ -8183,13 +8260,18 @@ function _watchEmptyHtml(entry) {
             <span class="wc-cand-g">פער ׳${Math.round(c.gap / 60000)}</span>
         </button>`).join('')}
     </div>` : '';
+    // מצב "מחפש…" — משיכה אוטומטית פעילה לאימון הזה. הכפתור הידני מוסתר בזמן
+    // הזה בכוונה: הוא היה מציע למשתמש לעשות בדיוק את מה שכבר קורה מעצמו.
+    const polling = _watchPollTs === entry.timestamp && !!_watchPollTimer;
     return `<div class="wc wc--empty">
-        <div class="wc-head"><span class="wc-title">נתוני שעון</span><span class="wc-pill">ממתין</span></div>
-        <div class="wc-empty-txt">טרם התקבל סיכום מ-Apple Watch לאימון הזה. הנתונים מגיעים דרך גשר ה-Health
-            בייצוא הבא — בדרך כלל תוך דקות מרגע פתיחת הטלפון.</div>
-        <div class="wc-actions">
+        <div class="wc-head"><span class="wc-title">נתוני שעון</span>
+            <span class="wc-pill">${polling ? 'מחפש<span class="wc-dots"><i></i><i></i><i></i></span>' : 'ממתין'}</span></div>
+        <div class="wc-empty-txt">${polling
+            ? 'ממתין לסיכום מ-Apple Watch. אוטומציית סוף-האימון דוחפת אותו לגשר כשלוש דקות אחרי הסיום, והאפליקציה בודקת שוב מעצמה עד שהוא מגיע.'
+            : 'טרם התקבל סיכום מ-Apple Watch לאימון הזה. הנתונים מגיעים דרך גשר ה-Health בייצוא הבא — בדרך כלל תוך דקות מרגע פתיחת הטלפון.'}</div>
+        ${polling ? '' : `<div class="wc-actions">
             <button class="wc-btn wc-btn--primary" onclick="syncHealthNutrition(true)">משוך עכשיו</button>
-        </div>
+        </div>`}
         ${candHtml}
     </div>`;
 }

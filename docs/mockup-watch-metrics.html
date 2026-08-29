@@ -1,0 +1,398 @@
+<title>נתוני שעון בסיכום האימון</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap">
+<style>
+:root{
+    --board-bg:#eef0f5; --board-panel:#ffffff; --board-line:rgba(12,20,40,.10);
+    --board-ink:#12151c; --board-dim:#5a6273; --board-accent:#0A6BD6;
+
+    /* טוקני האפליקציה — ערכים אמיתיים מ-style.css (Liquid Obsidian) */
+    --bg:#070708; --surface-1:#101013; --surface-2:#161619; --surface-3:#1e1e22; --surface-4:#26262c;
+    --hairline:rgba(255,255,255,.06); --hairline-hi:rgba(255,255,255,.10);
+    --top-glint:inset 0 1px 0 rgba(255,255,255,.05);
+    --elev-2:0 2px 8px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.35);
+    --accent:#0A84FF; --accent-rgb:10,132,255;
+    --success:#30D158; --success-rgb:48,209,88;
+    --danger:#ff453a; --danger-rgb:255,69,58; --danger-soft:#ff6b6b;
+    --warn:#FFD60A; --warn-rgb:255,214,10; --warn-strong:#FF9F0A; --warn-strong-rgb:255,159,10;
+    --text:#e2e2e2; --text-dim:#8E8E93; --type-a:#0A84FF; --type-b:#47e266;
+    --fs-xs:.65rem; --fs-sm:.72rem; --fs-md:.8rem; --fs-lg:.9rem; --fs-xl:1.05rem;
+    --r-xs:8px; --r-sm:14px; --r-md:20px; --r-lg:28px; --r-pill:9999px;
+    --font-app:"Heebo", system-ui, -apple-system, "Segoe UI", "Arial Hebrew", sans-serif;
+}
+:root:not([data-theme="light"]){ color-scheme:dark; }
+@media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+        --board-bg:#0b0d12; --board-panel:#12151c; --board-line:rgba(160,185,230,.14);
+        --board-ink:#e8ecf4; --board-dim:#909ab0; --board-accent:#5AB0FF;
+    }
+}
+:root[data-theme="dark"]{
+    color-scheme:dark;
+    --board-bg:#0b0d12; --board-panel:#12151c; --board-line:rgba(160,185,230,.14);
+    --board-ink:#e8ecf4; --board-dim:#909ab0; --board-accent:#5AB0FF;
+}
+:root[data-theme="light"]{ color-scheme:light; }
+
+*{ box-sizing:border-box; }
+body{
+    margin:0; direction:rtl; background:var(--board-bg); color:var(--board-ink);
+    font-family:var(--font-app); line-height:1.55; -webkit-font-smoothing:antialiased;
+    padding:40px 20px 64px;
+}
+@media (max-width:420px){ body{ padding:26px 10px 44px; } }
+.wrap{ max-width:1120px; margin:0 auto; }
+.eyebrow{ font-size:.7rem; font-weight:800; letter-spacing:.16em; color:var(--board-accent); margin:0 0 10px; }
+h1{ font-size:clamp(1.6rem,4.4vw,2.25rem); font-weight:900; letter-spacing:-.02em; margin:0 0 12px; text-wrap:balance; }
+.lede{ margin:0; max-width:62ch; color:var(--board-dim); font-size:.95rem; }
+.rule{ height:1px; background:var(--board-line); margin:34px 0; border:0; }
+h2.sec{ font-size:1.15rem; font-weight:900; margin:0 0 6px; }
+p.seclede{ margin:0 0 24px; color:var(--board-dim); font-size:.88rem; max-width:66ch; }
+
+.opts{ display:grid; gap:34px 24px; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); justify-items:center; align-items:start; }
+.opt{ width:100%; max-width:372px; display:flex; flex-direction:column; gap:14px; }
+.opt-head{ display:flex; flex-direction:column; gap:5px; }
+.opt-tag{ align-self:flex-start; font-size:.63rem; font-weight:800; letter-spacing:.14em;
+    color:var(--board-accent); background:color-mix(in srgb,var(--board-accent) 12%,transparent);
+    border:1px solid color-mix(in srgb,var(--board-accent) 30%,transparent); border-radius:9999px; padding:4px 12px; }
+.opt-name{ font-size:1.1rem; font-weight:800; margin:0; }
+.opt-sub{ margin:0; font-size:.84rem; color:var(--board-dim); }
+
+/* ── מסגרת מכשיר ── */
+.phone{
+    width:344px; height:700px; margin:0 auto; border-radius:44px;
+    background:var(--bg); border:1px solid rgba(255,255,255,.09);
+    box-shadow:0 2px 6px rgba(0,0,0,.35), 0 24px 56px rgba(0,0,0,.45);
+    position:relative; overflow:hidden; direction:rtl; font-family:var(--font-app);
+    color:var(--text); display:flex; flex-direction:column;
+}
+.ph-nav{ padding:16px 18px 8px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.ph-nav .t{ font-size:var(--fs-xl); font-weight:900; color:#fff; }
+.ph-nav .b{ font-size:var(--fs-sm); color:var(--text-dim); font-weight:700; }
+.ph-body{ flex:1; overflow:hidden; padding:6px 14px 14px; }
+
+/* ── כרטיס הסקירה הקיים (summary-overview-card) ── */
+.ov{
+    background:var(--surface-2); border:1px solid var(--hairline); border-top-color:var(--hairline-hi);
+    border-radius:var(--r-md); padding:14px; margin-bottom:12px; display:flex;
+    justify-content:space-between; align-items:center; text-align:center; box-shadow:var(--top-glint), var(--elev-2);
+}
+.ov-col{ flex:1; display:flex; flex-direction:column; border-left:1px solid rgba(255,255,255,.1); }
+.ov-col:last-child{ border-left:none; }
+.ov-v{ font-size:1rem; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; }
+.ov-k{ font-size:.62rem; color:var(--text-dim); font-weight:700; margin-top:3px; }
+
+/* ── הכרטיס החדש: נתוני שעון ── */
+.wc{
+    background:var(--surface-2); border:1px solid var(--hairline); border-top-color:var(--hairline-hi);
+    border-radius:var(--r-md); padding:14px; margin-bottom:12px; box-shadow:var(--top-glint), var(--elev-2);
+}
+.wc-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+.wc-title{ font-size:var(--fs-lg); font-weight:900; color:#fff; }
+.wc-pill{ font-size:.6rem; font-weight:800; color:var(--text-dim); background:var(--surface-4);
+    border-radius:var(--r-pill); padding:4px 10px; letter-spacing:.02em; }
+.wc-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+.wc-m{ background:var(--surface-3); border:1px solid var(--hairline); border-radius:var(--r-sm);
+    padding:10px 4px; text-align:center; }
+.wc-m .v{ font-size:1.02rem; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.1; direction:ltr; }
+.wc-m .v small{ font-size:.55rem; font-weight:700; color:var(--text-dim); }
+.wc-m .k{ font-size:.58rem; color:var(--text-dim); font-weight:700; margin-top:4px; }
+.v-hr{ color:var(--danger-soft); }
+.v-cal{ color:var(--warn-strong); }
+.v-rec{ color:var(--success); }
+
+/* פס אזורי דופק */
+.wc-zones{ margin-top:12px; }
+.wc-zlabel{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+.wc-zlabel .a{ font-size:.62rem; font-weight:800; color:var(--text-dim); }
+.wc-zlabel .b{ font-size:.62rem; font-weight:700; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.zbar{ display:flex; height:9px; border-radius:var(--r-pill); overflow:hidden; background:var(--surface-4); }
+.zbar i{ display:block; height:100%; }
+.z1{ background:rgba(var(--accent-rgb),.55); }
+.z2{ background:rgba(var(--success-rgb),.7); }
+.z3{ background:rgba(var(--warn-rgb),.75); }
+.z4{ background:rgba(var(--warn-strong-rgb),.85); }
+.z5{ background:rgba(var(--danger-rgb),.9); }
+.zleg{ display:flex; justify-content:space-between; margin-top:6px; }
+.zleg span{ font-size:.55rem; font-weight:700; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.wc-meta{ margin-top:12px; padding-top:10px; border-top:1px solid var(--hairline);
+    font-size:.63rem; color:var(--text-dim); font-weight:600; line-height:1.6; }
+
+/* מצב ממתין / לא משויך */
+.wc--empty{ background:var(--surface-1); }
+.wc-empty-txt{ font-size:var(--fs-sm); color:var(--text-dim); line-height:1.6; }
+.wc-actions{ display:flex; gap:8px; margin-top:12px; }
+.wc-btn{ font-size:.68rem; font-weight:800; padding:8px 14px; border-radius:var(--r-pill);
+    background:var(--surface-4); color:var(--text); align-self:flex-start; border:none; }
+.wc-btn--primary{ background:rgba(var(--accent-rgb),.16); color:var(--accent);
+    border:1px solid rgba(var(--accent-rgb),.3); }
+.dots{ display:inline-flex; gap:3px; vertical-align:middle; margin-left:5px; }
+.dots i{ width:4px; height:4px; border-radius:50%; background:var(--text-dim); opacity:.4;
+    animation:pulse 1.4s infinite; }
+.dots i:nth-child(2){ animation-delay:.2s } .dots i:nth-child(3){ animation-delay:.4s }
+@keyframes pulse{ 0%,100%{opacity:.25} 50%{opacity:.9} }
+@media (prefers-reduced-motion:reduce){ .dots i{ animation:none; opacity:.5 } }
+
+/* גיליון שיוך ידני */
+.sheet{ margin-top:14px; background:var(--surface-3); border:1px solid var(--hairline-hi);
+    border-radius:var(--r-lg); padding:14px; box-shadow:var(--elev-2); }
+.sheet-t{ font-size:var(--fs-md); font-weight:900; color:#fff; margin-bottom:3px; }
+.sheet-s{ font-size:.62rem; color:var(--text-dim); margin-bottom:12px; }
+.srow{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--surface-2); border:1px solid var(--hairline); border-radius:var(--r-sm);
+    padding:10px 12px; margin-bottom:7px; }
+.srow.sel{ border-color:rgba(var(--accent-rgb),.45); background:rgba(var(--accent-rgb),.09); }
+.srow .n{ font-size:.72rem; font-weight:800; }
+.srow .d{ font-size:.58rem; color:var(--text-dim); font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
+.srow .g{ font-size:.58rem; font-weight:800; color:var(--text-dim); text-align:left; direction:ltr; }
+.srow.sel .g{ color:var(--accent); }
+
+/* ── הגדרות ── */
+.stg-group-label{ font-size:.63rem; font-weight:800; color:var(--text-dim); letter-spacing:.04em;
+    margin:0 4px 8px; }
+.stg-bento{ background:var(--surface-2); border:1px solid var(--hairline); border-top-color:var(--hairline-hi);
+    border-radius:var(--r-md); padding:14px; display:flex; flex-direction:column; gap:12px;
+    box-shadow:var(--top-glint), var(--elev-2); }
+.stg-status{ font-size:.66rem; color:var(--success); font-weight:700; }
+.stg-row{ display:flex; align-items:center; justify-content:space-between; font-size:var(--fs-md); font-weight:600; }
+.stg-row.sub{ padding-right:2px; }
+.stg-row .hint{ font-size:.58rem; color:var(--text-dim); font-weight:600; margin-top:2px; }
+.sw{ width:44px; height:26px; border-radius:var(--r-pill); background:var(--surface-4); position:relative; flex-shrink:0; }
+.sw.on{ background:var(--success); }
+.sw::after{ content:''; position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%;
+    background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+.sw.on::after{ right:auto; left:3px; }
+.stg-field{ display:flex; flex-direction:column; gap:5px; }
+.stg-label{ font-size:.56rem; font-weight:800; color:var(--text-dim); letter-spacing:.08em; }
+.stg-input{ background:var(--surface-1); border:1px solid var(--hairline); border-radius:var(--r-sm);
+    padding:9px 11px; font-size:.66rem; color:var(--text-dim); direction:ltr; text-align:left;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.stg-note{ font-size:.58rem; color:var(--text-dim); line-height:1.65; margin-top:6px; padding:0 4px; }
+
+/* ── לוחות מידע ── */
+.panel{ background:var(--board-panel); border:1px solid var(--board-line); border-radius:16px; padding:20px 22px; }
+.panels{ display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+.panel h3{ margin:0 0 12px; font-size:.95rem; font-weight:900; }
+.tbl{ width:100%; border-collapse:collapse; font-size:.78rem; }
+.tbl th, .tbl td{ text-align:right; padding:7px 8px; border-bottom:1px solid var(--board-line); vertical-align:top; }
+.tbl th{ font-size:.66rem; font-weight:800; color:var(--board-dim); letter-spacing:.05em; }
+.tbl td.mono{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; direction:ltr; text-align:left; font-size:.72rem; }
+.tbl tr:last-child td{ border-bottom:none; }
+.code{ background:color-mix(in srgb,var(--board-ink) 5%,transparent); border:1px solid var(--board-line);
+    border-radius:10px; padding:12px 14px; overflow-x:auto; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.72rem; direction:ltr; text-align:left; line-height:1.7; white-space:pre; }
+.note{ font-size:.78rem; color:var(--board-dim); margin:10px 0 0; }
+</style>
+
+<div class="wrap">
+    <p class="eyebrow">GYMPRO ELITE · הצעת מימוש</p>
+    <h1>נתוני שעון בסיכום האימון</h1>
+    <p class="lede">
+        סיכום האימון מ-Apple Watch (דופק ממוצע/מרבי, קלוריות פעילות, התאוששות דופק, אזורי דופק)
+        נשאב דרך <b>אותו גשר Health שכבר מותקן</b> — בלי גשר חדש, בלי URL או token נוספים —
+        משויך אוטומטית לאימון שנשמר בארכיון, ומיוצא בסיכום ובקובץ המאוחד.
+    </p>
+
+    <hr class="rule">
+
+    <h2 class="sec">שלוש חזיתות UI</h2>
+    <p class="seclede">כרטיס אחד חדש בסיכום האימון (בשני מצבים), ותת-מתג אחד בהגדרות. שאר המסכים לא נוגעים.</p>
+
+    <div class="opts">
+        <!-- A — משויך -->
+        <div class="opt">
+            <div class="opt-head">
+                <span class="opt-tag">א · המצב הרגיל</span>
+                <h3 class="opt-name">כרטיס "נתוני שעון" בסיכום</h3>
+                <p class="opt-sub">נכנס מתחת לכרטיס הסקירה הקיים, מעל רשימת התרגילים.</p>
+            </div>
+            <div class="phone">
+                <div class="ph-nav"><span class="t">סיכום אימון</span><span class="b">חזרה</span></div>
+                <div class="ph-body">
+                    <div class="ov">
+                        <div class="ov-col"><div class="ov-v" style="color:var(--type-a)">A</div><div class="ov-k">סוג אימון</div></div>
+                        <div class="ov-col"><div class="ov-v">69m</div><div class="ov-k">משך</div></div>
+                        <div class="ov-col"><div class="ov-v">29.08</div><div class="ov-k">18:42</div></div>
+                        <div class="ov-col"><div class="ov-v">גירעון</div><div class="ov-k">מצב תזונתי</div></div>
+                    </div>
+
+                    <div class="wc">
+                        <div class="wc-head">
+                            <span class="wc-title">נתוני שעון</span>
+                            <span class="wc-pill">Apple Watch</span>
+                        </div>
+                        <div class="wc-grid">
+                            <div class="wc-m"><div class="v v-hr">128</div><div class="k">דופק ממוצע</div></div>
+                            <div class="wc-m"><div class="v v-hr">164</div><div class="k">דופק מרבי</div></div>
+                            <div class="wc-m"><div class="v v-cal">412</div><div class="k">קק״ל פעילות</div></div>
+                            <div class="wc-m"><div class="v v-rec">32</div><div class="k">התאוששות ׳1</div></div>
+                        </div>
+                        <div class="wc-zones">
+                            <div class="wc-zlabel"><span class="a">אזורי דופק</span><span class="b">69:00 דק׳</span></div>
+                            <div class="zbar">
+                                <i class="z1" style="width:9%"></i><i class="z2" style="width:26%"></i>
+                                <i class="z3" style="width:42%"></i><i class="z4" style="width:20%"></i>
+                                <i class="z5" style="width:3%"></i>
+                            </div>
+                            <div class="zleg">
+                                <span>Z1 6׳</span><span>Z2 18׳</span><span>Z3 29׳</span><span>Z4 14׳</span><span>Z5 2׳</span>
+                            </div>
+                        </div>
+                        <div class="wc-meta">
+                            אימון כוח מסורתי · 18:42–19:51 · נמשך אוטומטית 07:12
+                        </div>
+                    </div>
+
+                    <div class="ov" style="margin-bottom:0;">
+                        <div class="ov-col"><div class="ov-v">לחיצת חזה</div><div class="ov-k">Vol: 4,240kg</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- B — ממתין / שיוך ידני -->
+        <div class="opt">
+            <div class="opt-head">
+                <span class="opt-tag">ב · אין התאמה עדיין</span>
+                <h3 class="opt-name">ממתין לנתונים · שיוך ידני</h3>
+                <p class="opt-sub">‏HAE מייצא אחרי שהטלפון נפתח — לרוב דקות אחרי הסיום. הכרטיס לא נעלם, הוא מסביר.</p>
+            </div>
+            <div class="phone">
+                <div class="ph-nav"><span class="t">סיכום אימון</span><span class="b">חזרה</span></div>
+                <div class="ph-body">
+                    <div class="ov">
+                        <div class="ov-col"><div class="ov-v" style="color:var(--type-b)">B</div><div class="ov-k">סוג אימון</div></div>
+                        <div class="ov-col"><div class="ov-v">58m</div><div class="ov-k">משך</div></div>
+                        <div class="ov-col"><div class="ov-v">27.08</div><div class="ov-k">19:05</div></div>
+                        <div class="ov-col"><div class="ov-v">איזון</div><div class="ov-k">מצב תזונתי</div></div>
+                    </div>
+
+                    <div class="wc wc--empty">
+                        <div class="wc-head">
+                            <span class="wc-title">נתוני שעון</span>
+                            <span class="wc-pill">ממתין<span class="dots"><i></i><i></i><i></i></span></span>
+                        </div>
+                        <div class="wc-empty-txt">
+                            טרם התקבל סיכום מ-Apple Watch לאימון הזה. הנתונים מגיעים דרך גשר ה-Health
+                            בייצוא הבא — בדרך כלל תוך דקות מרגע פתיחת הטלפון.
+                        </div>
+                        <div class="wc-actions">
+                            <button class="wc-btn wc-btn--primary">משוך עכשיו</button>
+                            <button class="wc-btn">שייך ידנית</button>
+                        </div>
+                    </div>
+
+                    <div class="sheet">
+                        <div class="sheet-t">שיוך אימון שעון</div>
+                        <div class="sheet-s">אימונים מהשעון שלא שויכו, סביב 27.08 19:05</div>
+                        <div class="srow sel">
+                            <div>
+                                <div class="n">אימון כוח מסורתי</div>
+                                <div class="d">19:04–20:01 · 57 דק׳ · 128/166 · 388 קק״ל</div>
+                            </div>
+                            <div class="g">פער ׳1</div>
+                        </div>
+                        <div class="srow">
+                            <div>
+                                <div class="n">הליכה</div>
+                                <div class="d">20:14–20:38 · 24 דק׳ · 96/112 · 74 קק״ל</div>
+                            </div>
+                            <div class="g">פער ׳69</div>
+                        </div>
+                        <div class="wc-actions">
+                            <button class="wc-btn wc-btn--primary">שייך לאימון</button>
+                            <button class="wc-btn">בטל</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- C — הגדרות -->
+        <div class="opt">
+            <div class="opt-head">
+                <span class="opt-tag">ג · הגדרות</span>
+                <h3 class="opt-name">תת-מתג בגשר ה-Health הקיים</h3>
+                <p class="opt-sub">אין קבוצת הגדרות חדשה, אין URL/token נוספים — שורה אחת בבנטו הקיים.</p>
+            </div>
+            <div class="phone">
+                <div class="ph-nav"><span class="t">הגדרות</span><span class="b">סגור</span></div>
+                <div class="ph-body">
+                    <div class="stg-group-label">גשר Apple Health (שינה והתאוששות)</div>
+                    <div class="stg-bento">
+                        <div class="stg-status">מחובר · עודכן 07:12 · 84 לילות · 46 אימוני שעון</div>
+                        <div class="stg-row"><span>הפעל גשר Health</span><span class="sw on"></span></div>
+                        <div class="stg-field">
+                            <span class="stg-label">BRIDGE URL (APPS SCRIPT)</span>
+                            <div class="stg-input">https://script.google.com/macros/s/AKfy…/exec</div>
+                        </div>
+                        <div class="stg-field">
+                            <span class="stg-label">SECRET TOKEN</span>
+                            <div class="stg-input">••••••••••••</div>
+                        </div>
+                        <div class="stg-row sub">
+                            <span>
+                                משוך גם אימוני שעון
+                                <div class="hint">דופק, קלוריות ואזורי דופק לכל אימון</div>
+                            </span>
+                            <span class="sw on"></span>
+                        </div>
+                        <div class="stg-row sub">
+                            <span>
+                                משוך גם תזונה (MFP)
+                                <div class="hint">כבוי כברירת מחדל</div>
+                            </span>
+                            <span class="sw"></span>
+                        </div>
+                        <div class="wc-actions" style="margin-top:2px;">
+                            <button class="wc-btn wc-btn--primary">שמור הגדרות</button>
+                        </div>
+                    </div>
+                    <div class="stg-note">
+                        דורש אוטומציה שלישית ב-Health Auto Export עם <b>Data Type: Workouts</b>,
+                        לאותה כתובת גשר ואותו token. אין מפתח סודי חדש לגבות.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="rule">
+
+    <h2 class="sec">מה נשמר לכל אימון</h2>
+    <p class="seclede">אובייקט <code>watch</code> יחיד בתוך רשומת הארכיון — נשאב פעם אחת, נשמר לתמיד, מיוצא כמו כל שדה אחר.</p>
+
+    <div class="panels">
+        <div class="panel">
+            <h3>שדות</h3>
+            <table class="tbl">
+                <tr><th>שדה</th><th>מקור HAE</th><th>הצגה</th></tr>
+                <tr><td class="mono">hrAvg / hrMax</td><td>heartRateData</td><td>שני אריחים ראשונים</td></tr>
+                <tr><td class="mono">activeKcal</td><td>activeEnergyBurned</td><td>אריח שלישי</td></tr>
+                <tr><td class="mono">hrRecovery1</td><td>heartRateRecovery</td><td>אריח רביעי</td></tr>
+                <tr><td class="mono">zones[5]</td><td>נגזר מ-hr + גיל</td><td>פס אזורים</td></tr>
+                <tr><td class="mono">start / end / durMin</td><td>start, end</td><td>שורת המטא</td></tr>
+                <tr><td class="mono">wType</td><td>name</td><td>שורת המטא</td></tr>
+                <tr><td class="mono">linkedBy</td><td>auto / manual</td><td>שורת המטא</td></tr>
+            </table>
+            <p class="note">אריח שאין לו נתון פשוט לא מוצג — הכרטיס מתכווץ ל-2–3 אריחים במקום להציג "—".</p>
+        </div>
+
+        <div class="panel">
+            <h3>בייצוא</h3>
+            <p class="note" style="margin:0 0 8px;">שורה אחת בהעתקת הסיכום (<code>_archiveCopyText</code>):</p>
+            <div class="code">שעון: דופק ממוצע 128 · מרבי 164 · 412 קק"ל
+· התאוששות 32 · Z3 29׳ / Z4 14׳</div>
+            <p class="note" style="margin:14px 0 8px;">ובקובץ המאוחד, בתוך כל אימון:</p>
+            <div class="code">"watch": {
+  "hrAvg": 128, "hrMax": 164,
+  "activeKcal": 412, "hrRecovery1": 32,
+  "zones": [6, 18, 29, 14, 2],
+  "start": "2026-08-29T18:42:11+03:00",
+  "durMin": 69, "wType": "strength",
+  "linkedBy": "auto"
+}</div>
+            <p class="note">אימוני שעון שלא שויכו (הליכות, ריצות) נשמרים בנפרד ומיוצאים כמקטע
+                <code>watch_workouts</code> — כדי שהם לא ילכו לאיבוד וניתן יהיה לשייך אותם בדיעבד.</p>
+        </div>
+    </div>
+</div>

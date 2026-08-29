@@ -25,9 +25,9 @@ const StorageManager = {
     getSleepDaily:  () => store._nights,
     getHrZones:     () => store._zones
 };
-const { _watchZoneSec, _hrZoneBounds, _watchRestHr, WATCH_HR_GAP_CAP_SEC } =
+const { _watchZoneSec, _hrZoneBounds, _watchRestHr, WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC } =
     new Function('StorageManager',
-        block + '\nreturn { _watchZoneSec, _hrZoneBounds, _watchRestHr, WATCH_HR_GAP_CAP_SEC };')(StorageManager);
+        block + '\nreturn { _watchZoneSec, _hrZoneBounds, _watchRestHr, WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC };')(StorageManager);
 
 let failed = 0;
 function eq(actual, expected, name) {
@@ -83,6 +83,18 @@ eq(_watchZoneSec(gap, B), [120, 0, 0, 0, 0],
    `פער של 10 דקות נחסם ל-${WATCH_HR_GAP_CAP_SEC}ש' ואינו נספר כזמן אימון`);
 eq(_watchZoneSec([[0, 100, 105, 110], [30, 100, 105, 110]], B), [60, 0, 0, 0, 0],
    'לדגימה האחרונה מיוחסת רזולוציית הדגימה, לא ה-cap המלא');
+
+// ── קיבוץ-דקות: מה ש-HAE מייצאת בפועל (Time Grouping = Minutes) ──────────
+// התקרה נגזרת מהרזולוציה (1.5 מרווחים), ולכן דגימה כל 60ש' נספרת במלואה
+// במקום להיגזם לרצפת ה-60. בלי זה כל אימון בקיבוץ-דקות היה מאבד זמן שיטתית.
+const perMinute = [[0, 96, 104, 112], [60, 100, 110, 118], [120, 118, 130, 141], [180, 99, 106, 114]];
+eq(_watchZoneSec(perMinute, B), [180, 60, 0, 0, 0],
+   'דגימה כל דקה: ארבע דקות מלאות, בלי גזימה');
+
+// פער אמיתי בתוך קיבוץ-דקות — עדיין ניתוק, לא זמן אימון
+const minGap = [[0, 96, 104, 112], [60, 100, 110, 118], [900, 99, 106, 114]];
+eq(_watchZoneSec(minGap, B), [210, 0, 0, 0, 0],
+   `פער של 15 דקות נחסם ל-${Math.min(90, WATCH_HR_GAP_MAX_SEC)}ש' (1.5 מרווחי דגימה)`);
 
 eq(_watchZoneSec(mixed, null), [0, 0, 0, 0, 0], 'בלי גבולות אין אזורים');
 eq(_watchZoneSec([], B), [0, 0, 0, 0, 0], 'סדרה ריקה מחזירה אפסים');

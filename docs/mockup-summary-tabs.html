@@ -1,0 +1,408 @@
+<title>סיכום אימון בשלוש לשוניות</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap">
+<style>
+:root{
+    --board-bg:#eef0f5; --board-panel:#ffffff; --board-line:rgba(12,20,40,.10);
+    --board-ink:#12151c; --board-dim:#5a6273; --board-accent:#0A6BD6;
+
+    /* טוקני האפליקציה — ערכים אמיתיים מ-style.css (Liquid Obsidian) */
+    --bg:#070708; --surface-1:#101013; --surface-2:#161619; --surface-3:#1e1e22; --surface-4:#26262c;
+    --hairline:rgba(255,255,255,.06); --hairline-hi:rgba(255,255,255,.10);
+    --top-glint:inset 0 1px 0 rgba(255,255,255,.05);
+    --elev-2:0 2px 8px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.35);
+    --elev-3:0 4px 12px rgba(0,0,0,.5), 0 18px 48px rgba(0,0,0,.45);
+    --accent:#0A84FF; --accent-rgb:10,132,255;
+    --success:#30D158; --success-rgb:48,209,88;
+    --danger:#ff453a; --danger-rgb:255,69,58; --danger-soft:#ff6b6b;
+    --warn:#FFD60A; --warn-rgb:255,214,10; --warn-strong:#FF9F0A; --warn-strong-rgb:255,159,10;
+    --text:#e2e2e2; --text-dim:#8E8E93; --type-a:#0A84FF; --type-b:#47e266;
+    --fs-xs:.65rem; --fs-sm:.72rem; --fs-md:.8rem; --fs-lg:.9rem; --fs-xl:1.05rem;
+    --r-xs:8px; --r-sm:14px; --r-md:20px; --r-lg:28px; --r-pill:9999px;
+    --font-app:"Heebo", system-ui, -apple-system, "Segoe UI", "Arial Hebrew", sans-serif;
+}
+:root:not([data-theme="light"]){ color-scheme:dark; }
+@media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+        --board-bg:#0b0d12; --board-panel:#12151c; --board-line:rgba(160,185,230,.14);
+        --board-ink:#e8ecf4; --board-dim:#909ab0; --board-accent:#5AB0FF;
+    }
+}
+:root[data-theme="dark"]{
+    color-scheme:dark;
+    --board-bg:#0b0d12; --board-panel:#12151c; --board-line:rgba(160,185,230,.14);
+    --board-ink:#e8ecf4; --board-dim:#909ab0; --board-accent:#5AB0FF;
+}
+:root[data-theme="light"]{ color-scheme:light; }
+
+*{ box-sizing:border-box; }
+body{
+    margin:0; direction:rtl; background:var(--board-bg); color:var(--board-ink);
+    font-family:var(--font-app); line-height:1.55; -webkit-font-smoothing:antialiased;
+    padding:40px 20px 64px;
+}
+@media (max-width:420px){ body{ padding:26px 10px 44px; } }
+.wrap{ max-width:1160px; margin:0 auto; }
+.eyebrow{ font-size:.7rem; font-weight:800; letter-spacing:.16em; color:var(--board-accent); margin:0 0 10px; }
+h1{ font-size:clamp(1.6rem,4.4vw,2.25rem); font-weight:900; letter-spacing:-.02em; margin:0 0 12px; text-wrap:balance; }
+.lede{ margin:0; max-width:62ch; color:var(--board-dim); font-size:.95rem; }
+.rule{ height:1px; background:var(--board-line); margin:34px 0; border:0; }
+h2.sec{ font-size:1.15rem; font-weight:900; margin:0 0 6px; }
+p.seclede{ margin:0 0 24px; color:var(--board-dim); font-size:.88rem; max-width:70ch; }
+
+.opts{ display:grid; gap:34px 24px; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); justify-items:center; align-items:start; }
+.opt{ width:100%; max-width:372px; display:flex; flex-direction:column; gap:14px; }
+.opt-head{ display:flex; flex-direction:column; gap:5px; }
+.opt-tag{ align-self:flex-start; font-size:.63rem; font-weight:800; letter-spacing:.14em;
+    color:var(--board-accent); background:color-mix(in srgb,var(--board-accent) 12%,transparent);
+    border:1px solid color-mix(in srgb,var(--board-accent) 30%,transparent); border-radius:9999px; padding:4px 12px; }
+.opt-tag.def{ color:#fff; background:var(--board-accent); border-color:var(--board-accent); }
+.opt-name{ font-size:1.1rem; font-weight:800; margin:0; }
+.opt-sub{ margin:0; font-size:.84rem; color:var(--board-dim); }
+
+/* ── מסגרת מכשיר ── */
+.phone{
+    width:344px; height:718px; margin:0 auto; border-radius:44px;
+    background:var(--bg); border:1px solid rgba(255,255,255,.09);
+    box-shadow:0 2px 6px rgba(0,0,0,.35), 0 24px 56px rgba(0,0,0,.45);
+    position:relative; overflow:hidden; direction:rtl; font-family:var(--font-app);
+    color:var(--text); display:flex; flex-direction:column; padding:18px 16px 0;
+}
+
+/* קבוע מעל הלשוניות */
+.s-head{ margin-bottom:12px; }
+.s-sub{ font-size:.62rem; font-weight:800; letter-spacing:.12em; color:var(--text-dim); }
+.s-title{ font-size:1.55rem; font-weight:900; color:#fff; line-height:1.1; margin-top:6px; }
+.s-stats{
+    background:rgba(28,28,30,.65); border:1px solid var(--hairline); border-top-color:rgba(255,255,255,.15);
+    border-radius:var(--r-lg); padding:14px; display:flex; justify-content:space-between;
+    box-shadow:0 10px 30px rgba(0,0,0,.5); margin-bottom:12px;
+}
+.s-col{ flex:1; text-align:center; }
+.s-val{ font-size:1.24rem; font-weight:900; color:#fff; font-variant-numeric:tabular-nums; }
+.s-val small{ font-size:.7rem; opacity:.6; }
+.s-lbl{ font-size:.58rem; font-weight:700; color:var(--text-dim); margin-top:2px; }
+
+/* הבורר — .segment-wrapper/.seg-btn מ-style.css */
+.segw{ display:flex; background:rgba(118,118,128,.24); border-radius:var(--r-pill); padding:2px; margin-bottom:14px; }
+.segb{ flex:1; padding:7px 0; border:none; background:transparent; font-family:inherit; font-weight:700;
+    font-size:var(--fs-md); color:rgba(255,255,255,.4); border-radius:var(--r-pill); }
+.segb.on{ background:#636366; color:#fff; box-shadow:0 3px 8px rgba(0,0,0,.12); }
+
+.pane{ flex:1; overflow:hidden; }
+
+/* קבוע מתחת ללשוניות */
+.s-foot{ flex-shrink:0; padding:10px 0 16px; background:linear-gradient(to top,var(--bg) 62%,transparent); }
+.note-input{ background:var(--surface-1); border:1px solid var(--hairline); border-radius:var(--r-md);
+    padding:11px 14px; font-size:.72rem; color:var(--text-dim); margin-bottom:9px; }
+.btn-save{ background:linear-gradient(135deg,#0A84FF,#0056b3); color:#fff; text-align:center;
+    border-radius:var(--r-pill); padding:13px; font-size:var(--fs-lg); font-weight:900;
+    box-shadow:0 10px 26px rgba(var(--accent-rgb),.28); }
+.copy-tog{ display:flex; align-items:center; gap:7px; font-size:.62rem; color:var(--text-dim);
+    font-weight:700; margin-bottom:9px; }
+.cbox{ width:15px; height:15px; border-radius:4px; border:1.5px solid var(--text-dim); flex-shrink:0; }
+.cbox.on{ background:var(--accent); border-color:var(--accent); }
+
+/* ── לשונית מאמן ── */
+.coach{ background:var(--surface-2); border:1px solid var(--hairline-hi); border-radius:var(--r-lg); padding:16px; }
+.coach-h{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.coach-t{ font-size:var(--fs-lg); font-weight:900; color:#fff; }
+.coach-badge{ font-size:.56rem; font-weight:800; color:var(--accent); background:rgba(var(--accent-rgb),.14);
+    border:1px solid rgba(var(--accent-rgb),.28); border-radius:var(--r-pill); padding:3px 9px; }
+.coach-b{ font-size:.76rem; line-height:1.75; color:var(--text); }
+.coach-b b{ color:#fff; }
+.coach-b p{ margin:0 0 9px; }
+.coach-refine{ margin-top:12px; padding-top:11px; border-top:1px solid var(--hairline);
+    font-size:.65rem; font-weight:800; color:var(--text-dim); }
+
+/* ── לשונית מדדים ── */
+.mcard{ background:var(--surface-2); border:1px solid var(--hairline); border-top-color:var(--hairline-hi);
+    border-radius:var(--r-md); padding:14px; margin-bottom:10px; box-shadow:var(--top-glint), var(--elev-2); }
+.mc-h{ display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
+.mc-t{ font-size:var(--fs-md); font-weight:900; color:#fff; }
+.mc-p{ font-size:.58rem; font-weight:800; color:var(--text-dim); background:var(--surface-4);
+    border-radius:var(--r-pill); padding:3px 9px; }
+.tiles{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.tile{ background:var(--surface-3); border:1px solid var(--hairline); border-radius:var(--r-sm);
+    padding:9px 3px; text-align:center; }
+.tile .v{ font-size:.96rem; font-weight:900; font-variant-numeric:tabular-nums; direction:ltr; line-height:1.1; }
+.tile .k{ font-size:.54rem; color:var(--text-dim); font-weight:700; margin-top:3px; }
+.v-hr{ color:var(--danger-soft); } .v-cal{ color:var(--warn-strong); } .v-rec{ color:var(--success); }
+
+.hrchart{ display:block; width:100%; height:40px; margin-top:11px; }
+.hrchart .fill{ fill:rgba(var(--danger-rgb),.13); }
+.hrchart .line{ fill:none; stroke:var(--danger-soft); stroke-width:1.6; stroke-linejoin:round; }
+
+.zrows{ margin-top:11px; display:flex; flex-direction:column; gap:5px; }
+.zrow{ display:flex; align-items:center; gap:7px; }
+.zrow .zn{ font-size:.58rem; font-weight:800; width:22px; flex-shrink:0; }
+.zrow .zt{ flex:1; height:6px; border-radius:var(--r-pill); background:var(--surface-4); overflow:hidden; }
+.zrow .zt i{ display:block; height:100%; border-radius:var(--r-pill); }
+.zrow .zv{ font-size:.58rem; font-weight:800; font-variant-numeric:tabular-nums; direction:ltr; width:36px; text-align:left; }
+.zrow .zr{ font-size:.5rem; font-weight:700; color:var(--text-dim); direction:ltr; width:50px; text-align:left; }
+.zrow.off .zn, .zrow.off .zv{ opacity:.45; }
+.z1{ background:rgba(var(--accent-rgb),.6); } .zn1{ color:var(--accent); }
+.z2{ background:rgba(var(--success-rgb),.75); } .zn2{ color:var(--success); }
+.z3{ background:rgba(var(--warn-rgb),.8); } .zn3{ color:var(--warn); }
+.z4{ background:rgba(var(--warn-strong-rgb),.85); } .zn4{ color:var(--warn-strong); }
+.z5{ background:rgba(var(--danger-rgb),.9); } .zn5{ color:var(--danger-soft); }
+
+.rd{ display:flex; align-items:center; gap:13px; }
+.rd-ring{ width:52px; height:52px; border-radius:50%; flex-shrink:0; display:grid; place-items:center;
+    background:conic-gradient(var(--success) 0 74%, var(--surface-4) 74% 100%); }
+.rd-ring span{ width:40px; height:40px; border-radius:50%; background:var(--surface-2); display:grid;
+    place-items:center; font-size:.82rem; font-weight:900; color:#fff; font-variant-numeric:tabular-nums; }
+.rd-txt .a{ font-size:var(--fs-md); font-weight:900; color:#fff; }
+.rd-txt .b{ font-size:.62rem; color:var(--text-dim); font-weight:600; line-height:1.5; }
+.chips{ display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+.chip{ font-size:.56rem; font-weight:700; padding:3px 8px; border-radius:var(--r-pill);
+    background:var(--surface-4); color:var(--text); }
+.chip .ar{ font-weight:900; } .chip.up .ar{ color:var(--success); } .chip.down .ar{ color:var(--danger-soft); }
+.krow{ display:flex; align-items:center; justify-content:space-between; font-size:.68rem; font-weight:700;
+    padding:7px 0; border-bottom:1px solid var(--hairline); }
+.krow:last-child{ border-bottom:none; }
+.krow .kv{ color:var(--text-dim); font-weight:800; font-variant-numeric:tabular-nums; }
+
+/* ── לשונית ביצוע ── */
+.exc{ background:var(--surface-2); border:1px solid var(--hairline); border-top-color:var(--hairline-hi);
+    border-radius:var(--r-lg); padding:15px; margin-bottom:11px; box-shadow:var(--top-glint), var(--elev-3); }
+.exc-h{ display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+.exc-t{ font-size:var(--fs-lg); font-weight:900; color:#fff; }
+.exc-tm{ font-size:.52rem; font-weight:800; color:var(--text-dim); background:var(--surface-4);
+    border-radius:var(--r-pill); padding:2px 7px; margin-right:6px; }
+.exc-v{ font-size:.68rem; font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums; }
+.srow{ display:flex; align-items:center; gap:9px; padding:6px 0; border-bottom:1px solid var(--hairline); }
+.srow:last-child{ border-bottom:none; }
+.snum{ font-size:.6rem; font-weight:800; color:var(--text-dim); font-variant-numeric:tabular-nums; width:18px; }
+.sdet{ flex:1; font-size:.72rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.sdet em{ font-style:normal; opacity:.5; font-size:.62rem; font-weight:600; }
+.sedit{ font-size:.56rem; font-weight:800; color:var(--text-dim); background:var(--surface-4);
+    border-radius:var(--r-pill); padding:3px 10px; }
+
+/* ── לוחות מידע ── */
+.panels{ display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
+.panel{ background:var(--board-panel); border:1px solid var(--board-line); border-radius:16px; padding:20px 22px; }
+.panel h3{ margin:0 0 12px; font-size:.95rem; font-weight:900; }
+.tbl{ width:100%; border-collapse:collapse; font-size:.78rem; }
+.tbl th,.tbl td{ text-align:right; padding:7px 8px; border-bottom:1px solid var(--board-line); vertical-align:top; }
+.tbl th{ font-size:.66rem; font-weight:800; color:var(--board-dim); letter-spacing:.05em; }
+.tbl tr:last-child td{ border-bottom:none; }
+.note{ font-size:.79rem; color:var(--board-dim); margin:10px 0 0; }
+.panel ul{ margin:0; padding-inline-start:18px; font-size:.8rem; color:var(--board-dim); }
+.panel li{ margin-bottom:8px; }
+.panel li b{ color:var(--board-ink); }
+</style>
+
+<div class="wrap">
+    <p class="eyebrow">GYMPRO ELITE · הצעת מבנה</p>
+    <h1>סיכום אימון בשלוש לשוניות</h1>
+    <p class="lede">
+        מסך הסיכום נושא היום שלושה סוגי תוכן בערימה אחת — סיכום המאמן, נתוני האימון, ובקרוב גם נתוני השעון.
+        הבורר מפריד אותם לשלוש קריאות, בלי להסתיר את מה שחשוב: הכותרת ושלושת המספרים נשארים קבועים מעל,
+        וההערה וכפתור השמירה קבועים מתחת. אותו מבנה בדיוק חל גם על פרטי אימון בארכיון.
+    </p>
+
+    <hr class="rule">
+
+    <div class="opts">
+        <!-- 1 — מאמן -->
+        <div class="opt">
+            <div class="opt-head">
+                <span class="opt-tag def">ברירת מחדל</span>
+                <h3 class="opt-name">מאמן</h3>
+                <p class="opt-sub">מה שרוצים לקרוא ברגע שמסיימים. נטען אוטומטית ברקע כבר עם פתיחת המסך.</p>
+            </div>
+            <div class="phone">
+                <div class="s-head">
+                    <div class="s-sub">29.08 • 11:51 • אימון A</div>
+                    <div class="s-title">סיימנו<br>להיום.</div>
+                </div>
+                <div class="s-stats">
+                    <div class="s-col"><div class="s-val">77<small>m</small></div><div class="s-lbl">זמן אימון</div></div>
+                    <div class="s-col"><div class="s-val" style="color:var(--accent)">12.4t</div><div class="s-lbl">נפח כולל</div></div>
+                    <div class="s-col"><div class="s-val">21</div><div class="s-lbl">סטים בוצעו</div></div>
+                </div>
+                <div class="segw">
+                    <button class="segb on">מאמן</button>
+                    <button class="segb">מדדים</button>
+                    <button class="segb">ביצוע</button>
+                </div>
+                <div class="pane">
+                    <div class="coach">
+                        <div class="coach-h">
+                            <span class="coach-t">סיכום המאמן</span>
+                            <span class="coach-badge">אימון</span>
+                        </div>
+                        <div class="coach-b">
+                            <p>אימון חזק. <b>לחיצת חזה עלתה ל-82.5 ק״ג</b> בשלושה סטים עם RIR 2 — זו העלייה
+                                הראשונה בתרגיל מזה שבועיים, והיא הגיעה דווקא בגירעון.</p>
+                            <p>הנפח (12.4 טון) גבוה ב-8% מהאימון המקביל בשבוע שעבר, ורוב התוספת הגיעה
+                                מהחלק השני של האימון — סימן שהקצב נשמר עד הסוף.</p>
+                            <p><b>לשבוע הבא:</b> שמור על 82.5 ולך על חזרה רביעית לפני שאתה מעלה שוב.</p>
+                        </div>
+                        <div class="coach-refine">דייק את הסיכום</div>
+                    </div>
+                </div>
+                <div class="s-foot">
+                    <div class="note-input">איך היה האימון? (הערה כללית לארכיון)…</div>
+                    <div class="copy-tog"><span class="cbox on"></span><span>כלול סיכום מאמן בהעתקה</span></div>
+                    <div class="btn-save">שמור וסגור</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2 — מדדים -->
+        <div class="opt">
+            <div class="opt-head">
+                <span class="opt-tag">לשונית חדשה</span>
+                <h3 class="opt-name">מדדים</h3>
+                <p class="opt-sub">מה שהגוף עשה: נתוני השעון, המוכנות של הבוקר, והמצב התזונתי בזמן האימון.</p>
+            </div>
+            <div class="phone">
+                <div class="s-head">
+                    <div class="s-sub">29.08 • 11:51 • אימון A</div>
+                    <div class="s-title">סיימנו<br>להיום.</div>
+                </div>
+                <div class="s-stats">
+                    <div class="s-col"><div class="s-val">77<small>m</small></div><div class="s-lbl">זמן אימון</div></div>
+                    <div class="s-col"><div class="s-val" style="color:var(--accent)">12.4t</div><div class="s-lbl">נפח כולל</div></div>
+                    <div class="s-col"><div class="s-val">21</div><div class="s-lbl">סטים בוצעו</div></div>
+                </div>
+                <div class="segw">
+                    <button class="segb">מאמן</button>
+                    <button class="segb on">מדדים</button>
+                    <button class="segb">ביצוע</button>
+                </div>
+                <div class="pane">
+                    <div class="mcard">
+                        <div class="mc-h"><span class="mc-t">נתוני שעון</span><span class="mc-p">Apple Watch</span></div>
+                        <div class="tiles">
+                            <div class="tile"><div class="v v-hr">110</div><div class="k">דופק ממוצע</div></div>
+                            <div class="tile"><div class="v v-hr">146</div><div class="k">דופק מרבי</div></div>
+                            <div class="tile"><div class="v v-cal">388</div><div class="k">קק״ל</div></div>
+                            <div class="tile"><div class="v v-rec">24</div><div class="k">התאוששות</div></div>
+                        </div>
+                        <svg class="hrchart" viewBox="0 0 300 40" preserveAspectRatio="none" role="img" aria-label="גרף דופק לאורך האימון">
+                            <polygon class="fill" points="4,40 4,30.7 10.5,25 17,29.5 23.5,32.7 30,18.2 36.4,25 42.9,31.7 49.4,17 55.9,20.9 62.4,26 68.9,20.8 75.4,15.2 81.9,21.8 88.4,15.8 94.8,11.9 101.3,18.2 107.8,18.3 114.3,6.4 120.8,10.2 127.3,19.8 133.8,6.8 140.3,10.9 146.8,14.5 153.2,15.7 159.7,8.9 166.2,17.9 172.7,19.1 179.2,6.4 185.7,14.8 192.2,19.5 198.7,10.7 205.2,11.7 211.6,21.1 218.1,21 224.6,14.8 231.1,23.8 237.6,21.9 244.1,15 250.6,22.5 257.1,27.7 263.6,20.3 270,22.5 276.5,29.4 283,25.2 289.5,24.2 296,32.6 296,40"></polygon>
+                            <polyline class="line" points="4,30.7 10.5,25 17,29.5 23.5,32.7 30,18.2 36.4,25 42.9,31.7 49.4,17 55.9,20.9 62.4,26 68.9,20.8 75.4,15.2 81.9,21.8 88.4,15.8 94.8,11.9 101.3,18.2 107.8,18.3 114.3,6.4 120.8,10.2 127.3,19.8 133.8,6.8 140.3,10.9 146.8,14.5 153.2,15.7 159.7,8.9 166.2,17.9 172.7,19.1 179.2,6.4 185.7,14.8 192.2,19.5 198.7,10.7 205.2,11.7 211.6,21.1 218.1,21 224.6,14.8 231.1,23.8 237.6,21.9 244.1,15 250.6,22.5 257.1,27.7 263.6,20.3 270,22.5 276.5,29.4 283,25.2 289.5,24.2 296,32.6"></polyline>
+                        </svg>
+                        <div class="zrows">
+                            <div class="zrow"><span class="zn zn1">Z1</span><span class="zt"><i class="z1" style="width:87%"></i></span><span class="zv">50:27</span><span class="zr">&lt;127</span></div>
+                            <div class="zrow"><span class="zn zn2">Z2</span><span class="zt"><i class="z2" style="width:12%"></i></span><span class="zv">06:43</span><span class="zr">128–139</span></div>
+                            <div class="zrow"><span class="zn zn3">Z3</span><span class="zt"><i class="z3" style="width:2%"></i></span><span class="zv">00:48</span><span class="zr">140–152</span></div>
+                            <div class="zrow off"><span class="zn zn4">Z4</span><span class="zt"></span><span class="zv">00:00</span><span class="zr">153–164</span></div>
+                            <div class="zrow off"><span class="zn zn5">Z5</span><span class="zt"></span><span class="zv">00:00</span><span class="zr">165+</span></div>
+                        </div>
+                    </div>
+
+                    <div class="mcard">
+                        <div class="mc-h"><span class="mc-t">מוכנות הבוקר</span><span class="mc-p">שינה 6:52</span></div>
+                        <div class="rd">
+                            <div class="rd-ring"><span>74</span></div>
+                            <div class="rd-txt">
+                                <div class="a">מוכן</div>
+                                <div class="b">התאוששות טובה — חלון לדחיפה</div>
+                            </div>
+                        </div>
+                        <div class="chips">
+                            <span class="chip up">HRV <span class="ar">+9</span></span>
+                            <span class="chip up">דופק מנוחה <span class="ar">−2</span></span>
+                            <span class="chip down">שינה עמוקה <span class="ar">−18׳</span></span>
+                        </div>
+                    </div>
+
+                    <div class="mcard">
+                        <div class="krow"><span>מצב תזונתי</span><span class="kv">גירעון</span></div>
+                        <div class="krow"><span>משקל אחרון</span><span class="kv">83.4 ק״ג</span></div>
+                    </div>
+                </div>
+                <div class="s-foot">
+                    <div class="note-input">איך היה האימון? (הערה כללית לארכיון)…</div>
+                    <div class="btn-save">שמור וסגור</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3 — ביצוע -->
+        <div class="opt">
+            <div class="opt-head">
+                <span class="opt-tag">קיים היום</span>
+                <h3 class="opt-name">ביצוע</h3>
+                <p class="opt-sub">כרטיסי התרגילים והסטים, כולל עריכת סט — בדיוק כפי שהם היום, רק בלשונית משלהם.</p>
+            </div>
+            <div class="phone">
+                <div class="s-head">
+                    <div class="s-sub">29.08 • 11:51 • אימון A</div>
+                    <div class="s-title">סיימנו<br>להיום.</div>
+                </div>
+                <div class="s-stats">
+                    <div class="s-col"><div class="s-val">77<small>m</small></div><div class="s-lbl">זמן אימון</div></div>
+                    <div class="s-col"><div class="s-val" style="color:var(--accent)">12.4t</div><div class="s-lbl">נפח כולל</div></div>
+                    <div class="s-col"><div class="s-val">21</div><div class="s-lbl">סטים בוצעו</div></div>
+                </div>
+                <div class="segw">
+                    <button class="segb">מאמן</button>
+                    <button class="segb">מדדים</button>
+                    <button class="segb on">ביצוע</button>
+                </div>
+                <div class="pane">
+                    <div class="exc">
+                        <div class="exc-h">
+                            <span class="exc-t">לחיצת חזה<span class="exc-tm">TM 95kg</span></span>
+                            <span class="exc-v">2.1t</span>
+                        </div>
+                        <div class="srow"><span class="snum">01</span><span class="sdet">82.5 × 8 <em>(RIR 2)</em></span><span class="sedit">ערוך</span></div>
+                        <div class="srow"><span class="snum">02</span><span class="sdet">82.5 × 8 <em>(RIR 2)</em></span><span class="sedit">ערוך</span></div>
+                        <div class="srow"><span class="snum">03</span><span class="sdet">82.5 × 7 <em>(RIR 1)</em></span><span class="sedit">ערוך</span></div>
+                        <div class="srow"><span class="snum">04</span><span class="sdet">75 × 10 <em>(RIR 2)</em></span><span class="sedit">ערוך</span></div>
+                    </div>
+                    <div class="exc">
+                        <div class="exc-h">
+                            <span class="exc-t">חתירה בהרחבה</span>
+                            <span class="exc-v">3.4t</span>
+                        </div>
+                        <div class="srow"><span class="snum">01</span><span class="sdet">70 × 12 <em>(RIR 3)</em></span><span class="sedit">ערוך</span></div>
+                        <div class="srow"><span class="snum">02</span><span class="sdet">75 × 11 <em>(RIR 2)</em></span><span class="sedit">ערוך</span></div>
+                        <div class="srow"><span class="snum">03</span><span class="sdet">75 × 10 <em>(RIR 1)</em></span><span class="sedit">ערוך</span></div>
+                    </div>
+                </div>
+                <div class="s-foot">
+                    <div class="note-input">איך היה האימון? (הערה כללית לארכיון)…</div>
+                    <div class="btn-save">שמור וסגור</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="rule">
+
+    <h2 class="sec">מה זז לאן</h2>
+    <p class="seclede">אף רכיב לא נמחק. שלושה עוברים ללשוניות, שניים עולים לראש המסך, ושניים יורדים לתחתית — קבועים.</p>
+
+    <div class="panels">
+        <div class="panel">
+            <h3>מיפוי</h3>
+            <table class="tbl">
+                <tr><th>רכיב</th><th>היום</th><th>אחרי</th></tr>
+                <tr><td>כותרת + תאריך</td><td>ראש המסך</td><td>קבוע מעל</td></tr>
+                <tr><td>זמן / נפח / סטים</td><td>ראש המסך</td><td>קבוע מעל</td></tr>
+                <tr><td>סיכום המאמן</td><td>אמצע הערימה</td><td>לשונית <b>מאמן</b></td></tr>
+                <tr><td>נתוני שעון</td><td>—</td><td>לשונית <b>מדדים</b></td></tr>
+                <tr><td>מוכנות + תזונתי</td><td>—</td><td>לשונית <b>מדדים</b></td></tr>
+                <tr><td>כרטיסי תרגילים</td><td>תחתית הערימה</td><td>לשונית <b>ביצוע</b></td></tr>
+                <tr><td>הערת אימון</td><td>אמצע הערימה</td><td>קבוע מתחת</td></tr>
+                <tr><td>שמור וסגור</td><td>סוף הגלילה</td><td>קבוע מתחת</td></tr>
+            </table>
+        </div>
+
+        <div class="panel">
+            <h3>החלטות שנגזרות</h3>
+            <ul>
+                <li><b>ההערה והשמירה יוצאות מהלשוניות.</b> אחרת משתמש שנשאר בלשונית "מדדים" לא רואה את כפתור השמירה — ומסך הסיכום הוא המקום היחיד שבו נשמרת ההערה.</li>
+                <li><b>בלי מפתח AI — שתי לשוניות.</b> "מאמן" נעלמת לגמרי וברירת המחדל הופכת ל"ביצוע", במקום לשונית ריקה שמקבלת את פני המשתמש.</li>
+                <li><b>בזמן שהסיכום נטען</b> — שלד טעינה בלשונית, לא מסך ריק. הבקשה ל-AI יוצאת עם פתיחת המסך, כמו היום.</li>
+                <li><b>אותו מבנה בארכיון.</b> היום סיכום המאמן נשמר לרשומה אבל <b>לא מוצג בה כלל</b> — אפשר רק להעתיק אותו. הלשוניות נותנות לו מקום לראשונה.</li>
+                <li><b>הבורר עצמו קיים</b> — <code>.segment-wrapper</code>/<code>.seg-btn</code> מ-style.css, אותו רכיב של הארכיון ומסך ה-Composition. אפס CSS חדש, ותואם למחוות ה-swipe שב-Sprint 2.</li>
+            </ul>
+        </div>
+    </div>
+</div>

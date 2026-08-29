@@ -37,9 +37,14 @@ const SECRET_TOKEN = 'CHANGE_ME_to_a_random_secret';
 
 const NUTRI_KEY = 'health_days';   // תזונה: [cal,prot,carb,fat]
 const SLEEP_KEY = 'sleep_days';    // שינה: [asleep,inbed,deep,rem,core,awake,rhr,hrv,resp,temp]
-const WORK_KEY  = 'workout_sessions'; // אימוני Apple Watch: אובייקט לפי חותמת התחלה (ISO)
+// ⚠️ מגבלת PropertiesService: **9KB לכל ערך**, 500KB לכל המאגר. אימון עם סדרת
+// דופק שוקל כמה KB בפני עצמו, ולכן אסור לרכז אימונים ב-property אחד — כל אימון
+// מקבל property משלו (`w_<ISO>`), ומפתח אינדקס קטן מחזיק את רשימת המזהים.
+const WORK_IDX_KEY = 'workout_index';  // מערך מזהים בלבד (קל), ממוין
+const WORK_PREFIX  = 'w_';             // w_<startISO> → אימון בודד
 const MAX_DAYS  = 120;             // שמירת ~4 חודשים אחרונים לכל סוג
-const MAX_WORKOUTS = 60;           // אימונים אחרונים שנשמרים (כולל סדרות דופק)
+const MAX_WORKOUTS = 40;           // אימונים אחרונים שנשמרים (כולל סדרות דופק)
+const WORK_RETURN_DAYS = 21;       // כמה ימים אחורה מוחזרים ב-doGet (ניתן לדריסה ב-?days=)
 
 // 🐞 דיבאג: כשדלוק — שומר את גוף ה-POST הגולמי האחרון, לשליפה בדפדפן דרך
 //    <URL>?token=…&raw=1 (לאימות פורמט מקור חדש). ברירת מחדל כבוי; הדלק בעת הצורך.
@@ -73,8 +78,10 @@ function doPost(e) {
 
   // דיבאג: שמור את ה-payload הגולמי האחרון לשליפה דרך doGet (?raw=1). בלי מייל.
   if (DEBUG_RAW) {
+    // חיתוך ל-8KB: דחיפת אימונים עם סדרות דופק שוקלת מגה-בייטים, ומגבלת
+    // ה-property היא 9KB — בלי החיתוך הכתיבה נכשלת וה-raw נשאר על ערך ישן.
     try { PropertiesService.getScriptProperties()
-      .setProperty(RAW_KEY, String((e.postData && e.postData.contents) || '')); }
+      .setProperty(RAW_KEY, String((e.postData && e.postData.contents) || '').slice(0, 8000)); }
     catch (err) {}
   }
 
@@ -149,17 +156,17 @@ function doPost(e) {
     }
 
     if (incWork.length) {
-      var wMap = _load(WORK_KEY), wStored = 0;
+      var wStored = 0, wSkipped = 0;
       incWork.forEach(function (w) {
         var rec = _parseWorkout(w);
-        if (!rec) return;
+        if (!rec) { wSkipped++; return; }
         // upsert לפי חותמת ההתחלה: ייצוא חוזר על אותו טווח מעדכן ולא מכפיל.
-        wMap[rec.id] = rec;
-        wStored++;
+        if (_saveWorkout(rec)) wStored++; else wSkipped++;
       });
-      _saveWorkouts(wMap);
+      _pruneWorkouts();
       out.workouts_stored = wStored;
-      _logPush('workouts:' + wStored, '', null);
+      if (wSkipped) out.workouts_skipped = wSkipped;
+      _logPush('workouts:' + wStored + (wSkipped ? '/skip' + wSkipped : ''), '', null);
     }
     return _json(out);
   } finally {
@@ -193,8 +200,7 @@ function doGet(e) {
         rhr: v[6], hrv: v[7], respRate: v[8], wristTempDev: v[9]
       };
     });
-    var wMap = _load(WORK_KEY);
-    var workouts = Object.keys(wMap).sort().map(function (k) { return wMap[k]; });
+    var workouts = _loadWorkouts(parseInt(p.days, 10) || WORK_RETURN_DAYS);
     result = { ok: true, days: days, sleep: sleep, workouts: workouts, pushes: _loadPushLog() };
   }
 
@@ -351,7 +357,11 @@ function _mergeNight(prev, d) {
  * hrSeries נשמרת מדוללת ל-SERIES_STEP שניות ובפורמט [שניות, min, avg, max] —
  * ארבעת המספרים דרושים לגרף הנרות ולחישוב הזמן בכל אזור. שדה זמן חסר או תאריך
  * לא-תקין פוסלים את האימון: בלי start/end אין מה לשייך אליו רשומת ארכיון. */
-var SERIES_STEP = 30;   // שניות בין נקודות בסדרה המדוללת
+// דילול: המרווח נגזר מאורך האימון כדי שמספר הנקודות לא יחרוג מ-MAX_POINTS —
+// כך אימון של שעתיים בגרופינג של שניות לא מפיל את הרשומה על מגבלת 9KB.
+// SERIES_MIN_STEP הוא הרצפה: צפוף מזה אינו משפר את הגרף אך מנפח את האחסון.
+var SERIES_MIN_STEP = 30;   // שניות — הרזולוציה הצפופה ביותר שנשמרת
+var MAX_POINTS      = 200;  // נקודות לכל היותר לאימון (~4KB, מרווח בטוח מ-9KB)
 
 function _parseWorkout(w) {
   if (!w) return null;
@@ -362,7 +372,7 @@ function _parseWorkout(w) {
   if (!end) return null;
   if (!durMin) durMin = Math.round((end - start) / 60000);
 
-  var series = _parseHrSeries(w.heartRateData, start);
+  var series = _parseHrSeries(w.heartRateData, start, Math.round((end - start) / 1000));
   var rec = {
     id: _iso(start),
     start: start, end: end, durMin: durMin,
@@ -385,15 +395,16 @@ function _parseWorkout(w) {
   return rec;
 }
 
-// _parseHrSeries — [שניות-מההתחלה, min, avg, max], מדולל ל-SERIES_STEP.
-function _parseHrSeries(rows, start) {
+// _parseHrSeries — [שניות-מההתחלה, min, avg, max], מדולל למרווח אדפטיבי.
+function _parseHrSeries(rows, start, durSec) {
   if (!Array.isArray(rows) || !rows.length) return [];
-  var out = [], lastSec = -SERIES_STEP;
+  var step = Math.max(SERIES_MIN_STEP, Math.ceil((durSec || 0) / MAX_POINTS));
+  var out = [], lastSec = -step;
   rows.forEach(function (r) {
     var t = _ms(r && (r.date || r.startDate));
     if (!t) return;
     var sec = Math.round((t - start) / 1000);
-    if (sec < 0 || sec - lastSec < SERIES_STEP) return;
+    if (sec < 0 || sec - lastSec < step) return;
     var avg = _q(r.Avg != null ? r.Avg : (r.avg != null ? r.avg : r.qty));
     if (!avg) return;
     var mn = _q(r.Min != null ? r.Min : r.min) || avg;
@@ -404,10 +415,52 @@ function _parseHrSeries(rows, start) {
   return out;
 }
 
-function _saveWorkouts(map) {
-  var ids = Object.keys(map).sort();
-  while (ids.length > MAX_WORKOUTS) delete map[ids.shift()];
-  PropertiesService.getScriptProperties().setProperty(WORK_KEY, JSON.stringify(map));
+/* ─── אחסון אימונים: property לכל אימון + אינדקס ──────────────────────────
+ * מגבלת 9KB היא **לכל ערך**, ולכן ריכוז אימונים במפתח אחד נשבר כבר אחרי
+ * שניים-שלושה. כאן כל אימון עומד בפני עצמו, והאינדקס (מערך מזהים) נשאר זעיר.
+ * רשומה שבכל זאת חורגת — נשמרת בלי הסדרה, כי אגרגטים בלי גרף עדיפים על כלום. */
+var PROP_MAX_BYTES = 8800;   // שוליים מתחת ל-9KB
+
+function _workIndex() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(WORK_IDX_KEY)) || []; }
+  catch (e) { return []; }
+}
+function _saveWorkout(rec) {
+  var props = PropertiesService.getScriptProperties();
+  var body = JSON.stringify(rec);
+  if (body.length > PROP_MAX_BYTES) {           // חריגה — מוותרים על הסדרה בלבד
+    var slim = {}; for (var k in rec) if (k !== 'hrSeries') slim[k] = rec[k];
+    slim.seriesDropped = true;
+    body = JSON.stringify(slim);
+    if (body.length > PROP_MAX_BYTES) return false;
+  }
+  try { props.setProperty(WORK_PREFIX + rec.id, body); } catch (e) { return false; }
+  var idx = _workIndex();
+  if (idx.indexOf(rec.id) === -1) { idx.push(rec.id); idx.sort(); props.setProperty(WORK_IDX_KEY, JSON.stringify(idx)); }
+  return true;
+}
+function _pruneWorkouts() {
+  var props = PropertiesService.getScriptProperties();
+  var idx = _workIndex();
+  if (idx.length <= MAX_WORKOUTS) return;
+  var drop = idx.splice(0, idx.length - MAX_WORKOUTS);
+  drop.forEach(function (id) { try { props.deleteProperty(WORK_PREFIX + id); } catch (e) {} });
+  props.setProperty(WORK_IDX_KEY, JSON.stringify(idx));
+}
+// _loadWorkouts — רק החלון האחרון. האפליקציה מושכת בכל כניסה ובכל שעה, ואימון
+// ששויך כבר הועתק לרשומת הארכיון — אין טעם להזרים את כל המאגר בכל משיכה.
+function _loadWorkouts(days) {
+  var props = PropertiesService.getScriptProperties();
+  var cutoff = Date.now() - (days || WORK_RETURN_DAYS) * 86400000;
+  var out = [];
+  _workIndex().forEach(function (id) {
+    if (Date.parse(id) < cutoff) return;
+    try {
+      var rec = JSON.parse(props.getProperty(WORK_PREFIX + id));
+      if (rec) out.push(rec);
+    } catch (e) {}
+  });
+  return out;
 }
 
 // _q — ערך מתוך מספר או מתוך אובייקט {qty,units}

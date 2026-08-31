@@ -446,6 +446,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ok === false) setTimeout(() => syncHealthNutrition(false, true), 20000);
     }, 2500);
     _scheduleHealthHourlySync();
+    // חישוב מחדש של אזורי דופק לאימונים שחושבו במודל ישן — מקומי, פעם אחת
+    setTimeout(() => { try { migrateWatchZones(); } catch (e) {} }, 1500);
     // גיבוי שבועי לאימייל — בדיקה שקטה בפתיחה (שולח רק אם עברו ≥7 ימים)
     setTimeout(() => StorageManager.maybeSendWeeklyBackup(false), 4000);
     // ווידג'ט אייפון — דחיפת snapshot שקטה בפתיחה (throttle 10 דק')
@@ -7932,6 +7934,11 @@ const WATCH_LINK_MAX_GAP_MS = 45 * 60 * 1000;   // חלון חיפוש סביב 
 // מציג דופק וקלוריות של שתי דקות — גרוע יותר מלא להציג כלום.
 // שיוך **ידני** אינו מוגבל בסף: הרשומות נשארות במאגר ומוצעות כמועמדות.
 const WATCH_MIN_AUTO_LINK_MIN = 10;
+// גרסת מודל חישוב האזורים. `zoneSec` נשמר בתוך רשומת הארכיון, ולכן שיפור
+// באלגוריתם אינו מגיע מעצמו לאימונים שכבר שויכו — הם קופאים על המודל שבו
+// חושבו. החותמת מאפשרת חישוב מחדש חד-פעמי מהסדרה השמורה.
+// 1 = סיווג לפי ממוצע המקטע · 2 = פריסה לפי min/max + חיתוך לזנב האימון
+const WATCH_ZONE_MODEL = 2;
 const WATCH_HR_GAP_CAP_SEC  = 60;               // רצפת התקרה לפער דגימה (ניתוק, לא זמן באזור)
 const WATCH_HR_GAP_MAX_SEC  = 120;              // תקרה מוחלטת — גם בקיבוץ-דקות פער ארוך הוא ניתוק
 // סוגי אימון מהשעון שמשויכים אוטומטית. הליכה/ריצה/רכיבה נשארות במאגר לשיוך ידני.
@@ -8028,16 +8035,48 @@ function _watchAttach(rec, entryDate, by) {
             const durSec = Math.round(((rec.end || 0) - (rec.start || 0)) / 1000);
             watch.zoneSec = _watchZoneSec(rec.hrSeries, zb.bounds, durSec);
             watch.zoneBounds = zb.bounds;
+            watch.zoneModel = WATCH_ZONE_MODEL;
         }
     }
     return watch;
 }
 
+// _watchRezone — חישוב מחדש של האזורים לרשומה שחושבה במודל ישן. הסדרה
+// והגבולות שמורים ברשומה, ולכן זה חישוב מקומי בלבד — בלי רשת ובלי הגשר.
+// הגבולות **אינם** מחושבים מחדש: ההחלטה שאימון שומר את הגבולות שלפיהם חושב
+// (כדי שלא יזוז כשדופק המנוחה נע) עומדת בעינה. משתנה רק האלגוריתם.
+function _watchRezone(entry) {
+    const w = entry && entry.watch;
+    if (!w || w.zoneModel === WATCH_ZONE_MODEL) return false;
+    const hasSeries = Array.isArray(w.hrSeries) && w.hrSeries.length && w.zoneBounds;
+    if (hasSeries) {
+        const durSec = Math.round(((w.end || 0) - (w.start || 0)) / 1000);
+        w.zoneSec = _watchZoneSec(w.hrSeries, w.zoneBounds, durSec);
+    }
+    w.zoneModel = WATCH_ZONE_MODEL;   // גם בלי סדרה — לא לנסות שוב בכל טעינה
+    StorageManager.updateArchiveEntry(entry.timestamp, { watch: w });
+    return hasSeries;
+}
+
+// migrateWatchZones — מעבר חד-פעמי על הארכיון בטעינת האפליקציה.
+function migrateWatchZones() {
+    let n = 0;
+    StorageManager.getArchive().forEach(e => { if (_watchRezone(e)) n++; });
+    if (n) {
+        if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
+            FirebaseManager.saveArchiveToCloud().catch(() => {});
+        }
+        _refreshOpenMetricsPanes();
+    }
+    return n;
+}
+
 // _linkWatchWorkouts — משייך אימוני שעון לרשומות ארכיון לפי חפיפת זמנים.
 // רשומה ששויכה ידנית לא נדרסת, ואימון שכבר נושא watch לא נבדק שוב.
 function _linkWatchWorkouts() {
+    // בלי early-return על מאגר ריק: הענף של רשומות משויכות (רענון + חישוב
+    // מחדש) חייב לרוץ גם אחרי שהמאגר נגזם.
     const pool = StorageManager.getWatchWorkouts();
-    if (!pool.length) return 0;
     const archive = StorageManager.getArchive();
     let linked = 0;
 
@@ -8053,6 +8092,8 @@ function _linkWatchWorkouts() {
                 entry.watch = _watchAttach(src, entry.date, by);
                 StorageManager.updateArchiveEntry(entry.timestamp, entry);
                 StorageManager.markWatchLinked(src.id, entry.timestamp, by);
+                linked++;
+            } else if (_watchRezone(entry)) {
                 linked++;
             }
             return;

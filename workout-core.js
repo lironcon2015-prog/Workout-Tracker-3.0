@@ -7970,7 +7970,7 @@ function _hrZoneBounds(beforeDate) {
 // הבאה, חסום ב-WATCH_HR_GAP_CAP_SEC: פער גדול יותר הוא ניתוק מדידה ולא זמן
 // אימון. זו הסיבה שסכום האזורים קטן ממשך האימון — בדיוק כמו במסך של אפל
 // ("Estimated time in each heart rate zone").
-function _watchZoneSec(series, bounds) {
+function _watchZoneSec(series, bounds, durSec) {
     const out = [0, 0, 0, 0, 0];
     if (!Array.isArray(series) || !series.length || !bounds) return out;
     const zoneOf = bpm => bpm < bounds[0] ? 0 : bpm < bounds[1] ? 1 : bpm < bounds[2] ? 2 : bpm < bounds[3] ? 3 : 4;
@@ -7988,7 +7988,11 @@ function _watchZoneSec(series, bounds) {
     const cap = Math.min(isFinite(step) ? step : WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC);
     for (let i = 0; i < series.length; i++) {
         const cur = series[i], next = series[i + 1];
-        const raw = next ? (next[0] - cur[0]) : cap;   // לאחרונה אין "הבאה"
+        // לדגימה האחרונה אין "הבאה". מרווח דגימה שלם עלול לחרוג מסוף האימון —
+        // וסכום אזורים גדול ממשך האימון נראה למשתמש כמו טעות, בצדק. לכן הזנב
+        // נחתך בזמן שנותר בפועל עד הסיום, כשהמשך ידוע.
+        let raw = next ? (next[0] - cur[0]) : cap;
+        if (!next && durSec > 0) raw = Math.min(raw, Math.max(0, durSec - cur[0]));
         if (!(raw > 0)) continue;
         const span = Math.min(raw, cap);
         // סיווג לפי הממוצע לבדו מפספס חריגות תת-דקתיות: דקה שממוצעה 122 יכולה
@@ -8020,7 +8024,11 @@ function _watchAttach(rec, entryDate, by) {
     if (rec.totalKcal) watch.totalKcal = rec.totalKcal;
     if (Array.isArray(rec.hrSeries) && rec.hrSeries.length) {
         watch.hrSeries = rec.hrSeries;
-        if (zb) { watch.zoneSec = _watchZoneSec(rec.hrSeries, zb.bounds); watch.zoneBounds = zb.bounds; }
+        if (zb) {
+            const durSec = Math.round(((rec.end || 0) - (rec.start || 0)) / 1000);
+            watch.zoneSec = _watchZoneSec(rec.hrSeries, zb.bounds, durSec);
+            watch.zoneBounds = zb.bounds;
+        }
     }
     return watch;
 }

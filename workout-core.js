@@ -7927,6 +7927,11 @@ function _scheduleHealthHourlySync() {
 
 // WATCHZONES-START — בלוק טהור, נבדק ב-test/watch-zones.test.js (אל תסיר את הסמנים)
 const WATCH_LINK_MAX_GAP_MS = 45 * 60 * 1000;   // חלון חיפוש סביב האימון
+// סף משך לשיוך **אוטומטי**. השעון פותח אימונים מיוזמתו (זיהוי פעילות אוטומטי,
+// לחיצה בטעות), והם קצרים. אימון-רפאים של שתי דקות שמשתייך לאימון כוח אמיתי
+// מציג דופק וקלוריות של שתי דקות — גרוע יותר מלא להציג כלום.
+// שיוך **ידני** אינו מוגבל בסף: הרשומות נשארות במאגר ומוצעות כמועמדות.
+const WATCH_MIN_AUTO_LINK_MIN = 10;
 const WATCH_HR_GAP_CAP_SEC  = 60;               // רצפת התקרה לפער דגימה (ניתוק, לא זמן באזור)
 const WATCH_HR_GAP_MAX_SEC  = 120;              // תקרה מוחלטת — גם בקיבוץ-דקות פער ארוך הוא ניתוק
 // סוגי אימון מהשעון שמשויכים אוטומטית. הליכה/ריצה/רכיבה נשארות במאגר לשיוך ידני.
@@ -8045,6 +8050,7 @@ function _linkWatchWorkouts() {
         pool.forEach(rec => {
             if (rec.linkedTs) return;
             if (!WATCH_STRENGTH_RE.test(rec.wType || '')) return;
+            if ((rec.durMin || 0) < WATCH_MIN_AUTO_LINK_MIN) return;
             const overlap = Math.min(endTs, rec.end) - Math.max(startTs, rec.start);
             const near = Math.abs(rec.end - endTs) <= WATCH_LINK_MAX_GAP_MS;
             if (overlap > bestOverlap && (overlap > 0 || near)) { best = rec; bestOverlap = overlap; }

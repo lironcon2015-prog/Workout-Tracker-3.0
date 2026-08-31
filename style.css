@@ -7818,7 +7818,11 @@ body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
 .hrchart .c.z3 { fill: var(--warn); }
 .hrchart .c.z4 { fill: var(--warn-strong); }
 .hrchart .c.z5 { fill: var(--danger); }
-.hrx { display: flex; justify-content: space-between; margin-top: 3px; }
+/* ציר הזמן של גרף הדופק — **חובה LTR**. ה-SVG מצייר את הנרות משמאל לימין
+   לפי הזמן (קואורדינטות SVG אינן מושפעות מ-direction), אבל שורת השעות היא
+   flex רגיל שירש rtl מהעמוד — וההתחלה נחתה מימין. התוצאה: שעות שמראות
+   תמונת ראי של הגרף שמעליהן. */
+.hrx { display: flex; justify-content: space-between; margin-top: 3px; direction: ltr; }
 .hrx span { font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
 /* שורות אזורי דופק */

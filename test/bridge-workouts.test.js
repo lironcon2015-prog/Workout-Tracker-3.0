@@ -28,7 +28,7 @@ const sandbox = {
     console
 };
 const fn = new Function(...Object.keys(sandbox),
-    src + '\nreturn { _parseWorkout, _saveWorkout, _pruneWorkouts, _loadWorkouts, _workIndex, MAX_POINTS, SERIES_MIN_STEP };');
+    src + '\nreturn { _parseWorkout, _saveWorkout, _pruneWorkouts, _loadWorkouts, _workIndex, _ms, _skipWhy: () => _skipWhy, MAX_POINTS, SERIES_MIN_STEP };');
 const B = fn(...Object.values(sandbox));
 
 // אימון של שעתיים בגרופינג של שנייה — התרחיש הכי כבד שאפשר
@@ -95,6 +95,27 @@ if (real) {
 const noAgg = Object.assign({}, realHae); delete noAgg.activeEnergyBurned;
 const parsedNoAgg = B._parseWorkout(noAgg);
 chk(parsedNoAgg.activeKcal === 2, `בלי אגרגט — סכימת המערך (${parsedNoAgg.activeKcal} קק"ל), לא 0`);
+
+// ── פירוק תאריך ללא Date.parse (עמידות ל-runtime) ────────────────────────
+// אותו קוד עבד ב-V8 ונכשל ב-Rhino בלי שגיאה. הפירוק הידני מוודא ערך מוחלט,
+// לא "מה שהמנוע במקרה החזיר".
+const msCases = [
+    ['2026-08-31 07:58:58 +0300', Date.UTC(2026, 7, 31, 4, 58, 58)],
+    ['2026-08-31T07:58:58+03:00', Date.UTC(2026, 7, 31, 4, 58, 58)],
+    ['2026-08-31 07:58:58 -0400', Date.UTC(2026, 7, 31, 11, 58, 58)],
+    ['2026-08-31T04:58:58Z',      Date.UTC(2026, 7, 31, 4, 58, 58)],
+    ['2026-08-31 07:58:58.123 +0300', Date.UTC(2026, 7, 31, 4, 58, 58)]
+];
+msCases.forEach(([input, expected]) => {
+    chk(B._ms(input) === expected, `_ms("${input}")`,
+        B._ms(input) === expected ? '' : `התקבל ${B._ms(input)} במקום ${expected}`);
+});
+chk(B._ms('') === 0 && B._ms(null) === 0 && B._ms('לא תאריך') === 0,
+    'קלט לא תקין מחזיר 0 ולא NaN');
+
+// ── סיבת דחייה מדווחת ─────────────────────────────────────────────────────
+B._parseWorkout({ end: '2026-08-31 08:00:00 +0300', duration: 60 });
+chk(/^start=/.test(B._skipWhy()), `דחייה על start מדווחת ביומן ("${B._skipWhy()}")`);
 
 // ── רגרסיה: פורמט התאריך של HAE ──────────────────────────────────────────
 // "2026-08-31 20:05:33 +0300" — רווח בין תאריך לשעה **ורווח נוסף** לפני ההיסט.

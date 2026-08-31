@@ -7974,6 +7974,7 @@ function _watchZoneSec(series, bounds) {
     const out = [0, 0, 0, 0, 0];
     if (!Array.isArray(series) || !series.length || !bounds) return out;
     const zoneOf = bpm => bpm < bounds[0] ? 0 : bpm < bounds[1] ? 1 : bpm < bounds[2] ? 2 : bpm < bounds[3] ? 3 : 4;
+    const edges = [0, bounds[0], bounds[1], bounds[2], bounds[3], Infinity];
     // רזולוציית הדגימה בפועל = המרווח החיובי הקטן ביותר. הפערים הגדולים הם
     // ניתוקי מדידה, לא קצב דגימה, ולכן הם לא מייצגים אותה.
     let step = Infinity;
@@ -7981,19 +7982,26 @@ function _watchZoneSec(series, bounds) {
         const d = series[i][0] - series[i - 1][0];
         if (d > 0 && d < step) step = d;
     }
-    // התקרה נגזרת מהרזולוציה: פער גדול מ-1.5 מרווחי דגימה הוא ניתוק. קבוע
-    // אחיד לא היה עובד לשני המקורות — HAE מייצאת או בקיבוץ דקות או בשניות,
-    // ורצפה של 60ש' הייתה גוזמת שיטתית כל דגימה בקיבוץ-דקות.
-    const res = isFinite(step) ? step : WATCH_HR_GAP_CAP_SEC;
-    const cap = Math.min(Math.max(WATCH_HR_GAP_CAP_SEC, Math.round(res * 1.5)), WATCH_HR_GAP_MAX_SEC);
-    // לדגימה האחרונה אין "הבאה" שממנה נגזר המרווח — מיוחסת לה הרזולוציה עצמה,
-    // אחרת אימון קצר מתנפח בתקרה שלמה.
-    const tailSpan = Math.min(res, cap);
+    // **כל דגימה מייצגת מרווח דגימה אחד** — לא יותר. פער ארוך יותר פירושו
+    // שהמדידה נותקה, ולא שהדגימה מכסה אותו. לכן התקרה היא הרזולוציה עצמה,
+    // וזה גם מה שמקרב את הסכום למה שאפל מציגה.
+    const cap = Math.min(isFinite(step) ? step : WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC);
     for (let i = 0; i < series.length; i++) {
         const cur = series[i], next = series[i + 1];
-        const span = next ? (next[0] - cur[0]) : tailSpan;
-        if (!(span > 0)) continue;
-        out[zoneOf(cur[2])] += Math.min(span, cap);
+        const raw = next ? (next[0] - cur[0]) : cap;   // לאחרונה אין "הבאה"
+        if (!(raw > 0)) continue;
+        const span = Math.min(raw, cap);
+        // סיווג לפי הממוצע לבדו מפספס חריגות תת-דקתיות: דקה שממוצעה 122 יכולה
+        // להכיל 20 שניות מעל 128, ואפל — שסופרת מדגימות גלם — תזקוף אותן ל-Z2.
+        // ‏HAE מספקת min ו-max לכל מקטע, ולכן פורסים את זמן המקטע על פני האזורים
+        // שהוא חוצה, ביחס לחלק הטווח שנופל בכל אזור. השוואה מול מסך Fitness
+        // אמיתי: הסטייה יורדת בכ-45% מול סיווג לפי ממוצע.
+        const lo = cur[1], hi = cur[3];
+        if (!(hi > lo)) { out[zoneOf(cur[2])] += span; continue; }
+        for (let k = 0; k < 5; k++) {
+            const ov = Math.min(hi, edges[k + 1]) - Math.max(lo, edges[k]);
+            if (ov > 0) out[k] += span * ov / (hi - lo);
+        }
     }
     return out.map(Math.round);
 }

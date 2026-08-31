@@ -35,6 +35,10 @@
 // 🔐 שנה לערך אקראי משלך (אותיות/ספרות). העתק אותו גם להגדרות GYMPRO ולקיצור.
 const SECRET_TOKEN = 'CHANGE_ME_to_a_random_secret';
 
+// חותמת גרסה — מוחזרת ב-doGet כשדה `v`. קיימת כי "האם פרסתי מחדש?" חזרה
+// שוב ושוב, ואין דרך אחרת לענות עליה מבחוץ. העלה אותה בכל שינוי בקובץ.
+const BRIDGE_VERSION = '2026-08-31c';
+
 const NUTRI_KEY = 'health_days';   // תזונה: [cal,prot,carb,fat]
 const SLEEP_KEY = 'sleep_days';    // שינה: [asleep,inbed,deep,rem,core,awake,rhr,hrv,resp,temp]
 // ⚠️ מגבלת PropertiesService: **9KB לכל ערך**, 500KB לכל המאגר. אימון עם סדרת
@@ -211,7 +215,8 @@ function doGet(e) {
       };
     });
     var workouts = _loadWorkouts(parseInt(p.days, 10) || WORK_RETURN_DAYS);
-    result = { ok: true, days: days, sleep: sleep, workouts: workouts, pushes: _loadPushLog() };
+    result = { ok: true, v: BRIDGE_VERSION, days: days, sleep: sleep,
+               workouts: workouts, pushes: _loadPushLog() };
   }
 
   var json = JSON.stringify(result);
@@ -387,10 +392,15 @@ function _parseWorkout(w) {
     id: _iso(start),
     start: start, end: end, durMin: durMin,
     wType: String(w.name || w.workoutActivityType || '').trim(),
+    isIndoor: w.isIndoor === true ? 1 : 0,
     hrAvg: _r(_q(w.avgHeartRate)), hrMax: _r(_q(w.maxHeartRate)), hrMin: _r(_q(w.minHeartRate)),
-    activeKcal: _kcal(w.activeEnergy != null ? w.activeEnergy : w.activeEnergyBurned),
+    // activeEnergyBurned הוא **הסכום של האימון** שחישבה HAE; activeEnergy הוא
+    // פירוט הדגימות, וסכימתו על דלי-דקה חלקי מנפחת את התוצאה. לכן האגרגט קודם.
+    activeKcal: _kcal(w.activeEnergyBurned != null ? w.activeEnergyBurned : w.activeEnergy),
     totalKcal:  _kcal(w.totalEnergy),
-    hrRecovery1: _r(_q(w.heartRateRecovery)),
+    // heartRateRecovery מגיע כמערך דגימות של אחרי האימון, לא כמספר. אינו נדרש
+    // כאן (ראה v19.10.4), ולכן נשמר רק כשהוא מספר של ממש.
+    hrRecovery1: Array.isArray(w.heartRateRecovery) ? 0 : _r(_q(w.heartRateRecovery)),
     hrSeries: series.length ? series : null
   };
   // אם אין אגרגטים אבל יש סדרה — גוזרים מהסדרה, כדי שאימון לא יגיע ריק.
@@ -480,11 +490,25 @@ function _q(v) {
   var n = Number(v);
   return isFinite(n) ? n : 0;
 }
-// _kcal — קלוריות; ממיר kJ אם היחידה מדווחת ככזו (HAE מכבד את העדפת המשתמש)
+// _kcal — קלוריות. שני מלכודות שנצפו ב-payload אמיתי של HAE:
+//   1. **המקור מדווח kJ** (לפי העדפת המשתמש ב-Health) — ממירים לפי units.
+//   2. **activeEnergy מגיע כמערך דגימות**, לא כאובייקט: [{qty,date,units},…].
+//      `_q` על מערך החזיר 0, ולכן הקלוריות היו מתאפסות בשקט. כאן סוכמים את
+//      הדגימות, והיחידה נלקחת מהראשונה שבהן.
 function _kcal(v) {
-  var n = _q(v);
+  if (v == null) return 0;
+  var n, u = '';
+  if (Array.isArray(v)) {
+    n = 0;
+    for (var i = 0; i < v.length; i++) {
+      n += Number(v[i] && v[i].qty) || 0;
+      if (!u && v[i] && v[i].units) u = String(v[i].units).toLowerCase();
+    }
+  } else {
+    n = _q(v);
+    u = (typeof v === 'object' && v.units) ? String(v.units).toLowerCase() : '';
+  }
   if (!n) return 0;
-  var u = (v && typeof v === 'object' && v.units) ? String(v.units).toLowerCase() : '';
   if (u.indexOf('kj') > -1) n = n / 4.184;
   return Math.round(n);
 }

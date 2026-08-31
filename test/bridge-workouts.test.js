@@ -48,6 +48,54 @@ function mkWorkout(startIso, durSec, stepSec) {
 let fail = 0;
 const chk = (ok, msg, extra='') => { console.log(`${ok?'✓':'✗'} ${msg}${extra?' — '+extra:''}`); if(!ok) fail++; };
 
+// ── payload אמיתי מ-HAE (נלכד ב-31.8 דרך ?raw=1) ─────────────────────────
+// שתי מלכודות שרק דגימה אמיתית חשפה:
+//   • activeEnergy הוא **מערך דגימות**, ו-activeEnergyBurned הוא האגרגט.
+//   • heartRateRecovery הוא **מערך**, לא מספר.
+// המספרים כאן הם בדיוק מה שהמכשיר שלח, כולל היחידות (kJ).
+const realHae = {
+    temperature: { units: 'degC', qty: 26.28 },
+    heartRate: { max: { qty: 104, units: 'bpm' }, avg: { qty: 101.1875, units: 'bpm' }, min: { qty: 99, units: 'bpm' } },
+    end: '2026-08-31 08:00:24 +0300',
+    heartRateRecovery: [
+        { Avg: 96, date: '2026-08-31 08:00:27 +0300', Max: 96, Min: 96, units: 'bpm' },
+        { Avg: 92, date: '2026-08-31 08:00:31 +0300', Max: 92, Min: 92, units: 'bpm' }
+    ],
+    avgHeartRate: { qty: 101.1875, units: 'bpm' },
+    maxHeartRate: { qty: 104, units: 'bpm' },
+    totalEnergy: { qty: 20.335073213096866, units: 'kJ' },
+    duration: 86.323868989944458,
+    start: '2026-08-31 07:58:58 +0300',
+    heartRateData: [
+        { units: 'bpm', Max: 104, date: '2026-08-31 07:59:00 +0300', Min: 100, Avg: 102.125 },
+        { units: 'bpm', Max: 101, date: '2026-08-31 08:00:00 +0300', Min: 99, Avg: 100.25 }
+    ],
+    activeEnergy: [
+        { qty: 4.4473748754456794, date: '2026-08-31 07:58:58 +0300', units: 'kJ' },
+        { qty: 5.7753107647379824, date: '2026-08-31 07:59:58 +0300', units: 'kJ' }
+    ],
+    activeEnergyBurned: { units: 'kJ', qty: 5.8440996897408306 },
+    id: 'E80F3C9A-5115-4FE3-BF2A-619A9B5E2283',
+    isIndoor: false, location: 'Outdoor', name: 'Outdoor Walk'
+};
+const real = B._parseWorkout(realHae);
+chk(!!real, 'payload אמיתי מ-HAE מתפרסר');
+if (real) {
+    chk(real.start === Date.parse('2026-08-31T07:58:58+0300'), 'start נכון מהפורמט של HAE');
+    chk(real.durMin === 1, `משך 1 דק' (duration=86.3ש', התקבל ${real.durMin})`);
+    chk(real.wType === 'Outdoor Walk', `שם האימון "${real.wType}"`);
+    chk(real.hrAvg === 101 && real.hrMax === 104, `דופק ${real.hrAvg}/${real.hrMax}`);
+    // 5.844 kJ ÷ 4.184 = 1.4 → 1 קק"ל. אגרגט, לא סכום הדגימות (שהיה נותן 2).
+    chk(real.activeKcal === 1, `קלוריות מהאגרגט ולא 0 (התקבל ${real.activeKcal})`);
+    chk(real.totalKcal === 5, `totalEnergy 20.3kJ → ${real.totalKcal} קק"ל`);
+    chk(real.hrRecovery1 === 0, 'heartRateRecovery כמערך אינו הופך למספר שגוי');
+    chk(real.hrSeries && real.hrSeries.length === 2, `סדרת דופק ${real.hrSeries ? real.hrSeries.length : 0} נקודות`);
+}
+// activeEnergy כמערך, בלי אגרגט — נסכם ולא נחזיר 0
+const noAgg = Object.assign({}, realHae); delete noAgg.activeEnergyBurned;
+const parsedNoAgg = B._parseWorkout(noAgg);
+chk(parsedNoAgg.activeKcal === 2, `בלי אגרגט — סכימת המערך (${parsedNoAgg.activeKcal} קק"ל), לא 0`);
+
 // ── רגרסיה: פורמט התאריך של HAE ──────────────────────────────────────────
 // "2026-08-31 20:05:33 +0300" — רווח בין תאריך לשעה **ורווח נוסף** לפני ההיסט.
 // `replace(' ','T')` בלי /g השאיר את הרווח השני, Date.parse החזיר NaN, וכל

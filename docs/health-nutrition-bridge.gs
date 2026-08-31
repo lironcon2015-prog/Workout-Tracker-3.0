@@ -51,6 +51,9 @@ const WORK_RETURN_DAYS = 21;       // כמה ימים אחורה מוחזרים 
 //    ⚠️ דלוק כרגע לאבחון היעלמות טמפ' הריסט (אוגוסט 2026) — להחזיר ל-false בסיום.
 const DEBUG_RAW = true;
 const RAW_KEY   = 'last_raw';
+// raw נפרד לדחיפות אימונים. הן מגיעות כ-POST משלהן, ודחיפת המדדים שרצה מיד
+// אחריהן דרסה את last_raw — כך שאי אפשר היה לראות מה HAE שלחה לאימון.
+const RAW_WORK_KEY = 'last_raw_work';
 
 // 📋 יומן דחיפות — 12 האחרונות, נחשף ב-doGet כ-`pushes`. קיים כדי לענות על
 //    השאלה שאי-אפשר לענות עליה מהאפליקציה: **האם הטריגר בכלל ירה, והאם הביא
@@ -156,6 +159,11 @@ function doPost(e) {
     }
 
     if (incWork.length) {
+      if (DEBUG_RAW) {
+        try { PropertiesService.getScriptProperties()
+          .setProperty(RAW_WORK_KEY, JSON.stringify(incWork[0]).slice(0, 8000)); }
+        catch (err) {}
+      }
       var wStored = 0, wSkipped = 0;
       incWork.forEach(function (w) {
         var rec = _parseWorkout(w);
@@ -184,7 +192,9 @@ function doGet(e) {
     result = { ok: false, error: 'BAD_TOKEN' };
   } else if (p.raw) {
     // דיבאג: מחזיר את ה-payload הגולמי האחרון שהתקבל (לאימות פורמט HAE)
-    result = { ok: true, raw: PropertiesService.getScriptProperties().getProperty(RAW_KEY) || '' };
+    result = { ok: true,
+      raw:     PropertiesService.getScriptProperties().getProperty(RAW_KEY) || '',
+      rawWork: PropertiesService.getScriptProperties().getProperty(RAW_WORK_KEY) || '' };
   } else {
     var nMap = _load(NUTRI_KEY);
     var days = Object.keys(nMap).sort().map(function (date) {
@@ -365,7 +375,7 @@ var MAX_POINTS      = 200;  // נקודות לכל היותר לאימון (~4KB
 
 function _parseWorkout(w) {
   if (!w) return null;
-  var start = _ms(w.start), end = _ms(w.end);
+  var start = _ms(w.start || w.startDate), end = _ms(w.end || w.endDate);
   if (!start) return null;
   var durMin = w.duration != null ? Math.round(_q(w.duration) / 60) : null;   // HAE מדווח שניות
   if (!end && durMin) end = start + durMin * 60000;
@@ -479,7 +489,15 @@ function _kcal(v) {
   return Math.round(n);
 }
 function _r(n) { return n ? Math.round(n) : 0; }
-function _ms(s) { var t = Date.parse(String(s || '').replace(' ', 'T')); return isNaN(t) ? 0 : t; }
+// _ms — חותמת HAE → אפוק. הפורמט הוא "2026-08-31 20:05:33 +0300": רווח בין
+// התאריך לשעה **ורווח נוסף** לפני ההיסט. `replace(' ','T')` בלי /g טיפל רק
+// בראשון, נשאר "…T20:05:33 +0300", ו-Date.parse החזיר NaN — כל אימון נזרק
+// בשורה הראשונה של הפרסר. מחליפים את הראשון ב-T ומוחקים את השאר.
+function _ms(s) {
+  var str = String(s || '').trim().replace(' ', 'T').replace(/\s+/g, '');
+  var t = Date.parse(str);
+  return isNaN(t) ? 0 : t;
+}
 function _iso(ms) { return new Date(ms).toISOString(); }
 
 function _save(key, map) {

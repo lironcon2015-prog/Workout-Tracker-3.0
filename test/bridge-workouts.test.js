@@ -48,6 +48,39 @@ function mkWorkout(startIso, durSec, stepSec) {
 let fail = 0;
 const chk = (ok, msg, extra='') => { console.log(`${ok?'✓':'✗'} ${msg}${extra?' — '+extra:''}`); if(!ok) fail++; };
 
+// ── רגרסיה: פורמט התאריך של HAE ──────────────────────────────────────────
+// "2026-08-31 20:05:33 +0300" — רווח בין תאריך לשעה **ורווח נוסף** לפני ההיסט.
+// `replace(' ','T')` בלי /g השאיר את הרווח השני, Date.parse החזיר NaN, וכל
+// אימון נדחה בשורה הראשונה של הפרסר (נצפה בשטח: "workouts:0/skip2").
+function haeDate(ms) {
+    const d = new Date(ms + 3 * 3600000).toISOString();      // +03:00
+    return d.slice(0, 10) + ' ' + d.slice(11, 19) + ' +0300';
+}
+const t0 = Date.parse('2026-08-31T17:05:33Z');
+const haeWorkout = {
+    name: 'Traditional Strength Training',
+    start: haeDate(t0), end: haeDate(t0 + 3600000), duration: 3600,
+    activeEnergy: { qty: 412, units: 'kcal' }, avgHeartRate: { qty: 110 }, maxHeartRate: { qty: 146 },
+    heartRateData: [
+        { date: haeDate(t0), Min: 96, Avg: 104, Max: 112, units: 'bpm' },
+        { date: haeDate(t0 + 60000), Min: 100, Avg: 110, Max: 118, units: 'bpm' },
+        { date: haeDate(t0 + 120000), Min: 118, Avg: 130, Max: 141, units: 'bpm' }
+    ]
+};
+const parsedHae = B._parseWorkout(haeWorkout);
+chk(!!parsedHae, 'פורמט התאריך של HAE (רווח לפני ההיסט) מתפרסר ולא נזרק');
+if (parsedHae) {
+    chk(parsedHae.start === t0, `start נכון (${parsedHae.start} מול ${t0})`);
+    chk(parsedHae.durMin === 60, `משך 60 דק' (התקבל ${parsedHae.durMin})`);
+    chk(parsedHae.activeKcal === 412, `קלוריות ${parsedHae.activeKcal}`);
+    chk(parsedHae.hrSeries && parsedHae.hrSeries.length === 3,
+        `סדרת דופק נקלטה (${parsedHae.hrSeries ? parsedHae.hrSeries.length : 0} נקודות)`);
+}
+// שם שדה חלופי
+chk(!!B._parseWorkout(Object.assign({}, haeWorkout, { start: undefined, end: undefined,
+    startDate: haeDate(t0), endDate: haeDate(t0 + 3600000) })), 'startDate/endDate כשם חלופי');
+
+
 // 1. שעתיים @ 1 שנייה = 7200 דגימות גולמיות
 const heavy = B._parseWorkout(mkWorkout('2026-08-29T10:00:00Z', 7200, 1));
 chk(heavy.hrSeries.length <= B.MAX_POINTS, `דילול אדפטיבי: 7200 דגימות → ${heavy.hrSeries.length} נקודות (תקרה ${B.MAX_POINTS})`);

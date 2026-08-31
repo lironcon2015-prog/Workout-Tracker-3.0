@@ -37,7 +37,7 @@ const SECRET_TOKEN = 'CHANGE_ME_to_a_random_secret';
 
 // חותמת גרסה — מוחזרת ב-doGet כשדה `v`. קיימת כי "האם פרסתי מחדש?" חזרה
 // שוב ושוב, ואין דרך אחרת לענות עליה מבחוץ. העלה אותה בכל שינוי בקובץ.
-const BRIDGE_VERSION = '2026-08-31c';
+const BRIDGE_VERSION = '2026-08-31d';
 
 const NUTRI_KEY = 'health_days';   // תזונה: [cal,prot,carb,fat]
 const SLEEP_KEY = 'sleep_days';    // שינה: [asleep,inbed,deep,rem,core,awake,rhr,hrv,resp,temp]
@@ -168,17 +168,17 @@ function doPost(e) {
           .setProperty(RAW_WORK_KEY, JSON.stringify(incWork[0]).slice(0, 8000)); }
         catch (err) {}
       }
-      var wStored = 0, wSkipped = 0;
+      var wStored = 0, wSkipped = 0, why = '';
       incWork.forEach(function (w) {
         var rec = _parseWorkout(w);
-        if (!rec) { wSkipped++; return; }
+        if (!rec) { wSkipped++; if (!why) why = _skipWhy; return; }
         // upsert לפי חותמת ההתחלה: ייצוא חוזר על אותו טווח מעדכן ולא מכפיל.
-        if (_saveWorkout(rec)) wStored++; else wSkipped++;
+        if (_saveWorkout(rec)) wStored++; else { wSkipped++; if (!why) why = 'save'; }
       });
       _pruneWorkouts();
       out.workouts_stored = wStored;
-      if (wSkipped) out.workouts_skipped = wSkipped;
-      _logPush('workouts:' + wStored + (wSkipped ? '/skip' + wSkipped : ''), '', null);
+      if (wSkipped) { out.workouts_skipped = wSkipped; out.skip_reason = why; }
+      _logPush('workouts:' + wStored + (wSkipped ? '/skip' + wSkipped + '(' + why + ')' : ''), '', null);
     }
     return _json(out);
   } finally {
@@ -378,13 +378,18 @@ function _mergeNight(prev, d) {
 var SERIES_MIN_STEP = 30;   // שניות — הרזולוציה הצפופה ביותר שנשמרת
 var MAX_POINTS      = 200;  // נקודות לכל היותר לאימון (~4KB, מרווח בטוח מ-9KB)
 
+// _skipWhy — סיבת הדחייה האחרונה, נכנסת ליומן הדחיפות. בלי זה "skip4" הוא
+// מספר בלי הסבר, וכל סיבוב אבחון דורש לכידת payload גולמי מחדש.
+var _skipWhy = '';
+
 function _parseWorkout(w) {
-  if (!w) return null;
+  _skipWhy = '';
+  if (!w) { _skipWhy = 'empty'; return null; }
   var start = _ms(w.start || w.startDate), end = _ms(w.end || w.endDate);
-  if (!start) return null;
+  if (!start) { _skipWhy = 'start=' + String(w.start || w.startDate || '?').slice(0, 24); return null; }
   var durMin = w.duration != null ? Math.round(_q(w.duration) / 60) : null;   // HAE מדווח שניות
   if (!end && durMin) end = start + durMin * 60000;
-  if (!end) return null;
+  if (!end) { _skipWhy = 'end=' + String(w.end || w.endDate || '?').slice(0, 24); return null; }
   if (!durMin) durMin = Math.round((end - start) / 60000);
 
   var series = _parseHrSeries(w.heartRateData, start, Math.round((end - start) / 1000));
@@ -513,13 +518,29 @@ function _kcal(v) {
   return Math.round(n);
 }
 function _r(n) { return n ? Math.round(n) : 0; }
-// _ms — חותמת HAE → אפוק. הפורמט הוא "2026-08-31 20:05:33 +0300": רווח בין
-// התאריך לשעה **ורווח נוסף** לפני ההיסט. `replace(' ','T')` בלי /g טיפל רק
-// בראשון, נשאר "…T20:05:33 +0300", ו-Date.parse החזיר NaN — כל אימון נזרק
-// בשורה הראשונה של הפרסר. מחליפים את הראשון ב-T ומוחקים את השאר.
+/* _ms — חותמת HAE → אפוק. הפורמט: "2026-08-31 20:05:33 +0300".
+ * מפורק **ידנית ב-regex ולא דרך Date.parse**, משתי סיבות שכל אחת הפילה אותו:
+ *   1. שני רווחים — אחד בין תאריך לשעה, ואחד לפני ההיסט. `replace(' ','T')`
+ *      בלי /g טיפל רק בראשון, ו-Date.parse החזיר NaN.
+ *   2. **ה-runtime**: פרויקט Apps Script שרץ על Rhino (המנוע הישן, לפני V8)
+ *      אינו מפרסר ISO-8601 עם היסט בכלל. אותו קוד עובד ב-V8 ונכשל ב-Rhino,
+ *      בלי שום שגיאה — רק NaN שקט וכל אימון נזרק.
+ * פירוק ידני מסיר את התלות במנוע לגמרי. */
 function _ms(s) {
-  var str = String(s || '').trim().replace(' ', 'T').replace(/\s+/g, '');
-  var t = Date.parse(str);
+  var str = String(s || '').trim();
+  var m = str.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?\s*(Z|[+-]\d{2}:?\d{2})?$/);
+  if (m) {
+    var ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+    var tz = m[7];
+    if (tz && tz !== 'Z') {
+      var sign = tz.charAt(0) === '-' ? 1 : -1;          // היסט חיובי → להפחית
+      var digits = tz.slice(1).replace(':', '');
+      ms += sign * ((+digits.slice(0, 2)) * 60 + (+digits.slice(2))) * 60000;
+    }
+    return ms;
+  }
+  // תאריך בלבד ("2026-08-31") או פורמט לא צפוי — ניסיון אחרון דרך המנוע
+  var t = Date.parse(str.replace(' ', 'T').replace(/\s+/g, ''));
   return isNaN(t) ? 0 : t;
 }
 function _iso(ms) { return new Date(ms).toISOString(); }

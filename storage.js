@@ -2503,6 +2503,51 @@ const FirebaseManager = {
                /maximum allowed size|1048487/i.test(msg);
     },
 
+    // זיהוי דחייה של ה-SDK על **מבנה** לא נתמך (מערך-בתוך-מערך, undefined).
+    // דחייה כזו נזרקת מקומית עוד לפני יציאה לרשת, ולכן דיווח "בדוק חיבור רשת"
+    // עליה היה מטעה: המשתמש רואה בעיית חיבור בזמן שהמסמך כלל לא נשלח.
+    _isInvalidData(e) {
+        const msg = String((e && e.message) || e || '');
+        return /nested array|invalid data|unsupported field value/i.test(msg);
+    },
+
+    // סיווג כשל כתיבה אחד לכל המסלולים — 'size' | 'data' | 'other'
+    _syncErrType(e) {
+        return this._isDocTooLarge(e) ? 'size' : this._isInvalidData(e) ? 'data' : 'other';
+    },
+
+    // CLOUDENC-START — בלוק טהור, נבדק ב-test/cloud-encode.test.js (אל תסיר את הסמנים)
+    // ── תאימות Firestore: hrSeries הוא מערך-בתוך-מערך ─────────────────────────
+    // סדרת הדופק של השעון נשמרת כ-[[שניות, min, avg, max], ...]. Firestore אוסר
+    // מערך בתוך מערך, ולכן מרגע שאימון ראשון נשא סדרה — מסמך הארכיון ומסמך
+    // הקונפיג (שנושא את מאגר-הביניים watchWorkouts) נדחו שניהם ב-invalid-argument,
+    // וכל גיבוי לענן נכשל. הפתרון זהה ל-nutrition_raw: הסדרה נוסעת כמחרוזת JSON
+    // (hrSeriesJson) ומפוענחת בקריאה. הדאטה המקומית לא משתנה — רק ייצוג הענן.
+    _encodeWatch(w) {
+        if (!w || !Array.isArray(w.hrSeries)) return w;
+        const out = Object.assign({}, w);
+        out.hrSeriesJson = JSON.stringify(w.hrSeries);
+        delete out.hrSeries;
+        return out;
+    },
+    _decodeWatch(w) {
+        if (!w || typeof w.hrSeriesJson !== 'string') return w;
+        const out = Object.assign({}, w);
+        try { out.hrSeries = JSON.parse(w.hrSeriesJson); } catch { /* סדרה פגומה — הרשומה נשארת בלעדיה */ }
+        delete out.hrSeriesJson;
+        return out;
+    },
+    // רשומות ארכיון: הסדרה יושבת ב-entry.watch. שכפול רדוד — הרשומה המקומית לא נוגעת.
+    _encodeArchiveItems(items) {
+        return (items || []).map(e => (e && e.watch && Array.isArray(e.watch.hrSeries))
+            ? Object.assign({}, e, { watch: this._encodeWatch(e.watch) }) : e);
+    },
+    _decodeArchiveItems(items) {
+        return (items || []).map(e => (e && e.watch && typeof e.watch.hrSeriesJson === 'string')
+            ? Object.assign({}, e, { watch: this._decodeWatch(e.watch) }) : e);
+    },
+    // CLOUDENC-END
+
     // ── ניסיון חוזר אוטומטי (v19.7.3) ────────────────────────────────────────
     // עד כאן כשל סנכרון היה סופי: הדגל נשאר false עד שפעולת-משתמש אקראית הפעילה
     // שמירה מוצלחת — ובינתיים הדאטה ישבה רק במכשיר, לפעמים ימים. עכשיו כל מסלול
@@ -2545,10 +2590,10 @@ const FirebaseManager = {
 
     // תיאור הכשל האחרון של מסלול — להודעות UI מדויקות במקום "בדוק חיבור" גנרי
     describeSyncFailure(store) {
-        const s = this.getSyncStatus();
-        return s[store + 'Err'] === 'size'
-            ? 'המסמך חורג ממגבלת Firestore (1MB)'
-            : 'בדוק חיבור רשת';
+        const err = this.getSyncStatus()[store + 'Err'];
+        if (err === 'size') return 'המסמך חורג ממגבלת Firestore (1MB)';
+        if (err === 'data') return 'הענן דחה את מבנה הנתונים — עדכן את האפליקציה';
+        return 'בדוק חיבור רשת';
     },
 
     // ── Archive ──────────────────────────────────────────────────────────────
@@ -2576,7 +2621,7 @@ const FirebaseManager = {
 
             const batch = this._db.batch();
             for (let i = 0; i < chunkCount; i++) {
-                const items = archive.slice(i * size, (i + 1) * size);
+                const items = this._encodeArchiveItems(archive.slice(i * size, (i + 1) * size));
                 batch.set(col.doc(`archive_${i}`), { items, updatedAt: now });
             }
             // מחיקת chunks מיותרים (הארכיון התכווץ מאז הסנכרון הקודם)
@@ -2592,7 +2637,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveArchive error:', e);
-            this._recordSync('archive', false, this._isDocTooLarge(e) ? 'size' : 'other');
+            this._recordSync('archive', false, this._syncErrType(e));
             return false;
         }
     },
@@ -2643,7 +2688,7 @@ const FirebaseManager = {
             const legacy = await col.doc('archive').get();
             if (legacy.exists && legacy.data().items) items = legacy.data().items;
         }
-        return items;
+        return items ? this._decodeArchiveItems(items) : items;
     },
 
     // ── Nutrition Raw (קובץ MFP גולמי) ────────────────────────────────────────
@@ -2688,7 +2733,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveNutritionRaw error:', e);
-            this._recordSync('raw', false, this._isDocTooLarge(e) ? 'size' : 'other');
+            this._recordSync('raw', false, this._syncErrType(e));
             return false;
         }
     },
@@ -2744,7 +2789,7 @@ const FirebaseManager = {
                 nutritionLog:   StorageManager.getNutritionLog(),
                 nutritionDaily: StorageManager.getNutritionDaily(),
                 sleepDaily:     StorageManager.getSleepDaily(),
-                watchWorkouts:  StorageManager.getWatchWorkouts(),
+                watchWorkouts:  StorageManager.getWatchWorkouts().map(w => this._encodeWatch(w)),
                 hrZones:        StorageManager.getHrZones(),
                 nutritionNotes: StorageManager.getNutritionNotes(),
                 targetHistory:  StorageManager.getTargetHistory(),
@@ -2778,7 +2823,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveConfig error:', e);
-            this._recordSync('config', false, this._isDocTooLarge(e) ? 'size' : 'other');
+            this._recordSync('config', false, this._syncErrType(e));
             return false;
         }
     },
@@ -2896,7 +2941,7 @@ const FirebaseManager = {
         if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
         if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
         if (data.sleepDaily)     StorageManager.saveData(StorageManager.KEY_SLEEP_DAILY, data.sleepDaily);
-        if (Array.isArray(data.watchWorkouts)) StorageManager.saveWatchWorkouts(data.watchWorkouts);
+        if (Array.isArray(data.watchWorkouts)) StorageManager.saveWatchWorkouts(data.watchWorkouts.map(w => FirebaseManager._decodeWatch(w)));
         if (data.hrZones)        StorageManager.saveHrZones(data.hrZones);
         if (data.nutritionNotes) StorageManager.saveData(StorageManager.KEY_NUTRITION_NOTES, data.nutritionNotes);
         if (data.targetHistory)  StorageManager.saveData(StorageManager.KEY_TARGET_HISTORY, data.targetHistory);
@@ -2939,7 +2984,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveAIHistory error:', e);
-            this._recordSync('ai', false, this._isDocTooLarge(e) ? 'size' : 'other');
+            this._recordSync('ai', false, this._syncErrType(e));
             return false;
         }
     },

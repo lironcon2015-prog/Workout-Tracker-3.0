@@ -53,7 +53,8 @@ async function maybeShowCloudSyncBanner() {
     const txt = banner.querySelector('.csb-text');
     if (txt) {
         if (failed.length) {
-            const why = failed.some(s => sync[s + 'Err'] === 'size') ? ' (מסמך גדול מדי)' : '';
+            const why = failed.some(s => sync[s + 'Err'] === 'size') ? ' (מסמך גדול מדי)'
+                      : failed.some(s => sync[s + 'Err'] === 'data') ? ' (מבנה נתונים שהענן דוחה)' : '';
             txt.textContent = 'הגיבוי לענן נכשל: ' + failed.map(s => labels[s]).join(', ') + why +
                               _syncFailSince(sync, failed) + '. הנתונים נשמרו במכשיר אך לא בענן.';
         } else {

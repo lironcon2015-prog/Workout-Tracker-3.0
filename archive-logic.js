@@ -396,9 +396,10 @@ function _archiveCopyText(item, withCoachOverride) {
     const withCoach = (typeof withCoachOverride === 'boolean') ? withCoachOverride : _coachToggleState();
     let txt = item.summary || '';
     if (!withCoach) txt = _stripCoachFromSummary(txt);
-    // נתוני השעון נוספים כשורה אחת אחרי גוף האימון ולפני סיכום המאמן
-    const wLine = (typeof watchSummaryLine === 'function') ? watchSummaryLine(item) : '';
-    if (wLine) txt += `\n\n${wLine}`;
+    // גוש "מדדי האימון" (שעון · מוכנות הבוקר · הקשר) נוסף אחרי גוף האימון
+    // ולפני סיכום המאמן — אותו תוכן שהמשתמש רואה בלשונית "מדדים".
+    const mBlock = (typeof buildMetricsSummaryText === 'function') ? buildMetricsSummaryText(item) : '';
+    if (mBlock) txt += `\n\n${mBlock}`;
     if (withCoach && item.aiSummary) {
         txt += `\n\n=== סיכום המאמן ===\n${item.aiSummary}`;
     }
@@ -3536,6 +3537,13 @@ function _downloadClaudeFile(items, scopeLabel, scopeSlug) {
         .sort(function(a, b) { return a.timestamp - b.timestamp; }) // כרונולוגי — עולה
         .map(function(item) {
             var clone = JSON.parse(JSON.stringify(item));
+            // מוכנות הבוקר מחושבת ואינה שמורה ברשומה — בלי צירוף מפורש היא נעדרת
+            // מהקובץ אף שהיא מוצגת בלשונית "מדדים". נתוני השעון כבר בתוך ה-clone.
+            var rd = (typeof _readinessFor === 'function') ? _readinessFor(item) : null;
+            if (rd) clone.readiness = {
+                score: rd.rd.score, band: rd.rd.band,
+                used: rd.rd.usedCount, total: rd.rd.totalCount
+            };
             if (!withCoach) {
                 delete clone.aiSummary;
                 clone.summary = _stripCoachFromSummary(clone.summary);

@@ -7951,12 +7951,31 @@ const WATCH_HR_GAP_MAX_SEC  = 120;              // תקרה מוחלטת — ג�
 // סוגי אימון מהשעון שמשויכים אוטומטית. הליכה/ריצה/רכיבה נשארות במאגר לשיוך ידני.
 const WATCH_STRENGTH_RE = /strength|כוח|functional|core|hiit|cross/i;
 
+// _watchDateKey — נרמול תאריך ל-YYYY-MM-DD לצורך השוואה מול לילות השינה.
+// רשומת הארכיון שומרת DD.MM.YY (פורמט he-IL), לילות השינה שומרים YYYY-MM-DD,
+// והשוואת המחרוזות ביניהן נכשלה **בשקט**: '2026-09-01' <= '01.09.26' הוא false
+// כי '2' > '0'. התוצאה — בכל אימון שנפל בימים 01–20 בחודש כל הלילות סוננו,
+// דופק המנוחה יצא null, ולכן לא חושבו אזורי דופק כלל. בימים 21–31 זה עבד
+// במקרה, וזו הסיבה שהתקלה נראתה אקראית.
+// תאריך שלא ניתן לפרסר מוחזר כ-null, ואז הסינון מוותר על חלון הזמן במקום
+// לסנן הכל — דופק מנוחה מעט לא-עדכני עדיף על היעדר אזורים.
+function _watchDateKey(d) {
+    if (!d) return null;
+    const s = String(d).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})$/);
+    if (!m) return null;
+    const yr = m[3].length === 2 ? '20' + m[3] : m[3];
+    return yr + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+}
+
 // _watchRestHr — דופק מנוחה לחישוב הרזרבה: חציון 28 הלילות שקדמו לתאריך.
 // ברירת המחדל היא הערך שכבר נאסף בגשר, כך שאין מה להזין ידנית.
 function _watchRestHr(beforeDate) {
     const nights = (typeof StorageManager.getSleepDaily === 'function') ? StorageManager.getSleepDaily() : [];
+    const key = _watchDateKey(beforeDate);
     const vals = nights
-        .filter(n => n && n.date && (!beforeDate || n.date <= beforeDate) && n.rhr > 25 && n.rhr < 120)
+        .filter(n => n && n.date && (!key || n.date <= key) && n.rhr > 25 && n.rhr < 120)
         .slice(-28).map(n => n.rhr).sort((a, b) => a - b);
     if (!vals.length) return null;
     const m = Math.floor(vals.length / 2);
@@ -8054,15 +8073,31 @@ function _watchAttach(rec, entryDate, by) {
 // (כדי שלא יזוז כשדופק המנוחה נע) עומדת בעינה. משתנה רק האלגוריתם.
 function _watchRezone(entry) {
     const w = entry && entry.watch;
-    if (!w || w.zoneModel === WATCH_ZONE_MODEL) return false;
-    const hasSeries = Array.isArray(w.hrSeries) && w.hrSeries.length && w.zoneBounds;
-    if (hasSeries) {
+    if (!w) return false;
+    const hasSeries = Array.isArray(w.hrSeries) && w.hrSeries.length;
+    // רשומה עם סדרה אך **בלי גבולות כלל** אינה "מודל ישן" — היא נולדה פגומה
+    // (באג פורמט התאריך שלמעלה). היא אטומה לכל מנגנון תיקון קיים: _watchComplete
+    // דורש סדרה בלבד ולכן הפולינג נעצר עליה, ו-zoneModel נחרת עליה כאן בסבב
+    // הראשון — כך שהיא קפאה בלי אזורים לתמיד. כאן משלימים לה גבולות.
+    // זו השלמה, לא חישוב מחדש: הכלל שאימון שומר את הגבולות שלפיהם חושב
+    // (כדי שלא יזוזו כשדופק המנוחה נע) חל על רשומה שיש לה גבולות.
+    const needsBounds = hasSeries && !w.zoneBounds;
+    if (!needsBounds && w.zoneModel === WATCH_ZONE_MODEL) return false;
+    if (needsBounds) {
+        const zb = _hrZoneBounds(entry.date);
+        // עדיין אין בסיס לגזירה — יוצאים **בלי** לחרות zoneModel, כדי שהניסיון
+        // יחזור כשיהיו לילות שינה או גיל בפרופיל.
+        if (!zb) return false;
+        w.zoneBounds = zb.bounds;
+    }
+    const zoned = hasSeries && !!w.zoneBounds;
+    if (zoned) {
         const durSec = Math.round(((w.end || 0) - (w.start || 0)) / 1000);
         w.zoneSec = _watchZoneSec(w.hrSeries, w.zoneBounds, durSec);
     }
     w.zoneModel = WATCH_ZONE_MODEL;   // גם בלי סדרה — לא לנסות שוב בכל טעינה
     StorageManager.updateArchiveEntry(entry.timestamp, { watch: w });
-    return hasSeries;
+    return zoned;
 }
 
 // migrateWatchZones — מעבר חד-פעמי על הארכיון בטעינת האפליקציה.

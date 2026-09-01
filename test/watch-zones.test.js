@@ -25,9 +25,9 @@ const StorageManager = {
     getSleepDaily:  () => store._nights,
     getHrZones:     () => store._zones
 };
-const { _watchZoneSec, _hrZoneBounds, _watchRestHr, WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC } =
+const { _watchZoneSec, _hrZoneBounds, _watchRestHr, _watchDateKey, WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC } =
     new Function('StorageManager',
-        block + '\nreturn { _watchZoneSec, _hrZoneBounds, _watchRestHr, WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC };')(StorageManager);
+        block + '\nreturn { _watchZoneSec, _hrZoneBounds, _watchRestHr, _watchDateKey, WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC };')(StorageManager);
 
 let failed = 0;
 function eq(actual, expected, name) {
@@ -121,6 +121,34 @@ eq(_watchZoneSec([[0, 160, 170, 180]], B), [0, 0, 0, 15, 45],
 // דגימות לא-מסודרות/כפולות לא יוצרות זמן שלילי
 eq(_watchZoneSec([[0, 100, 105, 110], [0, 100, 105, 110], [30, 100, 105, 110]], B),
    [60, 0, 0, 0, 0], 'דגימה כפולה באותה שנייה תורמת אפס ואינה גורעת זמן');
+
+// ── פורמט התאריך מול לילות השינה (v19.10.12) ─────────────────────────────
+// רשומת הארכיון שומרת DD.MM.YY, לילות השינה YYYY-MM-DD. השוואת מחרוזות ישירה
+// ביניהן סיננה את כל הלילות בכל אימון בימים 01–20, ולכן לא היו אזורי דופק.
+eq(_watchDateKey('01.09.26'), '2026-09-01', 'DD.MM.YY → ISO');
+eq(_watchDateKey('9.9.26'),   '2026-09-09', 'ספרה בודדת מרופדת');
+eq(_watchDateKey('31.08.2026'), '2026-08-31', 'שנה בת 4 ספרות');
+eq(_watchDateKey('2026-08-31'), '2026-08-31', 'ISO עובר כמות שהוא');
+eq(_watchDateKey(''), null, 'ריק → null');
+eq(_watchDateKey('בלגן'), null, 'לא-פריק → null (הסינון מוותר על החלון)');
+
+store._nights = [
+    { date: '2026-08-28', rhr: 51 }, { date: '2026-08-29', rhr: 52 },
+    { date: '2026-08-30', rhr: 52 }, { date: '2026-08-31', rhr: 53 }
+];
+store._profile = { age: 42 };
+store._zones = { auto: true, maxHr: null, restHr: null, bounds: null };
+
+eq(_watchRestHr('31.08.26'), 52, 'יום 31: חציון הלילות');
+eq(_watchRestHr('01.09.26'), 52, 'יום 01 — הרגרסיה: קודם החזיר null');
+eq(_watchRestHr('15.09.26'), 52, 'יום 15 — גם הוא סונן לגמרי קודם');
+eq(_watchRestHr('20.09.26'), 52, 'יום 20 — הגבול העליון של הטווח השבור');
+eq(_watchRestHr('2026-08-28'), 51, 'חלון הזמן עדיין חוסם לילות מאוחרים');
+
+// אותם ארבעת הספים שהבדיקה עוגנת בהם — עכשיו גם באימון של ה-1 בחודש
+const zb1 = _hrZoneBounds('01.09.26');
+if (!zb1) { console.error('✗ אין גבולות לאימון של ה-1 בחודש — הרגרסיה חזרה'); failed++; }
+else eq(zb1.bounds, [128, 140, 153, 165], 'גבולות זהים לאימון של ה-1 בחודש');
 
 console.log(failed ? `\n${failed} בדיקות נכשלו` : '\nכל הבדיקות עברו');
 process.exit(failed ? 1 : 0);

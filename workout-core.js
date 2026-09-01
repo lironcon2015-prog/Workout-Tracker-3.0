@@ -54,7 +54,8 @@ async function maybeShowCloudSyncBanner() {
     if (txt) {
         if (failed.length) {
             const why = failed.some(s => sync[s + 'Err'] === 'size') ? ' (מסמך גדול מדי)'
-                      : failed.some(s => sync[s + 'Err'] === 'data') ? ' (מבנה נתונים שהענן דוחה)' : '';
+                      : failed.some(s => sync[s + 'Err'] === 'data') ? ' (מבנה נתונים שהענן דוחה)'
+                      : sync[failed[0] + 'ErrMsg'] ? ' (' + sync[failed[0] + 'ErrMsg'] + ')' : '';
             txt.textContent = 'הגיבוי לענן נכשל: ' + failed.map(s => labels[s]).join(', ') + why +
                               _syncFailSince(sync, failed) + '. הנתונים נשמרו במכשיר אך לא בענן.';
         } else {
@@ -5097,10 +5098,15 @@ async function copyResult() {
 
     _saveToArchive(note);
 
-    // גיבוי אוטומטי לענן אחרי שמירת אימון
+    // גיבוי אוטומטי לענן אחרי שמירת אימון.
+    // סנכרון לא-חמוש הוא דילוג מכוון (הגנת ענן), לא כשל — אין להתריע עליו.
+    // בכשל אמיתי מציגים את **הסיבה**: "שגיאה בשמירת ארכיון לענן" לבדו זהה
+    // לכל תקלה אפשרית, ולכן לא אִפשר לאבחן דבר מהמסך.
     if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
         FirebaseManager.saveArchiveToCloud().then(ok => {
-            showCloudToast(ok ? 'ארכיון נשמר בענן' : 'שגיאה בשמירת ארכיון לענן', ok);
+            if (ok) { showCloudToast('ארכיון נשמר בענן', true); return; }
+            if (!FirebaseManager._isSyncArmed()) return;
+            showCloudToast('שגיאה בשמירת ארכיון לענן — ' + FirebaseManager.describeSyncFailure('archive'), false);
         });
     }
 

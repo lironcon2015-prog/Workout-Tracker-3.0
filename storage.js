@@ -2444,11 +2444,15 @@ const FirebaseManager = {
         catch { return {}; }
     },
 
-    _recordSync(store, ok, errType) {
+    _recordSync(store, ok, errType, errMsg) {
         try {
             const s = this.getSyncStatus();
             s[store + 'Ok'] = ok;
             s[store + 'At'] = Date.now();
+            // ErrMsg — ההודעה הגולמית של ה-SDK. בלעדיה כל כשל נראה זהה במסך
+            // ("שגיאה בשמירה לענן"), וכל אבחון דרש לשחזר את התקלה מול קונסול.
+            if (ok || !errMsg) delete s[store + 'ErrMsg'];
+            else s[store + 'ErrMsg'] = String(errMsg).slice(0, 200);
             // OkAt — הסנכרון המוצלח האחרון של המסלול (בניגוד ל-At שהוא הניסיון האחרון).
             // FailAt — מתי הכשל *התחיל*; לא נדרס בכשלים חוזרים, כדי שה-UI יגיד "מאז מתי".
             if (ok) { s[store + 'OkAt'] = Date.now(); delete s[store + 'FailAt']; delete s[store + 'PendingAt']; }
@@ -2590,10 +2594,14 @@ const FirebaseManager = {
 
     // תיאור הכשל האחרון של מסלול — להודעות UI מדויקות במקום "בדוק חיבור" גנרי
     describeSyncFailure(store) {
-        const err = this.getSyncStatus()[store + 'Err'];
+        const st = this.getSyncStatus();
+        const err = st[store + 'Err'], msg = st[store + 'ErrMsg'];
         if (err === 'size') return 'המסמך חורג ממגבלת Firestore (1MB)';
         if (err === 'data') return 'הענן דחה את מבנה הנתונים — עדכן את האפליקציה';
-        return 'בדוק חיבור רשת';
+        if (err === 'auth') return 'החיבור לענן לא נפתח — בדוק רשת';
+        // כשל 'other' הוא הדלי שאין לו שם. ההודעה הגולמית היא כל מה שמפריד
+        // בין "בדוק רשת" גנרי לבין אבחון אמיתי, ולכן היא מוצגת כמות שהיא.
+        return msg ? ('בדוק חיבור רשת · ' + msg) : 'בדוק חיבור רשת';
     },
 
     // ── Archive ──────────────────────────────────────────────────────────────
@@ -2604,7 +2612,7 @@ const FirebaseManager = {
     async saveArchiveToCloud() {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת ארכיון (הגנת ענן)'); return false; }
         this._markSyncPending('archive');   // הדגל נסגר רק בהצלחה — ראה _recordSync
-        if (!await this._ensureReady()) { this._recordSync('archive', false, 'other'); return false; }
+        if (!await this._ensureReady()) { this._recordSync('archive', false, 'auth', 'החיבור לענן לא נפתח (הזדהות או רשת)'); return false; }
         try {
             const archive = StorageManager.getArchive();
             const col = this._db.collection('gympro_data');
@@ -2637,7 +2645,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveArchive error:', e);
-            this._recordSync('archive', false, this._syncErrType(e));
+            this._recordSync('archive', false, this._syncErrType(e), e && e.message);
             return false;
         }
     },
@@ -2697,7 +2705,7 @@ const FirebaseManager = {
     async saveNutritionRawToCloud() {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת raw (הגנת ענן)'); return false; }
         this._markSyncPending('raw');   // הדגל נסגר רק בהצלחה — ראה _recordSync
-        if (!await this._ensureReady()) { this._recordSync('raw', false, 'other'); return false; }
+        if (!await this._ensureReady()) { this._recordSync('raw', false, 'auth', 'החיבור לענן לא נפתח (הזדהות או רשת)'); return false; }
         try {
             const raw = StorageManager.getNutritionRaw();           // { header, rows, dateIdx } | null
             const rows = (raw && Array.isArray(raw.rows)) ? raw.rows : [];
@@ -2733,7 +2741,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveNutritionRaw error:', e);
-            this._recordSync('raw', false, this._syncErrType(e));
+            this._recordSync('raw', false, this._syncErrType(e), e && e.message);
             return false;
         }
     },
@@ -2778,7 +2786,7 @@ const FirebaseManager = {
     async saveConfigToCloud() {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת קונפיג (הגנת ענן)'); return false; }
         this._markSyncPending('config');   // הדגל נסגר רק בהצלחה — ראה _recordSync
-        if (!await this._ensureReady()) { this._recordSync('config', false, 'other'); return false; }
+        if (!await this._ensureReady()) { this._recordSync('config', false, 'auth', 'החיבור לענן לא נפתח (הזדהות או רשת)'); return false; }
         try {
             const configData = {
                 workouts:       StorageManager.getData(StorageManager.KEY_DB_WORKOUTS),
@@ -2823,7 +2831,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveConfig error:', e);
-            this._recordSync('config', false, this._syncErrType(e));
+            this._recordSync('config', false, this._syncErrType(e), e && e.message);
             return false;
         }
     },
@@ -2968,7 +2976,7 @@ const FirebaseManager = {
     async saveAIHistoryToCloud() {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת AI (הגנת ענן)'); return false; }
         this._markSyncPending('ai');   // הדגל נסגר רק בהצלחה — ראה _recordSync
-        if (!await this._ensureReady()) { this._recordSync('ai', false, 'other'); return false; }
+        if (!await this._ensureReady()) { this._recordSync('ai', false, 'auth', 'החיבור לענן לא נפתח (הזדהות או רשת)'); return false; }
         try {
             const payload = {
                 messages: StorageManager.getAIHistory(),
@@ -2984,7 +2992,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveAIHistory error:', e);
-            this._recordSync('ai', false, this._syncErrType(e));
+            this._recordSync('ai', false, this._syncErrType(e), e && e.message);
             return false;
         }
     },

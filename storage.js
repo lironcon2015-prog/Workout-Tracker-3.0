@@ -2520,6 +2520,16 @@ const FirebaseManager = {
         return this._isDocTooLarge(e) ? 'size' : this._isInvalidData(e) ? 'data' : 'other';
     },
 
+    // _failDetail — הודעת הכשל + **המספרים שמכריעים**: כמה נשלח וכמה זמן זה לקח.
+    // בלעדיהם 'LIVE_TIMEOUT' אינו מבדיל בין רשת חלשה לבין מטען גדול מדי, ואי אפשר
+    // לדעת אם 15 השניות היו קצרות מדי או שהחיבור פשוט מת.
+    _failDetail(e, bytes, t0) {
+        const parts = [(e && e.message) || 'שגיאה'];
+        if (bytes > 0) parts.push((bytes / 1048576).toFixed(2) + 'MB');
+        if (t0) parts.push(Math.round((Date.now() - t0) / 100) / 10 + 'ש׳');
+        return parts.join(' · ');
+    },
+
     // CLOUDENC-START — בלוק טהור, נבדק ב-test/cloud-encode.test.js (אל תסיר את הסמנים)
     // ── תאימות Firestore: hrSeries הוא מערך-בתוך-מערך ─────────────────────────
     // סדרת הדופק של השעון נשמרת כ-[[שניות, min, avg, max], ...]. Firestore אוסר
@@ -2613,6 +2623,7 @@ const FirebaseManager = {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת ארכיון (הגנת ענן)'); return false; }
         this._markSyncPending('archive');   // הדגל נסגר רק בהצלחה — ראה _recordSync
         if (!await this._ensureReady()) { this._recordSync('archive', false, 'auth', 'החיבור לענן לא נפתח (הזדהות או רשת)'); return false; }
+        const _t0 = Date.now(); let _bytes = 0;
         try {
             const archive = StorageManager.getArchive();
             const col = this._db.collection('gympro_data');
@@ -2630,6 +2641,7 @@ const FirebaseManager = {
             const batch = this._db.batch();
             for (let i = 0; i < chunkCount; i++) {
                 const items = this._encodeArchiveItems(archive.slice(i * size, (i + 1) * size));
+                _bytes += this._estimateDocSize(items);
                 batch.set(col.doc(`archive_${i}`), { items, updatedAt: now });
             }
             // מחיקת chunks מיותרים (הארכיון התכווץ מאז הסנכרון הקודם)
@@ -2640,12 +2652,13 @@ const FirebaseManager = {
             // מחיקת מסמך הארכיון הישן (מיגרציה ממבנה single-doc) — מקור אמת יחיד
             batch.delete(col.doc('archive'));
 
+            this._recordSizeWarn('archive', _bytes > this.DOC_SIZE_WARN ? _bytes : null);
             await this._withTimeout(batch.commit(), this.WRITE_TIMEOUT_MS);
             this._recordSync('archive', true);
             return true;
         } catch(e) {
             console.error('GymPro saveArchive error:', e);
-            this._recordSync('archive', false, this._syncErrType(e), e && e.message);
+            this._recordSync('archive', false, this._syncErrType(e), this._failDetail(e, _bytes, _t0));
             return false;
         }
     },
@@ -2706,6 +2719,7 @@ const FirebaseManager = {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת raw (הגנת ענן)'); return false; }
         this._markSyncPending('raw');   // הדגל נסגר רק בהצלחה — ראה _recordSync
         if (!await this._ensureReady()) { this._recordSync('raw', false, 'auth', 'החיבור לענן לא נפתח (הזדהות או רשת)'); return false; }
+        const _t0 = Date.now(); let _bytes = 0;
         try {
             const raw = StorageManager.getNutritionRaw();           // { header, rows, dateIdx } | null
             const rows = (raw && Array.isArray(raw.rows)) ? raw.rows : [];
@@ -2723,7 +2737,9 @@ const FirebaseManager = {
             const batch = this._db.batch();
             for (let i = 0; i < chunkCount; i++) {
                 // Firestore אוסר מערך-בתוך-מערך; שומרים את שורות ה-chunk כמחרוזת JSON אחת
-                batch.set(col.doc(`nutrition_raw_${i}`), { rowsJson: JSON.stringify(rows.slice(i * size, (i + 1) * size)), updatedAt: now });
+                const _rj = JSON.stringify(rows.slice(i * size, (i + 1) * size));
+                _bytes += _rj.length;
+                batch.set(col.doc(`nutrition_raw_${i}`), { rowsJson: _rj, updatedAt: now });
             }
             // מחיקת chunks מיותרים (הקובץ התכווץ מאז הסנכרון הקודם)
             for (let i = chunkCount; i < prevCount; i++) {
@@ -2741,7 +2757,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveNutritionRaw error:', e);
-            this._recordSync('raw', false, this._syncErrType(e), e && e.message);
+            this._recordSync('raw', false, this._syncErrType(e), this._failDetail(e, _bytes, _t0));
             return false;
         }
     },
@@ -2787,6 +2803,7 @@ const FirebaseManager = {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת קונפיג (הגנת ענן)'); return false; }
         this._markSyncPending('config');   // הדגל נסגר רק בהצלחה — ראה _recordSync
         if (!await this._ensureReady()) { this._recordSync('config', false, 'auth', 'החיבור לענן לא נפתח (הזדהות או רשת)'); return false; }
+        const _t0 = Date.now(); let _bytes = 0;
         try {
             const configData = {
                 workouts:       StorageManager.getData(StorageManager.KEY_DB_WORKOUTS),
@@ -2823,6 +2840,7 @@ const FirebaseManager = {
             };
             // אזהרה מקדימה על התקרבות למגבלת 1MB — כדי לדעת חודשים מראש, לא בדיעבד
             const bytes = this._estimateDocSize(configData);
+            _bytes = bytes;
             this._recordSizeWarn('config', bytes > this.DOC_SIZE_WARN ? bytes : null);
             await this._withTimeout(
                 this._db.collection('gympro_data').doc('config').set(configData), this.WRITE_TIMEOUT_MS);
@@ -2831,7 +2849,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveConfig error:', e);
-            this._recordSync('config', false, this._syncErrType(e), e && e.message);
+            this._recordSync('config', false, this._syncErrType(e), this._failDetail(e, _bytes, _t0));
             return false;
         }
     },
@@ -2977,6 +2995,7 @@ const FirebaseManager = {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת AI (הגנת ענן)'); return false; }
         this._markSyncPending('ai');   // הדגל נסגר רק בהצלחה — ראה _recordSync
         if (!await this._ensureReady()) { this._recordSync('ai', false, 'auth', 'החיבור לענן לא נפתח (הזדהות או רשת)'); return false; }
+        const _t0 = Date.now(); let _bytes = 0;
         try {
             const payload = {
                 messages: StorageManager.getAIHistory(),
@@ -2985,6 +3004,7 @@ const FirebaseManager = {
             };
             // 300 הודעות ארוכות + זיכרון מאמן יכולים להתקרב ל-1MB — אזהרה מקדימה
             const bytes = this._estimateDocSize(payload);
+            _bytes = bytes;
             this._recordSizeWarn('ai', bytes > this.DOC_SIZE_WARN ? bytes : null);
             await this._withTimeout(
                 this._db.collection('gympro_data').doc('ai_history').set(payload), this.WRITE_TIMEOUT_MS);
@@ -2992,7 +3012,7 @@ const FirebaseManager = {
             return true;
         } catch(e) {
             console.error('GymPro saveAIHistory error:', e);
-            this._recordSync('ai', false, this._syncErrType(e), e && e.message);
+            this._recordSync('ai', false, this._syncErrType(e), this._failDetail(e, _bytes, _t0));
             return false;
         }
     },

@@ -46,7 +46,9 @@ async function maybeShowCloudSyncBanner() {
     if (!sync) return;
     const labels = { archive: 'ארכיון אימונים', config: 'נתונים ותזונה', raw: 'קובץ MFP', ai: 'שיחות AI' };
     const failed = Object.keys(labels).filter(s => sync[s + 'Ok'] === false);
-    const warned = ['config', 'ai'].filter(s => sync[s + 'Warn']);
+    // כל ארבעת המסלולים — לא רק שני המסמכים הבודדים. הארכיון הוא המטען הגדול
+    // ביותר (הוא נשלח **כולו** בכל שמירה) ודווקא הוא לא נמדד עד v19.11.1.
+    const warned = Object.keys(labels).filter(s => sync[s + 'Warn']);
     if (!failed.length && !warned.length) return;
     const banner = document.getElementById('cloud-sync-banner');
     if (!banner) return;

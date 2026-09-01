@@ -1759,6 +1759,15 @@ function exportUnifiedData(range) {
             c.date = _blLocalDateStr(new Date(w.timestamp));
             delete c.aiSummary;
             if (c.watch === null) delete c.watch;   // שיוך שעון שבוטל — לא מייצאים מפתח ריק
+            // מוכנות הבוקר של יום האימון — הכרטיס השלישי בלשונית "מדדים". מחושבת
+            // (לא מאוחסנת), ולכן בלי צירוף מפורש היא נעדרה מהקובץ אף שהמשתמש רואה
+            // אותה על המסך. הוויטלים הגולמיים ממילא ב-sleep_recovery.
+            const _rd = (typeof _readinessFor === 'function') ? _readinessFor(w) : null;
+            if (_rd) c.readiness = {
+                score: _rd.rd.score, band: _rd.rd.band,
+                used: _rd.rd.usedCount, total: _rd.rd.totalCount,
+                drivers: (_rd.rd.drivers || []).map(d => ({ label: d.label, delta: d.delta, dir: d.dir }))
+            };
             if (typeof _stripCoachFromSummary === 'function') c.summary = _stripCoachFromSummary(c.summary);
             return c;
         });
@@ -1779,7 +1788,10 @@ function exportUnifiedData(range) {
             'zoneSec (שניות בכל אחד מחמשת אזורי הדופק) ו-zoneBounds (הגבולות ששימשו לחישוב, נשמרים כדי שאימון ישן ' +
             'לא ישנה את אזוריו כשדופק המנוחה זז). אזורי דופק אינם נתון ב-HealthKit — הם מחושבים מ-hrSeries. ' +
             'סכום zoneSec קטן ממשך האימון כשהיו פערי דגימה (מרווח מעל 60ש\' אינו נספר), בדיוק כמו במסך של אפל. ' +
-            'linkedBy: auto = שויך לפי חפיפת זמנים, manual = שויך ידנית. אימון בלי watch = לא נלבש שעון או שהסיכום טרם הגיע.'
+            'linkedBy: auto = שויך לפי חפיפת זמנים, manual = שויך ידנית. אימון בלי watch = לא נלבש שעון או שהסיכום טרם הגיע.',
+            'workouts[].readiness = ציון מוכנות הבוקר של יום האימון (score 0-100, band, drivers) — מחושב מהוויטלים ' +
+            'שב-sleep_recovery ולא נתון גולמי. used/total = כמה מדדים נכנסו לציון מתוך הזמינים. ' +
+            'workouts[].nutritionalState = המצב התזונתי בזמן האימון (נשמר פעם אחת ואינו נדרס).'
         ),
         generated: _blIsoWithTz(new Date(), _BL_EXPORT_TZ),
         range: { label: r.label, from: r.from, to: r.to },
@@ -1788,6 +1800,7 @@ function exportUnifiedData(range) {
             nutrition_detailed_days: nutritionDetailed.length, workouts: workouts.length,
             sleep_recovery: sleepRecovery.length,
             workouts_with_watch: workouts.filter(w => w.watch).length,
+            workouts_with_readiness: workouts.filter(w => w.readiness).length,
             memory_box: memoryBox.length
         },
         weights, nutrition_daily: nutritionDaily, nutrition_detailed: nutritionDetailed, workouts,

@@ -5114,8 +5114,8 @@ async function copyResult() {
                || StorageManager.getArchive()[0];
     if (entry) {
         let clipboardText = entry.summary || '';
-        const _wLine = watchSummaryLine(entry);
-        if (_wLine) clipboardText += `\n\n${_wLine}`;
+        const _mBlock = buildMetricsSummaryText(entry);
+        if (_mBlock) clipboardText += `\n\n${_mBlock}`;
         if (includeCoach && entry.aiSummary) {
             clipboardText += `\n\n=== סיכום המאמן ===\n${entry.aiSummary}`;
         }
@@ -8429,17 +8429,25 @@ function _watchCandidates(entry) {
 }
 
 // _readinessCardHtml — המוכנות של בוקר האימון, מאותו מנוע שמזין את מסך השינה.
-function _readinessCardHtml(entry) {
-    if (typeof computeReadiness !== 'function' || typeof StorageManager.getSleepDaily !== 'function') return '';
+// _readinessFor — מוכנות הבוקר של יום האימון: { rd, night } או null.
+// מקור אחד לכרטיס ולטקסט ההעתקה — שתי חזיתות שסטו זו מזו הן באג מחכה לקרות.
+function _readinessFor(entry) {
+    if (!entry || typeof computeReadiness !== 'function' || typeof StorageManager.getSleepDaily !== 'function') return null;
     const nights = StorageManager.getSleepDaily();
-    if (!nights.length) return '';
+    if (!nights.length) return null;
     const dstr = (typeof _blLocalDateStr === 'function') ? _blLocalDateStr(new Date(entry.timestamp)) : null;
     const idx = dstr ? nights.findIndex(n => n && n.date === dstr) : -1;
-    if (idx < 0) return '';
-    const n = nights[idx];
+    if (idx < 0) return null;
     let rd;
-    try { rd = computeReadiness(nights, idx); } catch (e) { return ''; }
-    if (!rd || rd.building || rd.score == null) return '';
+    try { rd = computeReadiness(nights, idx); } catch (e) { return null; }
+    if (!rd || rd.building || rd.score == null) return null;
+    return { rd, night: nights[idx] };
+}
+
+function _readinessCardHtml(entry) {
+    const found = _readinessFor(entry);
+    if (!found) return '';
+    const { rd, night: n } = found;
     const sleepTxt = (typeof _slFmtDur === 'function' && n.asleepMin > 0) ? `שינה ${_slFmtDur(n.asleepMin)}` : '';
     const chips = (rd.drivers || []).map(d =>
         `<span class="wc-chip ${d.dir}">${escapeHtml(d.label)} <span class="ar">${escapeHtml(d.delta)}</span></span>`).join('');
@@ -8460,8 +8468,10 @@ function _readinessCardHtml(entry) {
 }
 
 // _contextCardHtml — הקשר האימון: מצב תזונתי בזמנו, ומשקל אחרון עד אותו יום.
-function _contextCardHtml(entry) {
+// _contextRows — הקשר האימון כזוגות [תווית, ערך]. מקור אחד לכרטיס ולטקסט.
+function _contextRows(entry) {
     const rows = [];
+    if (!entry) return rows;
     const nutri = (typeof _nutriStateLabel === 'function') ? _nutriStateLabel(entry) : '';
     if (nutri && nutri !== '—') rows.push(['מצב תזונתי', nutri]);
     try {
@@ -8471,27 +8481,77 @@ function _contextCardHtml(entry) {
         const last = log[log.length - 1];
         if (last) rows.push(['משקל אחרון', `${last.weight} ק״ג`]);
     } catch (e) {}
+    return rows;
+}
+
+function _contextCardHtml(entry) {
+    const rows = _contextRows(entry);
     if (!rows.length) return '';
     return `<div class="wc">${rows.map(r =>
         `<div class="krow"><span>${r[0]}</span><span class="kv">${escapeHtml(String(r[1]))}</span></div>`).join('')}</div>`;
 }
 
-// watchSummaryLine — שורת נתוני השעון לטקסט ההעתקה של האימון. מוצגת רק כשיש
-// מה להציג; אזורים ריקים לא נכנסים (Z4/Z5 באפס הם רעש, לא מידע).
+// METRICSTEXT-START — בלוק טהור, נבדק ב-test/metrics-text.test.js (אל תסיר את הסמנים)
+// watchSummaryLine — שורות נתוני השעון לטקסט ההעתקה. מכסה את אותם שדות שהכרטיס
+// מציג: סוג/משך, שלושת ערכי הדופק, שתי הקלוריות, התאוששות, ואזורי הדופק עם
+// הטווחים שלהם. אזור שקיבל זמן כלשהו נכנס — גם 8 שניות הן מדידה, לא רעש
+// (הסף הקודם של 30ש' השמיט מהעתקה זמן שהמסך כן הציג).
 function watchSummaryLine(entry) {
     const w = entry && entry.watch;
     if (!w) return '';
     const bits = [];
+    if (w.wType)       bits.push(String(w.wType));
+    if (w.durMin)      bits.push(`${w.durMin} דק׳`);
     if (w.hrAvg)       bits.push(`דופק ממוצע ${w.hrAvg}`);
     if (w.hrMax)       bits.push(`מרבי ${w.hrMax}`);
-    if (w.activeKcal)  bits.push(`${w.activeKcal} קק"ל`);
-    if (w.hrRecovery1) bits.push(`התאוששות ${w.hrRecovery1}`);
-    if (Array.isArray(w.zoneSec)) {
-        const zones = w.zoneSec.map((sec, i) => sec >= 30 ? `Z${i + 1} ${Math.round(sec / 60)}׳` : null).filter(Boolean);
-        if (zones.length) bits.push(zones.join(' / '));
-    }
-    return bits.length ? `שעון: ${bits.join(' · ')}` : '';
+    if (w.hrMin)       bits.push(`מזערי ${w.hrMin}`);
+    if (w.activeKcal)  bits.push(`${w.activeKcal} קק"ל פעילות`);
+    if (w.totalKcal)   bits.push(`${w.totalKcal} קק"ל סה"כ`);
+    if (w.hrRecovery1) bits.push(`התאוששות ׳1 ${w.hrRecovery1}`);
+    const lines = [];
+    if (bits.length) lines.push(`שעון: ${bits.join(' · ')}`);
+    const zl = _watchZonesLine(w);
+    if (zl) lines.push(zl);
+    return lines.join('\n');
 }
+
+// _watchZonesLine — "אזורי דופק: Z1 <128 39:34 · Z2 128–139 00:08". הטווחים
+// נגזרים מ-zoneBounds בדיוק כמו בכרטיס, כדי שהמספרים בהעתקה יהיו ניתנים לפענוח
+// בלי המסך שלצידם.
+function _watchZonesLine(w) {
+    if (!w || !Array.isArray(w.zoneSec) || !Array.isArray(w.zoneBounds)) return '';
+    const b = w.zoneBounds;
+    const ranges = [`<${b[0]}`, `${b[0]}–${b[1] - 1}`, `${b[1]}–${b[2] - 1}`, `${b[2]}–${b[3] - 1}`, `${b[3]}+`];
+    const parts = w.zoneSec.map((sec, i) => sec > 0 ? `Z${i + 1} ${ranges[i]} ${_fmtClock(sec)}` : null).filter(Boolean);
+    return parts.length ? `אזורי דופק: ${parts.join(' · ')}` : '';
+}
+
+// _readinessSummaryLine / _contextSummaryLine — אותם נתונים של כרטיסי "מוכנות
+// הבוקר" ו"הקשר", כשורת טקסט.
+function _readinessSummaryLine(entry) {
+    const found = _readinessFor(entry);
+    if (!found) return '';
+    const { rd, night: n } = found;
+    const bits = [`${rd.score} (${rd.band})`];
+    if (typeof _slFmtDur === 'function' && n && n.asleepMin > 0) bits.push(`שינה ${_slFmtDur(n.asleepMin)}`);
+    (rd.drivers || []).forEach(d => { if (d && d.label) bits.push(`${d.label} ${d.delta}`); });
+    return `מוכנות הבוקר: ${bits.join(' · ')}`;
+}
+
+function _contextSummaryLine(entry) {
+    const rows = _contextRows(entry);
+    return rows.length ? rows.map(r => `${r[0]}: ${r[1]}`).join(' · ') : '';
+}
+
+// buildMetricsSummaryText — גוש "מדדי האימון" לטקסט ההעתקה: שלושת הכרטיסים
+// שהמשתמש רואה בלשונית "מדדים" (שעון · מוכנות · הקשר). מקור אחד לכל יעדי
+// ההעתקה — סיום אימון, רשומת ארכיון, העתקה מרובה והעתקה לפי טווח.
+function buildMetricsSummaryText(entry) {
+    const lines = [watchSummaryLine(entry), _readinessSummaryLine(entry), _contextSummaryLine(entry)]
+        .filter(Boolean);
+    return lines.length ? '=== מדדי האימון ===\n' + lines.join('\n') : '';
+}
+// METRICSTEXT-END
 
 // buildMetricsPaneHTML — לשונית "מדדים", משותפת למסך הסיכום ולפרטי אימון בארכיון.
 function buildMetricsPaneHTML(entry) {

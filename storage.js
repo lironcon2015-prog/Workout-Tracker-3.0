@@ -2215,6 +2215,11 @@ const FirebaseManager = {
     FOOD_LOG_CHUNK_DAYS: 90,                // ימי יומן-מזון לכל מסמך (v17.15) — הוצא מ-config שגדל ללא גבול
     DOC_SIZE_WARN: 800 * 1024,              // סף אזהרה מקדימה לפני מחסום ה-1MB/doc של Firestore
     WRITE_TIMEOUT_MS: 15000,                // תקרת המתנה לכתיבה לענן — עם persistence פעיל
+    // כתיבה מלאה (מיגרציה / סנכרון ראשון / רענון שבועי) שולחת את הכל ולכן זכאית
+    // לזמן ארוך יותר. כתיבה מצטברת רגילה נשארת קצרה — היא אמורה להיות זעירה.
+    FULL_WRITE_TIMEOUT_MS: 45000,
+    CHUNK_FULL_REFRESH_MS: 7 * 86400000,    // רענון מלא כפוי אחת לשבוע
+    ARCHIVE_SCHEMA: 2,                      // 2 = chunk 0 הוא הישן ביותר (ראה saveArchiveToCloud)
                                             // הבטחה של set/commit לא נדחית באופליין אלא נשארת
                                             // תלויה לנצח; בלי התקרה הגיבוי "נתקע" בלי הצלחה ובלי כשל
     READ_TIMEOUT_MS: 8000,                  // תקרת המתנה לקריאת meta (נסבל להיכשל — ברירת מחדל 0)
@@ -2520,6 +2525,51 @@ const FirebaseManager = {
         return this._isDocTooLarge(e) ? 'size' : this._isInvalidData(e) ? 'data' : 'other';
     },
 
+    // ── כתיבת chunks מצטברת (v19.11.2) ───────────────────────────────────────
+    // CHUNKSYNC-START — בלוק טהור, נבדק ב-test/chunk-plan.test.js (אל תסיר את הסמנים)
+    // עד כאן כל שמירה שלחה את **כל** ה-chunks מחדש, גם כשהשתנה chunk אחד. עם 110
+    // אימונים ונתוני שעון זה ~0.87MB ב-batch אטומי אחד — כ-0.46Mbps רציף במשך 15
+    // שניות, מעל מה ש-4G חלש נותן. מכאן נכתבים רק chunks שתוכנם באמת השתנה.
+    //
+    // _chunkHash — FNV-1a 32-bit בבסיס 36. לא קריפטוגרפי; משמש רק לזיהוי "השתנה".
+    _chunkHash(str) {
+        let h = 0x811c9dc5;
+        for (let i = 0; i < str.length; i++) {
+            h ^= str.charCodeAt(i);
+            h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+        }
+        return h.toString(36);
+    },
+
+    // _chunkPlan — אילו chunks צריך לכתוב בפועל.
+    //   prev     — מסמך ה-meta הקודם, או null אם אין/הקריאה נכשלה
+    //   payloads — מחרוזת אחת לכל chunk, בסדר הכתיבה
+    //   schema   — גרסת המבנה; אי-התאמה מכריחה כתיבה מלאה
+    // **בכל מצב של ספק כותבים הכל.** דילוג על chunk נשען על כך שה-meta מתאר נכון
+    // את מה שיושב בענן; meta חסר, סכמה ישנה, או אורך לא תואם — אינם ראיה לכך.
+    // ‏fullAt מכריח רענון מלא תקופתי, כדי שסטייה שנוצרה מחוץ לאפליקציה לא תישאר לנצח.
+    _chunkPlan(prev, payloads, schema) {
+        const hashes = payloads.map(p => this._chunkHash(p));
+        const prevHashes = (prev && Array.isArray(prev.hashes)) ? prev.hashes : null;
+        const stale = !prev || (prev.schema || 1) !== schema || !prevHashes ||
+                      prevHashes.length !== (prev.chunkCount || 0) ||
+                      !(prev.fullAt > Date.now() - this.CHUNK_FULL_REFRESH_MS);
+        if (stale) return { write: hashes.map((_, i) => i), hashes, full: true };
+        const write = [];
+        for (let i = 0; i < hashes.length; i++) {
+            if (i >= prevHashes.length || prevHashes[i] !== hashes[i]) write.push(i);
+        }
+        return { write, hashes, full: false };
+    },
+
+    // סדר הארכיון מול סדר ה-chunks. הארכיון המקומי שמור **חדש-ראשון**
+    // (saveToArchive עושה unshift); ב-schema 2 chunk 0 הוא **הישן ביותר**, כדי
+    // שאימון חדש ייגע רק ב-chunk האחרון. שתי הפונקציות הן היפוך זו של זו —
+    // הכיוון נבדק בבדיקת הלוך-חזור, כי טעות בו הופכת את כל הארכיון בשקט.
+    _toChunkOrder(archive) { return archive.slice().reverse(); },
+    _fromChunkOrder(items, schema) { return (schema || 1) >= 2 ? items.slice().reverse() : items; },
+    // CHUNKSYNC-END
+
     // _failDetail — הודעת הכשל + **המספרים שמכריעים**: כמה נשלח וכמה זמן זה לקח.
     // בלעדיהם 'LIVE_TIMEOUT' אינו מבדיל בין רשת חלשה לבין מטען גדול מדי, ואי אפשר
     // לדעת אם 15 השניות היו קצרות מדי או שהחיבור פשוט מת.
@@ -2631,29 +2681,55 @@ const FirebaseManager = {
             const chunkCount = Math.max(1, Math.ceil(archive.length / size));
             const now = Date.now();
 
-            // כמה chunks היו קודם — כדי למחוק עודפים אם הארכיון התכווץ
-            let prevCount = 0;
+            // schema 2: **chunk 0 הוא הישן ביותר.** הארכיון המקומי שמור חדש-ראשון
+            // (saveToArchive עושה unshift), ולכן בסדר הישן — שבו chunk 0 החזיק את
+            // החדשים — אימון חדש הזיז כל פריט בין ה-chunks וכולם נכתבו מחדש.
+            // בסדר הזה אימון חדש נוגע רק ב-chunk האחרון. זהה ל-_saveFoodLogChunks.
+            const ordered = this._toChunkOrder(archive);
+            const chunks = [];
+            for (let i = 0; i < chunkCount; i++) {
+                const items = this._encodeArchiveItems(ordered.slice(i * size, (i + 1) * size));
+                chunks.push({ items, json: JSON.stringify(items) });
+            }
+
+            let prevMeta = null;
             try {
                 const metaDoc = await this._withTimeout(col.doc('archive_meta').get(), this.READ_TIMEOUT_MS);
-                if (metaDoc.exists) prevCount = metaDoc.data().chunkCount || 0;
-            } catch { /* אין meta קודם — מיגרציה ראשונה */ }
+                if (metaDoc.exists) prevMeta = metaDoc.data();
+            } catch { /* קריאת meta נכשלה — _chunkPlan יכתוב הכל, וזו ברירת המחדל הבטוחה */ }
+            const prevCount = (prevMeta && prevMeta.chunkCount) || 0;
+            const plan = this._chunkPlan(prevMeta, chunks.map(c => c.json), this.ARCHIVE_SCHEMA);
+
+            // שום שינוי בפועל — לא שולחים דבר. שמירה חוזרת של אותו ארכיון (למשל
+            // סבב ניסיון חוזר) עלתה עד כה במלוא המטען, ועכשיו היא חינם.
+            if (!plan.write.length && chunkCount === prevCount &&
+                prevMeta && prevMeta.total === archive.length) {
+                this._recordSync('archive', true);
+                return true;
+            }
 
             const batch = this._db.batch();
-            for (let i = 0; i < chunkCount; i++) {
-                const items = this._encodeArchiveItems(archive.slice(i * size, (i + 1) * size));
-                _bytes += this._estimateDocSize(items);
-                batch.set(col.doc(`archive_${i}`), { items, updatedAt: now });
-            }
+            plan.write.forEach(i => {
+                _bytes += chunks[i].json.length;
+                batch.set(col.doc(`archive_${i}`), { items: chunks[i].items, updatedAt: now });
+            });
             // מחיקת chunks מיותרים (הארכיון התכווץ מאז הסנכרון הקודם)
             for (let i = chunkCount; i < prevCount; i++) {
                 batch.delete(col.doc(`archive_${i}`));
             }
-            batch.set(col.doc('archive_meta'), { chunkCount, total: archive.length, updatedAt: now });
-            // מחיקת מסמך הארכיון הישן (מיגרציה ממבנה single-doc) — מקור אמת יחיד
-            batch.delete(col.doc('archive'));
+            batch.set(col.doc('archive_meta'), {
+                chunkCount, total: archive.length, schema: this.ARCHIVE_SCHEMA,
+                hashes: plan.hashes,
+                fullAt: plan.full ? now : (prevMeta && prevMeta.fullAt) || now,
+                updatedAt: now
+            });
+            // מסמך הארכיון הישן (מבנה single-doc) — נמחק רק בכתיבה מלאה; אין טעם
+            // לשלוח מחיקה של מסמך שכבר אינו קיים בכל שמירה ושמירה.
+            if (plan.full) batch.delete(col.doc('archive'));
 
             this._recordSizeWarn('archive', _bytes > this.DOC_SIZE_WARN ? _bytes : null);
-            await this._withTimeout(batch.commit(), this.WRITE_TIMEOUT_MS);
+            await this._withTimeout(batch.commit(),
+                plan.full ? this.FULL_WRITE_TIMEOUT_MS : this.WRITE_TIMEOUT_MS);
             this._recordSync('archive', true);
             return true;
         } catch(e) {
@@ -2704,6 +2780,9 @@ const FirebaseManager = {
             );
             items = [];
             docs.forEach(d => { if (d.exists && Array.isArray(d.data().items)) items.push(...d.data().items); });
+            // schema 2 שומר ישן-ראשון; הארכיון המקומי חדש-ראשון. schema 1 (או meta
+            // בלי schema) כבר שמור חדש-ראשון ולכן אינו מתהפך.
+            items = this._fromChunkOrder(items, metaDoc.data().schema);
         } else {
             // Fallback — מבנה ישן (מסמך archive בודד) לפני מיגרציה
             const legacy = await col.doc('archive').get();
@@ -2728,19 +2807,23 @@ const FirebaseManager = {
             const chunkCount = rows.length ? Math.ceil(rows.length / size) : 0;
             const now = Date.now();
 
-            let prevCount = 0;
+            // Firestore אוסר מערך-בתוך-מערך; שורות ה-chunk נשמרות כמחרוזת JSON אחת
+            const payloads = [];
+            for (let i = 0; i < chunkCount; i++) payloads.push(JSON.stringify(rows.slice(i * size, (i + 1) * size)));
+
+            let prevMeta = null;
             try {
                 const metaDoc = await this._withTimeout(col.doc('nutrition_raw_meta').get(), this.READ_TIMEOUT_MS);
-                if (metaDoc.exists) prevCount = metaDoc.data().chunkCount || 0;
-            } catch { /* פעם ראשונה */ }
+                if (metaDoc.exists) prevMeta = metaDoc.data();
+            } catch { /* פעם ראשונה — _chunkPlan יכתוב הכל */ }
+            const prevCount = (prevMeta && prevMeta.chunkCount) || 0;
+            const plan = this._chunkPlan(prevMeta, payloads, 1);
 
             const batch = this._db.batch();
-            for (let i = 0; i < chunkCount; i++) {
-                // Firestore אוסר מערך-בתוך-מערך; שומרים את שורות ה-chunk כמחרוזת JSON אחת
-                const _rj = JSON.stringify(rows.slice(i * size, (i + 1) * size));
-                _bytes += _rj.length;
-                batch.set(col.doc(`nutrition_raw_${i}`), { rowsJson: _rj, updatedAt: now });
-            }
+            plan.write.forEach(i => {
+                _bytes += payloads[i].length;
+                batch.set(col.doc(`nutrition_raw_${i}`), { rowsJson: payloads[i], updatedAt: now });
+            });
             // מחיקת chunks מיותרים (הקובץ התכווץ מאז הסנכרון הקודם)
             for (let i = chunkCount; i < prevCount; i++) {
                 batch.delete(col.doc(`nutrition_raw_${i}`));
@@ -2750,9 +2833,12 @@ const FirebaseManager = {
                 header:  raw ? raw.header : null,
                 dateIdx: raw && raw.dateIdx != null ? raw.dateIdx : 0,
                 total:   rows.length,
+                hashes:  plan.hashes,
+                fullAt:  plan.full ? now : (prevMeta && prevMeta.fullAt) || now,
                 updatedAt: now
             });
-            await this._withTimeout(batch.commit(), this.WRITE_TIMEOUT_MS);
+            await this._withTimeout(batch.commit(),
+                plan.full ? this.FULL_WRITE_TIMEOUT_MS : this.WRITE_TIMEOUT_MS);
             this._recordSync('raw', true);
             return true;
         } catch(e) {
@@ -2866,23 +2952,35 @@ const FirebaseManager = {
         const chunkCount = dates.length ? Math.ceil(dates.length / size) : 0;
         const now = Date.now();
 
-        let prevCount = 0;
-        try {
-            const metaDoc = await this._withTimeout(col.doc('food_log_meta').get(), this.READ_TIMEOUT_MS);
-            if (metaDoc.exists) prevCount = metaDoc.data().chunkCount || 0;
-        } catch { /* פעם ראשונה */ }
-
-        const batch = this._db.batch();
+        // כמו nutrition_raw: JSON אחד למסמך — עוקף את איסור מערך-בתוך-מערך של Firestore
+        const payloads = [];
         for (let i = 0; i < chunkCount; i++) {
             const days = {};
             dates.slice(i * size, (i + 1) * size).forEach(d => { days[d] = log[d]; });
-            // כמו nutrition_raw: JSON אחד למסמך — עוקף את איסור מערך-בתוך-מערך של Firestore
-            batch.set(col.doc(`food_log_${i}`), { daysJson: JSON.stringify(days), updatedAt: now });
+            payloads.push(JSON.stringify(days));
         }
+
+        let prevMeta = null;
+        try {
+            const metaDoc = await this._withTimeout(col.doc('food_log_meta').get(), this.READ_TIMEOUT_MS);
+            if (metaDoc.exists) prevMeta = metaDoc.data();
+        } catch { /* פעם ראשונה — _chunkPlan יכתוב הכל */ }
+        const prevCount = (prevMeta && prevMeta.chunkCount) || 0;
+        const plan = this._chunkPlan(prevMeta, payloads, 1);
+
+        // אין שינוי ואין מה למחוק — הימנעות מ-commit ריק בתוך שמירת הקונפיג
+        if (!plan.write.length && chunkCount === prevCount && prevMeta) return;
+
+        const batch = this._db.batch();
+        plan.write.forEach(i => batch.set(col.doc(`food_log_${i}`), { daysJson: payloads[i], updatedAt: now }));
         // מחיקת chunks מיותרים (היומן התכווץ מאז הסנכרון הקודם)
         for (let i = chunkCount; i < prevCount; i++) batch.delete(col.doc(`food_log_${i}`));
-        batch.set(col.doc('food_log_meta'), { chunkCount, total: dates.length, updatedAt: now });
-        await this._withTimeout(batch.commit(), this.WRITE_TIMEOUT_MS);
+        batch.set(col.doc('food_log_meta'), {
+            chunkCount, total: dates.length, hashes: plan.hashes,
+            fullAt: plan.full ? now : (prevMeta && prevMeta.fullAt) || now, updatedAt: now
+        });
+        await this._withTimeout(batch.commit(),
+            plan.full ? this.FULL_WRITE_TIMEOUT_MS : this.WRITE_TIMEOUT_MS);
     },
 
     // איחוד chunks של יומן המזון וטעינה ל-localStorage. לא דורס מקומי אם אין בענן.

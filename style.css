@@ -7892,6 +7892,12 @@ body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
 .wc-chip .ar { font-weight: 900; }
 .wc-chip.up .ar { color: var(--success); }
 .wc-chip.down .ar { color: var(--danger-soft); }
+/* צ׳יפ מניע דו-שורתי: הקריאה של הבוקר + הסטייה למעלה, החציון האישי מתחת.
+   הגלולה הופכת לתיבה (r-sm) — שתי שורות בגלולה עגולה נראות שבורות. */
+.wc-chip .vl { font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.wc-chip--2l { flex-direction: column; align-items: flex-start; gap: 1px; padding: 6px 10px; border-radius: var(--r-sm); }
+.wc-chip--2l .top { display: flex; gap: 5px; align-items: baseline; }
+.wc-chip--2l .btm { font-size: 0.6rem; color: var(--text-dim); font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* שורות הקשר (מצב תזונתי / משקל) */
 .krow {

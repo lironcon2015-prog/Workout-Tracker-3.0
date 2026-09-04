@@ -1766,7 +1766,8 @@ function exportUnifiedData(range) {
             if (_rd) c.readiness = {
                 score: _rd.rd.score, band: _rd.rd.band,
                 used: _rd.rd.usedCount, total: _rd.rd.totalCount,
-                drivers: (_rd.rd.drivers || []).map(d => ({ label: d.label, delta: d.delta, dir: d.dir }))
+                drivers: (_rd.rd.drivers || []).map(d => ({ label: d.label, val: d.valTxt,
+                                                            base: d.baseTxt, delta: d.delta, dir: d.dir }))
             };
             if (typeof _stripCoachFromSummary === 'function') c.summary = _stripCoachFromSummary(c.summary);
             return c;
@@ -1791,6 +1792,7 @@ function exportUnifiedData(range) {
             'linkedBy: auto = שויך לפי חפיפת זמנים, manual = שויך ידנית. אימון בלי watch = לא נלבש שעון או שהסיכום טרם הגיע.',
             'workouts[].readiness = ציון מוכנות הבוקר של יום האימון (score 0-100, band, drivers) — מחושב מהוויטלים ' +
             'שב-sleep_recovery ולא נתון גולמי. used/total = כמה מדדים נכנסו לציון מתוך הזמינים. ' +
+            'drivers[]: val = הקריאה של אותו בוקר, base = החציון האישי (baseline) שמולו היא נמדדת, delta = הסטייה ביניהם. ' +
             'workouts[].nutritionalState = המצב התזונתי בזמן האימון (נשמר פעם אחת ואינו נדרס).'
         ),
         generated: _blIsoWithTz(new Date(), _BL_EXPORT_TZ),
@@ -2046,7 +2048,11 @@ function computeReadiness(nights, idx) {
         const delta = Math.round((val - b.med) * 10) / 10;
         const good = invGood ? delta < 0 : delta > 0;
         const valFmt = Math.round(val * 10) / 10;   // ערך גולמי לתצוגה בפרומפט ("HRV 41ms")
-        parts.push({ w, contrib, label, val: valFmt, unit, delta: (delta > 0 ? '+' : '') + delta + unit, dir: good ? 'up' : 'down', z });
+        // valTxt/baseTxt — הקריאה של הבוקר והחציון האישי שמולו היא נמדדת, מוכנים
+        // לתצוגה. הסטייה לבדה ("+6ms") אומרת משהו רק למי שזוכר בעל-פה את הבסיס שלו.
+        const baseFmt = Math.round(b.med * 10) / 10;
+        parts.push({ w, contrib, label, val: valFmt, unit, valTxt: valFmt + unit, baseTxt: baseFmt + unit,
+                     delta: (delta > 0 ? '+' : '') + delta + unit, dir: good ? 'up' : 'down', z });
     };
     // carry-forward לכל הוויטלים החסרים בבוקר — מונע נפילת רכיב שגורמת ליתר להשתלט על הציון
     push('hrv', 0.35, _carriedVital(nights, idx, 'hrv').v, 'pos', 'HRV', 'ms', false);
@@ -2067,7 +2073,11 @@ function computeReadiness(nights, idx) {
         const eSpread = Math.max(bEff.spread || 0, 0.03);     // רצפת spread ~3% — יעילות יציבה לא תפוצץ z
         const zEff = (n.efficiency != null && bEff.med != null) ? _clampZ((n.efficiency - bEff.med) / eSpread) : 0;
         const z = bEff.med != null ? 0.85 * zDur + 0.15 * zEff : zDur;
-        parts.push({ w: 0.30, contrib: z, label: 'שינה', delta: _slFmtDur(n.asleepMin), dir: z >= 0 ? 'up' : 'down', z });
+        // ה-delta של השינה הוא המשך עצמו (ולא סטייה), ולכן אין לו valTxt נפרד —
+        // רק baseTxt: החציון האישי שמולו המשך הזה נמדד.
+        parts.push({ w: 0.30, contrib: z, label: 'שינה', delta: _slFmtDur(n.asleepMin),
+                     baseTxt: bSleep.med != null ? _slFmtDur(Math.round(bSleep.med)) : undefined,
+                     dir: z >= 0 ? 'up' : 'down', z });
     }
     // טמפרטורת עור — טמפ' מוחלטת מ-Apple, מנורמלת מול baseline אישי (חציון+MAD), אסימטרי:
     // רק **עלייה** נענשת (חום מוגבר = מחלה/דלקת/אלכוהול; ירידה = בד"כ סביבתית, ניטרלית).
@@ -2090,7 +2100,8 @@ function computeReadiness(nights, idx) {
     const color = score >= 66 ? 'var(--success)' : score >= 34 ? 'var(--warn)' : 'var(--danger)';
     // drivers — 3 התורמים החזקים ביותר (לפי |w*contrib|)
     const drivers = parts.slice().sort((a, b) => Math.abs(b.w * b.contrib) - Math.abs(a.w * a.contrib))
-        .slice(0, 3).map(p => ({ label: p.label, delta: p.delta, val: p.val, unit: p.unit, dir: p.dir }));
+        .slice(0, 3).map(p => ({ label: p.label, delta: p.delta, val: p.val, unit: p.unit,
+                                 valTxt: p.valTxt, baseTxt: p.baseTxt, dir: p.dir }));
     // usedCount/missingLabels — לצורך הזרקה מפורשת לפרומפט המאמן ("מבוסס על X מתוך 5 מדדים").
     // תווית שנתפסה = כזו שנכנסה ל-parts (עברה validation ויש לה baseline). מה שאין = חסר.
     const ALL_METRICS = ['HRV', 'דופק מנוחה', 'נשימה', 'שינה', 'טמפ׳'];

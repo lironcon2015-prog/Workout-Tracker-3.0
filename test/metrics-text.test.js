@@ -83,23 +83,33 @@ ok(full.includes('HRV +6'),                'מניעי המוכנות');
 ok(full.includes('מצב תזונתי: Surplus'),   'כרטיס ההקשר — נעדר לגמרי קודם');
 ok(full.includes('משקל אחרון: 82.4 ק״ג'),  'משקל אחרון');
 
-// כפילות משך השינה: המניע "שינה" נושא את אותו _slFmtDur(asleepMin) שכבר נכתב
-// בשורה, ולכן הודפס "שינה 7:25" פעמיים. המניע מדולג — שאר המניעים נשארים.
+// בסיס + סטייה: הסטייה לבדה ("+6ms") חסרת הקשר בלי החציון האישי. כל מניע
+// שנושא baseTxt מדפיס קריאה, בסיס וסטייה — אותם נתונים שהצ׳יפ הדו-שורתי מציג.
+// בנוסף: המניע "שינה" נושא כ-delta את המשך עצמו, ולכן הודפס "שינה 7:25" פעמיים.
 _rdFixture = { rd: { score: 78, band: 'טובה', usedCount: 4, totalCount: 5,
-                     drivers: [{ label: 'שינה', delta: '7:25', dir: 'up' },
-                               { label: 'HRV', delta: '+6', dir: 'up' },
-                               { label: 'דופק מנוחה', delta: '-2', dir: 'up' }] },
+                     drivers: [{ label: 'שינה', delta: '7:25', baseTxt: '7:05', dir: 'up' },
+                               { label: 'HRV', delta: '+6ms', valTxt: '41ms', baseTxt: '35ms', dir: 'up' },
+                               { label: 'דופק מנוחה', delta: '-2', valTxt: '52', baseTxt: '54', dir: 'up' }] },
                night: { asleepMin: 445 } };
 const dup = buildMetricsSummaryText(entry);
 console.log('\n' + dup + '\n');
-ok(dup.split('שינה 7:25').length - 1 === 1, 'משך השינה מופיע פעם אחת בלבד');
-ok(dup.includes('HRV +6') && dup.includes('דופק מנוחה -2'), 'שאר המניעים לא נפגעו');
+ok(dup.includes('HRV 41ms (בסיס 35ms · +6ms)'),      'HRV — קריאה, בסיס וסטייה');
+ok(dup.includes('דופק מנוחה 52 (בסיס 54 · -2)'),     'דופק מנוחה — קריאה, בסיס וסטייה');
+ok(dup.includes('שינה 7:25 (בסיס 7:05)'),            'שינה — המשך והבסיס, בלי סטייה כפולה');
+ok(dup.split('7:25').length - 1 === 1,               'משך השינה מופיע פעם אחת בלבד');
 
-// אין משך שינה בלילה — המניע "שינה" הוא המקור היחיד ולכן נשאר
-_rdFixture = { rd: { score: 40, band: 'בינוני', usedCount: 1, totalCount: 5,
-                     drivers: [{ label: 'שינה', delta: '5:10', dir: 'down' }] },
+// מניע בלי בסיס (טמפ׳ עור) — נשאר בפורמט הישן, בלי סוגריים ריקים
+_rdFixture = { rd: { score: 55, band: 'בינוני', usedCount: 2, totalCount: 5,
+                     drivers: [{ label: 'טמפ׳', delta: '+0.3°', dir: 'down' }] },
                night: { asleepMin: 0 } };
-ok(buildMetricsSummaryText(entry).includes('שינה 5:10'), 'בלי משך בלילה — המניע נשאר');
+ok(buildMetricsSummaryText(entry).includes('טמפ׳ +0.3°') &&
+   !buildMetricsSummaryText(entry).includes('בסיס'), 'מניע בלי בסיס — פורמט ישן');
+
+// אין מניע שינה — המשך נכתב מ-night כדי שלא ייעלם
+_rdFixture = { rd: { score: 40, band: 'בינוני', usedCount: 1, totalCount: 5,
+                     drivers: [{ label: 'HRV', delta: '-4ms', valTxt: '31ms', baseTxt: '35ms', dir: 'down' }] },
+               night: { asleepMin: 445 } };
+ok(buildMetricsSummaryText(entry).includes('שינה 7:25'), 'בלי מניע שינה — המשך נשאר בשורה');
 
 // אימון בלי שום מדד — אין גוש ואין כותרת מיותרת
 _rdFixture = null; _ctxFixture = [];

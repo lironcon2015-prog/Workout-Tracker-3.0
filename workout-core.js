@@ -8457,11 +8457,20 @@ function _readinessCardHtml(entry) {
     const sleepDriver = (rd.drivers || []).some(d => d && d.label === 'שינה');
     const sleepTxt = (!sleepDriver && typeof _slFmtDur === 'function' && n.asleepMin > 0)
         ? `שינה ${_slFmtDur(n.asleepMin)}` : '';
-    const chips = (rd.drivers || []).map(d =>
-        `<span class="wc-chip ${d.dir}">${escapeHtml(d.label)} <span class="ar">${escapeHtml(d.delta)}</span></span>`).join('');
+    // צ׳יפ דו-שורתי: הקריאה של הבוקר והסטייה למעלה, החציון האישי שמולו היא נמדדת
+    // בשורת מטא דהויה מתחת. מניע בלי baseTxt (טמפ׳ עור — ה-delta שלה כבר מודד
+    // סטייה מ-baseline של Apple) נשאר גלולה חד-שורתית.
+    const chips = (rd.drivers || []).map(d => {
+        const val = d.valTxt ? `<span class="vl">${escapeHtml(String(d.valTxt))}</span>` : '';
+        const top = `<span class="top">${escapeHtml(d.label)} ${val}<span class="ar">${escapeHtml(d.delta)}</span></span>`;
+        if (!d.baseTxt) return `<span class="wc-chip ${d.dir}">${top}</span>`;
+        return `<span class="wc-chip wc-chip--2l ${d.dir}">${top}
+            <span class="btm">בסיס ${escapeHtml(String(d.baseTxt))}</span></span>`;
+    }).join('');
     const pct = Math.max(0, Math.min(100, rd.score));
     return `<div class="wc">
-        <div class="wc-head"><span class="wc-title">מוכנות הבוקר</span><span class="wc-pill">${sleepTxt}</span></div>
+        <div class="wc-head"><span class="wc-title">מוכנות הבוקר</span>${
+            sleepTxt ? `<span class="wc-pill">${sleepTxt}</span>` : ''}</div>
         <div class="rd">
             <div class="rd-ring" style="background:conic-gradient(${rd.color} 0 ${pct}%, var(--surface-4) ${pct}% 100%)">
                 <span>${rd.score}</span>
@@ -8541,14 +8550,19 @@ function _readinessSummaryLine(entry) {
     if (!found) return '';
     const { rd, night: n } = found;
     const bits = [`${rd.score} (${rd.band})`];
-    // המניע "שינה" נושא בדיוק את אותו משך שכבר נכתב כאן — ה-delta שלו הוא
-    // _slFmtDur(asleepMin) עצמו (bodylog-logic.js, computeReadiness). שני המקורות
-    // יחד הדפיסו "שינה 7:25" פעמיים באותה שורה, ולכן המניע מדולג כשהמשך כבר נכתב.
-    const sleepShown = typeof _slFmtDur === 'function' && n && n.asleepMin > 0;
-    if (sleepShown) bits.push(`שינה ${_slFmtDur(n.asleepMin)}`);
+    // המניע "שינה" נושא כ-delta את המשך עצמו (_slFmtDur(asleepMin) ב-computeReadiness),
+    // ולכן הוא והמשך שנכתב מ-night הם אותו נתון. כשהמניע קיים הוא הזוכה — הוא
+    // מביא איתו גם את הבסיס; רק בהיעדרו נכתב המשך מ-night, כדי שלא ייעלם.
+    const sleepDriver = (rd.drivers || []).some(d => d && d.label === 'שינה');
+    if (!sleepDriver && typeof _slFmtDur === 'function' && n && n.asleepMin > 0) {
+        bits.push(`שינה ${_slFmtDur(n.asleepMin)}`);
+    }
+    // אותם נתונים שהצ׳יפ מציג — קריאה, בסיס וסטייה. הסטייה לבדה ("+6ms") היא
+    // מספר חסר-הקשר לכל מי שאינו זוכר את החציון האישי שלו בעל-פה.
     (rd.drivers || []).forEach(d => {
         if (!d || !d.label) return;
-        if (sleepShown && d.label === 'שינה') return;
+        if (d.baseTxt && d.valTxt) { bits.push(`${d.label} ${d.valTxt} (בסיס ${d.baseTxt} · ${d.delta})`); return; }
+        if (d.baseTxt)             { bits.push(`${d.label} ${d.delta} (בסיס ${d.baseTxt})`); return; }
         bits.push(`${d.label} ${d.delta}`);
     });
     return `מוכנות הבוקר: ${bits.join(' · ')}`;

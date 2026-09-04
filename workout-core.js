@@ -8535,8 +8535,16 @@ function _readinessSummaryLine(entry) {
     if (!found) return '';
     const { rd, night: n } = found;
     const bits = [`${rd.score} (${rd.band})`];
-    if (typeof _slFmtDur === 'function' && n && n.asleepMin > 0) bits.push(`שינה ${_slFmtDur(n.asleepMin)}`);
-    (rd.drivers || []).forEach(d => { if (d && d.label) bits.push(`${d.label} ${d.delta}`); });
+    // המניע "שינה" נושא בדיוק את אותו משך שכבר נכתב כאן — ה-delta שלו הוא
+    // _slFmtDur(asleepMin) עצמו (bodylog-logic.js, computeReadiness). שני המקורות
+    // יחד הדפיסו "שינה 7:25" פעמיים באותה שורה, ולכן המניע מדולג כשהמשך כבר נכתב.
+    const sleepShown = typeof _slFmtDur === 'function' && n && n.asleepMin > 0;
+    if (sleepShown) bits.push(`שינה ${_slFmtDur(n.asleepMin)}`);
+    (rd.drivers || []).forEach(d => {
+        if (!d || !d.label) return;
+        if (sleepShown && d.label === 'שינה') return;
+        bits.push(`${d.label} ${d.delta}`);
+    });
     return `מוכנות הבוקר: ${bits.join(' · ')}`;
 }
 

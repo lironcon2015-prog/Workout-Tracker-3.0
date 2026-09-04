@@ -8450,7 +8450,13 @@ function _readinessCardHtml(entry) {
     const found = _readinessFor(entry);
     if (!found) return '';
     const { rd, night: n } = found;
-    const sleepTxt = (typeof _slFmtDur === 'function' && n.asleepMin > 0) ? `שינה ${_slFmtDur(n.asleepMin)}` : '';
+    // הגלולה שבראש הכרטיס והצ׳יפ של המניע "שינה" נושאים את אותו משך בדיוק
+    // (ה-delta של המניע הוא _slFmtDur(asleepMin) עצמו) — שני צ׳יפים זהים.
+    // הגלולה יורדת כשהמניע מוצג, ונשארת כשהוא אינו בשלושת החזקים, כדי שמשך
+    // השינה לא ייעלם מהכרטיס. אותו כלל בדיוק כמו בטקסט ההעתקה.
+    const sleepDriver = (rd.drivers || []).some(d => d && d.label === 'שינה');
+    const sleepTxt = (!sleepDriver && typeof _slFmtDur === 'function' && n.asleepMin > 0)
+        ? `שינה ${_slFmtDur(n.asleepMin)}` : '';
     const chips = (rd.drivers || []).map(d =>
         `<span class="wc-chip ${d.dir}">${escapeHtml(d.label)} <span class="ar">${escapeHtml(d.delta)}</span></span>`).join('');
     const pct = Math.max(0, Math.min(100, rd.score));

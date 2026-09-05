@@ -25,9 +25,14 @@ const StorageManager = {
     getSleepDaily:  () => store._nights,
     getHrZones:     () => store._zones
 };
-const { _watchZoneSec, _hrZoneBounds, _watchRestHr, _watchDateKey, WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC } =
+const { _watchZoneSec, _hrZoneBounds, _watchRestHr, _watchDateKey, _roundHalfEven,
+        WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC } =
     new Function('StorageManager',
-        block + '\nreturn { _watchZoneSec, _hrZoneBounds, _watchRestHr, _watchDateKey, WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC };')(StorageManager);
+        // ‏typeof על העזר: על קוד ישן שאין בו אותו, הבדיקה צריכה ליפול על
+        // הטענה הקריאה ("תיקו נפתר לזוגי") ולא על ReferenceError בטעינה.
+        block + '\nreturn { _watchZoneSec, _hrZoneBounds, _watchRestHr, _watchDateKey,' +
+                ' _roundHalfEven: typeof _roundHalfEven === "function" ? _roundHalfEven : () => "אין עזר עיגול",' +
+                ' WATCH_HR_GAP_CAP_SEC, WATCH_HR_GAP_MAX_SEC };')(StorageManager);
 
 let failed = 0;
 function eq(actual, expected, name) {
@@ -65,6 +70,22 @@ store._profile = { age: 42 };
 // חציון, לא ממוצע — לילה חריג בודד לא מזיז את הרזרבה
 store._nights = nights(52, 19).concat([{ date: '2026-08-20', rhr: 95 }]);
 eq(_watchRestHr(), 52, 'חציון מתעלם מלילה חריג בודד');
+
+// ── עיגול הספים: תיקו נפתר לזוגי, לא כלפי מעלה (מודל 3) ───────────────────
+// מנוחה 53 + מרבי 178 → 128.0 / 140.5 / 153.0 / 165.5 — שני תיקו. Math.round
+// העלה את שניהם ונתן 128/141/153/166, כלומר סף Z3 פעימה מעל מסך Fitness, שמציג
+// 128/140/153/166 מאותם קלטים. פעימה בסף הזה שווה עשרות שניות בזמן שבאזור:
+// בשלושה אימונים אמיתיים מול צילומי מסך של אפל השגיאה המצטברת (Z2+Z3) ירדה
+// מ-182 ל-156 שניות. עיגול לזוגי הוא הכלל חסר-ההטיה, ומשחזר את שני התיקו.
+store._nights = nights(53, 20);
+eq(_hrZoneBounds().bounds, [128, 140, 153, 166],
+   'תיקו נפתר לזוגי: 140.5→140 · 165.5→166 (כמו מסך Fitness)');
+eq(_roundHalfEven(140.5), 140, '140.5 → 140 (141 אי-זוגי)');
+eq(_roundHalfEven(165.5), 166, '165.5 → 166 (זוגי)');
+eq([127.4, 127.6, 128].map(_roundHalfEven), [127, 128, 128], 'בלי תיקו — עיגול רגיל');
+eq(_roundHalfEven(140.49999999999997), 140, 'רעש נקודה צפה סביב .5 נחשב תיקו');
+store._nights = nights(52, 20);
+eq(_hrZoneBounds().bounds, [128, 140, 153, 165], 'ללא תיקו הכלל אינו משנה דבר');
 
 // ── זמן בכל אזור ──────────────────────────────────────────────────────────
 const B = [128, 140, 153, 165];

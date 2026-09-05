@@ -7947,7 +7947,9 @@ const WATCH_MIN_AUTO_LINK_MIN = 10;
 // באלגוריתם אינו מגיע מעצמו לאימונים שכבר שויכו — הם קופאים על המודל שבו
 // חושבו. החותמת מאפשרת חישוב מחדש חד-פעמי מהסדרה השמורה.
 // 1 = סיווג לפי ממוצע המקטע · 2 = פריסה לפי min/max + חיתוך לזנב האימון
-const WATCH_ZONE_MODEL = 2;
+// 3 = עיגול הספים לזוגי (ראה _roundHalfEven). עליית מודל גוזרת מחדש גם את
+//     **הגבולות** ולא רק את zoneSec — ראה _watchRezone.
+const WATCH_ZONE_MODEL = 3;
 const WATCH_HR_GAP_CAP_SEC  = 60;               // רצפת התקרה לפער דגימה (ניתוק, לא זמן באזור)
 const WATCH_HR_GAP_MAX_SEC  = 120;              // תקרה מוחלטת — גם בקיבוץ-דקות פער ארוך הוא ניתוק
 // סוגי אימון מהשעון שמשויכים אוטומטית. הליכה/ריצה/רכיבה נשארות במאגר לשיוך ידני.
@@ -7996,9 +7998,23 @@ function _hrZoneBounds(beforeDate) {
     if (!maxHr || !restHr || maxHr <= restHr) return null;
     const reserve = maxHr - restHr;
     return {
-        bounds: [0.6, 0.7, 0.8, 0.9].map(p => Math.round(restHr + reserve * p)),
+        bounds: [0.6, 0.7, 0.8, 0.9].map(p => _roundHalfEven(restHr + reserve * p)),
         maxHr, restHr, manual: false
     };
+}
+
+// _roundHalfEven — עיגול לזוגי (banker's rounding), הכלל חסר-ההטיה.
+// ‏Math.round מעלה **כל** תיקו, ולכן סף שנפל בדיוק על .5 יצא אצלנו פעימה מעל
+// אפל: עם מנוחה 53 ומרבי 178 הערכים הם 128.0 / 140.5 / 153.0 / 165.5, ו-Math.round
+// נתן 128/141/153/166 מול 128/140/153/166 שמסך Fitness מציג. עיגול לזוגי משחזר
+// את שני התיקו נכון (140.5 → 140 · 165.5 → 166) מאותם קלטים בדיוק. הסטייה של
+// פעימה בסף Z3 שווה עשרות שניות בזמן שבאזור — ראה test/watch-zones.test.js.
+// הסובלנות ל-1e-9 היא מפני רעש נקודה צפה: 140.49999999999997 הוא אותו תיקו.
+function _roundHalfEven(x) {
+    const frac = Math.abs(x - Math.trunc(x));
+    if (Math.abs(frac - 0.5) > 1e-9) return Math.round(x);
+    const lo = Math.floor(x);
+    return lo % 2 === 0 ? lo : lo + 1;
 }
 
 // _watchZoneSec — שניות בכל אזור מתוך סדרת הדופק. לכל דגימה מיוחס המרווח עד
@@ -8091,6 +8107,14 @@ function _watchRezone(entry) {
         // יחזור כשיהיו לילות שינה או גיל בפרופיל.
         if (!zb) return false;
         w.zoneBounds = zb.bounds;
+    } else if (w.zoneBounds) {
+        // עליית מודל = תיקון בחישוב עצמו, והספים הם חלק ממנו (מודל 3 שינה את
+        // כלל העיגול שלהם). לכן גוזרים אותם מחדש — מ-`entry.date`, כך שדופק
+        // המנוחה נלקח מהלילות **עד אותו אימון** והתוצאה נשארת היסטורית נכונה.
+        // הכלל "אימון שומר את הגבולות שלפיהם חושב" ממשיך לחול בין גרסאות מודל:
+        // מה שמזיז אותם הוא עדכון מכוון וממוספר, לא תזוזה של דופק המנוחה.
+        const zb = _hrZoneBounds(entry.date);
+        if (zb) w.zoneBounds = zb.bounds;
     }
     const zoned = hasSeries && !!w.zoneBounds;
     if (zoned) {

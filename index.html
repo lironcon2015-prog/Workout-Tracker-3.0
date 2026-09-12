@@ -1273,8 +1273,12 @@
                     <p id="workout-week-label" class="workout-week-label">Week 1</p>
                     <h2 id="workout-week-title" class="workout-screen-title">בחר אימון</h2>
                 </div>
+                <div class="segment-wrapper wt-kind-seg" id="workout-kind-seg">
+                    <button class="seg-btn" data-kind="cardio" onclick="setWorkoutKindFilter('cardio')">אירובי</button>
+                    <button class="seg-btn active" data-kind="strength" onclick="setWorkoutKindFilter('strength')">כוח</button>
+                </div>
                 <div id="workout-menu-container" class="vertical-stack"></div>
-                <button class="obsidian-freestyle-card mt-md" onclick="startFreestyle()">
+                <button id="freestyle-card" class="obsidian-freestyle-card mt-md" onclick="startFreestyle()">
                     <div>
                         <h3>Freestyle</h3>
                         <p>בחירה חופשית</p>

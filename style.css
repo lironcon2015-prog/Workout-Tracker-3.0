@@ -7936,6 +7936,9 @@ body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
 }
 .pill-btn:active { transform: scale(0.96); }
 
+/* בורר כוח/אירובי ברשימת אימוני השבוע */
+.wt-kind-seg { margin: 2px 0 14px; }
+
 /* ── מסך היכון ── */
 .cs-head { padding: 4px 0 18px; }
 .cs-eyebrow {
@@ -7991,24 +7994,40 @@ body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
 .cl-rail i.now { background: var(--accent); box-shadow: 0 0 10px rgba(var(--accent-rgb),0.6); }
 .cl-rail i.now-rest { background: var(--success); box-shadow: 0 0 10px rgba(var(--success-rgb),0.6); }
 .cl-ring {
-    position: relative; width: min(68vw, 250px); aspect-ratio: 1; margin: 26px auto 0;
-    display: grid; place-items: center;
+    /* מבנה ועובי זהים לטיימר מסך ה-Live (.live-timer-*): טבעת 280px, קו 2px,
+       ספרות 4.6rem נטויות, והתווית בתוך הטבעת. */
+    position: relative; width: 280px; height: 280px; max-width: 88vw; margin: 22px auto 0;
+    display: grid; place-items: center; flex-shrink: 0;
 }
 .cl-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-.cl-ring-bg { fill: none; stroke: var(--surface-3); stroke-width: 6; }
+.cl-ring-bg { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 2; }
 .cl-ring-bar {
-    fill: none; stroke-width: 6; stroke-linecap: round;
+    fill: none; stroke-width: 2; stroke-linecap: round;
     stroke-dasharray: 289; stroke-dashoffset: 289;
+    /* 120ms — הטיק של האירובי הוא 100ms (ב-Live הוא שנייה), ולכן מעבר קצר יותר
+       הוא מה ששומר על תנועה רציפה במקום פיגור מתמיד */
     transition: stroke-dashoffset 120ms linear, stroke var(--dur-2) var(--ease);
 }
 .cl-ring-in { text-align: center; z-index: 2; }
 .cl-time {
-    font-size: 3.5rem; font-weight: 900; line-height: 1; letter-spacing: -0.04em;
-    font-variant-numeric: tabular-nums;
+    font-family: 'Heebo', sans-serif; font-style: italic; font-weight: 900;
+    font-size: 4.6rem; color: #fff; line-height: 1; letter-spacing: -0.06em;
+    direction: ltr; font-variant-numeric: tabular-nums;
 }
 .cl-state {
-    font-size: var(--fs-sm); font-weight: 900; letter-spacing: 0.3em;
-    margin-top: 8px; text-transform: uppercase;
+    position: absolute; bottom: 56px; left: 0; right: 0; text-align: center;
+    font-family: 'Heebo', sans-serif; font-style: italic; font-weight: 900;
+    font-size: var(--fs-xs); letter-spacing: 3px; text-transform: uppercase;
+}
+@media (max-height: 760px) {
+    .cl-ring { width: 220px; height: 220px; }
+    .cl-time { font-size: 3.8rem; }
+    .cl-state { bottom: 42px; }
+}
+@media (max-height: 600px) {
+    .cl-ring { width: 180px; height: 180px; }
+    .cl-time { font-size: 3rem; }
+    .cl-state { bottom: 32px; }
 }
 .cl-cue { margin-top: 24px; text-align: center; min-height: 78px; }
 .cl-cue-k {
@@ -8091,10 +8110,15 @@ body.cardio-paused .cl-ring { opacity: 0.45; }
 
 /* ── תווית סוג התוכנית + עורך הקומבינציות ── */
 .km-kind-badge {
-    display: inline-block; margin-inline-start: 8px; font-size: 0.6rem; font-weight: 900;
+    /* גם בתוך כרטיס flex-column (מסך בחירת האימון) התווית נשארת גלולה קטנה
+       ולא נמתחת לרוחב הכרטיס */
+    display: inline-block; width: fit-content; align-self: flex-start;
+    margin-inline-start: 0; font-size: 0.6rem; font-weight: 900;
     letter-spacing: 0.08em; color: var(--type-free-soft); background: rgba(94,92,230,0.16);
     border-radius: var(--r-pill); padding: 2px 8px; vertical-align: middle;
 }
+/* בתוך כותרת (מנהל התוכניות) התווית יושבת ליד השם ולכן צריכה מרווח */
+.km-manager-card-title .km-kind-badge { margin-inline-start: 8px; }
 .ec-combo-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .ec-num {
     width: 48px; flex: 0 0 auto; background: var(--surface-1); border: 1px solid var(--hairline);

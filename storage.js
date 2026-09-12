@@ -70,6 +70,7 @@ const StorageManager = {
     KEY_PHOTO_TREND:        'gympro_photo_trend',         // זיכרון ניתוח ה-AI המשורשר (JSON קטן) — רוכב על config
     KEY_CARDIO_PREFS:       'gympro_cardio_prefs',        // אירובי: ערכת צליל, עוצמת גונג, "עצור מוזיקה בגונג"
     KEY_CARDIO_SEEDED:      'gympro_cardio_seeded',       // דגל זריעת תוכניות האירובי (נחרת רק אחרי כתיבה מוצלחת)
+    KEY_CARDIO_THUMBS:      'gympro_cardio_thumbs',       // דגל החלפת תמונות האירובי לתמונות המיועדות
 
     getUsdaKey() { return localStorage.getItem(this.KEY_USDA_KEY) || ''; },
     saveUsdaKey(k) { localStorage.setItem(this.KEY_USDA_KEY, (k || '').trim()); },
@@ -139,6 +140,7 @@ const StorageManager = {
         }
 
         this.seedCardioWorkouts();
+        this.migrateCardioThumbs();
 
         // ריפוי דאטה שנכתבה עם מפתח-יום פגום (v19.7.4) — לפני הרינדור הראשון
         this.sanitizeDayKeyedData();
@@ -163,6 +165,31 @@ const StorageManager = {
         const okWo = this.saveData(this.KEY_DB_WORKOUTS, state.workouts);
         const okMeta = this.saveData(this.KEY_META, state.workoutMeta);
         if (okWo && okMeta) this.saveData(this.KEY_CARDIO_SEEDED, 1);
+    },
+
+    // migrateCardioThumbs — הזריעה הראשונה (19.13.0) נתנה לתוכניות האירובי
+    // תמונות של חדר כוח, כי לא היו תמונות אירובי בריפו. עכשיו יש, ולכן
+    // התמונה מוחלפת — **אך ורק** לתוכנית שעדיין נושאת את התמונה שהזריעה נתנה
+    // לה. בחירה של המשתמש בעורך גוברת ואינה נדרסת. הדגל נחרת רק אחרי כתיבה
+    // מוצלחת, כדי שכשל אחסון לא ינעל את המיגרציה בלי שקרתה.
+    CARDIO_THUMB_MIGRATION: {
+        'שדו בוקסינג': { from: 11, to: 16 },
+        'אופניים':     { from: 12, to: 17 },
+        'הליכה':       { from: 14, to: 18 }
+    },
+    migrateCardioThumbs() {
+        if (this.getData(this.KEY_CARDIO_THUMBS)) return;
+        let changed = 0;
+        Object.keys(this.CARDIO_THUMB_MIGRATION).forEach(name => {
+            const meta = state.workoutMeta && state.workoutMeta[name];
+            const map = this.CARDIO_THUMB_MIGRATION[name];
+            if (!meta || meta.kind !== 'cardio') return;
+            if (meta._thumbIdx !== map.from) return;   // המשתמש בחר תמונה — לא נוגעים
+            meta._thumbIdx = map.to;
+            changed++;
+        });
+        if (!changed) { this.saveData(this.KEY_CARDIO_THUMBS, 1); return; }
+        if (this.saveData(this.KEY_META, state.workoutMeta)) this.saveData(this.KEY_CARDIO_THUMBS, 1);
     },
 
     // ── Session ──────────────────────────────────────────────────────────

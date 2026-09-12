@@ -61,6 +61,11 @@ const WORKOUT_THUMB_IMAGES = [
     'img/thumb-shoulders-1.jpg',
     'img/thumb-back-1.jpg',
     'img/thumb-legs-1.jpg',
+    // אירובי (v19.13.3) — אינדקסים 16,17,18. חובה בסוף: _thumbIdx נשמר לכל
+    // תוכנית לפי אינדקס, והוספה באמצע הייתה מחליפה תמונות בתוכניות קיימות.
+    'img/thumb-cardio-boxing.jpg',
+    'img/thumb-cardio-bike.jpg',
+    'img/thumb-cardio-walk.jpg',
 ];
 
 // ─── HIDDEN THUMBS MANAGEMENT ──────────────────────────────────────────────

@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 19.13.2
+ * Version: 19.13.3
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v19.13.2';
+const CACHE_VERSION = 'gympro-v19.13.3';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -34,6 +34,9 @@ const FILES_TO_CACHE = [
     './img/thumb-shoulders-1.jpg',
     './img/thumb-back-1.jpg',
     './img/thumb-legs-1.jpg',
+    './img/thumb-cardio-boxing.jpg',
+    './img/thumb-cardio-bike.jpg',
+    './img/thumb-cardio-walk.jpg',
     './img/bg-track.jpg',
     './img/bg-barbell.jpg',
     './img/bg-dumbbells.jpg',

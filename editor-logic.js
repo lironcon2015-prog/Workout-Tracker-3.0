@@ -139,6 +139,17 @@ function renderWorkoutMenu() {
     // חץ קדימה — מתאים ל-RTL (כמו arrow_back_ios_new במוקאפ)
     const chevronSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
 
+    // _planSubtitle — שורת המשנה בכרטיס התוכנית. באירובי אין תרגילים, ולכן
+    // מוצג מה שמגדיר את האימון: סבבים וזמנים, או "רציף".
+    function _planSubtitle(key, count) {
+        if (typeof isCardioWorkout !== 'function' || !isCardioWorkout(key)) return `${count} תרגילים`;
+        const cfg = (typeof cardioPlanConfig === 'function') ? cardioPlanConfig(key) : null;
+        if (!cfg) return 'אירובי';
+        if (cfg.mode === 'open') return cfg.targetSec ? `רציף · יעד ${Math.round(cfg.targetSec / 60)} דק׳` : 'רציף · ללא יעד';
+        const f = s => (typeof _fmtClock === 'function' ? _fmtClock(s || 0) : String(s || 0));
+        return `${cfg.rounds} סבבים · ${f(cfg.workSec)} / ${f(cfg.restSec)}`;
+    }
+
     function buildCard(key, count, fallbackIdx, isFirst, badge) {
         const btn = document.createElement('button');
         btn.className = 'km-manager-card';
@@ -159,12 +170,13 @@ function renderWorkoutMenu() {
             <div class="km-manager-card-body">
                 <h3 class="km-manager-card-title">${escapeHtml(key)}</h3>
                 ${badgeHtml}
-                <p class="km-manager-card-count">${count} תרגילים</p>
+                <p class="km-manager-card-count">${_planSubtitle(key, count)}</p>
                 <div class="km-manager-card-actions">
+                    ${(typeof isCardioWorkout === 'function' && isCardioWorkout(key)) ? '' : `
                     <button class="km-select-card-pill" onclick="event.stopPropagation(); openWorkoutPlanSheet('${safeKey}')">
                         <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">format_list_bulleted</span>
                         תרגילים
-                    </button>
+                    </button>`}
                 </div>
             </div>`;
         btn.onclick = () => selectWorkout(key);
@@ -210,7 +222,9 @@ function renderWorkoutMenu() {
             if (Array.isArray(w)) {
                 w.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
             }
-            container.appendChild(buildCard(key, count, idx, idx === 0, ''));
+            const cardioBadge = (typeof isCardioWorkout === 'function' && isCardioWorkout(key))
+                ? `<span class="km-kind-badge">אירובי</span>` : '';
+            container.appendChild(buildCard(key, count, idx, idx === 0, cardioBadge));
             idx++;
         });
     }
@@ -270,8 +284,9 @@ function renderManagerList() {
             card.innerHTML = `
                 <div class="km-manager-card-img" style="background-image:url('${imgUrl}')"></div>
                 <div class="km-manager-card-body">
-                    <h2 class="km-manager-card-title">${escapeHtml(key)}</h2>
-                    <p class="km-manager-card-count">${count} תרגילים</p>
+                    <h2 class="km-manager-card-title">${escapeHtml(key)}${
+                        (typeof isCardioWorkout === 'function' && isCardioWorkout(key)) ? '<span class="km-kind-badge">אירובי</span>' : ''}</h2>
+                    <p class="km-manager-card-count">${_managerCardSubtitle(key, count)}</p>
                     <div class="km-manager-card-actions">
                         <button class="km-pill-btn km-pill-btn--danger" onclick="event.stopPropagation(); deleteWorkout('${safeKey}')">
                             <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">delete</span>
@@ -292,6 +307,17 @@ function renderManagerList() {
     // Show/hide create button — only in active tab
     const createBtn = document.getElementById('btn-create-workout');
     if (createBtn) createBtn.style.display = _managerTab === 'active' ? '' : 'none';
+}
+
+// _managerCardSubtitle — שורת המשנה בכרטיס המנהל. זהה בתוכן לזו של מסך
+// בחירת האימון, ומוגדרת בנפרד כי renderManagerList אינו חולק עם renderWorkoutMenu.
+function _managerCardSubtitle(key, count) {
+    if (typeof isCardioWorkout !== 'function' || !isCardioWorkout(key)) return `${count} תרגילים`;
+    const cfg = (typeof cardioPlanConfig === 'function') ? cardioPlanConfig(key) : null;
+    if (!cfg) return 'אירובי';
+    if (cfg.mode === 'open') return cfg.targetSec ? `רציף · יעד ${Math.round(cfg.targetSec / 60)} דק׳` : 'רציף · ללא יעד';
+    const f = s => (typeof _fmtClock === 'function' ? _fmtClock(s || 0) : String(s || 0));
+    return `${cfg.rounds} סבבים · ${f(cfg.workSec)} / ${f(cfg.restSec)}`;
 }
 
 function deleteWorkout(key) {
@@ -322,6 +348,8 @@ function duplicateWorkout(key) {
 function createNewWorkout() {
     managerState.originalName = ''; managerState.currentName = 'New Plan';
     managerState.exercises = [];
+    _editorKind = 'strength';
+    _editorCardio = null;
     openEditorUI();
 }
 
@@ -334,12 +362,21 @@ function editWorkout(key) {
 function openEditorUI() {
     document.getElementById('editor-workout-name').value = managerState.currentName;
     const meta = state.workoutMeta[managerState.currentName] || {};
+    // סוג התוכנית וקונפיג האירובי — נטענים לפני הרינדור כדי שהטופס יעלה נכון
+    if (_editorKind !== 'cardio' || managerState.originalName) {
+        _editorKind = (meta.kind === 'cardio') ? 'cardio' : 'strength';
+    }
+    const _cfg = (typeof cardioPlanConfig === 'function' && managerState.originalName)
+        ? cardioPlanConfig(managerState.originalName) : null;
+    _editorCardio = (typeof _cardioNormalize === 'function')
+        ? _cardioNormalize(_cfg || _editorCardio) : (_cfg || null);
     document.getElementById('editor-deload-check').checked = !!meta.availableInDeload;
     document.getElementById('editor-deload-only-check').checked = !!meta.isDeloadOnly;
     document.getElementById('editor-hidden-check').checked = !!meta.isHidden;
     _renderColorSwatches(meta.color || '');
     _renderThumbPicker(typeof meta._thumbIdx === 'number' ? meta._thumbIdx : 0);
     renderEditorList();
+    _applyEditorKindUI();
     navigate('ui-workout-editor');
 }
 
@@ -899,7 +936,8 @@ function moveExInCluster(clusterIdx, exIdx, dir) {
 function saveWorkoutChanges() {
     const newName = document.getElementById('editor-workout-name').value.trim();
     if (!newName) { showAlert("נא להזין שם לתוכנית"); return; }
-    if (managerState.exercises.length === 0) { showAlert("התוכנית ריקה!"); return; }
+    // תוכנית אירובית אינה מכילה תרגילים — הבדיקה "התוכנית ריקה" אינה חלה עליה
+    if (_editorKind !== 'cardio' && managerState.exercises.length === 0) { showAlert("התוכנית ריקה!"); return; }
 
     if (newName !== managerState.originalName) {
         if (state.workouts[newName]) { showAlert("שם תוכנית זה כבר קיים"); return; }
@@ -924,7 +962,25 @@ function saveWorkoutChanges() {
     state.workoutMeta[newName].color = _selectedEditorColor || '';
     state.workoutMeta[newName]._thumbIdx = _selectedThumbIdx >= 0 ? _selectedThumbIdx : (state.workoutMeta[newName]._thumbIdx || 0);
 
+    // סוג התוכנית — המבדל היחיד. תוכנית כוח לא נושאת kind כלל (תאימות לאחור)
+    if (_editorKind === 'cardio') state.workoutMeta[newName].kind = 'cardio';
+    else delete state.workoutMeta[newName].kind;
+
     StorageManager.saveData(StorageManager.KEY_META, state.workoutMeta);
+
+    if (_editorKind === 'cardio') {
+        const cfg = (typeof _cardioNormalize === 'function') ? _cardioNormalize(_editorCardio) : (_editorCardio || {});
+        state.workouts[newName] = [Object.assign({ type: 'cardio' }, cfg)];
+        StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
+        autoSaveConfigToCloud();
+        haptic('success');
+        state.historyStack.pop();
+        _setNavDirection('back');
+        navigate('ui-workout-manager');
+        renderManagerList();
+        renderWorkoutMenu();
+        return;
+    }
 
     state.workouts[newName] = managerState.exercises;
     StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
@@ -1595,3 +1651,152 @@ async function checkForUpdate() {
 document.addEventListener('DOMContentLoaded', () => {
     updateFirebaseStatus();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// עורך תוכנית אירובית (v19.13)
+// תוכנית אירובית אינה מכילה תרגילים, ולכן הטופס מחליף את "זרימת אימון":
+// מודל (סבבים/רציף), זמנים, קומבינציות לפי טווח סבבים, וסוגי אימון בשעון.
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _editorKind = 'strength';
+let _editorCardio = null;
+
+function setEditorKind(kind) {
+    _editorKind = kind === 'cardio' ? 'cardio' : 'strength';
+    if (_editorKind === 'cardio' && !_editorCardio) {
+        _editorCardio = (typeof _cardioNormalize === 'function') ? _cardioNormalize(null) : { mode: 'interval' };
+    }
+    haptic('light');
+    _applyEditorKindUI();
+}
+
+function setEditorCardioMode(mode) {
+    if (!_editorCardio) _editorCardio = (typeof _cardioNormalize === 'function') ? _cardioNormalize(null) : {};
+    _editorCardio.mode = mode === 'open' ? 'open' : 'interval';
+    haptic('light');
+    _applyEditorKindUI();
+}
+
+// _applyEditorKindUI — מחליף בין שני הטפסים. תוכנית אירובית מסתירה את בוחר
+// התרגילים ואת זרימת האימון — אין בה תרגילים כלל.
+function _applyEditorKindUI() {
+    const isCardio = _editorKind === 'cardio';
+    const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+    document.querySelectorAll('#editor-kind-seg .km-seg-btn').forEach(b => {
+        b.classList.toggle('active', (b.dataset.kind === 'cardio') === isCardio);
+    });
+    show('editor-cardio-block', isCardio);
+    show('editor-flow-header', !isCardio);
+    show('editor-list', !isCardio);
+    show('editor-add-row', !isCardio);
+    if (isCardio) {
+        const mode = (_editorCardio && _editorCardio.mode === 'open') ? 'open' : 'interval';
+        document.querySelectorAll('#editor-cardio-mode-seg .km-seg-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.mode === mode);
+        });
+        renderEditorCardioFields();
+    }
+}
+
+function _ecStep(field, delta) {
+    if (!_editorCardio) return;
+    const steps = { rounds: 1, workSec: 15, restSec: 15, prepSec: 5, targetSec: 300 };
+    const lims  = { rounds: [1, 30], workSec: [10, 3600], restSec: [0, 1800], prepSec: [0, 60], targetSec: [300, 21600] };
+    const step = steps[field] || 1, lim = lims[field] || [0, 9999];
+    let v = Number(_editorCardio[field]) || 0;
+    v += delta * step;
+    if (field === 'targetSec' && v < lim[0]) { _editorCardio.targetSec = null; haptic('light'); renderEditorCardioFields(); return; }
+    _editorCardio[field] = Math.max(lim[0], Math.min(lim[1], v));
+    haptic('light');
+    renderEditorCardioFields();
+}
+
+function _ecAddCombo() {
+    if (!_editorCardio) return;
+    if (!Array.isArray(_editorCardio.combos)) _editorCardio.combos = [];
+    const last = _editorCardio.combos[_editorCardio.combos.length - 1];
+    const from = last ? Math.min((Number(last.to) || 1) + 1, _editorCardio.rounds) : 1;
+    _editorCardio.combos.push({ from, to: _editorCardio.rounds, text: '' });
+    haptic('light');
+    renderEditorCardioFields();
+}
+function _ecRemoveCombo(idx) {
+    if (!_editorCardio || !Array.isArray(_editorCardio.combos)) return;
+    _editorCardio.combos.splice(idx, 1);
+    haptic('warning');
+    renderEditorCardioFields();
+}
+// שדות הטקסט נכתבים ב-change (לא ב-input) — רינדור מחדש בכל הקלדה היה גוזל את הפוקוס
+function _ecSetCombo(idx, field, value) {
+    if (!_editorCardio || !_editorCardio.combos || !_editorCardio.combos[idx]) return;
+    if (field === 'text') _editorCardio.combos[idx].text = String(value || '');
+    else {
+        const n = parseInt(value, 10);
+        _editorCardio.combos[idx][field] = isNaN(n) ? 1 : Math.max(1, Math.min(_editorCardio.rounds, n));
+    }
+}
+function _ecSetWatchTypes(value) {
+    if (!_editorCardio) return;
+    _editorCardio.watchTypes = String(value || '').split(',').map(x => x.trim()).filter(Boolean);
+}
+
+function renderEditorCardioFields() {
+    const host = document.getElementById('editor-cardio-fields');
+    if (!host || !_editorCardio) return;
+    const c = _editorCardio;
+    const f = sec => (typeof _fmtClock === 'function' ? _fmtClock(sec || 0) : String(sec || 0));
+    const stepRow = (label, sub, field, valTxt) => `
+        <div class="cs-row">
+            <div class="cs-row-txt"><div class="cs-row-k">${label}</div><span class="cs-row-sub">${sub}</span></div>
+            <div class="cs-stepper">
+                <button class="cs-sq" onclick="_ecStep('${field}',-1)" aria-label="הפחת">−</button>
+                <b>${valTxt}</b>
+                <button class="cs-sq" onclick="_ecStep('${field}',1)" aria-label="הוסף">+</button>
+            </div>
+        </div>`;
+
+    if (c.mode === 'open') {
+        host.innerHTML = `
+            <div class="obsidian-card cs-card">
+                ${stepRow('יעד זמן', c.targetSec ? 'הטבעת נסגרת אל היעד' : 'ללא יעד — שעון עולה',
+                          'targetSec', c.targetSec ? f(c.targetSec) : 'פתוח')}
+            </div>
+            <div class="obsidian-card cs-card">
+                <h3 class="cs-card-t">סוגי אימון בשעון</h3>
+                <p class="cs-note">שמות סוג האימון כפי שהם מגיעים מ-Apple Watch, מופרדים בפסיק.
+                אימון שעון בסוג הזה ישויך לתוכנית הזו בלחיצה אחת מ"אימונים מהשעון" בארכיון.</p>
+                <input type="text" class="minimal-input m-0" id="ec-watchtypes"
+                       value="${escapeHtml((c.watchTypes || []).join(', '))}"
+                       placeholder="Cycling, Indoor Cycle, אופניים"
+                       onchange="_ecSetWatchTypes(this.value)">
+            </div>`;
+        return;
+    }
+
+    const t = (typeof cardioTotals === 'function') ? cardioTotals(c) : { workTotalSec: 0, totalSec: 0 };
+    const combos = Array.isArray(c.combos) ? c.combos : [];
+    host.innerHTML = `
+        <div class="obsidian-card cs-card">
+            ${stepRow('עבודה', 'אורך סבב', 'workSec', f(c.workSec))}
+            ${stepRow('מנוחה', 'בין סבבים', 'restSec', f(c.restSec))}
+            ${stepRow('סבבים', `סה״כ ${f(t.workTotalSec)} עבודה · ${Math.round(t.totalSec / 60)} דק׳ אימון`, 'rounds', String(c.rounds))}
+            ${stepRow('היכון', 'לפני הגונג הראשון', 'prepSec', f(c.prepSec))}
+        </div>
+        <div class="obsidian-card cs-card">
+            <h3 class="cs-card-t">קומבינציות</h3>
+            <p class="cs-note">מה מוצג במסך האימון בסבב הנוכחי. סבב שאינו מכוסה בשום טווח יציג את
+            הפאזה הבאה בלבד.</p>
+            ${combos.map((x, i) => `
+                <div class="ec-combo-row">
+                    <input type="number" class="ec-num" min="1" max="${c.rounds}" value="${x.from}"
+                           onchange="_ecSetCombo(${i},'from',this.value)" aria-label="מסבב">
+                    <span class="ec-dash">–</span>
+                    <input type="number" class="ec-num" min="1" max="${c.rounds}" value="${x.to}"
+                           onchange="_ecSetCombo(${i},'to',this.value)" aria-label="עד סבב">
+                    <input type="text" class="ec-txt" value="${escapeHtml(x.text || '')}"
+                           placeholder="1-2 · סליפ · 1-2-3" onchange="_ecSetCombo(${i},'text',this.value)">
+                    <button class="ec-del" onclick="_ecRemoveCombo(${i})" aria-label="מחק">×</button>
+                </div>`).join('')}
+            <button class="btn-text" onclick="_ecAddCombo()">+ הוסף קומבינציה</button>
+        </div>`;
+}

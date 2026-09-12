@@ -68,6 +68,8 @@ const StorageManager = {
     KEY_PHOTO_BRIDGE_ON:    'gympro_photo_bridge_on',     // האם גשר התמונות פעיל (ברירת מחדל: כבוי)
     KEY_PHOTO_INDEX:        'gympro_photo_index',         // אינדקס תמונות קל [{date, driveId, bytes}] — רוכב על config, בלי bytes של תמונות
     KEY_PHOTO_TREND:        'gympro_photo_trend',         // זיכרון ניתוח ה-AI המשורשר (JSON קטן) — רוכב על config
+    KEY_CARDIO_PREFS:       'gympro_cardio_prefs',        // אירובי: ערכת צליל, עוצמת גונג, "עצור מוזיקה בגונג"
+    KEY_CARDIO_SEEDED:      'gympro_cardio_seeded',       // דגל זריעת תוכניות האירובי (נחרת רק אחרי כתיבה מוצלחת)
 
     getUsdaKey() { return localStorage.getItem(this.KEY_USDA_KEY) || ''; },
     saveUsdaKey(k) { localStorage.setItem(this.KEY_USDA_KEY, (k || '').trim()); },
@@ -76,6 +78,18 @@ const StorageManager = {
     // עושים date.split, ולכן מפתח לא-תקין אינו "רשומה חריגה" אלא חריגה שמפילה מסך.
     isDateKey(d) { return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d); },
     _todayKey() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; },
+
+    // ── אירובי: העדפות צליל וזמן ──────────────────────────────────────────
+    CARDIO_PREFS_DEFAULT: { soundPack: 'boxing', gongVolume: 0.7, soloDucking: false },
+    getCardioPrefs() {
+        const p = this.getData(this.KEY_CARDIO_PREFS) || {};
+        return Object.assign({}, this.CARDIO_PREFS_DEFAULT, p);
+    },
+    saveCardioPrefs(p) {
+        const merged = Object.assign({}, this.getCardioPrefs(), p || {});
+        merged.gongVolume = Math.max(0.1, Math.min(1, Number(merged.gongVolume) || 0.7));
+        return this.saveData(this.KEY_CARDIO_PREFS, merged);
+    },
 
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); }
@@ -124,8 +138,31 @@ const StorageManager = {
             this.saveData(this.KEY_META, state.workoutMeta);
         }
 
+        this.seedCardioWorkouts();
+
         // ריפוי דאטה שנכתבה עם מפתח-יום פגום (v19.7.4) — לפני הרינדור הראשון
         this.sanitizeDayKeyedData();
+    },
+
+    // seedCardioWorkouts — זריעה חד-פעמית של תוכניות האירובי. נדרשת כי
+    // defaultWorkouts נטען רק בהתקנה ראשונה, ולכן תוכנית חדשה שם לא מגיעה
+    // למשתמש קיים. תוכנית שהמשתמש מחק לא חוזרת (הדגל נחרת פעם אחת), ותוכנית
+    // בשם קיים לא נדרסת. הדגל נחרת **רק אחרי כתיבה מוצלחת** — אחרת הזריעה
+    // נועלת את עצמה בלי שקרתה (כלל "דגל טופל" ב-CLAUDE.md).
+    seedCardioWorkouts() {
+        if (this.getData(this.KEY_CARDIO_SEEDED)) return;
+        if (typeof defaultCardioWorkouts === 'undefined') return;
+        const names = Object.keys(defaultCardioWorkouts).filter(n => !state.workouts[n]);
+        if (!names.length) { this.saveData(this.KEY_CARDIO_SEEDED, 1); return; }
+        names.forEach(name => {
+            const def = defaultCardioWorkouts[name];
+            state.workouts[name] = JSON.parse(JSON.stringify(def.plan));
+            state.workoutMeta[name] = Object.assign({}, state.workoutMeta[name] || {},
+                                                    JSON.parse(JSON.stringify(def.meta)));
+        });
+        const okWo = this.saveData(this.KEY_DB_WORKOUTS, state.workouts);
+        const okMeta = this.saveData(this.KEY_META, state.workoutMeta);
+        if (okWo && okMeta) this.saveData(this.KEY_CARDIO_SEEDED, 1);
     },
 
     // ── Session ──────────────────────────────────────────────────────────
@@ -462,6 +499,7 @@ const StorageManager = {
             this.KEY_PHOTO_BRIDGE_TOKEN,
             this.KEY_PHOTO_BRIDGE_ON,
             this.KEY_SOUND,
+            this.KEY_CARDIO_PREFS,       // אירובי: ערכת צליל/עוצמה/עצירת מוזיקה — הגדרה, לא דאטה
             this.KEY_COPY_INCLUDE_COACH,
             this.KEY_ARCHIVE_COPY_COACH
         ];

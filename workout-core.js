@@ -279,6 +279,7 @@ let state = {
     dropLevel: 0,       // 1..DROP_MAX
 
     // הערות ותגיות תרגיל (v19.9) — נשמרים אוטומטית ב-saveSessionState
+    cardio: null,       // אימון אירובי פעיל (v19.13) — ראה מקטע CARDIO
     exNotes: {},        // { [exName]: 'הערה שתקפה לכל הסטים בתרגיל' }
     setCues: {},        // { [cueLabel]: bool } — מצב התגיות של הסט הנוכחי בלבד
     cuesKey: ''         // מזהה הסט שאליו setCues שייך — מונע איפוס ברינדור חוזר
@@ -296,12 +297,13 @@ let managerState = {
 
 // ─── NAVIGATION CONSTANTS ──────────────────────────────────────────────────
 // מקור אמת יחיד — משמש גם ב-navigate() וגם ב-restoreSession()
-const WORKOUT_SCREENS = ['ui-workout-type', 'ui-confirm', 'ui-main', 'ui-1rm', 'ui-cluster-rest', 'ui-variation', 'ui-swap-list', 'ui-ask-extra', 'ui-extra-cluster', 'ui-summary'];
+const WORKOUT_SCREENS = ['ui-workout-type', 'ui-confirm', 'ui-main', 'ui-1rm', 'ui-cluster-rest', 'ui-variation', 'ui-swap-list', 'ui-ask-extra', 'ui-extra-cluster', 'ui-summary', 'ui-cardio-setup', 'ui-cardio'];
 // ui-summary — האימון כבר נשמר לארכיון ברגע שהמסך נפתח; "חזור" ממנו החזיר
 // ל-ui-ask-extra, ולחיצה נוספת על "סיום" יצרה רשומת ארכיון כפולה.
 // ui-ask-extra — האימון הושלם וטרם נשמר; אין מסך קודם הגיוני, ו"חזור" הוביל
 // למסך ביניים של תרגיל שכבר בוצע ומשם לנטישת אימון שלם.
-const NO_BACK_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive', 'ui-bodylog', 'ui-summary', 'ui-ask-extra'];
+// ui-cardio — אימון אירובי פעיל; "חזור" ממנו היה נטישה שקטה של אימון שרץ.
+const NO_BACK_SCREENS = ['ui-week', 'ui-analytics', 'ui-archive', 'ui-bodylog', 'ui-summary', 'ui-ask-extra', 'ui-cardio'];
 
 let audioContext;
 let wakeLock = null;
@@ -646,6 +648,14 @@ function restoreSession() {
             }
         }
 
+        // אירובי — הפאזות שחלפו בזמן שהדף לא רץ מושלמות קדימה, ואז הטיימר
+        // נדלק מחדש. בלי זה האימון ממשיך מפאזה מיושנת ולא מצלצל בזמן.
+        if (lastScreen === 'ui-cardio' && state.cardio && state.cardio.phase !== 'done') {
+            if (typeof _cardioRecover === 'function') _cardioRecover();
+            if (typeof renderCardioLive === 'function') renderCardioLive();
+            if (typeof _cardioStartTimer === 'function') _cardioStartTimer();
+        }
+
         // Sprint 4: הפעלת Live overlay אחרי restore (משכפל את לוגיקת navigate()).
         // בלי זה, חזרה לאימון מנקודת הפסקה לא תפתח את מסך הטיימר הגדול.
         if (lastScreen === 'ui-main' && typeof isLiveModeEnabled === 'function' && isLiveModeEnabled() && !_liveModeSuppressed) {
@@ -865,6 +875,7 @@ function discardSession() {
     try { WatchBridge.finishSession(); } catch (e) {}
     StorageManager.clearSessionState();
     stopSessionTimer();
+    if (typeof _cardioStopTimer === 'function') _cardioStopTimer();
     document.getElementById('recovery-modal').style.display = 'none';
 }
 
@@ -1049,6 +1060,9 @@ function _abandonWorkout() {
     state.sessionElapsedSecs = 0;
     state.liveSessionId = null;
     state.archivedTimestamp = null;
+    state.cardio = null;
+    if (typeof _cardioStopTimer === 'function') _cardioStopTimer();
+    document.body.classList.remove('cardio-paused');
     if (typeof _resetDropState === 'function') _resetDropState();
 
     const main = document.getElementById('ui-main');
@@ -1263,6 +1277,8 @@ function _refreshScreen(id) {
         case 'ui-week':              call('renderHomeTodayCards'); call('renderHeroCard'); break;
         case 'ui-settings':          call('refreshAllBridgeStatus'); break;
         case 'ui-summary':           call('buildSummaryUI'); break;
+        case 'ui-cardio-setup':      call('renderCardioSetup'); break;
+        case 'ui-cardio':            call('renderCardioLive'); break;
     }
     _navDirection = 'forward';
 }
@@ -2308,8 +2324,11 @@ function selectWeek(w) {
 }
 
 function selectWorkout(t) {
+    // תוכנית אירובית — מסלול נפרד לגמרי (אין תרגילים, אין סטים, אין נפח)
+    if (typeof isCardioWorkout === 'function' && isCardioWorkout(t)) { startCardio(t); return; }
     state.type = t; state.exIdx = 0; state.log = [];
     state.completedExInSession = []; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
+    state.cardio = null;
     state.workoutStartTime = Date.now();
     state.sessionElapsedSecs = 0;
     state.clusterMode = false;
@@ -2344,6 +2363,9 @@ function checkFlow() {
     }
 
     const item = workoutList[state.exIdx];
+
+    // פריט cardio במערך תוכנית כוח (תוכנית שסומנה מחדש) — אינו תרגיל, מדלגים
+    if (item.type === 'cardio') { state.exIdx++; checkFlow(); return; }
 
     if (item.type === 'cluster') {
         state.clusterMode = true;
@@ -4882,6 +4904,8 @@ function finish() {
 function buildSummaryUI() {
     const area = document.getElementById('summary-content-area');
     if (!area) return;
+    // אירובי — מסך סיכום משלו: אותם מדדים, בלי סיכום מאמן ובלי נפח/סטים
+    if (typeof isCardioSession === 'function' && isCardioSession()) { buildCardioSummaryUI(area); return; }
 
     const now = new Date();
     const dateStr = now.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -5099,7 +5123,8 @@ async function copyResult() {
     const includeCoach = StorageManager.getCopyIncludeCoach();
 
     // אם רוצים סיכום מאמן בהעתקה והוא עדיין נטען — ממתינים לו (עד 8 שניות)
-    if (includeCoach && _coachSummaryPromise && !_coachSummaryText) {
+    const _isCardio = (typeof isCardioSession === 'function') && isCardioSession();
+    if (!_isCardio && includeCoach && _coachSummaryPromise && !_coachSummaryText) {
         const btn = document.getElementById('summary-save-btn');
         const origLabel = btn ? btn.textContent : '';
         if (btn) { btn.textContent = 'ממתין לסיכום…'; btn.disabled = true; }
@@ -5112,7 +5137,8 @@ async function copyResult() {
         if (btn) { btn.textContent = origLabel; btn.disabled = false; }
     }
 
-    _saveToArchive(note);
+    if (typeof isCardioSession === 'function' && isCardioSession()) _saveCardioToArchive(note);
+    else _saveToArchive(note);
 
     // גיבוי אוטומטי לענן אחרי שמירת אימון.
     // סנכרון לא-חמוש הוא דילוג מכוון (הגנת ענן), לא כשל — אין להתריע עליו.
@@ -8265,6 +8291,8 @@ function _watchAttach(rec, entryDate, by) {
     };
     if (rec.hrMin) watch.hrMin = rec.hrMin;
     if (rec.totalKcal) watch.totalKcal = rec.totalKcal;
+    // מרחק — נשלח מהגשר רק בגרסאות שמכילות אותו; האריח נדלק מעצמו כשהשדה מגיע
+    if (rec.distanceKm) watch.distanceKm = rec.distanceKm;
     if (Array.isArray(rec.hrSeries) && rec.hrSeries.length) {
         watch.hrSeries = rec.hrSeries;
         if (zb) {
@@ -8574,6 +8602,19 @@ function _watchZonesHtml(zoneSec, bounds) {
     </div>`;
 }
 
+// _watchPaceTxt — קצב (דק׳/ק״מ) לריצה והליכה, מהירות (קמ״ש) לרכיבה. מחושב
+// ממרחק ומשך, ולכן קיים רק כששניהם קיימים. מחזיר [ערך, תווית] או null.
+function _watchPaceTxt(w) {
+    const km = Number(w && w.distanceKm), min = Number(w && w.durMin);
+    if (!(km > 0) || !(min > 0)) return null;
+    const t = String(w.wType || '').toLowerCase();
+    const isRide = /cycl|bike|ride|אופני/.test(t);
+    if (isRide) return [(km / (min / 60)).toFixed(1), 'קמ״ש'];
+    const paceMin = min / km;
+    const mm = Math.floor(paceMin), ss = Math.round((paceMin - mm) * 60);
+    return [`${mm}:${String(ss).padStart(2, '0')}`, 'דק׳/ק״מ'];
+}
+
 // _watchCardHtml — כרטיס נתוני השעון. אריח בלי נתון פשוט אינו מוצג.
 function _watchCardHtml(entry) {
     const w = entry.watch;
@@ -8583,6 +8624,9 @@ function _watchCardHtml(entry) {
     if (w.hrMax)       tiles.push(['v-hr', w.hrMax, 'דופק מרבי']);
     if (w.activeKcal)  tiles.push(['v-cal', w.activeKcal, 'קק״ל פעילות']);
     if (w.hrRecovery1) tiles.push(['v-rec', w.hrRecovery1, 'התאוששות ׳1']);
+    if (w.distanceKm)  tiles.push(['v-dist', w.distanceKm, 'ק״מ']);
+    const _pace = _watchPaceTxt(w);
+    if (_pace) tiles.push(['v-pace', _pace[0], _pace[1]]);
     const tilesHtml = tiles.length
         ? `<div class="wc-grid" style="grid-template-columns:repeat(${tiles.length},1fr)">${
             tiles.map(t => `<div class="wc-m"><div class="v ${t[0]}">${t[1]}</div><div class="k">${t[2]}</div></div>`).join('')
@@ -8741,6 +8785,9 @@ function watchSummaryLine(entry) {
     if (w.activeKcal)  bits.push(`${w.activeKcal} קק"ל פעילות`);
     if (w.totalKcal)   bits.push(`${w.totalKcal} קק"ל סה"כ`);
     if (w.hrRecovery1) bits.push(`התאוששות ׳1 ${w.hrRecovery1}`);
+    if (w.distanceKm)  bits.push(`${w.distanceKm} ק"מ`);
+    const pace = (typeof _watchPaceTxt === 'function') ? _watchPaceTxt(w) : null;
+    if (pace)          bits.push(`${pace[0]} ${pace[1]}`);
     const lines = [];
     if (bits.length) lines.push(`שעון: ${bits.join(' · ')}`);
     const zl = _watchZonesLine(w);
@@ -9566,4 +9613,1017 @@ function syncThemePicker() {
 // אתחול בעת טעינה — מוודא שה-attribute תואם ל-prefs (גיבוי לסקריפט ב-head)
 function initColorTheme() {
     applyColorTheme(getStoredColorTheme());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CARDIO — אימוני אירובי (v19.13)
+// שני מודלים: 'interval' (סבבי עבודה/מנוחה + גונג) ו-'open' (רציף, השעון הוא
+// מקור האמת). שניהם נשמרים כרשומת ארכיון עם kind:'cardio' ובלי details —
+// ולכן תורמים 0 לכל מדד נפח, ומביאים מדדים משלהם (זמן, סבבים, ומה שהשעון מדד).
+// לשונית "מדדים" (buildMetricsPaneHTML) עוברת כמו שהיא: היא נגזרת מ-entry.watch
+// ומ-entry.timestamp בלבד.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CARDIO_CLAPPER_AT = 10;    // שניות לסיום פאזה שבהן נשמע הקלאקר
+const CARDIO_MAX_ROUNDS = 30;
+const CARDIO_RING_CIRC  = 289;   // 2πr ל-r=46 — זהה לטיימר ה-Live
+
+// isCardioWorkout — האם התוכנית הזו אירובית. meta.kind הוא המבדל היחיד.
+function isCardioWorkout(name) {
+    const meta = state.workoutMeta && state.workoutMeta[name];
+    return !!(meta && meta.kind === 'cardio');
+}
+
+// cardioPlanConfig — פריט הקונפיג של תוכנית אירובית (או null).
+function cardioPlanConfig(name) {
+    const plan = state.workouts && state.workouts[name];
+    if (!Array.isArray(plan)) return null;
+    const item = plan.find(p => p && p.type === 'cardio');
+    return item || null;
+}
+
+// _cardioNormalize — קונפיג בטוח לשימוש: ברירות מחדל, קיטום לטווחים חוקיים,
+// ומיון הקומבינציות. מקור אמת אחד למסך ההיכון, למנוע ולעורך.
+function _cardioNormalize(cfg) {
+    const c = cfg || {};
+    const mode = c.mode === 'open' ? 'open' : 'interval';
+    const clamp = (v, lo, hi, dflt) => {
+        const n = Math.round(Number(v));
+        return isNaN(n) ? dflt : Math.max(lo, Math.min(hi, n));
+    };
+    const out = {
+        mode,
+        rounds:  clamp(c.rounds, 1, CARDIO_MAX_ROUNDS, 12),
+        workSec: clamp(c.workSec, 10, 3600, 180),
+        restSec: clamp(c.restSec, 0, 1800, 60),
+        prepSec: clamp(c.prepSec, 0, 60, 10),
+        targetSec: c.targetSec ? clamp(c.targetSec, 60, 6 * 3600, 1800) : null,
+        watchTypes: Array.isArray(c.watchTypes) ? c.watchTypes.filter(t => typeof t === 'string' && t.trim()) : [],
+        combos: []
+    };
+    if (Array.isArray(c.combos)) {
+        out.combos = c.combos
+            .filter(x => x && String(x.text || '').trim())
+            .map(x => ({
+                from: clamp(x.from, 1, CARDIO_MAX_ROUNDS, 1),
+                to:   clamp(x.to != null ? x.to : x.from, 1, CARDIO_MAX_ROUNDS, out.rounds),
+                text: String(x.text).trim()
+            }))
+            .map(x => (x.to < x.from ? { from: x.to, to: x.from, text: x.text } : x))
+            .sort((a, b) => a.from - b.from);
+    }
+    return out;
+}
+
+// CARDIOCOMBO-START — בלוק טהור, נבדק ב-test/cardio-archive.test.js (אל תסיר את הסמנים)
+// cardioComboFor — הקומבינציה של סבב מסוים. חפיפה בין טווחים: הטווח הראשון
+// שמכסה את הסבב מנצח (דטרמיניסטי, בלי שגיאה). אין כיסוי → מחרוזת ריקה.
+function cardioComboFor(combos, roundNum) {
+    if (!Array.isArray(combos)) return '';
+    for (let i = 0; i < combos.length; i++) {
+        const c = combos[i];
+        if (!c || !c.text) continue;
+        const from = Number(c.from), to = Number(c.to != null ? c.to : c.from);
+        if (roundNum >= from && roundNum <= to) return String(c.text);
+    }
+    return '';
+}
+
+// cardioTotals — סיכומי הזמן של אימון סבבים. מקור אמת אחד למסך ההיכון,
+// לכרטיס התוכנית ולשורת הסיכום.
+function cardioTotals(cfg) {
+    const rounds = Number(cfg && cfg.rounds) || 0;
+    const workSec = Number(cfg && cfg.workSec) || 0;
+    const restSec = Number(cfg && cfg.restSec) || 0;
+    const prepSec = Number(cfg && cfg.prepSec) || 0;
+    const work = rounds * workSec;
+    const rest = rounds > 1 ? (rounds - 1) * restSec : 0;
+    return { workTotalSec: work, restTotalSec: rest, totalSec: work + rest + prepSec };
+}
+// CARDIOCOMBO-END
+
+// ─── צלילים ────────────────────────────────────────────────────────────────
+// מסונתזים ב-WebAudio על audioContext הקיים — אפס קבצי אודיו, עובד אופליין.
+
+let _cardioClapperFired = false;
+
+// _cardioArmAudio — נפתח על מחוויית המשתמש ("התחל אימון") בלבד: ב-iOS אין
+// ניגון בלי מחווה. קובע במפורש את סוג ה-audio session כדי שהגונג יתנגן *מעל*
+// המוזיקה של המשתמש ולא יהרוג את הנגן — 'auto' מאפשר לדפדפן להתייחס ל-context
+// שחי 48 דקות כנגן מוזיקה ולעצור את המוזיקה.
+function _cardioArmAudio() {
+    try {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
+    } catch (e) { return false; }
+    try {
+        if (navigator.audioSession) {
+            const prefs = StorageManager.getCardioPrefs();
+            navigator.audioSession.type = prefs.soloDucking ? 'transient-solo' : 'transient';
+        }
+    } catch (e) { /* אין API — ראה _cardioAudioNote */ }
+    return true;
+}
+
+// _cardioAudioNote — מה נאמר למשתמש כשאין שליטה על ה-audio session. הסיבה
+// נושאת את עצמה: "שגיאת צליל" היה נראה זהה לכל תקלה אפשרית.
+function _cardioAudioNote() {
+    if (typeof navigator === 'undefined' || navigator.audioSession) return '';
+    return 'הדפדפן הזה לא מאפשר ניגון מעל מוזיקה — הגונג עשוי לעצור את הנגן.';
+}
+
+function _cardioGain() {
+    const v = Number(StorageManager.getCardioPrefs().gongVolume);
+    return isNaN(v) ? 0.7 : Math.max(0.1, Math.min(1, v));
+}
+
+// _cardioBell — הכאת גונג: שלוש הרמוניות לא-שלמות + טרנזיינט רעש קצר, דעיכה
+// מעריכית. האנרגיה ב-600–1500Hz היא מה שמאפשר לו לחתוך דרך מוזיקה באוזניות.
+function _cardioBell(when) {
+    if (!audioContext) return;
+    const t0 = when != null ? when : audioContext.currentTime;
+    const vol = _cardioGain();
+    const master = audioContext.createGain();
+    master.gain.setValueAtTime(vol, t0);
+    master.connect(audioContext.destination);
+
+    [[622, 1], [933, 0.55], [1490, 0.3]].forEach(([freq, amp]) => {
+        const o = audioContext.createOscillator();
+        const g = audioContext.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(freq * (0.997 + Math.random() * 0.006), t0);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(amp * 0.9, t0 + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0008, t0 + 1.6);
+        o.connect(g); g.connect(master);
+        o.start(t0); o.stop(t0 + 1.7);
+    });
+
+    // טרנזיינט — ההקשה עצמה. בלעדיו הגונג נשמע כמו צפצוף ולא כמו מתכת.
+    const len = Math.floor(audioContext.sampleRate * 0.06);
+    const buf = audioContext.createBuffer(1, len, audioContext.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = audioContext.createBufferSource();
+    const bp = audioContext.createBiquadFilter();
+    const ng = audioContext.createGain();
+    bp.type = 'bandpass'; bp.frequency.setValueAtTime(1800, t0); bp.Q.value = 1.2;
+    ng.gain.setValueAtTime(0.5, t0);
+    src.buffer = buf; src.connect(bp); bp.connect(ng); ng.connect(master);
+    src.start(t0);
+}
+
+function cardioGong(times) {
+    if (!soundEnabled || !audioContext) return;
+    const n = Math.max(1, Math.min(3, times || 1));
+    const t0 = audioContext.currentTime;
+    for (let i = 0; i < n; i++) _cardioBell(t0 + i * 0.4);
+}
+
+// _cardioClack — הקשת עץ: רעש מסונן קצר. שלוש הקשות = הקלאקר של פינת הקרב.
+function _cardioClack(when) {
+    if (!audioContext) return;
+    const t0 = when != null ? when : audioContext.currentTime;
+    const len = Math.floor(audioContext.sampleRate * 0.04);
+    const buf = audioContext.createBuffer(1, len, audioContext.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.2);
+    const src = audioContext.createBufferSource();
+    const bp = audioContext.createBiquadFilter();
+    const g = audioContext.createGain();
+    bp.type = 'bandpass'; bp.frequency.setValueAtTime(1150, t0); bp.Q.value = 4;
+    g.gain.setValueAtTime(_cardioGain() * 0.9, t0);
+    src.buffer = buf; src.connect(bp); bp.connect(g); g.connect(audioContext.destination);
+    src.start(t0);
+}
+
+function cardioClapper() {
+    if (!soundEnabled || !audioContext) return;
+    const t0 = audioContext.currentTime;
+    [0, 0.22, 0.44].forEach(d => _cardioClack(t0 + d));
+}
+
+// cardioBlip — ספירת 3-2-1 בסוף ה"היכון".
+function cardioBlip() {
+    if (!soundEnabled || !audioContext) return;
+    const t0 = audioContext.currentTime;
+    const o = audioContext.createOscillator();
+    const g = audioContext.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(1320, t0);
+    g.gain.setValueAtTime(_cardioGain() * 0.22, t0);
+    g.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.12);
+    o.connect(g); g.connect(audioContext.destination);
+    o.start(t0); o.stop(t0 + 0.13);
+}
+
+// ─── מסך היכון ─────────────────────────────────────────────────────────────
+
+// startCardio — נקראת מ-selectWorkout כשהתוכנית אירובית. לא מאפסת אימון פעיל:
+// הבדיקה על אימון קיים נעשית ב-selectWorkout כמו באימון כוח.
+function startCardio(name) {
+    const cfg = _cardioNormalize(cardioPlanConfig(name));
+    state.type = name;
+    state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
+    state.clusterMode = false; state.activeCluster = null;
+    state.log = []; state.completedExInSession = []; state.exIdx = 0;
+    state.cardio = {
+        plan: name, mode: cfg.mode,
+        rounds: cfg.rounds, workSec: cfg.workSec, restSec: cfg.restSec, prepSec: cfg.prepSec,
+        targetSec: cfg.targetSec, combos: cfg.combos,
+        phase: 'idle', roundIdx: 0, phaseEndsAt: null, phaseStartedAt: null,
+        paused: false, pausedAt: null, pausedTotalMs: 0,
+        startedAt: null, roundLog: []
+    };
+    // אימון סבבים בלי צליל הוא חסר משמעות — הצלילים נדלקים כאן, לפני הרינדור,
+    // כדי שהמתג במסך יציג את המצב האמיתי ושכיבוי מכוון יישאר מכובד.
+    // בלי צפצוף: ה-AudioContext נפתח על הלחיצה על "התחל אימון" (חובה ב-iOS).
+    if (cfg.mode === 'interval' && !soundEnabled) {
+        soundEnabled = true;
+        StorageManager.saveData(StorageManager.KEY_SOUND, true);
+        const _tg = document.getElementById('sound-toggle');
+        if (_tg) _tg.checked = true;
+    }
+    navigate('ui-cardio-setup');
+    renderCardioSetup();
+    StorageManager.saveSessionState();
+}
+
+function _cardioStep(field, delta) {
+    const c = state.cardio; if (!c) return;
+    const steps = { rounds: 1, workSec: 15, restSec: 15, prepSec: 5, targetSec: 300 };
+    const lims  = { rounds: [1, CARDIO_MAX_ROUNDS], workSec: [10, 3600], restSec: [0, 1800],
+                    prepSec: [0, 60], targetSec: [300, 6 * 3600] };
+    const step = steps[field] || 1, lim = lims[field] || [0, 9999];
+    let v = Number(c[field]) || 0;
+    v += delta * step;
+    if (field === 'targetSec' && v < lim[0]) { c.targetSec = null; renderCardioSetup(); haptic('light'); return; }
+    c[field] = Math.max(lim[0], Math.min(lim[1], v));
+    haptic('light');
+    renderCardioSetup();
+    StorageManager.saveSessionState();
+}
+
+// cardioSaveSetupToPlan — "שמור כברירת מחדל": הזמנים שבמסך ההיכון נכתבים
+// לתוכנית עצמה. בלי זה השינוי תקף לאימון הנוכחי בלבד — וזו ברירת המחדל.
+function cardioSaveSetupToPlan() {
+    const c = state.cardio; if (!c) return;
+    const item = cardioPlanConfig(c.plan);
+    if (!item) { showAlert('התוכנית לא נמצאה.'); return; }
+    item.rounds = c.rounds; item.workSec = c.workSec; item.restSec = c.restSec;
+    item.prepSec = c.prepSec; item.targetSec = c.targetSec;
+    const ok = StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
+    if (!ok) { showAlert('שמירת התוכנית נכשלה — האחסון המקומי מלא.'); return; }
+    if (typeof autoSaveConfigToCloud === 'function') autoSaveConfigToCloud();
+    haptic('success');
+    showAlert('הזמנים נשמרו בתוכנית.');
+}
+
+function renderCardioSetup() {
+    const host = document.getElementById('cardio-setup-content');
+    const c = state.cardio;
+    if (!host || !c) return;
+    const prefs = StorageManager.getCardioPrefs();
+    const isInterval = c.mode === 'interval';
+    const t = cardioTotals(c);
+
+    const stepRow = (label, sub, field, valTxt) => `
+        <div class="cs-row">
+            <div class="cs-row-txt"><div class="cs-row-k">${label}</div><span class="cs-row-sub">${sub}</span></div>
+            <div class="cs-stepper">
+                <button class="cs-sq" onclick="_cardioStep('${field}',-1)" aria-label="הפחת">−</button>
+                <b>${valTxt}</b>
+                <button class="cs-sq" onclick="_cardioStep('${field}',1)" aria-label="הוסף">+</button>
+            </div>
+        </div>`;
+
+    const comboHtml = (isInterval && c.combos && c.combos.length) ? `
+        <div class="obsidian-card cs-card">
+            <h3 class="cs-card-t">קומבינציות</h3>
+            ${c.combos.map(x => `<div class="cs-combo">
+                <span>${escapeHtml(x.text)}</span>
+                <span class="cs-combo-r">${x.from === x.to ? 'סבב ' + x.from : `סבב ${x.from}–${x.to}`}</span>
+            </div>`).join('')}
+        </div>` : '';
+
+    const timesHtml = isInterval ? `
+        <div class="obsidian-card cs-card">
+            ${stepRow('עבודה', 'אורך סבב', 'workSec', _fmtClock(c.workSec))}
+            ${stepRow('מנוחה', 'בין סבבים', 'restSec', _fmtClock(c.restSec))}
+            ${stepRow('סבבים', `סה״כ ${_fmtClock(t.workTotalSec)} עבודה`, 'rounds', String(c.rounds))}
+            ${stepRow('היכון', 'לפני הגונג הראשון', 'prepSec', _fmtClock(c.prepSec))}
+        </div>` : `
+        <div class="obsidian-card cs-card">
+            ${stepRow('יעד זמן', c.targetSec ? 'הטבעת נסגרת אל היעד' : 'ללא יעד — שעון עולה', 'targetSec',
+                      c.targetSec ? _fmtClock(c.targetSec) : 'פתוח')}
+        </div>`;
+
+    const soundHtml = isInterval ? `
+        <div class="obsidian-card cs-card cs-card--quiet">
+            <div class="cs-row">
+                <div class="cs-row-txt">
+                    <div class="cs-row-k">פעמון קרב</div>
+                    <span class="cs-row-sub">גונג, קלאקר ${CARDIO_CLAPPER_AT} שניות, ספירה לאחור</span>
+                </div>
+                <label class="km-switch">
+                    <input type="checkbox" id="cardio-sound-toggle" ${soundEnabled ? 'checked' : ''}
+                           onchange="toggleSound(this.checked)">
+                    <span class="km-switch-track"></span>
+                </label>
+            </div>
+            <div class="cs-row">
+                <div class="cs-row-txt">
+                    <div class="cs-row-k">עצור מוזיקה בגונג</div>
+                    <span class="cs-row-sub">כבוי — הגונג מתנגן מעל המוזיקה ומעמעם אותה לרגע</span>
+                </div>
+                <label class="km-switch">
+                    <input type="checkbox" id="cardio-solo-toggle" ${prefs.soloDucking ? 'checked' : ''}
+                           onchange="cardioSetSolo(this.checked)">
+                    <span class="km-switch-track"></span>
+                </label>
+            </div>
+            <div class="cs-row">
+                <div class="cs-row-txt"><div class="cs-row-k">עוצמת הגונג</div>
+                    <span class="cs-row-sub">באותו ערוץ של המוזיקה</span></div>
+                <div class="cs-vol">
+                    <input type="range" id="cardio-vol" min="0.1" max="1" step="0.1" value="${prefs.gongVolume}"
+                           oninput="cardioSetVolume(this.value)">
+                    <button class="pill-btn" onclick="cardioTestGong()">נסה</button>
+                </div>
+            </div>
+        </div>` : '';
+
+    const note = _cardioAudioNote();
+
+    host.innerHTML = `
+        <div class="cs-head">
+            <div class="cs-eyebrow">אירובי</div>
+            <h2 class="cs-title">${escapeHtml(c.plan)}</h2>
+            <div class="cs-sub">${isInterval
+                ? `${c.rounds} סבבים · ${Math.round(t.totalSec / 60)} דקות`
+                : (c.targetSec ? `יעד ${Math.round(c.targetSec / 60)} דקות` : 'ללא יעד זמן')}</div>
+        </div>
+        ${timesHtml}
+        ${soundHtml}
+        ${comboHtml}
+        ${!isInterval ? `<div class="obsidian-card cs-card cs-card--quiet">
+            <div class="cs-note">בסיום האימון נתוני הדופק, הקלוריות והאזורים נשלפים מהשעון מעצמם.
+            אימון שהוקלט בשעון בלי הטלפון — הוסף אותו מהארכיון, ב"אימונים מהשעון".</div>
+        </div>` : ''}
+        ${note ? `<div class="cs-note cs-note--warn">${note}</div>` : ''}
+        <div class="cs-actions">
+            <button class="btn-main primary-gradient" onclick="startCardioSession()">התחל אימון</button>
+            <button class="btn-text" onclick="cardioSaveSetupToPlan()">שמור את הזמנים בתוכנית</button>
+        </div>`;
+}
+
+function cardioSetSolo(on) {
+    StorageManager.saveCardioPrefs({ soloDucking: !!on });
+    try {
+        if (navigator.audioSession && audioContext) navigator.audioSession.type = on ? 'transient-solo' : 'transient';
+    } catch (e) {}
+    haptic('light');
+}
+
+function cardioSetVolume(v) {
+    StorageManager.saveCardioPrefs({ gongVolume: Number(v) });
+}
+
+function cardioTestGong() {
+    if (!soundEnabled) { toggleSound(true); }
+    _cardioArmAudio();
+    setTimeout(() => cardioGong(1), 60);
+    haptic('light');
+}
+
+// ─── מנוע הפאזות ───────────────────────────────────────────────────────────
+// כל פאזה שומרת דדליין מוחלט (phaseEndsAt) והטיק מחשב מההפרש — לא מונה tick-ים.
+// בלי זה אימון של 48 דקות סוטה בשניות, וחזרה מרקע ממשיכה מפאזה מיושנת.
+
+let _cardioTimer = null;
+
+function startCardioSession() {
+    const c = state.cardio; if (!c) return;
+    _cardioArmAudio();
+    _acquireWakeLock();
+
+    state.workoutStartTime = Date.now();
+    state.sessionElapsedSecs = 0;
+    startSessionTimer();
+
+    c.startedAt = Date.now();
+    c.paused = false; c.pausedAt = null; c.pausedTotalMs = 0;
+    c.roundLog = [];
+    if (c.mode === 'open') {
+        c.phase = 'work'; c.roundIdx = 1;
+        c.phaseStartedAt = c.startedAt;
+        c.phaseEndsAt = c.targetSec ? c.startedAt + c.targetSec * 1000 : null;
+    } else if (c.prepSec > 0) {
+        _cardioEnterPhase('prep');
+    } else {
+        c.roundIdx = 0;
+        _cardioEnterPhase('work');
+    }
+    navigate('ui-cardio');
+    renderCardioLive();
+    _cardioStartTimer();
+    StorageManager.saveSessionState();
+}
+
+function _cardioStartTimer() {
+    if (_cardioTimer) clearInterval(_cardioTimer);
+    _cardioTimer = setInterval(_cardioTick, 100);
+}
+function _cardioStopTimer() {
+    if (_cardioTimer) { clearInterval(_cardioTimer); _cardioTimer = null; }
+}
+
+// _cardioEnterPhase — מעבר פאזה: קובע דדליין, מצלצל, ורושם את הסבב.
+function _cardioEnterPhase(phase) {
+    const c = state.cardio; if (!c) return;
+    const now = Date.now();
+    _cardioClapperFired = false;
+    c.phase = phase;
+    c.phaseStartedAt = now;
+
+    if (phase === 'prep') {
+        c.phaseEndsAt = now + c.prepSec * 1000;
+        c.roundIdx = 0;
+    } else if (phase === 'work') {
+        c.roundIdx = (c.roundIdx || 0) + 1;
+        c.phaseEndsAt = now + c.workSec * 1000;
+        c.roundLog.push({ i: c.roundIdx, workSec: 0, restSec: 0, skipped: false,
+                          combo: cardioComboFor(c.combos, c.roundIdx) || null });
+        cardioGong(1);
+        haptic('success');
+    } else if (phase === 'rest') {
+        c.phaseEndsAt = now + c.restSec * 1000;
+        cardioGong(2);
+        haptic('medium');
+    }
+    _cardioSyncUI();
+}
+
+// _cardioCloseRound — חותם את הסבב הנוכחי ברשומה: הזמן בפועל, ודגל דילוג.
+function _cardioCloseRound(field, actualSec, skipped) {
+    const c = state.cardio; if (!c || !c.roundLog.length) return;
+    const rec = c.roundLog[c.roundLog.length - 1];
+    rec[field] = Math.max(0, Math.round(actualSec));
+    if (skipped) rec.skipped = true;
+}
+
+function _cardioTick() {
+    const c = state.cardio;
+    if (!c || c.paused || c.phase === 'done' || c.phase === 'idle') return;
+
+    if (c.mode === 'open') { _cardioSyncUI(); return; }
+
+    const remainMs = (c.phaseEndsAt || 0) - Date.now();
+    const remainSec = remainMs / 1000;
+
+    if (!_cardioClapperFired && remainSec <= CARDIO_CLAPPER_AT && remainSec > CARDIO_CLAPPER_AT - 1) {
+        _cardioClapperFired = true;
+        if (c.phase === 'prep') cardioBlip(); else cardioClapper();
+        haptic('light');
+    }
+    if (c.phase === 'prep' && remainSec <= 3 && remainSec > 0) {
+        const whole = Math.ceil(remainSec);
+        if (c._lastBlip !== whole) { c._lastBlip = whole; cardioBlip(); }
+    }
+
+    if (remainMs <= 0) { _cardioAdvance(false); return; }
+    _cardioSyncUI();
+}
+
+// _cardioAdvance — סוף פאזה (או דילוג ידני). הסדר: היכון → עבודה →
+// (מנוחה → עבודה) × סבבים → סיום.
+function _cardioAdvance(manual) {
+    const c = state.cardio; if (!c) return;
+    const actual = Math.round((Date.now() - (c.phaseStartedAt || Date.now())) / 1000);
+
+    if (c.phase === 'prep') { _cardioEnterPhase('work'); StorageManager.saveSessionState(); return; }
+
+    if (c.phase === 'work') {
+        _cardioCloseRound('workSec', manual ? actual : c.workSec, manual);
+        if (c.roundIdx >= c.rounds) { finishCardio(); return; }
+        if (c.restSec > 0) _cardioEnterPhase('rest');
+        else _cardioEnterPhase('work');
+        StorageManager.saveSessionState();
+        return;
+    }
+
+    if (c.phase === 'rest') {
+        _cardioCloseRound('restSec', manual ? actual : c.restSec, false);
+        _cardioEnterPhase('work');
+        StorageManager.saveSessionState();
+    }
+}
+
+function cardioSkipPhase() {
+    const c = state.cardio; if (!c || c.phase === 'done') return;
+    haptic('warning');
+    if (c.mode === 'open') { finishCardio(); return; }
+    _cardioAdvance(true);
+}
+
+function cardioTogglePause() {
+    const c = state.cardio; if (!c || c.phase === 'done') return;
+    const now = Date.now();
+    if (!c.paused) {
+        c.paused = true; c.pausedAt = now;
+    } else {
+        const gap = now - (c.pausedAt || now);
+        c.paused = false; c.pausedAt = null;
+        c.pausedTotalMs = (c.pausedTotalMs || 0) + gap;
+        // דחיפת הדדליין קדימה בזמן ההפסקה — אחרת הפאזה "נגמרה" בזמן ההשהיה
+        if (c.phaseEndsAt) c.phaseEndsAt += gap;
+        if (c.phaseStartedAt) c.phaseStartedAt += gap;
+        _cardioArmAudio();
+    }
+    haptic('medium');
+    _cardioSyncUI();
+    StorageManager.saveSessionState();
+}
+
+// _cardioRecover — חזרה מרקע/רענון: הפאזות שחלפו בזמן שהדף לא רץ מושלמות
+// קדימה עד למצב הנוכחי. בלי זה האימון היה ממשיך מפאזה מיושנת.
+function _cardioRecover() {
+    const c = state.cardio;
+    if (!c || c.phase === 'done' || c.phase === 'idle' || c.mode === 'open') return;
+    if (c.paused) return;
+    let guard = 0;
+    while (c.phase !== 'done' && c.phaseEndsAt && c.phaseEndsAt <= Date.now() && guard++ < 200) {
+        _cardioAdvance(false);
+    }
+}
+
+// ─── מסך ה-Live ────────────────────────────────────────────────────────────
+
+function renderCardioLive() {
+    const host = document.getElementById('cardio-live-content');
+    const c = state.cardio;
+    if (!host || !c) return;
+    const isInterval = c.mode === 'interval';
+    host.innerHTML = `
+        <div class="cl-top">
+            <div class="cl-round" id="cl-round">—</div>
+            <div class="cl-total" id="cl-total">00:00</div>
+        </div>
+        ${isInterval ? `<div class="cl-rail" id="cl-rail"></div>` : ''}
+        <div class="cl-ring">
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+                <circle class="cl-ring-bg" cx="50" cy="50" r="46"></circle>
+                <circle id="cl-ring-bar" class="cl-ring-bar" cx="50" cy="50" r="46"></circle>
+            </svg>
+            <div class="cl-ring-in">
+                <div class="cl-time" id="cl-time">00:00</div>
+                <div class="cl-state" id="cl-state">—</div>
+            </div>
+        </div>
+        <div class="cl-cue" id="cl-cue"></div>
+        <div class="cl-btm">
+            <button class="btn-main cl-pause" id="cl-pause-btn" onclick="cardioTogglePause()">השהה</button>
+            <div class="cl-txtrow">
+                <button class="cl-txtbtn" onclick="cardioSkipPhase()" id="cl-skip-btn">דלג לסבב הבא</button>
+                <button class="cl-txtbtn" onclick="confirmFinishCardio()">סיים אימון</button>
+            </div>
+        </div>`;
+    _cardioSyncUI();
+}
+
+function _cardioSyncUI() {
+    const c = state.cardio; if (!c) return;
+    const q = id => document.getElementById(id);
+    const ring = q('cl-ring-bar'), timeEl = q('cl-time'), stateEl = q('cl-state');
+    if (!timeEl) return;
+
+    const COLORS = { prep: 'var(--warn)', work: 'var(--accent)', rest: 'var(--success)', done: 'var(--text-dim)' };
+    const LABELS = { prep: 'היכון', work: c.mode === 'open' ? 'בתנועה' : 'עבודה', rest: 'מנוחה', done: 'סיום' };
+
+    let remainSec, progress;
+    if (c.mode === 'open') {
+        const elapsed = Math.max(0, Math.round((Date.now() - (c.startedAt || Date.now()) - (c.pausedTotalMs || 0)) / 1000));
+        if (c.targetSec) { remainSec = Math.max(0, c.targetSec - elapsed); progress = Math.min(elapsed / c.targetSec, 1); }
+        else { remainSec = elapsed; progress = (elapsed % 60) / 60; }
+        timeEl.textContent = _fmtClock(remainSec);
+    } else {
+        const total = c.phase === 'prep' ? c.prepSec : (c.phase === 'rest' ? c.restSec : c.workSec);
+        remainSec = Math.max(0, Math.ceil(((c.phaseEndsAt || 0) - Date.now()) / 1000));
+        progress = total > 0 ? Math.min(Math.max(1 - remainSec / total, 0), 1) : 1;
+        timeEl.textContent = _fmtClock(remainSec);
+    }
+
+    const color = COLORS[c.phase] || 'var(--accent)';
+    if (ring) {
+        ring.style.stroke = color;
+        ring.style.strokeDashoffset = String(CARDIO_RING_CIRC - progress * CARDIO_RING_CIRC);
+    }
+    if (stateEl) { stateEl.textContent = c.paused ? 'מושהה' : (LABELS[c.phase] || ''); stateEl.style.color = color; }
+
+    const roundEl = q('cl-round');
+    if (roundEl) {
+        roundEl.innerHTML = c.mode === 'open'
+            ? escapeHtml(c.plan)
+            : `סבב <b>${Math.max(1, c.roundIdx || 1)}</b> / ${c.rounds}`;
+    }
+    const totalEl = q('cl-total');
+    if (totalEl) totalEl.textContent = _fmtClock(state.sessionElapsedSecs || 0) + ' מתחילת האימון';
+
+    const rail = q('cl-rail');
+    if (rail && c.mode === 'interval') {
+        let html = '';
+        for (let i = 1; i <= c.rounds; i++) {
+            const cls = i < (c.roundIdx || 1) ? 'done'
+                      : i === (c.roundIdx || 1) ? (c.phase === 'rest' ? 'now-rest' : 'now') : '';
+            html += `<i class="${cls}"></i>`;
+        }
+        rail.innerHTML = html;
+    }
+
+    const cue = q('cl-cue');
+    if (cue) {
+        if (c.mode === 'open') {
+            cue.innerHTML = `<div class="cl-cue-n">${c.targetSec ? 'נותרו עד היעד' : 'שעון עולה — "סיים אימון" חותם'}</div>`;
+        } else if (c.phase === 'prep') {
+            const first = cardioComboFor(c.combos, 1);
+            cue.innerHTML = `<div class="cl-cue-k">מתחילים</div>
+                <div class="cl-cue-v">${first ? escapeHtml(first) : 'סבב 1'}</div>
+                <div class="cl-cue-n">גונג בעוד ${_fmtClock(remainSec)}</div>`;
+        } else if (c.phase === 'rest') {
+            const next = cardioComboFor(c.combos, (c.roundIdx || 1) + 1);
+            const nextRound = (c.roundIdx || 1) + 1;
+            cue.innerHTML = `${remainSec <= CARDIO_CLAPPER_AT ? `<span class="cl-chip">קלאקר · ${CARDIO_CLAPPER_AT} שניות</span>` : ''}
+                <div class="cl-cue-v">${nextRound <= c.rounds
+                    ? `סבב ${nextRound}${next ? ' — ' + escapeHtml(next) : ''}` : 'הסבב האחרון הסתיים'}</div>
+                <div class="cl-cue-n">גונג בעוד ${_fmtClock(remainSec)}</div>`;
+        } else {
+            const combo = cardioComboFor(c.combos, c.roundIdx || 1);
+            cue.innerHTML = combo
+                ? `<div class="cl-cue-k">קומבינציה</div><div class="cl-cue-v">${escapeHtml(combo)}</div>
+                   <div class="cl-cue-n">אחריו — ${c.roundIdx >= c.rounds ? 'סיום' : 'מנוחה ' + _fmtClock(c.restSec)}</div>`
+                : `<div class="cl-cue-n">אחריו — ${c.roundIdx >= c.rounds ? 'סיום' : 'מנוחה ' + _fmtClock(c.restSec)}</div>`;
+        }
+    }
+
+    const pauseBtn = q('cl-pause-btn');
+    if (pauseBtn) pauseBtn.textContent = c.paused ? 'המשך' : 'השהה';
+    const skipBtn = q('cl-skip-btn');
+    if (skipBtn) {
+        skipBtn.textContent = c.mode === 'open' ? 'סיים ושמור'
+            : (c.phase === 'rest' ? 'דלג למנוחה הבאה' : 'דלג לסבב הבא');
+    }
+    document.body.classList.toggle('cardio-paused', !!c.paused);
+}
+
+function confirmFinishCardio() {
+    const c = state.cardio; if (!c) return;
+    if (c.mode === 'interval' && c.roundIdx < c.rounds) {
+        showConfirm(`לסיים את האימון לאחר ${Math.max(0, c.roundIdx - 1)} סבבים שהושלמו?`, () => finishCardio());
+        return;
+    }
+    finishCardio();
+}
+
+// ─── סיום ושמירה ───────────────────────────────────────────────────────────
+
+function finishCardio() {
+    const c = state.cardio; if (!c) return;
+    const actual = Math.round((Date.now() - (c.phaseStartedAt || Date.now())) / 1000);
+    if (c.mode === 'open') {
+        const elapsed = Math.max(0, Math.round((Date.now() - (c.startedAt || Date.now()) - (c.pausedTotalMs || 0)) / 1000));
+        c.roundLog = [{ i: 1, workSec: elapsed, restSec: 0, skipped: false, combo: null }];
+    } else if (c.phase === 'work') {
+        _cardioCloseRound('workSec', Math.min(actual, c.workSec), actual < c.workSec - 1);
+    } else if (c.phase === 'rest') {
+        _cardioCloseRound('restSec', actual, false);
+    }
+    c.phase = 'done';
+    c.paused = false;
+    _cardioStopTimer();
+    stopSessionTimer();
+    _releaseWakeLock();
+    cardioGong(3);
+    haptic('success');
+
+    state.workoutDurationMins = state.sessionElapsedSecs ? Math.round(state.sessionElapsedSecs / 60) : 0;
+    state.archivedTimestamp = state.archivedTimestamp || Date.now();
+    _saveCardioToArchive('');
+    if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
+        FirebaseManager.saveArchiveToCloud()
+            .then(ok => notifyCloudSaveFailure(ok, 'archive', 'גיבוי ארכיון'))
+            .catch(() => {});
+    }
+    const noteEl = document.getElementById('summary-note');
+    if (noteEl) noteEl.value = '';
+    navigate('ui-summary');
+    buildSummaryUI();
+    StorageManager.saveSessionState();
+}
+
+// CARDIOSUM-START — בלוק טהור, נבדק ב-test/cardio-archive.test.js (אל תסיר את הסמנים)
+// buildCardioArchiveEntry — רשומת הארכיון של אימון אירובי. details ריק בכוונה:
+// לאירובי אין נפח, וכל מדד נפח באפליקציה נגזר מ-details.
+// cardio.rounds הוא מערך של maps (כמו log) — מערך בתוך מערך נדחה ב-Firestore.
+function buildCardioArchiveEntry(src) {
+    const c = src.cardio || {};
+    const rounds = (c.roundLog || []).map(r => ({
+        i: r.i, workSec: r.workSec || 0, restSec: r.restSec || 0,
+        skipped: !!r.skipped, combo: r.combo || null
+    }));
+    const workTotalSec = rounds.reduce((s, r) => s + (r.workSec || 0), 0);
+    const restTotalSec = rounds.reduce((s, r) => s + (r.restSec || 0), 0);
+    const weekLabel = src.week === 'deload' ? 'Deload' : `Week ${src.week}`;
+    const modeLabel = c.mode === 'open' ? 'רציף' : 'סבבים';
+
+    const lines = [
+        'GYMPRO ELITE SUMMARY',
+        `${src.type} | אירובי (${modeLabel}) | ${weekLabel} | ${src.dateStr} | ${src.duration}m`,
+        ''
+    ];
+    if (src.note) { lines.push(`הערה: ${src.note}`); lines.push(''); }
+    if (c.mode === 'open') {
+        lines.push(`זמן בתנועה: ${_fmtClock(workTotalSec)}${c.targetSec ? ` (יעד ${_fmtClock(c.targetSec)})` : ''}`);
+    } else {
+        lines.push(`סבבים: ${rounds.length}/${c.rounds} · עבודה ${_fmtClock(workTotalSec)} · מנוחה ${_fmtClock(restTotalSec)}`);
+        lines.push(`מתוכנן: ${c.rounds} × ${_fmtClock(c.workSec)} עבודה / ${_fmtClock(c.restSec)} מנוחה`);
+        lines.push('');
+        rounds.forEach(r => {
+            lines.push(`סבב ${r.i}: עבודה ${_fmtClock(r.workSec)}${r.restSec ? ` · מנוחה ${_fmtClock(r.restSec)}` : ''}` +
+                       `${r.skipped ? ' (נקטע)' : ''}${r.combo ? ` | ${r.combo}` : ''}`);
+        });
+    }
+
+    return {
+        timestamp: src.timestamp,
+        date: src.dateStr,
+        time: src.timeStr,
+        type: src.type,
+        kind: 'cardio',
+        week: src.week,
+        duration: src.duration,
+        summary: lines.join('\n').trimEnd(),
+        details: {},
+        exOrder: [],
+        log: [],
+        note: src.note || '',
+        cardio: {
+            mode: c.mode === 'open' ? 'open' : 'interval',
+            roundsPlanned: c.mode === 'open' ? 1 : (c.rounds || 0),
+            roundsDone: rounds.length,
+            workSec: c.workSec || 0, restSec: c.restSec || 0, prepSec: c.prepSec || 0,
+            targetSec: c.targetSec || null,
+            workTotalSec, restTotalSec,
+            soundPack: c.soundPack || 'boxing',
+            rounds
+        },
+        nutritionalState: src.nutritionalState || null
+    };
+}
+// CARDIOSUM-END
+
+function _saveCardioToArchive(note) {
+    const c = state.cardio; if (!c) return;
+    const ts = state.archivedTimestamp || Date.now();
+    state.archivedTimestamp = ts;
+    const d = new Date(ts);
+    const prev = StorageManager.getArchive().find(a => a.timestamp === ts);
+    const entry = buildCardioArchiveEntry({
+        timestamp: ts,
+        dateStr: d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+        timeStr: d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+        type: state.type, week: state.week, duration: state.workoutDurationMins || 0,
+        note: note || '',
+        cardio: Object.assign({}, c, { soundPack: StorageManager.getCardioPrefs().soundPack }),
+        nutritionalState: (prev && prev.nutritionalState) || (StorageManager.getNutritionalState() || {}).state || null
+    });
+    // שיוך שעון שכבר נעשה לרשומה הזו נשמר — הוא לא נגזר מה-state
+    if (prev && prev.watch) entry.watch = prev.watch;
+
+    let saved = StorageManager.updateArchiveEntry(ts, entry);
+    if (!saved) saved = StorageManager.saveToArchive(entry);
+    if (!saved) {
+        showAlert('שגיאה: האימון לא נשמר בארכיון! האחסון המקומי מלא — ייצא גיבוי ופנה מקום, ואז סיים שוב.');
+        return;
+    }
+    haptic('success');
+}
+
+// isCardioSession — האם הסשן הנוכחי הוא אירובי שהסתיים/רץ. משמש את מסך הסיכום.
+function isCardioSession() {
+    return !!(state.cardio && state.cardio.plan && state.type === state.cardio.plan);
+}
+
+// buildCardioRoundsHTML — לשונית "ביצוע" של אימון אירובי, במסך הסיכום ובארכיון.
+function buildCardioRoundsHTML(entry) {
+    const c = entry && entry.cardio;
+    if (!c) return '';
+    const rounds = Array.isArray(c.rounds) ? c.rounds : [];
+    if (c.mode === 'open') {
+        return `<div class="obsidian-card">
+            <div class="card-header"><h3 class="card-title">אימון רציף</h3>
+                <span class="card-vol">${_fmtClock(c.workTotalSec || 0)}</span></div>
+            <div class="krow"><span>זמן בתנועה</span><span class="kv">${_fmtClock(c.workTotalSec || 0)}</span></div>
+            ${c.targetSec ? `<div class="krow"><span>יעד</span><span class="kv">${_fmtClock(c.targetSec)}</span></div>` : ''}
+        </div>`;
+    }
+    const rowsHtml = rounds.map(r => `
+        <div class="cr-row">
+            <span class="cr-n">${String(r.i).padStart(2, '0')}</span>
+            <span class="cr-w">${_fmtClock(r.workSec || 0)} עבודה${r.combo ? `<span class="cr-c">${escapeHtml(r.combo)}</span>` : ''}</span>
+            <span class="cr-r">${r.skipped ? 'נקטע' : (r.restSec ? 'מנוחה ' + _fmtClock(r.restSec) : '—')}</span>
+        </div>`).join('');
+    return `<div class="obsidian-card">
+        <div class="card-header">
+            <h3 class="card-title">סבבים ${c.roundsDone || rounds.length}/${c.roundsPlanned || rounds.length}</h3>
+            <span class="card-vol">${_fmtClock(c.workTotalSec || 0)}</span>
+        </div>
+        ${rowsHtml || '<div class="cs-note">לא נרשמו סבבים.</div>'}
+    </div>`;
+}
+
+// ─── ייבוא אימון מהשעון ────────────────────────────────────────────────────
+// אימון שהוקלט בשעון בלי הטלפון יושב במאגר gympro_watch_workouts ואף אחד לא
+// רואה אותו. כאן הוא נעשה רשומת ארכיון — **בלחיצה בלבד.** מנגנון שיוצר
+// רשומות מעצמו הוא בדיוק סוג הכשל השקט שהאפליקציה נכוותה ממנו.
+
+// _cardioPlanForWatchType — התוכנית האירובית שמצהירה על סוג האימון הזה.
+function _cardioPlanForWatchType(wType) {
+    const t = String(wType || '').trim().toLowerCase();
+    if (!t) return '';
+    const names = Object.keys(state.workouts || {}).filter(isCardioWorkout);
+    for (const name of names) {
+        const cfg = cardioPlanConfig(name);
+        const list = (cfg && Array.isArray(cfg.watchTypes)) ? cfg.watchTypes : [];
+        if (list.some(x => String(x).trim().toLowerCase() === t)) return name;
+    }
+    return '';
+}
+
+function unlinkedWatchWorkouts() {
+    return StorageManager.getWatchWorkouts()
+        .filter(w => w && !w.linkedTs && w.start && w.end)
+        .sort((a, b) => b.start - a.start);
+}
+
+function renderWatchInbox() {
+    const host = document.getElementById('watch-inbox-list');
+    if (!host) return;
+    const list = unlinkedWatchWorkouts();
+    const hdr = document.getElementById('watch-inbox-count');
+    if (hdr) hdr.textContent = list.length ? `${list.length} ממתינים` : '';
+    if (!list.length) {
+        host.innerHTML = emptyStateHtml('watch', 'אין אימוני שעון ממתינים',
+            'אימון שתקליט בשעון בלי הטלפון יופיע כאן אחרי המשיכה הבאה מהגשר');
+        return;
+    }
+    host.innerHTML = list.map(w => {
+        const planName = _cardioPlanForWatchType(w.wType);
+        const bits = [`${_fmtHm(w.start)}–${_fmtHm(w.end)}`, `${w.durMin} דק׳`];
+        if (w.hrAvg) bits.push(`דופק ${w.hrAvg}${w.hrMax ? '/' + w.hrMax : ''}`);
+        if (w.activeKcal) bits.push(`${w.activeKcal} קק״ל`);
+        if (w.distanceKm) bits.push(`${w.distanceKm} ק״מ`);
+        const dstr = new Date(w.start).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        return `<div class="wi-card">
+            <div class="wi-info">
+                <span class="wi-title">${escapeHtml(w.wType || 'אימון שעון')}${
+                    planName ? `<span class="wi-plan">${escapeHtml(planName)}</span>` : ''}</span>
+                <span class="wi-meta">${dstr} · ${escapeHtml(bits.join(' · '))}</span>
+            </div>
+            <button class="pill-btn wi-add" onclick="adoptWatchWorkout('${escapeJsAttr(w.id)}')">הוסף לארכיון</button>
+        </div>`;
+    }).join('');
+}
+
+// adoptWatchWorkout — יוצר רשומת ארכיון אירובית מאימון שעון ומשייך אותו.
+// ה-timestamp הוא סוף האימון בשעון, כדי שההקשר והמוכנות ייגזרו ליום הנכון.
+function adoptWatchWorkout(srcId) {
+    const rec = StorageManager.getWatchWorkouts().find(w => w && w.id === srcId);
+    if (!rec) { showAlert('אימון השעון לא נמצא.'); return; }
+    const planName = _cardioPlanForWatchType(rec.wType);
+    if (!planName) {
+        _openWatchAdoptPicker(srcId);
+        return;
+    }
+    _adoptWatchWorkoutAs(rec, planName);
+}
+
+function _openWatchAdoptPicker(srcId) {
+    const names = Object.keys(state.workouts || {}).filter(isCardioWorkout);
+    if (!names.length) { showAlert('אין תוכנית אירובית לשייך אליה. צור אחת בניהול תוכניות.'); return; }
+    const host = document.getElementById('watch-adopt-list');
+    const modal = document.getElementById('watch-adopt-modal');
+    if (!host || !modal) { _adoptWatchWorkoutAs(StorageManager.getWatchWorkouts().find(w => w.id === srcId), names[0]); return; }
+    host.innerHTML = names.map(n => `<button class="wi-pick" onclick="_confirmWatchAdopt('${escapeJsAttr(srcId)}','${escapeJsAttr(n)}')">${escapeHtml(n)}</button>`).join('');
+    modal.style.display = 'flex';
+}
+function closeWatchAdoptModal() {
+    const m = document.getElementById('watch-adopt-modal');
+    if (m) m.style.display = 'none';
+}
+function _confirmWatchAdopt(srcId, planName) {
+    closeWatchAdoptModal();
+    const rec = StorageManager.getWatchWorkouts().find(w => w && w.id === srcId);
+    if (rec) _adoptWatchWorkoutAs(rec, planName);
+}
+
+function _adoptWatchWorkoutAs(rec, planName) {
+    if (!rec) return;
+    const ts = rec.end || rec.start || Date.now();
+    if (StorageManager.getArchive().some(a => a.timestamp === ts)) {
+        showAlert('האימון הזה כבר נמצא בארכיון.');
+        return;
+    }
+    const d = new Date(ts);
+    const cfg = _cardioNormalize(cardioPlanConfig(planName));
+    const durSec = Math.max(0, Math.round(((rec.end || ts) - (rec.start || ts)) / 1000));
+    const entry = buildCardioArchiveEntry({
+        timestamp: ts,
+        dateStr: d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+        timeStr: d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+        type: planName,
+        week: state.week || 1,
+        duration: rec.durMin || Math.round(durSec / 60),
+        note: '',
+        cardio: { mode: 'open', rounds: 1, workSec: 0, restSec: 0, prepSec: 0,
+                  targetSec: cfg.targetSec,
+                  roundLog: [{ i: 1, workSec: durSec, restSec: 0, skipped: false, combo: null }] },
+        nutritionalState: (StorageManager.getNutritionalState() || {}).state || null
+    });
+    entry.watch = _watchAttach(rec, entry.date, 'manual');
+
+    if (!StorageManager.saveToArchive(entry)) {
+        showAlert('שגיאה: הרשומה לא נשמרה בארכיון — האחסון המקומי מלא.');
+        return;
+    }
+    StorageManager.markWatchLinked(rec.id, ts, 'manual');
+    if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured()) {
+        FirebaseManager.saveArchiveToCloud()
+            .then(ok => notifyCloudSaveFailure(ok, 'archive', 'גיבוי ארכיון'))
+            .catch(() => {});
+    }
+    haptic('success');
+    renderWatchInbox();
+    if (typeof renderArchiveList === 'function') renderArchiveList();
+    showAlert(`"${planName}" נוסף לארכיון עם נתוני השעון.`);
+}
+
+// buildCardioSummaryUI — מסך הסיכום של אימון אירובי. אותה אנטומיה של מסך
+// הכוח (כותרת → שלושה מדדים → בורר → הערה → "שמור וסגור"), עם שתי סטיות:
+// המדדים העליונים הם זמן/סבבים/עבודה במקום זמן/נפח/סטים, ואין לשונית "מאמן" —
+// לאירובי אין סיכום מאמן (ולכן גם אין קריאה ל-AI ואין aiSummary).
+function buildCardioSummaryUI(area) {
+    const c = state.cardio;
+    if (!area || !c) return;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+    const archiveTs = state.archivedTimestamp;
+    const entry = archiveTs ? StorageManager.getArchive().find(a => a.timestamp === archiveTs) : null;
+    const cc = (entry && entry.cardio) || null;
+    const workTotal = cc ? cc.workTotalSec : (c.roundLog || []).reduce((s, r) => s + (r.workSec || 0), 0);
+    const roundsDone = cc ? cc.roundsDone : (c.roundLog || []).length;
+
+    const metricsHtml = entry ? buildMetricsPaneHTML(entry) : '';
+    const logHtml = entry ? buildCardioRoundsHTML(entry) : '';
+
+    const midStat = c.mode === 'open'
+        ? `<div class="stat-col"><div class="stat-val" style="color:var(--accent);">${_fmtClock(workTotal)}</div>
+             <div class="stat-lbl">זמן בתנועה</div></div>`
+        : `<div class="stat-col"><div class="stat-val" style="color:var(--accent);">${roundsDone}</div>
+             <div class="stat-lbl">סבבים</div></div>`;
+
+    area.innerHTML = `
+        <div class="summary-header">
+            <div class="summary-subtitle">${dateStr} • ${timeStr}</div>
+            <div class="summary-subtitle" style="color:var(--text-dim);margin-top:2px;text-transform:none;">${escapeHtml(state.type)}</div>
+            <h1 class="summary-title">סיימנו<br>להיום.</h1>
+        </div>
+
+        <div class="summary-stats-glass">
+            <div class="stat-col">
+                <div class="stat-val">${state.workoutDurationMins}<span style="font-size:0.9rem;opacity:0.6;">m</span></div>
+                <div class="stat-lbl">משך</div>
+            </div>
+            ${midStat}
+            <div class="stat-col">
+                <div class="stat-val">${_fmtClock(workTotal)}</div>
+                <div class="stat-lbl">זמן עבודה</div>
+            </div>
+        </div>
+
+        <div class="segment-wrapper summary-seg">
+            <button class="seg-btn active" data-sumtab="metrics" onclick="setSummaryTab('metrics')">מדדים</button>
+            <button class="seg-btn" data-sumtab="log" onclick="setSummaryTab('log')">ביצוע</button>
+        </div>
+
+        <div id="sum-tab-metrics" class="tab-content active" data-ts="${archiveTs || ''}">${metricsHtml}</div>
+        <div id="sum-tab-log" class="tab-content">${logHtml}</div>
+
+        <input type="text" id="summary-note" class="summary-note-input" placeholder="איך היה האימון? (הערה כללית לארכיון)...">
+        <button id="summary-save-btn" class="btn-main primary-gradient pulse" onclick="copyResult()" style="margin-top:10px;">שמור וסגור</button>
+    `;
+
+    // משיכה אוטומטית של נתוני השעון — אותו מנגנון של אימון כוח
+    if (archiveTs) startWatchAutoPull(archiveTs);
 }

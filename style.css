@@ -7996,7 +7996,9 @@ body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
 .cl-ring {
     /* מבנה ועובי זהים לטיימר מסך ה-Live (.live-timer-*): טבעת 280px, קו 2px,
        ספרות 4.6rem נטויות, והתווית בתוך הטבעת. */
-    position: relative; width: 280px; height: 280px; max-width: 88vw; margin: 22px auto 0;
+    /* גדול מטיימר ה-Live בכוונה: במסך האירובי אין שם תרגיל, כרטיס יעד וכרטיס
+       החלקה — ולכן יש מקום פנוי שהטבעת יכולה למלא. */
+    position: relative; width: min(92vw, 340px); aspect-ratio: 1; margin: 12px auto 0;
     display: grid; place-items: center; flex-shrink: 0;
 }
 .cl-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
@@ -8011,23 +8013,23 @@ body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
 .cl-ring-in { text-align: center; z-index: 2; }
 .cl-time {
     font-family: 'Heebo', sans-serif; font-style: italic; font-weight: 900;
-    font-size: 4.6rem; color: #fff; line-height: 1; letter-spacing: -0.06em;
+    font-size: 5.6rem; color: #fff; line-height: 1; letter-spacing: -0.06em;
     direction: ltr; font-variant-numeric: tabular-nums;
 }
 .cl-state {
-    position: absolute; bottom: 56px; left: 0; right: 0; text-align: center;
+    position: absolute; bottom: 19%; left: 0; right: 0; text-align: center;
     font-family: 'Heebo', sans-serif; font-style: italic; font-weight: 900;
     font-size: var(--fs-xs); letter-spacing: 3px; text-transform: uppercase;
 }
-@media (max-height: 760px) {
-    .cl-ring { width: 220px; height: 220px; }
-    .cl-time { font-size: 3.8rem; }
-    .cl-state { bottom: 42px; }
+/* מסך נמוך — הטבעת מתכווצת כדי שהפעולות בתחתית יישארו נגישות */
+@media (max-height: 780px) {
+    .cl-ring { width: min(86vw, 280px); margin-top: 6px; }
+    .cl-time { font-size: 4.6rem; }
 }
-@media (max-height: 600px) {
-    .cl-ring { width: 180px; height: 180px; }
-    .cl-time { font-size: 3rem; }
-    .cl-state { bottom: 32px; }
+@media (max-height: 700px) {
+    .cl-ring { width: min(70vw, 215px); margin-top: 2px; }
+    .cl-time { font-size: 3.4rem; }
+    .cl-cue { margin-top: 14px; min-height: 62px; }
 }
 .cl-cue { margin-top: 24px; text-align: center; min-height: 78px; }
 .cl-cue-k {

@@ -10202,6 +10202,10 @@ function _cardioSyncUI() {
     const COLORS = { prep: 'var(--warn)', work: 'var(--accent)', rest: 'var(--success)', done: 'var(--text-dim)' };
     const GLOWS  = { prep: 'rgba(255,214,10,0.45)', work: 'rgba(10,132,255,0.45)',
                      rest: 'rgba(48,209,88,0.45)', done: 'rgba(142,142,147,0.3)' };
+    // הילת הספרות חלשה מהילת הטבעת (0.28 מול 0.45) — בגודל הזה הילה חזקה
+    // נקראת כמלבן מואר סביב המספר, בדיוק כמו בטיימר ה-Live
+    const TGLOWS = { prep: 'rgba(255,214,10,0.26)', work: 'rgba(10,132,255,0.28)',
+                     rest: 'rgba(48,209,88,0.26)', done: 'rgba(142,142,147,0.2)' };
     const LABELS = { prep: 'היכון', work: c.mode === 'open' ? 'בתנועה' : 'עבודה', rest: 'מנוחה', done: 'סיום' };
 
     let remainSec, progress;
@@ -10224,7 +10228,7 @@ function _cardioSyncUI() {
         ring.style.filter = `drop-shadow(0 0 8px ${glow})`;
         ring.style.strokeDashoffset = String(CARDIO_RING_CIRC - progress * CARDIO_RING_CIRC);
     }
-    timeEl.style.textShadow = `0 0 30px ${glow}`;
+    timeEl.style.textShadow = `0 0 30px ${TGLOWS[c.phase] || TGLOWS.work}`;
     if (stateEl) { stateEl.textContent = c.paused ? 'מושהה' : (LABELS[c.phase] || ''); stateEl.style.color = color; }
 
     const roundEl = q('cl-round');

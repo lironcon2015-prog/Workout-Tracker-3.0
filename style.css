@@ -7921,3 +7921,194 @@ body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
 .wc-dots i:nth-child(3) { animation-delay: 0.4s; }
 @keyframes wcPulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.95; } }
 @media (prefers-reduced-motion: reduce) { .wc-dots i { animation: none; opacity: 0.55; } }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CARDIO — אימון אירובי (v19.13)
+   אותם טוקנים של Liquid Obsidian. צבע = מצב: עבודה accent, מנוחה success,
+   היכון warn. אין אדום — אדום באפליקציה הזו הוא שגיאה, לא מאמץ.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* כפתור pill גנרי — לפי כלל העיצוב: surface-4, radius מלא, ללא אייקון */
+.pill-btn {
+    background: var(--surface-4); border: 1px solid var(--hairline); border-radius: var(--r-pill);
+    color: var(--text); font-family: inherit; font-size: var(--fs-sm); font-weight: 800;
+    padding: 8px 15px; align-self: flex-start; box-shadow: var(--top-glint); cursor: pointer;
+}
+.pill-btn:active { transform: scale(0.96); }
+
+/* ── מסך היכון ── */
+.cs-head { padding: 4px 0 18px; }
+.cs-eyebrow {
+    font-size: var(--fs-xs); font-weight: 900; letter-spacing: 0.16em;
+    color: var(--accent); text-transform: uppercase;
+}
+.cs-title { font-size: 1.55rem; font-weight: 900; line-height: 1.1; margin: 4px 0 2px; letter-spacing: -0.02em; }
+.cs-sub { font-size: var(--fs-sm); color: var(--text-dim); font-weight: 500; }
+.cs-card { margin-bottom: 10px; }
+.cs-card--quiet { background: var(--surface-1); }
+.cs-card-t {
+    font-size: var(--fs-sm); font-weight: 900; letter-spacing: 0.06em;
+    color: var(--text-dim); text-transform: uppercase; margin: 0 0 10px;
+}
+.cs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cs-row + .cs-row { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.cs-row-k { font-size: var(--fs-lg); font-weight: 700; }
+.cs-row-sub { display: block; font-size: var(--fs-xs); color: var(--text-dim); font-weight: 500; margin-top: 2px; }
+.cs-stepper { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.cs-stepper b {
+    min-width: 64px; text-align: center; font-size: 1.15rem; font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+.cs-sq {
+    width: 36px; height: 36px; border-radius: var(--r-xs); background: var(--surface-4);
+    border: 1px solid var(--hairline); color: var(--text); font-family: inherit;
+    font-size: 1.1rem; font-weight: 700; display: grid; place-items: center;
+    box-shadow: var(--top-glint); cursor: pointer;
+}
+.cs-sq:active { transform: scale(0.94); }
+.cs-vol { display: flex; align-items: center; gap: 10px; }
+.cs-vol input[type="range"] { width: 100px; accent-color: var(--accent); }
+.cs-combo {
+    display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-md);
+    font-weight: 700; padding: 8px 0; border-bottom: 1px solid var(--hairline);
+}
+.cs-combo:last-child { border-bottom: none; }
+.cs-combo-r { color: var(--text-dim); font-weight: 500; font-variant-numeric: tabular-nums; }
+.cs-note { font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.6; font-weight: 500; }
+.cs-note--warn { color: var(--warn); padding: 10px 2px; }
+.cs-actions { margin-top: 18px; padding-bottom: 24px; }
+
+/* ── מסך האימון ── */
+.cardio-live-screen { padding-bottom: 0; }
+#cardio-live-content { display: flex; flex-direction: column; min-height: 82vh; }
+.cl-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cl-round { font-size: var(--fs-sm); font-weight: 900; letter-spacing: 0.1em; color: var(--text-dim); }
+.cl-round b { color: var(--text); font-size: var(--fs-lg); }
+.cl-total { font-size: var(--fs-sm); font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.cl-rail { display: flex; gap: 3px; margin-top: 14px; }
+.cl-rail i { flex: 1; height: 4px; border-radius: 2px; background: var(--surface-4); }
+.cl-rail i.done { background: rgba(255,255,255,0.34); }
+.cl-rail i.now { background: var(--accent); box-shadow: 0 0 10px rgba(var(--accent-rgb),0.6); }
+.cl-rail i.now-rest { background: var(--success); box-shadow: 0 0 10px rgba(var(--success-rgb),0.6); }
+.cl-ring {
+    position: relative; width: min(68vw, 250px); aspect-ratio: 1; margin: 26px auto 0;
+    display: grid; place-items: center;
+}
+.cl-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.cl-ring-bg { fill: none; stroke: var(--surface-3); stroke-width: 6; }
+.cl-ring-bar {
+    fill: none; stroke-width: 6; stroke-linecap: round;
+    stroke-dasharray: 289; stroke-dashoffset: 289;
+    transition: stroke-dashoffset 120ms linear, stroke var(--dur-2) var(--ease);
+}
+.cl-ring-in { text-align: center; z-index: 2; }
+.cl-time {
+    font-size: 3.5rem; font-weight: 900; line-height: 1; letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+}
+.cl-state {
+    font-size: var(--fs-sm); font-weight: 900; letter-spacing: 0.3em;
+    margin-top: 8px; text-transform: uppercase;
+}
+.cl-cue { margin-top: 24px; text-align: center; min-height: 78px; }
+.cl-cue-k {
+    font-size: var(--fs-xs); font-weight: 900; letter-spacing: 0.2em;
+    color: var(--text-dim); text-transform: uppercase;
+}
+.cl-cue-v { font-size: 1.25rem; font-weight: 900; margin-top: 6px; letter-spacing: -0.01em; }
+.cl-cue-n { font-size: var(--fs-sm); color: var(--text-dim); font-weight: 500; margin-top: 8px; }
+.cl-chip {
+    display: inline-flex; align-items: center; border-radius: var(--r-pill); padding: 5px 12px;
+    font-size: var(--fs-xs); font-weight: 900; letter-spacing: 0.08em;
+    background: rgba(var(--warn-rgb),0.12); color: var(--warn); border: 1px solid rgba(var(--warn-rgb),0.28);
+}
+.cl-btm {
+    margin-top: auto; display: flex; flex-direction: column; gap: 8px;
+    /* Session strip קבוע בתחתית (50px + safe-area) — הכפתורים מפנים לו מקום */
+    padding: 18px 0 calc(66px + env(safe-area-inset-bottom, 0px));
+}
+.cl-pause {
+    background: var(--surface-3); border: 1px solid var(--hairline-hi);
+    box-shadow: var(--top-glint); color: var(--text);
+}
+.cl-txtrow { display: flex; gap: 10px; }
+.cl-txtbtn {
+    flex: 1; background: none; border: none; color: var(--text-dim); font-family: inherit;
+    font-size: var(--fs-md); font-weight: 700; padding: 10px; cursor: pointer;
+}
+/* מושהה — הטבעת דהויה, כדי שמצב ההשהיה יהיה חד-משמעי גם במבט חטוף */
+body.cardio-paused .cl-ring { opacity: 0.45; }
+
+/* ── רשימת סבבים (סיכום + ארכיון) ── */
+.cr-row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 2px;
+    border-bottom: 1px solid var(--hairline); font-size: var(--fs-md);
+}
+.cr-row:last-child { border-bottom: none; }
+.cr-n {
+    width: 28px; height: 28px; border-radius: var(--r-xs); background: var(--surface-4);
+    display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 900;
+    font-variant-numeric: tabular-nums; flex: 0 0 auto;
+}
+.cr-w { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cr-c { display: block; font-size: var(--fs-xs); color: var(--text-dim); font-weight: 500; margin-top: 2px; }
+.cr-r {
+    margin-inline-start: auto; color: var(--text-dim); font-weight: 600;
+    font-variant-numeric: tabular-nums; font-size: var(--fs-sm); flex: 0 0 auto;
+}
+
+/* ── אריחי מרחק/קצב בכרטיס השעון ── */
+.wc-m .v-dist { color: var(--accent); }
+.wc-m .v-pace { color: var(--type-free-soft); }
+
+/* ── "אימונים מהשעון" בארכיון ── */
+.wi-section { margin-top: 22px; }
+.wi-hdr {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 0 4px 10px; border-bottom: 1px solid var(--hairline); margin-bottom: 12px;
+}
+.wi-hdr-t { font-size: var(--fs-xl); font-weight: 900; }
+.wi-hdr-c { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; }
+.wi-card {
+    display: flex; align-items: center; gap: 12px; background: var(--surface-2);
+    border: 1px solid var(--hairline); border-radius: var(--r-md); padding: 12px 14px;
+    box-shadow: var(--top-glint); margin-bottom: 9px;
+}
+.wi-info { flex: 1; min-width: 0; }
+.wi-title { display: block; font-size: var(--fs-lg); font-weight: 900; }
+.wi-plan {
+    display: inline-block; margin-inline-start: 8px; font-size: var(--fs-xs); font-weight: 800;
+    color: var(--accent); background: var(--accent-soft); border-radius: var(--r-pill); padding: 2px 8px;
+}
+.wi-meta { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; }
+.wi-add { flex: 0 0 auto; }
+.wi-pick {
+    width: 100%; background: var(--surface-3); border: 1px solid var(--hairline-hi);
+    border-radius: var(--r-md); color: var(--text); font-family: inherit;
+    font-size: var(--fs-lg); font-weight: 800; padding: 13px; cursor: pointer;
+    box-shadow: var(--top-glint);
+}
+
+/* ── תווית סוג התוכנית + עורך הקומבינציות ── */
+.km-kind-badge {
+    display: inline-block; margin-inline-start: 8px; font-size: 0.6rem; font-weight: 900;
+    letter-spacing: 0.08em; color: var(--type-free-soft); background: rgba(94,92,230,0.16);
+    border-radius: var(--r-pill); padding: 2px 8px; vertical-align: middle;
+}
+.ec-combo-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.ec-num {
+    width: 48px; flex: 0 0 auto; background: var(--surface-1); border: 1px solid var(--hairline);
+    border-radius: var(--r-xs); color: var(--text); font-family: inherit; font-size: var(--fs-md);
+    font-weight: 700; padding: 8px 4px; text-align: center;
+}
+.ec-dash { color: var(--text-dim); font-weight: 700; }
+.ec-txt {
+    flex: 1; min-width: 0; background: var(--surface-1); border: 1px solid var(--hairline);
+    border-radius: var(--r-xs); color: var(--text); font-family: inherit;
+    font-size: var(--fs-md); font-weight: 600; padding: 8px 10px;
+}
+.ec-del {
+    flex: 0 0 auto; width: 32px; height: 32px; border-radius: var(--r-xs);
+    background: var(--danger-soft); border: none; color: #fff; font-family: inherit;
+    font-size: 1rem; font-weight: 900; cursor: pointer;
+}

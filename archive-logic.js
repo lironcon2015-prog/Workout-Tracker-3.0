@@ -101,7 +101,10 @@ function _applyArchiveSubTab() {
     show('archive-sub-weight', sub === 'weight');
     show('archive-sub-nutrition', sub === 'nutrition');
     show('ar-range-chips', sub !== 'workouts');
-    if (sub === 'workouts') renderArchiveList();
+    if (sub === 'workouts') {
+        renderArchiveList();
+        if (typeof renderWatchInbox === 'function') renderWatchInbox();   // אימוני שעון שטרם שויכו
+    }
     else if (sub === 'weight' && typeof _renderBodyList === 'function') _renderBodyList(StorageManager.getBodyLog());
     else if (sub === 'nutrition' && typeof _renderNutritionList === 'function') _renderNutritionList();
 }
@@ -125,9 +128,17 @@ function getLastPerformances(exName, limit = 5) {
     return results;
 }
 
+// getArchiveClean — הארכיון שממנו נגזר כל מדד **נפח** (אנליטיקה, hero, שיאים,
+// פלאטו). אימון אירובי אינו נושא נפח, ולכן הוא מסונן כאן — נקודה אחת — כדי
+// שלא יוסיף עמודת 0kg להשוואת סוגי האימונים ולא ידלל את ממוצע הדקות.
+// מי שצריך את הארכיון המלא (רשימה, לוח שנה, "אימון אחרון") קורא ישירות
+// ל-StorageManager.getArchive().
 function getArchiveClean() {
-    return StorageManager.getArchive().filter(a => a && a.timestamp);
+    return StorageManager.getArchive().filter(a => a && a.timestamp && a.kind !== 'cardio');
 }
+
+// isCardioEntry — רשומת ארכיון אירובית.
+function isCardioEntry(item) { return !!(item && item.kind === 'cardio'); }
 
 function getWorkoutVolume(workoutEntry) {
     if (!workoutEntry || !workoutEntry.details) return 0;
@@ -173,6 +184,18 @@ function getMuscleSetCounts(archive, range) {
     return map;
 }
 
+// _cardioCardStats — שני המדדים הראשונים בכרטיס אירובי: [[ערך, תווית], ...].
+// סבבים+עבודה באימון סבבים; זמן בתנועה+דופק באימון רציף.
+function _cardioCardStats(item) {
+    const c = item.cardio || {};
+    const fmt = sec => (typeof _fmtClock === 'function' ? _fmtClock(sec || 0) : String(sec || 0));
+    if (c.mode === 'open') {
+        const hr = item.watch && item.watch.hrAvg ? String(item.watch.hrAvg) : '—';
+        return [[fmt(c.workTotalSec), 'בתנועה'], [hr, 'דופק']];
+    }
+    return [[String(c.roundsDone || 0), 'סבבים'], [fmt(c.workTotalSec), 'עבודה']];
+}
+
 function createArchiveCard(item) {
     const card = document.createElement('div');
     card.className = 'archive-list-card';
@@ -182,6 +205,8 @@ function createArchiveCard(item) {
     const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : vol + 'kg';
     const totalSets = getWorkoutTotalSets(item);
     const thumbUrl = getWorkoutThumbUrl(item.type);
+    // אירובי — אותו רכיב, שלושה מדדים אחרים. נפח וסטים אינם קיימים בו.
+    const cardioStats = isCardioEntry(item) ? _cardioCardStats(item) : null;
     const idx = StorageManager.getArchive().findIndex(a => a.timestamp === item.timestamp);
 
     // פס-צבע לפי סוג האימון (אותו color של המטא) — רמז זהות עדין
@@ -213,12 +238,12 @@ function createArchiveCard(item) {
         </div>
         <div class="archive-card-stats">
             <div class="archive-stat-cell">
-                <span class="archive-stat-value">${totalSets || '—'}</span>
-                <span class="archive-stat-label">סטים</span>
+                <span class="archive-stat-value">${cardioStats ? cardioStats[0][0] : (totalSets || '—')}</span>
+                <span class="archive-stat-label">${cardioStats ? cardioStats[0][1] : 'סטים'}</span>
             </div>
             <div class="archive-stat-cell">
-                <span class="archive-stat-value archive-stat-accent">${volStr}</span>
-                <span class="archive-stat-label">נפח</span>
+                <span class="archive-stat-value archive-stat-accent">${cardioStats ? cardioStats[1][0] : volStr}</span>
+                <span class="archive-stat-label">${cardioStats ? cardioStats[1][1] : 'נפח'}</span>
             </div>
             <div class="archive-stat-cell">
                 <span class="archive-stat-value">${item.duration || 0}′</span>
@@ -489,6 +514,12 @@ function buildArchiveDetailHTML(item) {
         </div>` : ''}</div>`;
     html += `<div id="arch-tab-metrics" class="tab-content${defaultTab === 'metrics' ? ' active' : ''}" data-ts="${item.timestamp}">${metricsHtml}</div>`;
     html += `<div id="arch-tab-log" class="tab-content${defaultTab === 'log' ? ' active' : ''}">`;
+
+    if (isCardioEntry(item)) {
+        html += (typeof buildCardioRoundsHTML === 'function') ? buildCardioRoundsHTML(item) : '';
+        html += `</div>`;
+        return html;
+    }
 
     if (item.log && item.log.length > 0) {
         const segs = [];
@@ -1480,10 +1511,13 @@ const HERO_METRIC_DEFS = {
 
 function renderHeroCard() {
     const prefs = getAnalyticsPrefs(), archive = getArchiveClean();
+    // "אימון אחרון" נלקח מהארכיון **המלא**: אימון אירובי מסונן מהמדדים הנגזרים
+    // מנפח, אבל הוא בהחלט האימון האחרון שהמשתמש עשה.
+    const fullArchive = StorageManager.getArchive().filter(a => a && a.timestamp);
     const lastWoEl = document.getElementById('hero-last-workout');
     if (lastWoEl) {
-        if (archive.length > 0) {
-            const last = archive[0], days = Math.floor((Date.now() - last.timestamp) / 86400000);
+        if (fullArchive.length > 0) {
+            const last = fullArchive[0], days = Math.floor((Date.now() - last.timestamp) / 86400000);
             const daysStr = days === 0 ? 'היום' : days === 1 ? 'אתמול' : `לפני ${days} ימים`;
             lastWoEl.textContent = `${last.type} • ${daysStr}`;
         } else { lastWoEl.textContent = 'טרם בוצעו אימונים'; }

@@ -420,7 +420,7 @@
     <div id="unified-export-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>ייצוא קובץ מאוחד (לניתוח)</h3>
-            <p class="sub-text" style="margin-bottom:16px;">קובץ JSON אחד: שקילות, תזונה (יומית + מפורטת), היסטוריית אימונים (כולל נתוני Apple Watch לאימון), שינה+התאוששות ותיבת זיכרון המאמן. בחר טווח.</p>
+            <p class="sub-text" style="margin-bottom:16px;">קובץ JSON אחד: שקילות, תזונה (יומית + מפורטת), היסטוריית אימונים — כוח ואירובי (כולל נתוני Apple Watch, סבבי אירובי וזמני עבודה), שינה+התאוששות ותיבת זיכרון המאמן. בחר טווח.</p>
             <div class="vertical-stack">
                 <button class="btn-main primary-gradient" onclick="exportUnifiedData('all')">הכל</button>
                 <button class="btn-text" onclick="exportUnifiedData(7)">7 ימים אחרונים</button>
@@ -435,6 +435,15 @@
             </div>
             <button class="btn-text" onclick="exportUnifiedData('custom')">ייצא טווח מותאם</button>
             <button class="btn-text color-dim" onclick="closeUnifiedExportModal()">ביטול</button>
+        </div>
+    </div>
+
+    <div id="watch-adopt-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>לאיזו תוכנית לשייך?</h3>
+            <p class="sub-text" style="margin-bottom:14px;">סוג האימון בשעון לא זוהה. בחר תוכנית אירובית — אפשר גם להוסיף את סוג האימון לתוכנית בעורך, ואז השיוך יזוהה מעצמו.</p>
+            <div id="watch-adopt-list" class="vertical-stack"></div>
+            <button class="btn-text color-dim" onclick="closeWatchAdoptModal()">ביטול</button>
         </div>
     </div>
 
@@ -1183,6 +1192,23 @@
                     </div>
                 </div>
 
+                <!-- סוג תוכנית: כוח / אירובי -->
+                <div class="km-section-label km-section-label--mt">סוג תוכנית</div>
+                <div class="km-seg-control" id="editor-kind-seg">
+                    <button class="km-seg-btn" data-kind="cardio" onclick="setEditorKind('cardio')">אירובי</button>
+                    <button class="km-seg-btn active" data-kind="strength" onclick="setEditorKind('strength')">כוח</button>
+                </div>
+
+                <!-- אירובי: מודל, זמנים וקומבינציות -->
+                <div id="editor-cardio-block" style="display:none;">
+                    <div class="km-section-label km-section-label--mt">מודל אימון</div>
+                    <div class="km-seg-control" id="editor-cardio-mode-seg">
+                        <button class="km-seg-btn" data-mode="open" onclick="setEditorCardioMode('open')">רציף</button>
+                        <button class="km-seg-btn active" data-mode="interval" onclick="setEditorCardioMode('interval')">סבבים</button>
+                    </div>
+                    <div id="editor-cardio-fields"></div>
+                </div>
+
                 <!-- צבע מזהה -->
                 <div class="km-section-label km-section-label--mt">צבע מזהה</div>
                 <div id="editor-color-swatches" class="km-accent-row"></div>
@@ -1192,7 +1218,7 @@
                 <div id="editor-thumb-picker" class="km-thumb-grid"></div>
 
                 <!-- זרימת אימון -->
-                <div class="km-flow-header">
+                <div class="km-flow-header" id="editor-flow-header">
                     <span class="km-section-label" style="margin:0;">זרימת אימון</span>
                     <span id="editor-block-count" class="km-block-count">0 בלוקים סה"כ</span>
                 </div>
@@ -1200,7 +1226,7 @@
 
                 <!-- BOTTOM ACTIONS -->
                 <div class="km-editor-bottom-actions">
-                    <div class="km-add-row">
+                    <div class="km-add-row" id="editor-add-row">
                         <button class="km-add-btn" onclick="openExerciseSelector()">
                             <span class="material-symbols-outlined km-add-icon">add_circle</span>
                             הוסף תרגיל
@@ -1257,6 +1283,16 @@
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
                     </div>
                 </button>
+            </div>
+
+            <!-- CARDIO — מסך היכון -->
+            <div id="ui-cardio-setup" class="screen">
+                <div id="cardio-setup-content"></div>
+            </div>
+
+            <!-- CARDIO — מסך אימון (סבבים / רציף) -->
+            <div id="ui-cardio" class="screen cardio-live-screen" data-no-swipe-back>
+                <div id="cardio-live-content"></div>
             </div>
 
             <div id="ui-variation" class="screen">
@@ -1530,6 +1566,15 @@
                             <button class="archive-pill-btn archive-pill-cancel" onclick="_exitArchiveSelectMode()" aria-label="בטל בחירה"><span class="material-symbols-outlined">close</span></button>
                         </div>
                         <div id="archive-list" class="vertical-stack"></div>
+
+                        <!-- אימוני שעון שטרם שויכו — אימון שהוקלט בשעון בלי הטלפון -->
+                        <div class="wi-section">
+                            <div class="wi-hdr">
+                                <span class="wi-hdr-t">אימונים מהשעון</span>
+                                <span class="wi-hdr-c" id="watch-inbox-count"></span>
+                            </div>
+                            <div id="watch-inbox-list" class="vertical-stack"></div>
+                        </div>
                     </div>
 
                     <!-- צ'יפי טווח — משותפים לשקילות ולתזונה -->

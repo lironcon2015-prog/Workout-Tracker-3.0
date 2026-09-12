@@ -127,3 +127,38 @@ const substituteGroups = [
 const unilateralKeywords = [
     "Dumbbell", "Cable Lateral", "Single", "Concentration", "Hammer", "Pistol", "Walking Lunges", "Bulgarian", "Kickback", "One Arm", "Arnold", "Raises"
 ];
+
+// ─── CARDIO — תוכניות אירובי ברירת מחדל ───────────────────────────────────
+// מודל 'interval' = סבבי עבודה/מנוחה (טיימר + גונג). מודל 'open' = רציף,
+// שבו השעון הוא מקור האמת (watchTypes = שמות סוגי האימון בשעון לזיהוי).
+// נזרעות דרך StorageManager.seedCardioWorkouts() — defaultWorkouts נטען רק
+// בהתקנה ראשונה, ולכן תוכנית שתתווסף שם לא הייתה מגיעה למשתמש קיים.
+const defaultCardioWorkouts = {
+    'שדו בוקסינג': {
+        meta: { kind: 'cardio', color: '#5E5CE6', _thumbIdx: 11 },
+        plan: [{
+            type: 'cardio', mode: 'interval',
+            rounds: 12, workSec: 180, restSec: 60, prepSec: 10,
+            combos: [
+                { from: 1, to: 4,  text: 'ג׳ב · ג׳ב · קרוס' },
+                { from: 5, to: 8,  text: '1-2 · סליפ · 1-2-3' },
+                { from: 9, to: 12, text: 'אפרקאט · הוק · יציאה' }
+            ]
+        }]
+    },
+    'אופניים': {
+        meta: { kind: 'cardio', color: '#30D158', _thumbIdx: 12 },
+        plan: [{ type: 'cardio', mode: 'open', targetSec: null,
+                 watchTypes: ['Cycling', 'Indoor Cycle', 'Outdoor Cycle', 'אופניים'] }]
+    },
+    'ריצה': {
+        meta: { kind: 'cardio', color: '#FF9F0A', _thumbIdx: 13 },
+        plan: [{ type: 'cardio', mode: 'open', targetSec: null,
+                 watchTypes: ['Running', 'Outdoor Run', 'Indoor Run', 'ריצה'] }]
+    },
+    'הליכה': {
+        meta: { kind: 'cardio', color: '#0A84FF', _thumbIdx: 14 },
+        plan: [{ type: 'cardio', mode: 'open', targetSec: null,
+                 watchTypes: ['Walking', 'Outdoor Walk', 'Indoor Walk', 'הליכה'] }]
+    }
+};

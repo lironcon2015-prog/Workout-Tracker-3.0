@@ -131,7 +131,7 @@ if (summarySent) {
 // נופל בשקט. הנפילה לאחור (צירוף בסוף) היא מה שמונע את זה — אם תוסר, שום דבר
 // לא יזרוק, פשוט יחסרו נתונים בפרומפט.
 const wcSrc = SRC['workout-core.js'];
-['{recovery}', '{memoryBox}'].forEach(ph => {
+['{recovery}', '{memoryBox}', '{persona}'].forEach(ph => {
     const re = new RegExp("\\['" + ph.replace(/[{}]/g, '\\$&') + "'");
     chk(re.test(wcSrc), `${ph} — קיימת נפילה לאחור לתבנית שלא מכילה אותו`);
 });

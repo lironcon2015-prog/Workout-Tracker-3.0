@@ -135,7 +135,7 @@ const unilateralKeywords = [
 // בהתקנה ראשונה, ולכן תוכנית שתתווסף שם לא הייתה מגיעה למשתמש קיים.
 const defaultCardioWorkouts = {
     'שדו בוקסינג': {
-        meta: { kind: 'cardio', color: '#5E5CE6', _thumbIdx: 11 },
+        meta: { kind: 'cardio', color: '#5E5CE6', _thumbIdx: 16 },
         plan: [{
             type: 'cardio', mode: 'interval',
             rounds: 12, workSec: 180, restSec: 60, prepSec: 10,
@@ -147,7 +147,7 @@ const defaultCardioWorkouts = {
         }]
     },
     'אופניים': {
-        meta: { kind: 'cardio', color: '#30D158', _thumbIdx: 12 },
+        meta: { kind: 'cardio', color: '#30D158', _thumbIdx: 17 },
         plan: [{ type: 'cardio', mode: 'open', targetSec: null,
                  watchTypes: ['Cycling', 'Indoor Cycle', 'Outdoor Cycle', 'אופניים'] }]
     },
@@ -157,7 +157,7 @@ const defaultCardioWorkouts = {
                  watchTypes: ['Running', 'Outdoor Run', 'Indoor Run', 'ריצה'] }]
     },
     'הליכה': {
-        meta: { kind: 'cardio', color: '#0A84FF', _thumbIdx: 14 },
+        meta: { kind: 'cardio', color: '#0A84FF', _thumbIdx: 18 },
         plan: [{ type: 'cardio', mode: 'open', targetSec: null,
                  watchTypes: ['Walking', 'Outdoor Walk', 'Indoor Walk', 'הליכה'] }]
     }

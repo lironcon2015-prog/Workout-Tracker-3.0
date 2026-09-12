@@ -5373,7 +5373,10 @@ function _fillTemplate(tpl, map) {
     return out;
 }
 
-function _buildCoachSummaryPrompt(scope) {
+// tplOverride — תבנית שגוברת על השמורה (הטקסט שבעורך הפתוח, כולל עריכה שטרם
+// נשמרה). בלעדיו העתקת הפרומפט הייתה מציגה את הגרסה השמורה בזמן שעל המסך
+// מופיע נוסח אחר — הפרש שקט שנראה כאילו ההעתקה מחזירה ברירת מחדל.
+function _buildCoachSummaryPrompt(scope, tplOverride) {
     const ts = state.archivedTimestamp;
     const archive = StorageManager.getArchive();
     const currentEntry = archive.find(a => a.timestamp === ts);
@@ -5414,7 +5417,8 @@ function _buildCoachSummaryPrompt(scope) {
     })();
     const recovery = (typeof _buildSleepAIContext === 'function' && _buildSleepAIContext(false, _wDate)) || '';
 
-    const template = StorageManager.getCoachPrompt(scope);
+    const template = (typeof tplOverride === 'string' && tplOverride.trim())
+        ? tplOverride : StorageManager.getCoachPrompt(scope);
     const filled = _fillTemplate(template, {
         reliability, workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics, recovery
     });
@@ -7439,6 +7443,15 @@ function _copyTextFallback(text, done) {
 // live() — הפרומפט המוגמר עם הנתונים האמיתיים ברגע ההעתקה.
 //          חלק מהפרומפטים נשלחים רק בתוך זרימה (הערת תיקון, שיחת צ'אט, תרגיל
 //          בקיבעון) — שם live() זורק, וההעתקה רושמת את הסיבה במקום להיכשל.
+// _coachPromptDraft — הנוסח שעל המסך כרגע (העורך הפתוח), גם אם טרם נשמר.
+// מחזיר null כשהעורך סגור/ריק או כשאין הבדל מהשמור.
+function _coachPromptDraft(scope) {
+    const el = document.getElementById('coach-prompt-' + scope);
+    const val = el ? String(el.value || '').trim() : '';
+    if (!val || val === String(StorageManager.getCoachPrompt(scope) || '').trim()) return null;
+    return val;
+}
+
 function coachPromptBook() {
     const sm = StorageManager;
     const noCtx = msg => { const e = new Error(msg); e._ctx = true; throw e; };
@@ -7463,22 +7476,25 @@ function coachPromptBook() {
             title: 'סיכום אימון',
             when: 'בסיום כל אימון שאינו סוף שבוע/בלוק.',
             source: 'storage.js → COACH_PROMPT_DEFAULTS.workout (ניתן לעריכה במסך)',
-            tpl: () => sm.getCoachPrompt('workout'),
-            live: () => state.archivedTimestamp ? _buildCoachSummaryPrompt('workout') : noCtx('אין אימון מסוכם פתוח — סיים אימון והעתק שוב.')
+            draft: () => _coachPromptDraft('workout'),
+            tpl: () => _coachPromptDraft('workout') || sm.getCoachPrompt('workout'),
+            live: () => state.archivedTimestamp ? _buildCoachSummaryPrompt('workout', _coachPromptDraft('workout')) : noCtx('אין אימון מסוכם פתוח — סיים אימון והעתק שוב.')
         },
         {
             title: 'סיכום שבועי',
             when: 'בסיום האימון האחרון של השבוע.',
             source: 'storage.js → COACH_PROMPT_DEFAULTS.week (ניתן לעריכה במסך)',
-            tpl: () => sm.getCoachPrompt('week'),
-            live: () => state.archivedTimestamp ? _buildCoachSummaryPrompt('week') : noCtx('אין אימון מסוכם פתוח — סיים אימון והעתק שוב.')
+            draft: () => _coachPromptDraft('week'),
+            tpl: () => _coachPromptDraft('week') || sm.getCoachPrompt('week'),
+            live: () => state.archivedTimestamp ? _buildCoachSummaryPrompt('week', _coachPromptDraft('week')) : noCtx('אין אימון מסוכם פתוח — סיים אימון והעתק שוב.')
         },
         {
             title: 'סיכום בלוק (מזוסייקל)',
             when: 'בסיום האימון האחרון של שבוע 3.',
             source: 'storage.js → COACH_PROMPT_DEFAULTS.block (ניתן לעריכה במסך)',
-            tpl: () => sm.getCoachPrompt('block'),
-            live: () => state.archivedTimestamp ? _buildCoachSummaryPrompt('block') : noCtx('אין אימון מסוכם פתוח — סיים אימון והעתק שוב.')
+            draft: () => _coachPromptDraft('block'),
+            tpl: () => _coachPromptDraft('block') || sm.getCoachPrompt('block'),
+            live: () => state.archivedTimestamp ? _buildCoachSummaryPrompt('block', _coachPromptDraft('block')) : noCtx('אין אימון מסוכם פתוח — סיים אימון והעתק שוב.')
         },
         {
             title: 'תיקון סיכום לפי הערת המתאמן (Refine)',
@@ -7539,6 +7555,10 @@ function copyAllCoachPrompts() {
 
     book.forEach((p, i) => {
         out.push('', RULE, `${i + 1}. ${p.title}`, RULE, `מתי: ${p.when}`, `מקור: ${p.source}`);
+        // הנוסח שעל המסך גובר על השמור — ומסומן, כדי שלא ייראה כמו הגרסה השמורה
+        let draft = false;
+        try { draft = !!(p.draft && p.draft()); } catch (e) {}
+        if (draft) out.push('שים לב: הנוסח למטה הוא מה שבעורך כרגע — עריכה שטרם נשמרה.');
 
         let tpl = '';
         try { tpl = String(p.tpl() || '').trim(); }

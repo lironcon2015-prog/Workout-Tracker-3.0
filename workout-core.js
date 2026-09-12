@@ -5417,14 +5417,22 @@ function _buildCoachSummaryPrompt(scope, tplOverride) {
     })();
     const recovery = (typeof _buildSleepAIContext === 'function' && _buildSleepAIContext(false, _wDate)) || '';
 
+    // כללי תיבת הזיכרון — עד v19.12.2 הוזרקו לצ'אט בלבד, כך שכלל שהמתאמן אישר
+    // ("Belt Squat אינו אקסיאלי") חייב את המאמן בשיחה אך לא בסיכום האוטומטי.
+    // אותו מקטע בדיוק, כולל הכותרת וההנחיה שהכללים מחייבים.
+    const memoryBox = (typeof _memoryBoxSection === 'function' && _memoryBoxSection()) || '';
+
     const template = (typeof tplOverride === 'string' && tplOverride.trim())
         ? tplOverride : StorageManager.getCoachPrompt(scope);
-    const filled = _fillTemplate(template, {
-        reliability, workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics, recovery
+    let filled = _fillTemplate(template, {
+        reliability, workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics, recovery, memoryBox
     });
-    // תבנית מותאמת ישנה עשויה לא לכלול את ה-placeholder {recovery} — במקרה כזה מצרפים
-    // את מקטע ההתאוששות בסוף כדי שהמאמן תמיד יראה אותו (כשקיימים נתוני שינה אמיתיים).
-    return (recovery && !template.includes('{recovery}')) ? (filled + '\n' + recovery) : filled;
+    // תבנית מותאמת שנשמרה לפני שה-placeholder הזה נוסף לא מכילה אותו — ואז המקטע
+    // היה נופל בשקט. מצרפים אותו בסוף, כדי שתבנית ישנה לא תשתיק נתונים שקיימים.
+    [['{recovery}', recovery], ['{memoryBox}', memoryBox]].forEach(([ph, sec]) => {
+        if (sec && !template.includes(ph)) filled += '\n' + sec;
+    });
+    return filled;
 }
 
 function generateCoachSummary() {

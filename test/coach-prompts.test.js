@@ -123,8 +123,18 @@ if (summarySent) {
         chk(missing.length === 0, `COACH_PROMPT_DEFAULTS.${scope} — כל placeholder נתמך ע"י בונה הסיכום`,
             missing.length ? `אין להם מקור: [${missing}]` : `${have.size} שדות`);
         chk(have.has('reliability'), `COACH_PROMPT_DEFAULTS.${scope} — כולל {reliability} (כללי האנטי-הזיה)`);
+        chk(have.has('memoryBox'), `COACH_PROMPT_DEFAULTS.${scope} — כולל {memoryBox} (כללי תיבת הזיכרון)`);
     });
 }
+
+// ── מקטעי-זנב: תבנית מותאמת ישנה לא מכילה placeholder שנוסף אחריה, ואז המקטע
+// נופל בשקט. הנפילה לאחור (צירוף בסוף) היא מה שמונע את זה — אם תוסר, שום דבר
+// לא יזרוק, פשוט יחסרו נתונים בפרומפט.
+const wcSrc = SRC['workout-core.js'];
+['{recovery}', '{memoryBox}'].forEach(ph => {
+    const re = new RegExp("\\['" + ph.replace(/[{}]/g, '\\$&') + "'");
+    chk(re.test(wcSrc), `${ph} — קיימת נפילה לאחור לתבנית שלא מכילה אותו`);
+});
 
 // ── ספר הפרומפטים — כל 9 הסוגים רשומים, ולכל אחד כותרת ומקור ────────
 const book = SRC['workout-core.js'].slice(

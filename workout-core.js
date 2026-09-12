@@ -3256,35 +3256,22 @@ function _closeSetRecSheet(instant = false) {
     }
 }
 
-function _buildRecommendationPrompt(exName) {
-    const nutri    = getNutritionalContext();
-    const persona  = StorageManager.getAIPersona() || '';
-    const performances = (typeof getLastPerformances === 'function') ? getLastPerformances(exName, 5) : [];
-    const targetReps   = state.currentEx?.targetReps ?? '';
-    const targetRIR    = state.currentEx?.targetRIR ?? '';
-    const currentSetN  = (state.setIdx || 0) + 1;
-    const lastRM       = StorageManager.getLastRM ? StorageManager.getLastRM(exName) : '';
-
-    let history = '';
-    performances.forEach(p => {
-        const setsStr = (p.sets || []).join(' | ');
-        history += `  - ${p.date}: ${setsStr}\n`;
-    });
-    if (!history) history = '  (אין נתונים קודמים)\n';
-
-    return `You are a strength training coach. Recommend ONE next set for the user.
+// COACHPROMPT: המלצת הסט הבא — תבנית בעלת שם (ולא literal בתוך הפונקציה), כדי
+// שמסך "פרומפטי המאמן" יציג ויעתיק בדיוק את מה שנשלח למודל. מקור אמת אחד.
+const COACH_SET_REC_TPL =
+`You are a strength training coach. Recommend ONE next set for the user.
 
 Context:
-- Nutritional state: ${nutri}
-- Exercise: ${exName}
-- Set number (this session): ${currentSetN}
-- Target reps: ${targetReps || 'unspecified'}
-- Target RIR: ${targetRIR !== '' ? targetRIR : 'unspecified'}
-- Last 1RM: ${lastRM || 'unspecified'}
-- Persona: ${persona || 'unspecified'}
+- Nutritional state: {nutrition}
+- Exercise: {exName}
+- Set number (this session): {setNumber}
+- Target reps: {targetReps}
+- Target RIR: {targetRIR}
+- Last 1RM: {lastRM}
+- Persona: {persona}
 
 Last sessions (newest first):
-${history}
+{history}
 
 Guidelines:
 - The nutritional state label above is authoritative for these rules. Do not infer the phase from history, persona, or anything else.
@@ -3301,6 +3288,33 @@ Weight rounding rule (CRITICAL):
 
 Respond with ONLY valid JSON (no markdown, no commentary, no code fences):
 { "w": <number kg>, "r": <number reps>, "rir": <number>, "reason": "<short Hebrew explanation up to 80 chars>" }`;
+
+function _buildRecommendationPrompt(exName) {
+    const nutri    = getNutritionalContext();
+    const persona  = StorageManager.getAIPersona() || '';
+    const performances = (typeof getLastPerformances === 'function') ? getLastPerformances(exName, 5) : [];
+    const targetReps   = state.currentEx?.targetReps ?? '';
+    const targetRIR    = state.currentEx?.targetRIR ?? '';
+    const currentSetN  = (state.setIdx || 0) + 1;
+    const lastRM       = StorageManager.getLastRM ? StorageManager.getLastRM(exName) : '';
+
+    let history = '';
+    performances.forEach(p => {
+        const setsStr = (p.sets || []).join(' | ');
+        history += `  - ${p.date}: ${setsStr}\n`;
+    });
+    if (!history) history = '  (אין נתונים קודמים)\n';
+
+    return _fillTemplate(COACH_SET_REC_TPL, {
+        nutrition: nutri,
+        exName,
+        setNumber: currentSetN,
+        targetReps: targetReps || 'unspecified',
+        targetRIR: targetRIR !== '' ? targetRIR : 'unspecified',
+        lastRM: lastRM || 'unspecified',
+        persona: persona || 'unspecified',
+        history
+    });
 }
 
 // ─── שכבת תחבורה משותפת ל-Gemini (v17.12) ───────────────────────────────────
@@ -5321,6 +5335,37 @@ function _coachScope() {
     return 'workout';
 }
 
+// COACHPROMPT: תיקון סיכום לפי הערת המתאמן — תבנית בעלת שם, כדי שמסך
+// "פרומפטי המאמן" יציג ויעתיק בדיוק את מה שנשלח למודל. מקור אמת אחד.
+const COACH_REFINE_TPL =
+`אתה מאמן כוח. כתבת למתאמן את הסיכום הבא:
+---
+{prevSummary}
+---
+נתוני האימון בפועל:
+{workoutText}
+
+=== מצב תזונתי (מקור אמת יחיד) ===
+{nutrition}
+
+=== פרופיל המתאמן ===
+{persona}
+
+המתאמן מעיר/מתקן: "{note}"
+כתוב מחדש את הסיכום המלא בעברית בפורמט Markdown, באותו מבנה וכותרות. תקן אך ורק את מה שההערה מתייחסת אליו, מעוגן בנתוני האימון והמצב התזונתי שלמעלה — אל תשנה קביעות אחרות ואל תמציא נתונים חדשים. המצב התזונתי הנוכחי הוא אך ורק "מצב נוכחי" שבמקטע התזונתי; פאזה קודמת אינה בתוקף. החזר את הסיכום המתוקן בלבד, ללא הקדמות.`;
+
+// COACHPROMPT: עדכון זיכרון המאמן — תמצות שיחות לזיכרון מתמשך.
+const COACH_MEMORY_TPL =
+`אתה מתחזק "זיכרון מאמן" — תקציר תמציתי של תובנות עמידות מהשיחות עם המתאמן, שישמש כהקשר בעתיד.
+עדכן את הזיכרון הקיים לאור קטע השיחה החדש. שמור רק מידע בעל ערך מתמשך: העדפות, מגבלות/פציעות, יעדים, קיבעונים שזוהו, החלטות אימון ומה שעבד/לא עבד. אל תכלול פטפוט חולף.
+החזר טקסט עברי רציף בלבד (ללא הקדמה), עד ~900 תווים.
+
+=== זיכרון קיים ===
+{existingMemory}
+
+=== קטע שיחה חדש ===
+{conversation}`;
+
 // _fillTemplate — החלפת placeholders ע"י split/join (בטוח מ-$ בטקסט ההחלפה)
 function _fillTemplate(tpl, map) {
     let out = tpl;
@@ -5466,21 +5511,7 @@ function refineCoachSummary(note) {
     const nutrition = (typeof getNutritionalContextVerbose === 'function' && getNutritionalContextVerbose()) || 'לא הוגדר';
     const persona = (StorageManager.getAIPersona && StorageManager.getAIPersona()) || 'לא הוגדר';
 
-    const prompt = `אתה מאמן כוח. כתבת למתאמן את הסיכום הבא:
----
-${prev}
----
-נתוני האימון בפועל:
-${workoutText}
-
-=== מצב תזונתי (מקור אמת יחיד) ===
-${nutrition}
-
-=== פרופיל המתאמן ===
-${persona}
-
-המתאמן מעיר/מתקן: "${note}"
-כתוב מחדש את הסיכום המלא בעברית בפורמט Markdown, באותו מבנה וכותרות. תקן אך ורק את מה שההערה מתייחסת אליו, מעוגן בנתוני האימון והמצב התזונתי שלמעלה — אל תשנה קביעות אחרות ואל תמציא נתונים חדשים. המצב התזונתי הנוכחי הוא אך ורק "מצב נוכחי" שבמקטע התזונתי; פאזה קודמת אינה בתוקף. החזר את הסיכום המתוקן בלבד, ללא הקדמות.`;
+    const prompt = _fillTemplate(COACH_REFINE_TPL, { prevSummary: prev, workoutText, nutrition, persona, note });
 
     body.className = 'coach-card-body loading';
     body.innerHTML = `<div class="coach-loading"><span class="coach-spinner"></span> המאמן מעדכן את הסיכום…</div>`;
@@ -6383,9 +6414,10 @@ function _buildSystemDataSection() {
 /**
  * buildSystemPrompt — מרכיב את ה-System Instruction המלא לכל קריאת API.
  */
-function buildSystemPrompt(opts = {}) {
-    const slim = opts.slim === true;
-    let prompt = `אתה מאמן הכוח האישי של אפליקציית GYMPRO ELITE — מומחה לעומס פרוגרסיבי (Progressive Overload), תכנון אימונים וניתוח ביצועים. אתה פונה ישירות למתאמן.
+// COACHPROMPT: הוראות הצ'אט של המאמן — החלק הסטטי של ה-System Instruction,
+// לפני הזרקת הנתונים. בעל שם כדי שמסך "פרומפטי המאמן" יציג בדיוק את מה שנשלח.
+const COACH_CHAT_INSTRUCTIONS =
+`אתה מאמן הכוח האישי של אפליקציית GYMPRO ELITE — מומחה לעומס פרוגרסיבי (Progressive Overload), תכנון אימונים וניתוח ביצועים. אתה פונה ישירות למתאמן.
 
 # פורמט פלט
 - עברית בלבד. ללא אמוג'י.
@@ -6436,6 +6468,10 @@ function buildSystemPrompt(opts = {}) {
 - ציון התאוששות נמוך (רצועה "נמוך", וגם "בינוני" בגבול התחתון) בבוקר האימון גובר על קריאת רגרסיה: אל תפרש ביצוע מופחת כירידת כוח אמיתית כאשר ההתאוששות הייתה נמוכה — ציין שההתאוששות היא ההסבר הסביר, ואל תמליץ על שינוי תוכנית/TM על סמך אימון בודד כזה.
 - אל תמליץ על שינוי Training Max (העלאה/הורדה/איפוס). מותר לציין שביצוע מצביע על מרווח, בלי להציע מספר חדש.
 - כל המלצה מעשית: מה לעשות, כמה, ולמה — מבוסס על נתוני המתאמן.\n`;
+
+function buildSystemPrompt(opts = {}) {
+    const slim = opts.slim === true;
+    let prompt = COACH_CHAT_INSTRUCTIONS;
 
     // פרופיל אישי
     const persona = StorageManager.getAIPersona();
@@ -6598,16 +6634,10 @@ async function _updateCoachMemory() {
         const convo = newMsgs.map(m =>
             (m.role === 'user' ? 'מתאמן' : 'מאמן') + ': ' + (m.text || '')).join('\n');
 
-        const prompt =
-`אתה מתחזק "זיכרון מאמן" — תקציר תמציתי של תובנות עמידות מהשיחות עם המתאמן, שישמש כהקשר בעתיד.
-עדכן את הזיכרון הקיים לאור קטע השיחה החדש. שמור רק מידע בעל ערך מתמשך: העדפות, מגבלות/פציעות, יעדים, קיבעונים שזוהו, החלטות אימון ומה שעבד/לא עבד. אל תכלול פטפוט חולף.
-החזר טקסט עברי רציף בלבד (ללא הקדמה), עד ~900 תווים.
-
-=== זיכרון קיים ===
-${mem.text && mem.text.trim() ? mem.text.trim() : 'אין עדיין.'}
-
-=== קטע שיחה חדש ===
-${convo}`;
+        const prompt = _fillTemplate(COACH_MEMORY_TPL, {
+            existingMemory: (mem.text && mem.text.trim()) ? mem.text.trim() : 'אין עדיין.',
+            conversation: convo
+        });
 
         const out = await _callGeminiOneShot(prompt, { freeText: true, maxTokens: 700 });
         const clean = (out || '').replace(/```[\s\S]*?```/g, '').trim();
@@ -7398,6 +7428,133 @@ function _copyTextFallback(text, done) {
     } catch (e) {
         showAlert('ההעתקה נכשלה.');
     }
+}
+
+// ════════ ספר הפרומפטים של המאמן (v19.12.0) ════════
+// כל פרומפט שהאפליקציה שולחת למודל בשם "מאמן ה-AI", במקום אחד, עם כותרת לפי סוג.
+// הרישום נשען על אותם קבועים שהקוד החי משתמש בהם (COACH_*_TPL, COACH_PROMPT_DEFAULTS)
+// — ולכן מה שמועתק הוא בדיוק מה שנשלח, ולא עותק שמתיישן.
+//
+// tpl()  — התבנית כפי שכתובה, עם ה-placeholders.
+// live() — הפרומפט המוגמר עם הנתונים האמיתיים ברגע ההעתקה.
+//          חלק מהפרומפטים נשלחים רק בתוך זרימה (הערת תיקון, שיחת צ'אט, תרגיל
+//          בקיבעון) — שם live() זורק, וההעתקה רושמת את הסיבה במקום להיכשל.
+function coachPromptBook() {
+    const sm = StorageManager;
+    const noCtx = msg => { const e = new Error(msg); e._ctx = true; throw e; };
+
+    return [
+        {
+            title: 'צ\'אט המאמן — System Instruction',
+            when: 'נשלח בכל הודעה בצ\'אט עם המאמן.',
+            source: 'workout-core.js → COACH_CHAT_INSTRUCTIONS + buildSystemPrompt()',
+            tpl: () => COACH_CHAT_INSTRUCTIONS,
+            live: () => buildSystemPrompt()
+        },
+        {
+            title: 'כללי אמינות (בלוק {reliability})',
+            when: 'מוזרק לתוך שלושת פרומפטי הסיכום שלמטה. אינו נשלח לבדו.',
+            source: 'storage.js → COACH_RELIABILITY_BLOCK',
+            same: true,   // אין מה למלא — הבלוק סטטי
+            tpl: () => sm.COACH_RELIABILITY_BLOCK || '',
+            live: () => sm.COACH_RELIABILITY_BLOCK || ''
+        },
+        {
+            title: 'סיכום אימון',
+            when: 'בסיום כל אימון שאינו סוף שבוע/בלוק.',
+            source: 'storage.js → COACH_PROMPT_DEFAULTS.workout (ניתן לעריכה במסך)',
+            tpl: () => sm.getCoachPrompt('workout'),
+            live: () => state.archivedTimestamp ? _buildCoachSummaryPrompt('workout') : noCtx('אין אימון מסוכם פתוח — סיים אימון והעתק שוב.')
+        },
+        {
+            title: 'סיכום שבועי',
+            when: 'בסיום האימון האחרון של השבוע.',
+            source: 'storage.js → COACH_PROMPT_DEFAULTS.week (ניתן לעריכה במסך)',
+            tpl: () => sm.getCoachPrompt('week'),
+            live: () => state.archivedTimestamp ? _buildCoachSummaryPrompt('week') : noCtx('אין אימון מסוכם פתוח — סיים אימון והעתק שוב.')
+        },
+        {
+            title: 'סיכום בלוק (מזוסייקל)',
+            when: 'בסיום האימון האחרון של שבוע 3.',
+            source: 'storage.js → COACH_PROMPT_DEFAULTS.block (ניתן לעריכה במסך)',
+            tpl: () => sm.getCoachPrompt('block'),
+            live: () => state.archivedTimestamp ? _buildCoachSummaryPrompt('block') : noCtx('אין אימון מסוכם פתוח — סיים אימון והעתק שוב.')
+        },
+        {
+            title: 'תיקון סיכום לפי הערת המתאמן (Refine)',
+            when: 'כשאתה כותב הערה על סיכום שהמאמן כתב, והוא מנסח אותו מחדש.',
+            source: 'workout-core.js → COACH_REFINE_TPL',
+            tpl: () => COACH_REFINE_TPL,
+            live: () => noCtx('נבנה רק מול סיכום קיים והערה שנכתבת באותו רגע — אין לו צורה מוגמרת מחוץ לזרימה.')
+        },
+        {
+            title: 'המלצת הסט הבא',
+            when: 'בלחיצה על "המאמן חושב על הסט הבא" בתוך אימון.',
+            source: 'workout-core.js → COACH_SET_REC_TPL',
+            tpl: () => COACH_SET_REC_TPL,
+            live: () => state.currentExName ? _buildRecommendationPrompt(state.currentExName) : noCtx('נבנה סביב התרגיל הפעיל — פתח אימון והעתק שוב.')
+        },
+        {
+            title: 'עדכון זיכרון המאמן',
+            when: 'ברקע בסיום שיחת צ\'אט — מתמצת אותה לזיכרון מתמשך.',
+            source: 'workout-core.js → COACH_MEMORY_TPL',
+            tpl: () => COACH_MEMORY_TPL,
+            live: () => {
+                const mem = sm.getCoachMemory();
+                const hist = (typeof aiChatHistory !== 'undefined' && aiChatHistory) ? aiChatHistory.slice(-40) : [];
+                if (!hist.length) noCtx('אין עדיין שיחות צ\'אט לתמצת.');
+                const convo = hist.map(m => (m.role === 'user' ? 'מתאמן' : 'מאמן') + ': ' + (m.text || '')).join('\n');
+                return _fillTemplate(COACH_MEMORY_TPL, {
+                    existingMemory: (mem.text && mem.text.trim()) ? mem.text.trim() : 'אין עדיין.',
+                    conversation: convo
+                });
+            }
+        },
+        {
+            title: 'המלצת פריצת קיבעון (Plateau)',
+            when: 'בלחיצה על "שאל את המאמן" בכרטיס קיבעון במסך האנליטיקה.',
+            source: 'archive-logic.js → COACH_PLATEAU_TPL',
+            tpl: () => COACH_PLATEAU_TPL,
+            live: () => noCtx('נבנה סביב תרגיל שזוהה בו קיבעון — פתח את כרטיס הקיבעון והעתק שוב.')
+        }
+    ];
+}
+
+// copyAllCoachPrompts — מעתיק את כל פרומפטי המאמן: כותרת לכל אחד, התבנית,
+// ואחריה הפרומפט המוגמר עם הנתונים שלך. פרומפט שאין לו הקשר כרגע רושם את הסיבה.
+function copyAllCoachPrompts() {
+    let book;
+    try { book = coachPromptBook(); }
+    catch (e) { showAlert('בניית רשימת הפרומפטים נכשלה: ' + (e && e.message || e)); return; }
+
+    const RULE = '═'.repeat(56);
+    const out = [
+        '=== פרומפטי מאמן ה-AI — GYMPRO ELITE ===',
+        `${book.length} פרומפטים · v${window._gymproVersion || '?'} · ${new Date().toLocaleDateString('he-IL')}`,
+        '',
+        'לכל פרומפט: התבנית כפי שכתובה בקוד/בעורך, ואחריה הפרומפט המוגמר עם הנתונים',
+        'שלך ברגע ההעתקה. פרומפט שנבנה רק בתוך זרימה מסוימת מופיע כתבנית בלבד.'
+    ];
+    let liveCount = 0;
+
+    book.forEach((p, i) => {
+        out.push('', RULE, `${i + 1}. ${p.title}`, RULE, `מתי: ${p.when}`, `מקור: ${p.source}`);
+
+        let tpl = '';
+        try { tpl = String(p.tpl() || '').trim(); }
+        catch (e) { tpl = '(קריאת התבנית נכשלה: ' + (e && e.message || e) + ')'; }
+        out.push('', '--- התבנית ---', tpl);
+
+        if (p.same) { out.push('', '(פרומפט סטטי — אין placeholders, הצורה המוגמרת זהה לתבנית.)'); liveCount++; return; }
+
+        let live;
+        try { live = String(p.live() || '').trim(); liveCount++; }
+        catch (e) { live = '(לא ניתן להרכיב כרגע — ' + (e && e.message || e) + ')'; }
+        out.push('', '--- הפרומפט המוגמר (הנתונים שלך) ---', live);
+    });
+
+    const text = out.join('\n');
+    _copyText(text, `הועתקו ${book.length} פרומפטים (${liveCount} מהם עם נתונים מלאים) · ${Math.round(text.length / 1024)}KB.`);
 }
 
 // copyMemoryBoxText — מעתיק את כל תיבת הזיכרון כטקסט קריא (לגיבוי ידני / הדבקה במודל אחר).

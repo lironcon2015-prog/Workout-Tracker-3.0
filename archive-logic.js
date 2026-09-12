@@ -2801,7 +2801,7 @@ E1RM history (oldest first):
 Guidelines:
 - If CUT: a plateau in strength is expected. Suggest "wait it out" / maintain volume / focus on form.
 - If MAINTENANCE: try a deload week, then re-test. Or vary reps (e.g., 3×5 instead of 3×8).
-- If SURPLUS: a plateau is concerning. Recommend a technique change, exercise swap, or deload+reset.
+- If SURPLUS: a plateau is concerning. Recommend a technique or tempo change. Do NOT recommend an exercise swap (it erases the exercise baseline), and do NOT recommend any TM change, reset, or deload+reset.
 
 Respond in HEBREW, 2-3 short sentences (max 250 chars). No JSON, no markdown, plain text only.`;
 

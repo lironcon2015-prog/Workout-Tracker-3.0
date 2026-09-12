@@ -126,10 +126,37 @@ function closeThumbManageSheet() {
 
 // ─── DYNAMIC MAIN MENU ─────────────────────────────────────────────────────
 
+// _workoutKindFilter — הקבוצה המוצגת ברשימת אימוני השבוע. מתאפס ל-'strength'
+// בכל כניסה לשבוע (selectWeek), ולא בחזרה מאימון — כדי שחזרה לא תזרוק את
+// המשתמש חזרה לקבוצה השנייה.
+let _workoutKindFilter = 'strength';
+
+function setWorkoutKindFilter(kind) {
+    _workoutKindFilter = kind === 'cardio' ? 'cardio' : 'strength';
+    haptic('light');
+    renderWorkoutMenu();
+}
+
+function _syncWorkoutKindSeg() {
+    document.querySelectorAll('#workout-kind-seg .seg-btn').forEach(b => {
+        b.classList.toggle('active', (b.dataset.kind === 'cardio') === (_workoutKindFilter === 'cardio'));
+    });
+    // Freestyle הוא בחירת תרגילים — אין לו מקום בקבוצת האירובי
+    const fs = document.getElementById('freestyle-card');
+    if (fs) fs.style.display = _workoutKindFilter === 'cardio' ? 'none' : '';
+}
+
+// _matchesKindFilter — האם התוכנית שייכת לקבוצה המוצגת כרגע
+function _matchesKindFilter(key) {
+    const isCardio = (typeof isCardioWorkout === 'function') && isCardioWorkout(key);
+    return (_workoutKindFilter === 'cardio') === isCardio;
+}
+
 function renderWorkoutMenu() {
     const container = document.getElementById('workout-menu-container');
     if (!container) return;
 
+    _syncWorkoutKindSeg();
     container.innerHTML = "";
     const title = document.getElementById('workout-week-title');
     const weekLabel = document.getElementById('workout-week-label');
@@ -189,11 +216,13 @@ function renderWorkoutMenu() {
         const keys = Object.keys(state.workouts);
         const deloadWorkouts = keys.filter(k => {
             const meta = state.workoutMeta[k];
-            return meta && meta.availableInDeload === true;
+            return meta && meta.availableInDeload === true && _matchesKindFilter(k);
         });
 
         if (deloadWorkouts.length === 0) {
-            container.innerHTML = `<p class="text-center color-dim">בחר Freestyle או סמן תוכנית כדילואוד בעורך</p>`;
+            container.innerHTML = _workoutKindFilter === 'cardio'
+                ? `<p class="text-center color-dim">אין תוכנית אירובי שסומנה כזמינה בדילואוד</p>`
+                : `<p class="text-center color-dim">בחר Freestyle או סמן תוכנית כדילואוד בעורך</p>`;
         } else {
             deloadWorkouts.forEach((key, idx) => {
                 const meta = state.workoutMeta[key];
@@ -216,6 +245,7 @@ function renderWorkoutMenu() {
             const meta = state.workoutMeta[key];
             if (meta && meta.isDeloadOnly) return;
             if (meta && meta.isHidden) return;
+            if (!_matchesKindFilter(key)) return;
 
             let count = 0;
             const w = state.workouts[key];
@@ -227,6 +257,11 @@ function renderWorkoutMenu() {
             container.appendChild(buildCard(key, count, idx, idx === 0, cardioBadge));
             idx++;
         });
+        if (idx === 0) {
+            container.innerHTML = _workoutKindFilter === 'cardio'
+                ? `<p class="text-center color-dim">אין תוכניות אירובי — צור אחת בהגדרות → ניהול תוכניות</p>`
+                : `<p class="text-center color-dim">אין תוכניות כוח פעילות</p>`;
+        }
     }
 
 }

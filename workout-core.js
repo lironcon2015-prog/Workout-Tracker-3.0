@@ -2319,6 +2319,8 @@ function updatePlanFloatBtn(screenId) {
 
 function selectWeek(w) {
     state.week = w;
+    // ברירת המחדל בכל כניסה לשבוע היא כוח — גם אם הפעם הקודמת הסתיימה באירובי
+    if (typeof _workoutKindFilter !== 'undefined') _workoutKindFilter = 'strength';
     if (typeof renderWorkoutMenu === 'function') renderWorkoutMenu();
     navigate('ui-workout-type');
 }
@@ -10198,6 +10200,8 @@ function _cardioSyncUI() {
     if (!timeEl) return;
 
     const COLORS = { prep: 'var(--warn)', work: 'var(--accent)', rest: 'var(--success)', done: 'var(--text-dim)' };
+    const GLOWS  = { prep: 'rgba(255,214,10,0.45)', work: 'rgba(10,132,255,0.45)',
+                     rest: 'rgba(48,209,88,0.45)', done: 'rgba(142,142,147,0.3)' };
     const LABELS = { prep: 'היכון', work: c.mode === 'open' ? 'בתנועה' : 'עבודה', rest: 'מנוחה', done: 'סיום' };
 
     let remainSec, progress;
@@ -10214,10 +10218,13 @@ function _cardioSyncUI() {
     }
 
     const color = COLORS[c.phase] || 'var(--accent)';
+    const glow  = GLOWS[c.phase] || GLOWS.work;
     if (ring) {
         ring.style.stroke = color;
+        ring.style.filter = `drop-shadow(0 0 8px ${glow})`;
         ring.style.strokeDashoffset = String(CARDIO_RING_CIRC - progress * CARDIO_RING_CIRC);
     }
+    timeEl.style.textShadow = `0 0 30px ${glow}`;
     if (stateEl) { stateEl.textContent = c.paused ? 'מושהה' : (LABELS[c.phase] || ''); stateEl.style.color = color; }
 
     const roundEl = q('cl-round');

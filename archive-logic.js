@@ -2780,6 +2780,31 @@ function renderPlateauCard(exName) {
     }
 }
 
+// COACHPROMPT: פריצת קיבעון — תבנית בעלת שם (ולא literal בתוך הפונקציה), כדי
+// שמסך "פרומפטי המאמן" יציג ויעתיק בדיוק את מה שנשלח למודל. מקור אמת אחד.
+const COACH_PLATEAU_TPL =
+`You are a strength training coach. The user is on a plateau (or decline) in a specific exercise. Provide a brief, actionable Hebrew recommendation.
+
+Context:
+- Exercise: {exName}
+- Status: {status}
+- Weeks analyzed: {spanWeeks}
+- Current E1RM: {currentE1RM} kg
+- Change in period: {changeKg} kg
+- Slope per week: {slopePerWeek} kg/week
+- Nutritional state: {nutrition}
+- Persona: {persona}
+
+E1RM history (oldest first):
+{e1rmHistory}
+
+Guidelines:
+- If CUT: a plateau in strength is expected. Suggest "wait it out" / maintain volume / focus on form.
+- If MAINTENANCE: try a deload week, then re-test. Or vary reps (e.g., 3×5 instead of 3×8).
+- If SURPLUS: a plateau is concerning. Recommend a technique change, exercise swap, or deload+reset.
+
+Respond in HEBREW, 2-3 short sentences (max 250 chars). No JSON, no markdown, plain text only.`;
+
 async function requestAIPlateauAdvice() {
     const btn = document.getElementById('btn-plateau-ai');
     const result = document.getElementById('plateau-ai-result');
@@ -2800,27 +2825,17 @@ async function requestAIPlateauAdvice() {
         const pts = _getExerciseE1RMPoints(exName, 8);
         const histLines = pts.map(p => `  - ${p.date || new Date(p.ts).toISOString().slice(0,10)}: ${Math.round(p.e1rm)}kg E1RM`).join('\n');
 
-        const prompt = `You are a strength training coach. The user is on a plateau (or decline) in a specific exercise. Provide a brief, actionable Hebrew recommendation.
-
-Context:
-- Exercise: ${exName}
-- Status: ${data.status === 'plateau' ? 'PLATEAU' : 'DECLINING'}
-- Weeks analyzed: ${data.spanWeeks}
-- Current E1RM: ${Math.round(data.currentE1RM)} kg
-- Change in period: ${(data.currentE1RM - data.firstE1RM).toFixed(1)} kg
-- Slope per week: ${data.slopePerWeek.toFixed(2)} kg/week
-- Nutritional state: ${nutri}
-- Persona: ${persona || 'unspecified'}
-
-E1RM history (oldest first):
-${histLines || '  (no data)'}
-
-Guidelines:
-- If CUT: a plateau in strength is expected. Suggest "wait it out" / maintain volume / focus on form.
-- If MAINTENANCE: try a deload week, then re-test. Or vary reps (e.g., 3×5 instead of 3×8).
-- If SURPLUS: a plateau is concerning. Recommend a technique change, exercise swap, or deload+reset.
-
-Respond in HEBREW, 2-3 short sentences (max 250 chars). No JSON, no markdown, plain text only.`;
+        const prompt = _fillTemplate(COACH_PLATEAU_TPL, {
+            exName,
+            status: data.status === 'plateau' ? 'PLATEAU' : 'DECLINING',
+            spanWeeks: data.spanWeeks,
+            currentE1RM: Math.round(data.currentE1RM),
+            changeKg: (data.currentE1RM - data.firstE1RM).toFixed(1),
+            slopePerWeek: data.slopePerWeek.toFixed(2),
+            nutrition: nutri,
+            persona: persona || 'unspecified',
+            e1rmHistory: histLines || '  (no data)'
+        });
 
         // freeText — הפרומפט מבקש טקסט חופשי; מצב ה-JSON הכפוי של ברירת המחדל
         // התנגש עם ההנחיה וגרם לג'נרוט ארוך ואיטי עד תקרת הטוקנים

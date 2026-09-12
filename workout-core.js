@@ -5384,6 +5384,10 @@ function _buildCoachSummaryPrompt(scope, tplOverride) {
     // ב6א: מצב תזונתי מפורש (מדגיש שפאזה קודמת אינה בתוקף)
     const nutrition = (typeof getNutritionalContextVerbose === 'function' && getNutritionalContextVerbose()) || 'לא הוגדר';
     const persona = (StorageManager.getAIPersona && StorageManager.getAIPersona()) || 'לא הוגדר';
+    // הפרופיל מגיע כטקסט חשוף (בלי כותרת) — התבנית עוטפת אותו. לנפילה לאחור
+    // צריך אותו עטוף, ורק כשהוגדר בפועל: "לא הוגדר" בסוף פרומפט אינו מקטע.
+    const personaSection = (persona && persona !== 'לא הוגדר')
+        ? `\n=== פרופיל המתאמן ===\n${persona}\n` : '';
 
     const ctx = (typeof buildBlockContext === 'function')
         ? buildBlockContext() : { current: [], previous: [], previous2: [] };
@@ -5427,9 +5431,12 @@ function _buildCoachSummaryPrompt(scope, tplOverride) {
     let filled = _fillTemplate(template, {
         reliability, workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics, recovery, memoryBox
     });
-    // תבנית מותאמת שנשמרה לפני שה-placeholder הזה נוסף לא מכילה אותו — ואז המקטע
-    // היה נופל בשקט. מצרפים אותו בסוף, כדי שתבנית ישנה לא תשתיק נתונים שקיימים.
-    [['{recovery}', recovery], ['{memoryBox}', memoryBox]].forEach(([ph, sec]) => {
+    // תבנית מותאמת שנשמרה לפני שה-placeholder הזה נוסף — או שנמחק ממנה בטעות —
+    // לא מכילה אותו, ואז המקטע נופל בשקט. מצרפים אותו בסוף.
+    // רק שלושת אלה: הם חלים על כל שלושת הסקופים. המקטעים ההיסטוריים
+    // ({weekWorkouts}, {parallelWorkout}, {blockWorkouts}) נעדרים מתבנית בכוונה
+    // לפי הסקופ שלה, ולכן צירוף שלהם היה מזריק נתונים שהתבנית לא ביקשה.
+    [['{recovery}', recovery], ['{memoryBox}', memoryBox], ['{persona}', personaSection]].forEach(([ph, sec]) => {
         if (sec && !template.includes(ph)) filled += '\n' + sec;
     });
     return filled;

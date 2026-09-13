@@ -66,6 +66,7 @@ const WORKOUT_THUMB_IMAGES = [
     'img/thumb-cardio-boxing.jpg',
     'img/thumb-cardio-bike.jpg',
     'img/thumb-cardio-walk.jpg',
+    'img/thumb-cardio-run.jpg',
 ];
 
 // ─── HIDDEN THUMBS MANAGEMENT ──────────────────────────────────────────────

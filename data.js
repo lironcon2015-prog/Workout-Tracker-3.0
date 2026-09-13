@@ -152,7 +152,7 @@ const defaultCardioWorkouts = {
                  watchTypes: ['Cycling', 'Indoor Cycle', 'Outdoor Cycle', 'אופניים'] }]
     },
     'ריצה': {
-        meta: { kind: 'cardio', color: '#FF9F0A', _thumbIdx: 13 },
+        meta: { kind: 'cardio', color: '#FF9F0A', _thumbIdx: 19 },
         plan: [{ type: 'cardio', mode: 'open', targetSec: null,
                  watchTypes: ['Running', 'Outdoor Run', 'Indoor Run', 'ריצה'] }]
     },

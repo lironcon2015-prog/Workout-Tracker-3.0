@@ -172,24 +172,32 @@ const StorageManager = {
     // התמונה מוחלפת — **אך ורק** לתוכנית שעדיין נושאת את התמונה שהזריעה נתנה
     // לה. בחירה של המשתמש בעורך גוברת ואינה נדרסת. הדגל נחרת רק אחרי כתיבה
     // מוצלחת, כדי שכשל אחסון לא ינעל את המיגרציה בלי שקרתה.
+    // הדגל הוא **מספר גרסה**, לא בוליאני: תמונה שנוספת מאוחר יותר (ריצה, v2)
+    // חייבת להגיע גם למי שכבר עבר את הסבב הקודם. דגל בוליאני היה נועל אותו.
+    CARDIO_THUMB_VERSION: 2,
     CARDIO_THUMB_MIGRATION: {
-        'שדו בוקסינג': { from: 11, to: 16 },
-        'אופניים':     { from: 12, to: 17 },
-        'הליכה':       { from: 14, to: 18 }
+        'שדו בוקסינג': { from: 11, to: 16, v: 1 },
+        'אופניים':     { from: 12, to: 17, v: 1 },
+        'הליכה':       { from: 14, to: 18, v: 1 },
+        'ריצה':        { from: 13, to: 19, v: 2 }
     },
     migrateCardioThumbs() {
-        if (this.getData(this.KEY_CARDIO_THUMBS)) return;
+        const done = Number(this.getData(this.KEY_CARDIO_THUMBS)) || 0;
+        if (done >= this.CARDIO_THUMB_VERSION) return;
         let changed = 0;
         Object.keys(this.CARDIO_THUMB_MIGRATION).forEach(name => {
-            const meta = state.workoutMeta && state.workoutMeta[name];
             const map = this.CARDIO_THUMB_MIGRATION[name];
+            if (map.v <= done) return;                 // הוחל כבר בסבב קודם
+            const meta = state.workoutMeta && state.workoutMeta[name];
             if (!meta || meta.kind !== 'cardio') return;
             if (meta._thumbIdx !== map.from) return;   // המשתמש בחר תמונה — לא נוגעים
             meta._thumbIdx = map.to;
             changed++;
         });
-        if (!changed) { this.saveData(this.KEY_CARDIO_THUMBS, 1); return; }
-        if (this.saveData(this.KEY_META, state.workoutMeta)) this.saveData(this.KEY_CARDIO_THUMBS, 1);
+        if (!changed) { this.saveData(this.KEY_CARDIO_THUMBS, this.CARDIO_THUMB_VERSION); return; }
+        if (this.saveData(this.KEY_META, state.workoutMeta)) {
+            this.saveData(this.KEY_CARDIO_THUMBS, this.CARDIO_THUMB_VERSION);
+        }
     },
 
     // ── Session ──────────────────────────────────────────────────────────

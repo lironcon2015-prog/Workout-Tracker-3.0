@@ -7071,6 +7071,9 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-meal-total-macros i.macro-p { color: var(--text-dim); }
 .fd-meal-total-macros i.macro-c { color: var(--text-dim); }
 .fd-meal-total-macros i.macro-f { color: var(--text-dim); }
+/* סיבים בשורת הסיכום של המנה — תת-קבוצה של הפחמימה, ולכן דהוי מהמאקרו עצמם */
+.fd-meal-total-macros i.fd-meal-fib { color: var(--text-dim); opacity: 0.75; }
+@media (max-width: 380px) { .fd-meal-total-macros { gap: 8px; } }
 .fd-comp-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .fd-comp {
     display: flex; align-items: flex-start; gap: 8px;

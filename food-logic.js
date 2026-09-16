@@ -1679,7 +1679,9 @@ function fdSavePortion() {
         unitLabel: g.unit === 'serving' ? (g.label || null) : null, baseUnit: food.baseUnit || 'g',
         per100: food.per100, kcal: m.kcal, p: m.p, c: m.c, f: m.f,
         // fb נכתב רק כשידוע — רשומה בלי השדה = "לא ידוע", לא "אפס סיבים"
-        ...(m.fb != null ? { fb: m.fb } : {})
+        ...(m.fb != null ? { fb: m.fb } : {}),
+        // ארוחה שמורה שחלק ממרכיביה ללא נתון — הרצפה ממשיכה להיות מסומנת
+        ...(m.fb != null && food.fbPartial ? { fbPartial: true } : {})
     };
     if (_fdEditEntryId) {
         StorageManager.updateFoodEntry(_fdDate, _fdEditEntryId, entry);
@@ -2721,8 +2723,23 @@ function _fdRenderComponents() {
     _fdMealRecalc();
 }
 
+// MEALFIB-START — בלוק טהור, נבדק ב-test/meal-fiber.test.js (אל תסיר את הסמנים)
+// mealFiberSum — הסיבים של מנה מורכבת: סכום המרכיבים שנושאים ערך בלבד.
+// חסר אינו אפס — מרכיב בלי נתון מסמן partial, והמספר הוא רצפה ולא סכום מלא.
+// מקור אמת אחד לשורת הסיכום בעורך המנה ולרשומה שנכתבת ליומן; שתי חזיתות
+// שמחשבות את אותו מספר בנפרד הן באג שמחכה לקרות.
+function mealFiberSum(fbList) {
+    const list = Array.isArray(fbList) ? fbList : [];
+    const known = list.filter(v => v != null && isFinite(v));
+    if (!known.length) return { fb: null, partial: false };
+    const sum = known.reduce((a, v) => a + Number(v), 0);
+    return { fb: Math.round(sum * 10) / 10, partial: known.length < list.length };
+}
+// MEALFIB-END
+
 function _fdMealRecalc() {
     let tot = { kcal: 0, p: 0, c: 0, f: 0 };
+    const fbList = [];
     _fdMealComponents.forEach((c, i) => {
         const gEl = document.getElementById('fd-mc-g-' + i);
         if (gEl) c.grams = Number(gEl.value) || 0;
@@ -2739,6 +2756,8 @@ function _fdMealRecalc() {
         const f = c.baseUnit === 'unit' ? c.grams : c.grams / 100;
         const kcal = Math.round((per.kcal || 0) * f);
         tot.kcal += kcal; tot.p += (per.p || 0) * f; tot.c += (per.c || 0) * f; tot.f += (per.f || 0) * f;
+        const fbPer = _fdFbOf(per);
+        fbList.push(fbPer == null ? null : fbPer * f);
         const kcEl = document.getElementById('fd-mc-kc-' + i);
         if (kcEl) kcEl.textContent = _fdFmt(kcal);
         const warnEl = document.getElementById('fd-mc-warn-' + i);
@@ -2751,7 +2770,12 @@ function _fdMealRecalc() {
     const tk = document.getElementById('fd-meal-total-kcal');
     const tm = document.getElementById('fd-meal-total-macros');
     if (tk) tk.textContent = _fdFmt(tot.kcal);
-    if (tm) tm.innerHTML = `<i class="macro-p">חלבון ${Math.round(tot.p)}</i><i class="macro-c">פחמ' ${Math.round(tot.c)}</i><i class="macro-f">שומן ${Math.round(tot.f)}</i>`;
+    // סיבים בשורת הסיכום: "+" = כיסוי חלקי (יש מרכיב בלי נתון), ולכן המספר הוא
+    // רצפה. בלי החיווי הזה מספר חלקי נראה כמו סכום מלא.
+    const fib = mealFiberSum(fbList);
+    const fibHtml = fib.fb == null ? ''
+        : `<i class="fd-meal-fib"${fib.partial ? ' title="חלק מהמרכיבים ללא נתון סיבים — המספר הוא רצפה"' : ''}>סיבים ${fib.fb}${fib.partial ? '+' : ''}</i>`;
+    if (tm) tm.innerHTML = `<i class="macro-p">חלבון ${Math.round(tot.p)}</i><i class="macro-c">פחמ' ${Math.round(tot.c)}</i><i class="macro-f">שומן ${Math.round(tot.f)}</i>${fibHtml}`;
 }
 
 function fdMealRemoveComp(i) {
@@ -2797,10 +2821,10 @@ function fdSaveMeal() {
     const sum = comps.reduce((a, x) => { a.kcal += x.kcal; a.p += x.p; a.c += x.c; a.f += x.f; return a; }, { kcal: 0, p: 0, c: 0, f: 0 });
     // סיבים למנה מורכבת: סכום המרכיבים שיש להם ערך. מרכיב אחד בלי ערך → המנה
     // מסומנת fbPartial, וכך היום כולו יודע שהתמונה חלקית (ה-"+" בכרטיס).
-    const fbComps = comps.filter(x => x.fb != null);
-    if (fbComps.length) {
-        sum.fb = _fdRn(fbComps.reduce((a, x) => a + x.fb, 0));
-        if (fbComps.length < comps.length) sum.fbPartial = true;
+    const _fib = mealFiberSum(comps.map(x => (x.fb != null ? x.fb : null)));
+    if (_fib.fb != null) {
+        sum.fb = _fib.fb;
+        if (_fib.partial) sum.fbPartial = true;
     }
     const name = (document.getElementById('fd-meal-name-inp')?.value || 'מנה').trim() || 'מנה';
     // מצב 'saved' — כתיבה למאגר המותאמים בלבד, ללא נגיעה ביומן
@@ -2816,7 +2840,12 @@ function fdSaveMeal() {
     const entry = {
         name, brand: 'מנה', source: 'gemini', barcode: null,
         meal: _fdMeal || _fdMealLabels()[0], time, components: comps,
-        kcal: Math.round(sum.kcal), p: _fdR(sum.p), c: _fdR(sum.c), f: _fdR(sum.f)
+        kcal: Math.round(sum.kcal), p: _fdR(sum.p), c: _fdR(sum.c), f: _fdR(sum.f),
+        // fb נכתב רק כשידוע — רשומה בלי השדה = "לא ידוע", לא "אפס סיבים".
+        // בלעדיו הסיבים של מנה מורכבת חושבו, הוצגו במרכיבים — ונעלמו ביומן,
+        // ב-NUTRITION_DAILY ובייצוא המאוחד.
+        ...(sum.fb != null ? { fb: sum.fb } : {}),
+        ...(sum.fbPartial ? { fbPartial: true } : {})
     };
     if (_fdMealEditId) StorageManager.updateFoodEntry(_fdDate, _fdMealEditId, entry);
     else {
@@ -2841,6 +2870,9 @@ function _fdUpsertSavedMeal(id, name, comps, sum) {
         name, brand: '', barcode: null, source: 'meal', baseUnit: 'unit',
         per100: { kcal: Math.round(sum.kcal) * 100, p: _fdR(sum.p) * 100, c: _fdR(sum.c) * 100, f: _fdR(sum.f) * 100,
                   fb: sum.fb == null ? undefined : _fdR(sum.fb) * 100 },
+        // כיסוי חלקי נשמר עם הארוחה — אחרת רישום חוזר שלה ליומן היה מציג את
+        // הרצפה כסכום מלא. נכתב תמיד (גם false) כדי שתיקון עתידי ידרוס דגל ישן.
+        fbPartial: !!sum.fbPartial,
         servings: [{ label: '1 מנה', grams: 1 }],
         components: comps.map(c => ({ name: c.name, grams: c.grams, per100: Object.assign({}, c.per100), baseUnit: c.baseUnit || 'g' }))
     });

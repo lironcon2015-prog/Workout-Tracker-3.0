@@ -435,12 +435,28 @@ async function _offQuery(q, israelOnly) {
 // כבר נסגרה והמשתמש ממתין מול "טוען מוצר…"; עדיף להיכשל מהר ולהציע תווית.
 // allowPartial=true: רשומה בלי ערכים מוחזרת עם partial:true, בשביל השם.
 const _OFF_BC_TIMEOUT = 6000;
+// OFFBC-START — בלוק טהור, נבדק ב-test/off-barcode-status.test.js (אל תסיר את הסמנים)
+// classifyOffBarcode — מה באמת קרה בחיפוש הברקוד. Open Food Facts מחזיר
+// **404 למוצר שאינו במאגר** — זו תשובה, לא תקלה. בלי ההבחנה הזו כל ברקוד לא
+// מוכר דווח למשתמש כ"שגיאת רשת", ושני מסלולי ההצלה (צילום תווית / הזנת ערכים)
+// נחסמו יחד איתו — כי שניהם מותנים ב"לא נמצא" ולא ב"נכשל".
+// 'missing' = אין מוצר · 'error' = תקלה אמיתית (5xx/429/רשת) · 'ok' = יש גוף לקרוא
+function classifyOffBarcode(httpStatus, payloadStatus) {
+    const s = Number(httpStatus);
+    if (s === 404 || s === 400) return 'missing';   // לא במאגר / ברקוד לא תקין
+    if (!(s >= 200 && s < 300)) return 'error';     // שרת/הגבלת קצב/חסימה — שווה לנסות שוב
+    return (payloadStatus === 1 || payloadStatus === '1') ? 'ok' : 'missing';
+}
+// OFFBC-END
+
 async function lookupBarcode(code) {
     const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${_OFF_FIELDS}`;
     const resp = await _fdFetch(url, _OFF_BC_TIMEOUT);
-    if (!resp.ok) throw new Error('OFF_' + resp.status);
-    const d = await resp.json();
-    if (d.status !== 1 || !d.product) return null;
+    let d = null;
+    if (resp.ok) { try { d = await resp.json(); } catch (e) { d = null; } }
+    const outcome = classifyOffBarcode(resp.status, d && d.status);
+    if (outcome === 'error') throw new Error('OFF_' + resp.status);
+    if (outcome !== 'ok' || !d || !d.product) return null;
     return _offToFood(Object.assign({ code }, d.product), true);
 }
 
@@ -1811,7 +1827,9 @@ function _fdShowCustomFoodForm(food) {
     const vUnitGrams = hasUnitW ? Number(food.unitGrams) : '';
     if (!editMode) { const meals = _fdMealLabels(); _fdMeal = meals[0]; }
     body.innerHTML = `
-        <div class="fd-portion-title">${isScanned ? 'עריכת מוצר סרוק' : isOff ? 'עריכת מוצר' : editMode ? 'עריכת מזון מותאם' : 'מזון מותאם'}${editMode && food.barcode ? `<small>ברקוד: ${_fdEsc(food.barcode)}</small>` : ''}</div>
+        <div class="fd-portion-title">${isScanned ? 'עריכת מוצר סרוק' : isOff ? 'עריכת מוצר' : editMode ? 'עריכת מזון מותאם' : 'מזון מותאם'}${
+            editMode && food.barcode ? `<small>ברקוד: ${_fdEsc(food.barcode)}</small>`
+            : (!editMode && _fdPendingBarcode ? `<small>ברקוד ${_fdEsc(_fdPendingBarcode)} — יישמר עם המזון, והסריקה הבאה תמצא אותו</small>` : '')}</div>
         ${editMode ? '' : `<button type="button" class="fd-paste-toggle" onclick="_fdTogglePasteBox()">
             <span class="material-symbols-outlined">content_paste</span>הדבקת ערכים תזונתיים מטקסט
         </button>
@@ -1860,7 +1878,17 @@ function _fdShowCustomFoodForm(food) {
     _fdCustomCheckMismatch();
 }
 
-function fdNewCustomFood() { _fdShowCustomFoodForm(null); }
+// יצירה "נקייה" מהתפריט — ברקוד תלוי מסריקה נטושה לא נדבק למזון החדש
+function fdNewCustomFood() { _fdPendingBarcode = null; _fdShowCustomFoodForm(null); }
+
+// fdCreateFromBarcode — "הזן ערכים ידנית" אחרי ברקוד שלא נמצא. הברקוד נצמד
+// למזון שיישמר, ולכן הסריקה הבאה של אותו מוצר תמצא אותו בקאש — מיידית וגם
+// אופליין. זהו המסלול שנחסם כשכל "לא נמצא" דווח כשגיאת רשת.
+function fdCreateFromBarcode(code) {
+    const bc = String(code || _fdPendingBarcode || '').replace(/\D/g, '');
+    _fdPendingBarcode = bc || null;
+    _fdShowCustomFoodForm(null);
+}
 
 // fdOpenFoodFromProposal — נקודת הנחיתה של <propose-food> מצ'אט המאמן.
 // מכוון: לא נפתח מסלול שמירה חדש. נפתח **טופס המזון המותאם הקיים** מלא-מראש,
@@ -2130,9 +2158,13 @@ function fdSaveCustomFood(logAfter) {
         fdRenderTab();
         return;
     }
+    // ברקוד שנסרק ולא נמצא — נשמר עם המזון (id לפי הברקוד), כך שהסריקה הבאה
+    // פוגעת בקאש. ללא ברקוד ממתין ההתנהגות זהה לקודם.
+    const _bc = _fdPendingBarcode || null;
+    _fdPendingBarcode = null;
     const food = Object.assign({
-        id: 'custom:' + Date.now().toString(36),
-        name, brand: '', barcode: null, source: 'custom',
+        id: _bc ? 'off:' + _bc : 'custom:' + Date.now().toString(36),
+        name, brand: '', barcode: _bc, source: 'custom',
         per100, servings, baseUnit
     }, unitMeta);
     StorageManager.upsertFoodToDb(food);
@@ -2427,6 +2459,11 @@ function _fdLiveSetMsg(txt) { const el = document.getElementById('fd-live-msg');
 function _fdLiveRetry(show) { const b = document.getElementById('fd-live-retry'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
 function _fdLiveLabelBtn(show) { const b = document.getElementById('fd-live-label'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
 function _fdLiveManualBtn(show) { const b = document.getElementById('fd-live-manual'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
+function _fdLiveValuesBtn(show) { const b = document.getElementById('fd-live-values'); if (b) b.style.display = show ? 'inline-flex' : 'none'; }
+
+// "הזן ערכים" מתוך סריקה חיה שלא מצאה מוצר — סוגר את המצלמה ופותח טופס מזון
+// מותאם עם הברקוד מוצמד.
+function fdLiveEnterValues() { const bc = _fdPendingBarcode; fdLiveScanStop(); fdCreateFromBarcode(bc); }
 
 // שומר הסף של הסריקה החיה. בלעדיו ברקוד שלא מתפענח כלל (עטיפת בר מתקמטת,
 // בקבוק שייק מבריק ומעוגל) משאיר את המשתמש מול מצלמה פתוחה בלי הודעה ובלי
@@ -2479,8 +2516,14 @@ async function fdManualBarcodeGo() {
     const hasAI = !!StorageManager.getAIConfig().apiKey;
     closeFoodPortion();
     const why = _fdBcMissReason(code);
-    if (_fdLastBcError) { showAlert(why + '.'); return; }   // כשל רשת — תווית לא תעזור, שווה לנסות שוב
-    showAlert(hasAI ? `${why} — צלם את תווית הערכים לזיהוי חד-פעמי.` : `${why}.`, hasAI ? () => fdScanPhoto(true) : null);
+    if (_fdLastBcError) { showAlert(why + '.'); return; }   // תקלה אמיתית — תווית לא תעזור, שווה לנסות שוב
+    // לא נמצא = שתי דרכי המשך, שתיהן שומרות את הברקוד: תווית (AI) או ערכים ידניים
+    if (hasAI) {
+        showConfirm(`${why}. לצלם את תווית הערכים? ביטול — הזנת ערכים ידנית.`,
+                    () => fdScanPhoto(true), () => fdCreateFromBarcode(code));
+    } else {
+        showAlert(`${why} — הזן את הערכים ידנית מהתווית.`, () => fdCreateFromBarcode(code));
+    }
 }
 
 // "צלם תווית" מתוך סריקה חיה שלא מצאה מוצר — סוגר את המצלמה ופותח צילום תווית.
@@ -2509,6 +2552,7 @@ async function fdLiveScanStart() {
     _fdLiveRetry(false);
     _fdLiveLabelBtn(false);
     _fdLiveManualBtn(false);
+    _fdLiveValuesBtn(false);
     const video = document.getElementById('fd-live-video');
     if ('BarcodeDetector' in window) {
         _fdLiveSetMsg('מפעיל מצלמה…');
@@ -2594,10 +2638,12 @@ async function _fdLiveOnHit(code) {
         // לא נמצא — אם יש מפתח Gemini, להציע צילום תווית (זיהוי חד-פעמי שיישמר ל-cache)
         _fdPendingBarcode = code;
         // כשל רשת אינו "לא נמצא": צילום תווית לא יעזור, וכדאי פשוט לנסות שוב
-        const hasAI = !!StorageManager.getAIConfig().apiKey && !_fdLastBcError;
+        const missing = !_fdLastBcError;                       // "לא נמצא" ולא תקלה
+        const hasAI = !!StorageManager.getAIConfig().apiKey && missing;
         const what = _fdBcMissReason(code);
-        _fdLiveSetMsg(hasAI ? `${what} — צלם תווית לזיהוי חד-פעמי, או סרוק שוב.` : `${what}.`);
+        _fdLiveSetMsg(missing ? `${what} — ${hasAI ? 'צלם תווית, ' : ''}הזן ערכים ידנית, או סרוק שוב.` : `${what}.`);
         _fdLiveLabelBtn(hasAI);
+        _fdLiveValuesBtn(missing);
     } catch (e) {
         _fdLiveSetMsg('שגיאת רשת בחיפוש המוצר.');
     }

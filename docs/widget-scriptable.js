@@ -14,6 +14,15 @@
  * 4. מסך הבית → לחיצה ארוכה → + → Scriptable → גודל Medium → הוסף.
  *    לחיצה ארוכה על הווידג'ט → Edit Widget → Script: "GYMPRO Widget".
  *
+ * ── שני מצבי רקע (שדה Parameter בהגדרות הווידג'ט) ─────────────────────────
+ *   ריק      — כרטיס Liquid Obsidian אטום (#161619). ברירת המחדל.
+ *   `glass`  — בלי רקע כלל: iOS 26 מרנדר מאחורי הווידג'ט את מיכל הזכוכית שלו
+ *              (Liquid Glass). זו הדרך היחידה להשיג אותו — Scriptable אינו
+ *              חושף API לחומר עצמו, ורק היעדר רקע מפנה לו מקום.
+ *              **על מערכת ישנה יותר, או אם המערכת לא מספקת חומר, הרקע פשוט
+ *              יהיה שקוף מעל הטפט** — הטקסט מתחזק שם (לבן מלא) אבל הקריאות
+ *              תלויה בטפט. לא מוצא חן? מחק את הטקסט מ-Parameter וחזרת לכרטיס.
+ *
  * iOS מרענן ווידג'טים כל ~15-30 דק'; הנתונים טריים כמו השימוש האחרון באפליקציה.
  * ==========================================================================*/
 
@@ -27,8 +36,24 @@ const TOKEN = 'PASTE_SECRET_TOKEN_HERE';
 // המותקנת — הצב כאן את כתובת האפליקציה והלחיצה תעבוד.
 const TAP_URL = '';
 
+// ── מצב תצוגה לפי שדה Parameter של הווידג'ט (כמו `weight` בווידג'ט הנעילה) ──
+// ריק = כרטיס אטום · glass = ללא רקע, כדי שמיכל הזכוכית של iOS יתפוס את המקום.
+const _param = ((typeof args !== 'undefined' && args.widgetParameter) || '').trim().toLowerCase();
+// PREVIEW_GLASS — לתצוגה המקדימה בעורך (▶) בלבד: שם אין Parameter, ובלי זה
+// אי אפשר לראות את מצב הזכוכית לפני שמוסיפים את הווידג'ט למסך.
+const PREVIEW_GLASS = false;
+const GLASS = (_param === 'glass' || _param === 'זכוכית')
+           || (typeof config !== 'undefined' && config.runsInApp && PREVIEW_GLASS);
+
 // ── טוקני Liquid Obsidian ──
-const C = {
+// במצב זכוכית הטקסט מתחזק: הרקע אינו בשליטתנו, ואפור בינוני על טפט בהיר
+// פשוט נעלם. הצבעים הסמנטיים (מאקרו/מגמה) נשארים — הם נושאים משמעות.
+const C = GLASS ? {
+    bg: '#161619', track: '#ffffff', sep: '#ffffff',
+    text: '#ffffff', dim: '#e8e8ea',
+    accent: '#7ab8ff', success: '#5ce87a', danger: '#ff8a80',
+    p: '#bcd4e6', c: '#e6d3a6', f: '#e6bccb'
+} : {
     bg: '#161619', track: '#26262c', sep: '#ffffff',
     text: '#e2e2e2', dim: '#8E8E93',
     accent: '#0A84FF', success: '#30D158', danger: '#ff453a',
@@ -58,7 +83,9 @@ else { const cached = readSnapCache(); if (cached) snap = cached; }
 snap = normalizeForToday(snap);
 
 const w = new ListWidget();
-w.backgroundColor = col(C.bg);
+// במצב זכוכית לא נוגעים ברקע בכלל — ווידג'ט שצובע את עצמו אטום אינו מקבל
+// את חומר המערכת, וזו הסיבה היחידה שהוא לא הופיע עד היום.
+if (!GLASS) w.backgroundColor = col(C.bg);
 if (TAP_URL) w.url = TAP_URL;
 w.setPadding(13, 15, 13, 15);
 // בקשת רענון צפופה (5 דק') — iOS לא מתחייב אבל מתקרב אליה כשיש תקציב.
@@ -139,11 +166,21 @@ function buildWidget(w, s) {
     const wo = bottom.addStack();
     wo.layoutVertically(); wo.spacing = 3;
     if (s.workout) {
+        // סדר האלמנטים בסטאק (שמאל→ימין): [spacer][לפני X ימים][·][שם האימון],
+        // כלומר בקריאה עברית: שם · לפני X ימים.
+        // הנקודה היא **אלמנט נפרד**: כשהיא הייתה קידומת של מחרוזת עברית
+        // ("· לפני 3 ימים"), ה-bidi הגלה אותה לקצה השני של אותו אלמנט והיא
+        // נראתה תלושה. lineLimit=1 על שני הצדדים מונע את שבירת השורה
+        // ("· לפני" בשורה אחת ו-"3 ימים" בשנייה) כשהמקום צר.
         const nameRow = wo.addStack();
-        nameRow.layoutHorizontally(); nameRow.bottomAlignContent(); nameRow.spacing = 4;
+        nameRow.layoutHorizontally(); nameRow.bottomAlignContent(); nameRow.spacing = 3;
         nameRow.addSpacer();
-        const ago = nameRow.addText('· ' + agoText(s.workout.timestamp));
+        const ago = nameRow.addText(agoText(s.workout.timestamp));
         ago.font = Font.semiboldSystemFont(9); ago.textColor = col(C.dim);
+        ago.lineLimit = 1; ago.minimumScaleFactor = 0.85;
+        const dot = nameRow.addText('·');
+        dot.font = Font.semiboldSystemFont(9); dot.textColor = col(C.dim, 0.7);
+        dot.lineLimit = 1;
         const name = nameRow.addText(s.workout.type);
         name.font = Font.heavySystemFont(13); name.textColor = col(C.text);
         name.lineLimit = 1; name.minimumScaleFactor = 0.7;
@@ -151,7 +188,8 @@ function buildWidget(w, s) {
         metaRow.layoutHorizontally();
         metaRow.addSpacer();
         const meta = metaRow.addText(s.workout.sets + ' סטים · ' + fmtNum(s.workout.volume) + ' ק"ג נפח');
-        meta.font = Font.mediumSystemFont(9.5); meta.textColor = col('#b9b9be');
+        meta.font = Font.mediumSystemFont(9.5); meta.textColor = col(GLASS ? '#f0f0f2' : '#b9b9be');
+        meta.lineLimit = 1; meta.minimumScaleFactor = 0.8;
     } else {
         const noneRow = wo.addStack();
         noneRow.layoutHorizontally(); noneRow.addSpacer();
@@ -164,7 +202,7 @@ function buildWidget(w, s) {
     // מפריד אנכי עדין — כמו במוקאפ
     const sep = bottom.addStack();
     sep.size = new Size(1, 44);
-    sep.backgroundColor = col(C.sep, 0.08);
+    sep.backgroundColor = col(C.sep, GLASS ? 0.28 : 0.08);
 
     bottom.addSpacer(12);
 
@@ -229,7 +267,8 @@ function addProgressBar(w, pct) {
     const track = w.addStack();
     track.size = new Size(0, BAR_H);   // רוחב 0 = גמיש; ה-spacer שבפנים ממתח אותו עד הקצוות
     track.cornerRadius = BAR_H / 2;
-    track.backgroundColor = col(C.track);
+    // מצב זכוכית: מסילה לבנה שקופה (אטומה הייתה פס לבן בוהק על החומר)
+    track.backgroundColor = GLASS ? col('#ffffff', 0.22) : col(C.track);
     track.layoutHorizontally();
     track.addSpacer();   // ממלא את הרוחב ומעגן את המילוי לקצה הימני — התקדמות RTL
     if (pct > 0) {
@@ -266,9 +305,11 @@ function sparkline(points) {
         ctx.setStrokeColor(col(C.accent)); ctx.setLineWidth(5.5);
         ctx.strokePath();
 
-        // נקודת הערך האחרון (בצד ימין של הגרף) — עם טבעת בצבע הרקע
+        // נקודת הערך האחרון (בצד ימין של הגרף) — עם טבעת בצבע הרקע.
+        // במצב זכוכית אין רקע ידוע, ולכן הטבעת לבנה: היא קוראת על כל טפט,
+        // בעוד דיסקית כהה הייתה נראית כמו כתם על החומר.
         const lx = x(points.length - 1), ly = y(points[points.length - 1]);
-        ctx.setFillColor(col(C.bg));
+        ctx.setFillColor(GLASS ? col('#ffffff', 0.9) : col(C.bg));
         ctx.fillEllipse(new Rect(lx - 10, ly - 10, 20, 20));
         ctx.setFillColor(col(C.accent));
         ctx.fillEllipse(new Rect(lx - 6.5, ly - 6.5, 13, 13));

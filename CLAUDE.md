@@ -270,7 +270,7 @@ version.json: { "version": "19.MINOR.PATCH" }
 | `docs/health-nutrition-bridge.gs` | Google Apps Script — גשר תזונה מ-Apple Health (קיצור דרך דוחף, האפליקציה מושכת) |
 | `docs/backup-bridge.gs` | Google Apps Script — גשר גיבוי שבועי: מקבל גיבוי מלא ושולח לאימייל (MailApp) |
 | `docs/widget-bridge.gs` | Google Apps Script — גשר ווידג'ט: האפליקציה דוחפת snapshot, ווידג'ט Scriptable מושך |
-| `docs/widget-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הבית ל-iOS (תזונה+מאקרו, משקל+מגמה, אימון אחרון) |
+| `docs/widget-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הבית ל-iOS (תזונה+מאקרו, משקל+מגמה, אימון אחרון). שדה Parameter בוחר רקע: ריק=כרטיס אטום, `glass`=ללא רקע כדי ש-iOS ירנדר מאחוריו Liquid Glass (הטקסט מתחזק בהתאם) |
 | `docs/widget-lockscreen-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הנעילה ל-iOS (accessoryCircular/Rectangular/Inline). אותו גשר ו-snapshot; רינדור מונוכרומטי (vibrancy) — היררכיה ב-alpha בלבד. שדה Parameter של הווידג'ט בוחר תוכן: ריק=תזונה, `weight`=ריבוע/מלבן משקל |
 | `docs/photo-bridge.gs` | Google Apps Script — גשר תמונות התקדמות: upload/get/list/del מול תיקיית Drive פרטית |
 | `vendor/zbar.js` | ספריית ZBar (WASM) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |

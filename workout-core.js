@@ -5401,6 +5401,103 @@ const COACH_MEMORY_TPL =
 === קטע שיחה חדש ===
 {conversation}`;
 
+/* ═══ {exerciseHistory} — היסטוריה לפי תרגיל ═══════════════════════════════
+ * הפרומפט ביקש תמיד "חזרות ועומס מול הפעם הקודמת שכל תרגיל בוצע", אבל מקטע
+ * הנתונים היחיד שליווה אותו היה {recentWorkouts} — סיכומי סשן **מסוננים לפי שם
+ * התוכנית**. בסשן דילואוד שם התוכנית ייחודי ומעולם לא הופיע קודם, ולכן המקטע
+ * חזר ריק תמיד, והמודל דיווח נכונה "אין נתונים זמינים מאימונים קודמים של תרגיל
+ * זה". הוא ציית להוראה; האפליקציה לא סיפקה את הנתון.
+ *
+ * כאן ההיסטוריה נבנית **לפי שם התרגיל** — הזהות היחידה שקיימת בסכמה, והיא
+ * מקודדת גם ציוד (Cable Lateral Raises מול Lateral Raises) — בלי תלות בשם
+ * התוכנית, במספר השבוע או בסיווג הסשן.
+ *
+ * ⚠️ מקור הטקסט הוא `entry.summary` ולא `entry.log`, וזה מכוון: הסיכום כבר נושא
+ * את שורת הכותרת (Main, TM), הערת התרגיל, שורות הסטים **עם ההערות**, חץ הדרופ-סט
+ * ותגית (Skipped). רינדור מחדש מ-log היה מאבד חלק מהם בשקט — והערת ספוטר שנמחקת
+ * הופכת השוואה לא-אחידה לנראית אחידה, כלומר בדיוק הכשל שהמקטע נועד למנוע.
+ * לכן: **מעתיקים מילה במילה, ומקצצים במספר הסשנים בלבד — לעולם לא בתוכן סשן.**
+ * ═════════════════════════════════════════════════════════════════════════*/
+
+// כותרת ההסבר של המקטע — מקור אחד, כדי שהתבנית והזנב לא יסטו זה מזה.
+const EX_HISTORY_INTRO =
+    'לכל תרגיל באימון הנוכחי, הפעמים האחרונות שהתרגיל **עצמו** בוצע — לפי שם התרגיל, ' +
+    'בלי תלות בשם התוכנית, במספר השבוע או בסיווג הסשן. הסטים וההערות מועתקים מילה במילה מהתיעוד.';
+
+// EXHISTORY-START — בלוק טהור, נבדק ב-test/exercise-history.test.js (אל תסיר את הסמנים)
+const EX_HISTORY_SESSIONS  = 3;      // כמה פעמים אחורה לכל תרגיל
+const EX_HISTORY_MAX_CHARS = 14000;  // תקרת אורך למקטע כולו
+
+function _exWeekLabel(week) {
+    if (week === 'deload') return 'Deload';
+    return (week != null && week !== '') ? ('Week ' + week) : '';
+}
+
+// _exBlockFor — הבלוק של תרגיל מסוים מתוך טקסט סיכום, מילה במילה.
+// תומך בשני המבנים: בלוק תרגיל רגיל (כותרת ואחריה שורות עד שורה ריקה),
+// ושורות בתוך Cluster (מוזחות, "  <שם>: ..."), שם נשמרת גם כותרת הסבב.
+function _exBlockFor(summary, exName) {
+    const name = String(exName || '').trim();
+    if (!name) return '';
+    const lines = String(summary || '').split('\n');
+    const out = [];
+    let inBlock = false, lastRound = '', roundEmitted = '';
+    for (const line of lines) {
+        const t = line.trim();
+        if (/^\s{2,}\S/.test(line)) {                       // שורה בתוך Cluster
+            if (t.indexOf(name + ':') === 0) {
+                if (lastRound && roundEmitted !== lastRound) { out.push(lastRound); roundEmitted = lastRound; }
+                out.push(t);
+            }
+            continue;
+        }
+        if (/^Cluster /.test(t)) { lastRound = t; inBlock = false; continue; }
+        if (inBlock) {
+            if (!t) { inBlock = false; continue; }
+            out.push(t);
+            continue;
+        }
+        if (t.indexOf(name) === 0) {                        // כותרת בלוק של התרגיל
+            const rest = t.slice(name.length);
+            if (rest.startsWith(' (') || rest.startsWith(':')) { inBlock = true; out.push(t); }
+        }
+    }
+    return out.join('\n');
+}
+
+// _buildExerciseHistory — המקטע המלא. archive חדש→ישן.
+function _buildExerciseHistory(entry, archive, nSessions) {
+    if (!entry || !Array.isArray(archive)) return '';
+    const names = (Array.isArray(entry.exOrder) && entry.exOrder.length)
+        ? entry.exOrder.slice() : Object.keys(entry.details || {});
+    if (!names.length) return '';
+    const past = archive.filter(a => a && a.summary && a.timestamp < entry.timestamp);
+    const parts = [];
+    names.forEach(nm => {
+        const rows = [];
+        for (const a of past) {
+            if (rows.length >= nSessions) break;
+            const blk = _exBlockFor(a.summary, nm);
+            if (!blk) continue;
+            const meta = [a.date, a.type, _exWeekLabel(a.week)].filter(Boolean).join(' · ');
+            rows.push(`▸ ${meta} · [מצב תזונתי: ${a.nutritionalState || 'לא ידוע'}]\n${blk}`);
+        }
+        parts.push(`── ${nm} ──\n` + (rows.length ? rows.join('\n') : 'לא בוצע קודם לכן בארכיון.'));
+    });
+    return parts.join('\n\n');
+}
+
+// _buildExerciseHistoryCapped — תקרת אורך שמקצצת **סשנים ולא תוכן**: 3 → 2 → 1.
+// קיצוץ בתוך סשן היה מוחק שורת סט או הערה, וזו בדיוק הפגיעה שאסורה כאן.
+function _buildExerciseHistoryCapped(entry, archive) {
+    for (let n = EX_HISTORY_SESSIONS; n >= 1; n--) {
+        const txt = _buildExerciseHistory(entry, archive, n);
+        if (!txt || txt.length <= EX_HISTORY_MAX_CHARS || n === 1) return txt;
+    }
+    return '';
+}
+// EXHISTORY-END
+
 // _fillTemplate — החלפת placeholders ע"י split/join (בטוח מ-$ בטקסט ההחלפה)
 function _fillTemplate(tpl, map) {
     let out = tpl;
@@ -5444,6 +5541,13 @@ function _buildCoachSummaryPrompt(scope, tplOverride) {
     const blockWorkouts = ctx.current
         .filter(a => a.timestamp !== ts && a.summary).map(_taggedSummary).join('\n\n') || 'אין נתונים';
 
+    // היסטוריה לפי תרגיל — מחליפה בפועל את {recentWorkouts} כמקור ההשוואה.
+    // {recentWorkouts} נשאר מחושב: תבניות שמורות אצל משתמשים עדיין מכילות אותו,
+    // והוצאתו מהמפה הייתה משאירה בהן את המחרוזת "{recentWorkouts}" כטקסט גולמי.
+    const exerciseHistory = (currentEntry && _buildExerciseHistoryCapped(currentEntry, archive)) || 'אין נתונים';
+    const exHistorySection = (exerciseHistory && exerciseHistory !== 'אין נתונים')
+        ? `\n=== היסטוריית התרגילים באימון זה ===\n${EX_HISTORY_INTRO}\n${exerciseHistory}\n` : '';
+
     const analytics = (typeof buildAnalyticsSnapshot === 'function' && buildAnalyticsSnapshot()) || 'אין נתונים';
 
     const reliability = StorageManager.COACH_RELIABILITY_BLOCK || '';
@@ -5464,14 +5568,19 @@ function _buildCoachSummaryPrompt(scope, tplOverride) {
     const template = (typeof tplOverride === 'string' && tplOverride.trim())
         ? tplOverride : StorageManager.getCoachPrompt(scope);
     let filled = _fillTemplate(template, {
-        reliability, workoutText, nutrition, persona, recentWorkouts, weekWorkouts, parallelWorkout, blockWorkouts, analytics, recovery, memoryBox
+        reliability, workoutText, nutrition, persona, recentWorkouts, exerciseHistory,
+        weekWorkouts, parallelWorkout, blockWorkouts, analytics, recovery, memoryBox
     });
     // תבנית מותאמת שנשמרה לפני שה-placeholder הזה נוסף — או שנמחק ממנה בטעות —
     // לא מכילה אותו, ואז המקטע נופל בשקט. מצרפים אותו בסוף.
     // רק שלושת אלה: הם חלים על כל שלושת הסקופים. המקטעים ההיסטוריים
     // ({weekWorkouts}, {parallelWorkout}, {blockWorkouts}) נעדרים מתבנית בכוונה
     // לפי הסקופ שלה, ולכן צירוף שלהם היה מזריק נתונים שהתבנית לא ביקשה.
-    [['{recovery}', recovery], ['{memoryBox}', memoryBox], ['{persona}', personaSection]].forEach(([ph, sec]) => {
+    // {exerciseHistory} נוסף כאן **בהכרח**: הוא placeholder חדש, ואף תבנית שנשמרה
+    // לפניו אינה מכילה אותו. בלי הרישום הזה המקטע היה נופל בשקט בדיוק אצל מי
+    // שערך את הפרומפט שלו — כלומר אצל המשתמש היחיד שיש לו נוסח מותאם.
+    [['{recovery}', recovery], ['{memoryBox}', memoryBox], ['{persona}', personaSection],
+     ['{exerciseHistory}', exHistorySection]].forEach(([ph, sec]) => {
         if (sec && !template.includes(ph)) filled += '\n' + sec;
     });
     return filled;
@@ -6259,7 +6368,15 @@ function _buildTdeeAIContext(slim) {
 function _buildSleepAIContext(slim, refDate) {
     const nights = (typeof StorageManager.getSleepDaily === 'function') ? StorageManager.getSleepDaily() : [];
     if (!nights || !nights.length) return '';   // אין נתוני שינה אמיתיים → לא מזריקים דמה ל-AI
-    const idx = nights.length - 1;
+    // בחירת הלילה לפי refDate — יישור ל-_readinessFor, שממנו נגזר הציון בכרטיס
+    // ובייצוא המאוחד. עד v19.13.8 כאן נלקח תמיד **הלילה האחרון במערך**, ו-refDate
+    // השפיע רק על המשפט "האם זה הלילה שלפני האימון". ביום האימון עצמו השניים
+    // מתלכדים במקרה, ולכן הפער לא נראה; אבל סיכום שנוצר מחדש לאימון ישן תיאר את
+    // **אתמול בלילה** בזמן שהכרטיס באותו מסך הציג את הלילה הנכון. שתי חזיתות
+    // שחלקו מספר אחד וסטו זו מזו — בדיוק סוג הכשל השקט שהמסמך מזהיר מפניו.
+    // נפילה לאחור ללילה האחרון כשאין רשומה לתאריך: מדידה אמיתית מתויגת עדיפה על חור.
+    const _refIdx = refDate ? nights.findIndex(x => x && x.date === refDate) : -1;
+    const idx = _refIdx >= 0 ? _refIdx : nights.length - 1;
     const n = nights[idx];
     // _ok — אותו סינון תקינות בדיוק שבו משתמשים התצוגה והציון (_VITAL_RANGE).
     // קריטי: הפרומפט היה הצרכן היחיד שקרא ערכים **גולמיים**, ולכן asleepMin=0
@@ -6299,7 +6416,9 @@ function _buildSleepAIContext(slim, refDate) {
     if (cResp.v != null) parts.push(`נשימה ${cResp.v}${ageTag(cResp)}`);
 
     let s = `\n=== שינה והתאוששות (Apple Health) ===\n`;
-    s += `לילה אחרון (${n.date}): ${parts.length ? parts.join(' | ') : 'אין מדדים תקינים'}`;
+    // "לילה אחרון" חדל להיות מדויק מרגע שהבחירה היא לפי refDate — התווית ניטרלית,
+    // ויחס התאריכים נאמר במפורש מיד אחריה.
+    s += `לילה (${n.date}): ${parts.length ? parts.join(' | ') : 'אין מדדים תקינים'}`;
     // טמפ' עור: הערך מוחלט (°C) → מזריקים סטייה מ-baseline אישי.
     // מוצג מאותו סף שבו הוא מוצג למתאמן בכרטיס (5 לילות) — אחרת המאמן "לא יודע" על
     // נתון שהמתאמן רואה מולו. עד 14 לילות מסומן "בסיס ראשוני", כך שהמאמן יכול לדבר
@@ -7599,7 +7718,15 @@ function copyAllCoachPrompts() {
         `${book.length} פרומפטים · v${window._gymproVersion || '?'} · ${new Date().toLocaleDateString('he-IL')}`,
         '',
         'לכל פרומפט: התבנית כפי שכתובה בקוד/בעורך, ואחריה הפרומפט המוגמר עם הנתונים',
-        'שלך ברגע ההעתקה. פרומפט שנבנה רק בתוך זרימה מסוימת מופיע כתבנית בלבד.'
+        'שלך ברגע ההעתקה. פרומפט שנבנה רק בתוך זרימה מסוימת מופיע כתבנית בלבד.',
+        '',
+        '── מנגנון הזנב (חשוב לאבחון) ──',
+        'בשלושת פרומפטי הסיכום, מקטע שה-placeholder שלו **חסר מהתבנית** מצורף',
+        'אוטומטית בסופה. זה חל על: {recovery} · {memoryBox} · {persona} · {exerciseHistory}.',
+        'כך מקטע חדש מגיע גם לתבנית שנשמרה לפניו. המשמעות לאבחון: מקטע שמופיע',
+        'בפרומפט המוגמר ואינו בתבנית — אינו באג, הוא הזנב. שאר המקטעים ההיסטוריים',
+        '({weekWorkouts}, {parallelWorkout}, {blockWorkouts}) **אינם** מצורפים כך:',
+        'היעדרם מתבנית הוא החלטה לפי הסקופ שלה.'
     ];
     let liveCount = 0;
 

@@ -5341,6 +5341,9 @@ function _saveToArchive(note) {
         note,
         rmValues: state.rmUsed || {},
         nutritionalState,
+        // מוכנות הבוקר — נחרתת פעם אחת ואינה נדרסת, בדיוק כמו nutritionalState.
+        // הוויטלים של אותו יום עוד זזים; הציון שהמתאמן ראה הוא הציון הקובע.
+        readiness: _readinessAtSave(ts, _prevEntry),
         aiSummary
     };
 
@@ -5390,9 +5393,21 @@ const COACH_REFINE_TPL =
 כתוב מחדש את הסיכום המלא בעברית בפורמט Markdown, באותו מבנה וכותרות. תקן אך ורק את מה שההערה מתייחסת אליו, מעוגן בנתוני האימון והמצב התזונתי שלמעלה — אל תשנה קביעות אחרות ואל תמציא נתונים חדשים. המצב התזונתי הנוכחי הוא אך ורק "מצב נוכחי" שבמקטע התזונתי; פאזה קודמת אינה בתוקף. החזר את הסיכום המתוקן בלבד, ללא הקדמות.`;
 
 // COACHPROMPT: עדכון זיכרון המאמן — תמצות שיחות לזיכרון מתמשך.
+/* ═══ פרומפט 8 — זיכרון המאמן ═══════════════════════════════════════════════
+ * הזיכרון המצטבר שמר ערכים מדידים מיולי (81.7 ק"ג, TM 110/72.5, TDEE 2,567)
+ * בזמן שהמערכת כבר מחזיקה 83.1, TM 115/75 ו-TDEE 2,789. התבנית הורתה לשמור
+ * "העדפות, מגבלות, יעדים, קיבעונים, החלטות אימון" ולא **אסרה** מספרים — ולכן
+ * המודל שימר אותם. כל מדד שהמערכת מחזיקה בעצמה מגיע לפרומפט מהמקטעים
+ * העדכניים בכל קריאה; עותק בזיכרון יכול רק להתיישן ולסתור אותם.
+ * השורה האחרונה ("מצאת ערך מדיד — מחק אותו") מנקה את הקיים בהרצה הראשונה,
+ * ולכן אין צורך במיגרציה.
+ * ═════════════════════════════════════════════════════════════════════════*/
 const COACH_MEMORY_TPL =
 `אתה מתחזק "זיכרון מאמן" — תקציר תמציתי של תובנות עמידות מהשיחות עם המתאמן, שישמש כהקשר בעתיד.
 עדכן את הזיכרון הקיים לאור קטע השיחה החדש. שמור רק מידע בעל ערך מתמשך: העדפות, מגבלות/פציעות, יעדים, קיבעונים שזוהו, החלטות אימון ומה שעבד/לא עבד. אל תכלול פטפוט חולף.
+
+**אל תשמור בזיכרון ערך מדיד שהמערכת מחזיקה בעצמה** — משקל, אחוז שומן, TM, TDEE, יעדי קלוריות ומאקרו, עומסי עבודה, 1RM, ציוני התאוששות. הם מגיעים לפרומפט מהמקטעים העדכניים בכל קריאה, וכל עותק בזיכרון מתיישן. שמור רק את מה שהמערכת אינה יודעת: העדפות, מגבלות, החלטות מתודולוגיות והנמקות. מצאת ערך מדיד בזיכרון הקיים — מחק אותו.
+
 החזר טקסט עברי רציף בלבד (ללא הקדמה), עד ~900 תווים.
 
 === זיכרון קיים ===
@@ -5558,7 +5573,7 @@ function _buildCoachSummaryPrompt(scope, tplOverride) {
         try { const d = new Date(ts); const p = x => String(x).padStart(2, '0');
               return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; } catch (e) { return null; }
     })();
-    const recovery = (typeof _buildSleepAIContext === 'function' && _buildSleepAIContext(false, _wDate)) || '';
+    const recovery = (typeof _buildSleepAIContext === 'function' && _buildSleepAIContext(false, _wDate, currentEntry)) || '';
 
     // כללי תיבת הזיכרון — עד v19.12.2 הוזרקו לצ'אט בלבד, כך שכלל שהמתאמן אישר
     // ("Belt Squat אינו אקסיאלי") חייב את המאמן בשיחה אך לא בסיכום האוטומטי.
@@ -6365,7 +6380,10 @@ function _buildTdeeAIContext(slim) {
 // מאפשר למאמן לשקלל התאוששות בהמלצות (autoregulation).
 // refDate (YYYY-MM-DD, אופציונלי) — תאריך האימון שעליו נכתב הסיכום. בלעדיו: היום.
 // משמש כדי לומר למאמן **במפורש** אם הלילה האחרון הוא אכן הלילה שלפני האימון.
-function _buildSleepAIContext(slim, refDate) {
+// entry (אופציונלי) — רשומת האימון. כשהיא קיימת, הציון והוויטלים נקראים
+// מההקפאה שעליה ולא מחושבים מחדש: אחרת סיכום שנוצר מחדש בערב היה נושא ציון
+// אחר מזה שעל כרטיס אותו אימון, כי ה-RHR התעדכן בינתיים.
+function _buildSleepAIContext(slim, refDate, entry) {
     const nights = (typeof StorageManager.getSleepDaily === 'function') ? StorageManager.getSleepDaily() : [];
     if (!nights || !nights.length) return '';   // אין נתוני שינה אמיתיים → לא מזריקים דמה ל-AI
     // בחירת הלילה לפי refDate — יישור ל-_readinessFor, שממנו נגזר הציון בכרטיס
@@ -6378,6 +6396,16 @@ function _buildSleepAIContext(slim, refDate) {
     const _refIdx = refDate ? nights.findIndex(x => x && x.date === refDate) : -1;
     const idx = _refIdx >= 0 ? _refIdx : nights.length - 1;
     const n = nights[idx];
+    // ── ההקפאה גוברת על השליפה החיה ─────────────────────────────────────────
+    // כשלרשומת האימון יש ציון חרוט, כל מספר בפסקה הזו חייב לבוא מאותה תמונה
+    // שממנה בא הציון. אחרת נוצר מה שהייצוא הראה: "HRV 85ms (+26ms מול
+    // baseline)" לצד baseline 62 — הערך משליפה אחת, הדלתא מאחרת.
+    const _fzFound = (entry && typeof _readinessFor === 'function') ? _readinessFor(entry) : null;
+    const _fz = (_fzFound && _fzFound.frozen) ? _fzFound.rd : null;
+    const _fzV = (label) => _fz ? ((_fz.vitals || []).find(v => v && v.label === label) || null) : null;
+    const _fzSleep = (_fzFound && _fzFound.frozen && _fzFound.night && _fzFound.night.asleepMin > 0)
+        ? _fzFound.night.asleepMin : null;
+    const _sleepMin = () => _fzSleep != null ? _fzSleep : n.asleepMin;
     // _ok — אותו סינון תקינות בדיוק שבו משתמשים התצוגה והציון (_VITAL_RANGE).
     // קריטי: הפרומפט היה הצרכן היחיד שקרא ערכים **גולמיים**, ולכן asleepMin=0
     // (דחיפת ויטלים לפני ששלבי השינה נכתבו) הוזרק למאמן כ-"00:00" עובדתי.
@@ -6393,11 +6421,14 @@ function _buildSleepAIContext(slim, refDate) {
     for (let i = idx; i >= 0; i--) {
         if (_ok('asleepMin', nights[i] && nights[i].asleepMin)) { lastSleep = nights[i]; lastSleepGap = idx - i; break; }
     }
-    const nightSleepOk = lastSleep != null && lastSleepGap === 0;
+    // מדידה שנחרתה ברשומה היא מדידה אמיתית לאותו לילה — גם אם השליפה החיה
+    // כבר לא מציגה אותה. בלעדיה הפרומפט היה מתריע "המדידה חסרה" על נתון שהוא
+    // עצמו מצטט שתי שורות מאוחר יותר.
+    const nightSleepOk = _fzSleep != null || (lastSleep != null && lastSleepGap === 0);
 
     const parts = [];
     if (nightSleepOk) {
-        parts.push(`שינה ${fmtH(n.asleepMin)}`);
+        parts.push(`שינה ${fmtH(_sleepMin())}`);
         if (_ok('efficiency', n.efficiency)) parts.push(`יעילות ${Math.round(n.efficiency * 100)}%`);
         if (n.deepMin > 0 || n.remMin > 0) parts.push(`עמוקה ${fmtH(n.deepMin)} · REM ${fmtH(n.remMin)}`);
     }
@@ -6411,9 +6442,13 @@ function _buildSleepAIContext(slim, refDate) {
         : { v: _ok(k, n[k]) ? n[k] : null, carried: false, gap: 0 };
     const ageTag = (c) => c.carried ? ` (מלפני ${c.gap === 1 ? 'יום' : c.gap + ' ימים'})` : '';
     const cHrv = carry('hrv'), cRhr = carry('rhr'), cResp = carry('respRate');
-    if (cHrv.v != null)  parts.push(`HRV ${cHrv.v}ms${ageTag(cHrv)}`);
-    if (cRhr.v != null)  parts.push(`דופק מנוחה ${cRhr.v}${ageTag(cRhr)}`);
-    if (cResp.v != null) parts.push(`נשימה ${cResp.v}${ageTag(cResp)}`);
+    const vHrv = _fzV('HRV'), vRhr = _fzV('דופק מנוחה'), vResp = _fzV('נשימה');
+    if (vHrv)            parts.push(`HRV ${vHrv.valTxt}`);
+    else if (cHrv.v != null)  parts.push(`HRV ${cHrv.v}ms${ageTag(cHrv)}`);
+    if (vRhr)            parts.push(`דופק מנוחה ${vRhr.valTxt}`);
+    else if (cRhr.v != null)  parts.push(`דופק מנוחה ${cRhr.v}${ageTag(cRhr)}`);
+    if (vResp)           parts.push(`נשימה ${vResp.valTxt}`);
+    else if (cResp.v != null) parts.push(`נשימה ${cResp.v}${ageTag(cResp)}`);
 
     let s = `\n=== שינה והתאוששות (Apple Health) ===\n`;
     // "לילה אחרון" חדל להיות מדויק מרגע שהבחירה היא לפי refDate — התווית ניטרלית,
@@ -6424,7 +6459,10 @@ function _buildSleepAIContext(slim, refDate) {
     // נתון שהמתאמן רואה מולו. עד 14 לילות מסומן "בסיס ראשוני", כך שהמאמן יכול לדבר
     // עליו אבל לא להתייחס אליו כאות מבוסס.
     const cTemp = carry('wristTempDev');
-    if (typeof _recoveryBaseline === 'function' && cTemp.v != null) {
+    const vTemp = _fzV('טמפ׳');
+    if (vTemp) {
+        s += ` | סטיית טמפ׳ ${vTemp.delta}`;
+    } else if (typeof _recoveryBaseline === 'function' && cTemp.v != null) {
         const bT = _recoveryBaseline(nights, idx, 'wristTempDev');
         const showMin = (typeof TEMP_SHOW_MIN_NIGHTS !== 'undefined') ? TEMP_SHOW_MIN_NIGHTS : 5;
         const scoreMin = (typeof TEMP_MIN_NIGHTS !== 'undefined') ? TEMP_MIN_NIGHTS : 14;
@@ -6464,8 +6502,9 @@ function _buildSleepAIContext(slim, refDate) {
     // פורמט מכוון: רצועה מפורשת + ספים גלויים (מונע מהמודל להמציא סקאלה משלו ולקרוא את הציון כאחוז),
     // ציון "מבוסס על X מתוך 5 מדדים" כשחלקי, שורת מניעים, ושורת "שינה בלילה שלפני האימון" (המדד
     // הרלוונטי לניתוח האימון — לא הממוצע השבועי / חוב השינה המצטבר, שאינם רכיב בציון וגם לא מוזרקים כאן).
-    if (typeof computeReadiness === 'function') {
-        const rd = computeReadiness(nights, idx);
+    const rdSrc = _fz || ((typeof computeReadiness === 'function') ? computeReadiness(nights, idx) : null);
+    if (rdSrc) {
+        const rd = rdSrc;
         if (rd.building) {
             s += `ציון התאוששות: בונה baseline (${rd.have}/14 לילות) — טרם זמין.\n`;
         } else if (rd.score != null) {
@@ -6473,15 +6512,10 @@ function _buildSleepAIContext(slim, refDate) {
             if (rd.usedCount != null && rd.totalCount != null && rd.usedCount < rd.totalCount) {
                 s += `מבוסס על ${rd.usedCount} מתוך ${rd.totalCount} מדדים (חסר: ${(rd.missingLabels || []).join(', ')}).\n`;
             }
-            if (rd.drivers && rd.drivers.length) {
-                const driversStr = rd.drivers.map(d => {
-                    const raw = (d.val != null) ? `${d.val}${d.unit || ''}` : '';
-                    return raw ? `${d.label} ${raw} (${d.delta} מול baseline)` : `${d.label} ${d.delta}`;
-                }).join(', ');
-                s += `מניעים: ${driversStr}.\n`;
-            }
+            const driversStr = _rdDriversLine(rd.drivers);
+            if (driversStr) s += `מניעים: ${driversStr}.\n`;
             s += nightSleepOk
-                ? `שינה בלילה שלפני האימון: ${fmtH(n.asleepMin)}.\n`
+                ? `שינה בלילה שלפני האימון: ${fmtH(_sleepMin())}.\n`
                 : `שינה בלילה שלפני האימון: לא נמדדה (הנתון חסר, לא אפס) — אל תסיק ממנה דבר.\n`;
         }
     }
@@ -6496,7 +6530,10 @@ function _buildSleepAIContext(slim, refDate) {
     }
     if (!slim) {
         const hrv30 = avg('hrv', 30), rhr30 = avg('rhr', 30);
-        if (hrv30 != null) s += `Baseline ~30 יום: HRV ${hrv30}ms · דופק מנוחה ${rhr30}.\n`;
+        // "ממוצע" ולא "Baseline": זהו ממוצע אריתמטי ל-30 יום, בעוד הבסיס שממנו
+        // נגזרות הדלתאות של המניעים הוא חציון 28 לילות (MAD). שני מספרים שונים
+        // בהגדרתם — קריאתם באותו שם הפכה פסקה עקבית לסותרת את עצמה למראית עין.
+        if (hrv30 != null) s += `ממוצע 30 יום: HRV ${hrv30}ms · דופק מנוחה ${rhr30}.\n`;
     }
     return s;
 }
@@ -9064,11 +9101,123 @@ function _watchCandidates(entry) {
         .sort((a, b) => a.gap - b.gap).slice(0, 4);
 }
 
+// READINESSFREEZE-START — בלוק טהור, נבדק ב-test/readiness-freeze.test.js (אל תסיר את הסמנים)
+/* ═══ הקפאת מוכנות הבוקר ברשומת האימון ══════════════════════════════════════
+ * ה-RHR וה-HRV מ-Apple Health ממשיכים להתעדכן לאורך היום, ולכן חישוב **חי** של
+ * מוכנות ליום נתון אינו יציב עד סופו. שתי שליפות באותו ערב החזירו 78 ("מוכן")
+ * ו-65 ("בינוני") — שני צדי הסף 66, כלומר שתי מסקנות אימוניות שונות מאותו נתון
+ * גולמי. הרצועה היא מה שמתיר למאמן להסביר ביצוע חלש, ולכן הפער אינו קוסמטי.
+ *
+ * הפתרון: מרגע שנשמר אימון — הציון **נחרת** ברשומה ואינו משתנה שוב. כל צרכן
+ * (כרטיס, ייצוא פרומפטים, {recovery}, סיכום מחדש) קורא משם. חישוב חי מותר אך
+ * ורק כשאין רשומת אימון.
+ *
+ * ⚠️ הרשומה נחרתת **רק** כשבאמת התקבל ציון (לא building, לא null) — אחרת
+ * הניסיון חייב לחזור. דגל "טופל" על רשומה שלא טופלה נועל אותה לנצח.
+ * ⚠️ אחסון: אין undefined (Firestore דוחה) ואין מערך בתוך מערך — שורות המדדים
+ * הן מערך של אובייקטים שטוחים.
+ * ═════════════════════════════════════════════════════════════════════════*/
+const RD_SNAP_VER = 1;
+
+// _rdRow — שורת מדד לאחסון: רק מפתחות שקיימים בפועל. 'שינה' מגיעה בלי val
+// (ה-delta שלה הוא המשך עצמו) ו'טמפ׳' בלי base — והיעדרם הוא נתון, לא חוסר.
+function _rdRow(d) {
+    const row = { label: String(d.label || ''), delta: String(d.delta == null ? '' : d.delta),
+                  dir: d.dir === 'up' ? 'up' : 'down' };
+    if (d.valTxt  != null) row.val  = String(d.valTxt);
+    if (d.baseTxt != null) row.base = String(d.baseTxt);
+    return row;
+}
+
+// _rdUnrow — ההיפוך: חזרה לצורה ש-computeReadiness מחזיר (valTxt/baseTxt).
+function _rdUnrow(r) {
+    const d = { label: r.label, delta: r.delta, dir: r.dir };
+    if (r.val  != null) d.valTxt  = r.val;
+    if (r.base != null) d.baseTxt = r.base;
+    return d;
+}
+
+// _rdDriversLine — שורת המניעים לפרומפט. הדלתא נכתבת תמיד לצד **הבסיס שממנו
+// היא נגזרה** (baseTxt), ומאותה שליפה שנתנה את הערך. "+26ms מול baseline" לבדו
+// אילץ את הקורא לנחש מיהו אותו baseline — ובפועל הוא נוחש מול מספר אחר שהופיע
+// בהמשך הפסקה (ממוצע 30 יום), כך ש-85−62 "יצא" 26.
+function _rdDriversLine(drivers) {
+    if (!drivers || !drivers.length) return '';
+    return drivers.map(d => {
+        const raw = (d.valTxt != null) ? String(d.valTxt)
+                  : ((d.val != null) ? `${d.val}${d.unit || ''}` : '');
+        if (raw && d.baseTxt != null) return `${d.label} ${raw} (בסיס ${d.baseTxt} · ${d.delta})`;
+        if (raw)                      return `${d.label} ${raw} (${d.delta})`;
+        if (d.baseTxt != null)        return `${d.label} ${d.delta} (בסיס ${d.baseTxt})`;
+        return `${d.label} ${d.delta}`;
+    }).join(', ');
+}
+
+// _readinessSnapshot — התמונה המוקפאת. vitals נשמר במלואו (ולא רק שלושת
+// המניעים) כדי שכל מי שמצטט ערך גולמי — הפרומפט כולל — יקרא ערך ובסיס
+// **מאותה שליפה**. הייצוא כתב "HRV 85ms (+26ms מול baseline)" לצד baseline 62
+// כי הערך והדלתא הגיעו משתי קריאות שונות; שמירה משותפת מייתרת את הפער.
+function _readinessSnapshot(rd, night) {
+    if (!rd || rd.building || rd.score == null) return null;
+    const snap = {
+        v: RD_SNAP_VER,
+        score: rd.score,
+        band: rd.band,
+        used: rd.usedCount == null ? null : rd.usedCount,
+        total: rd.totalCount == null ? null : rd.totalCount,
+        missing: (rd.missingLabels || []).map(String),
+        drivers: (rd.drivers || []).map(_rdRow),
+        vitals: (rd.vitals || rd.drivers || []).map(_rdRow),
+        date: (night && night.date) || null,
+        sleepMin: (night && night.asleepMin > 0) ? night.asleepMin : null
+    };
+    return snap;
+}
+
+// _readinessThaw — הפשרה: { rd, night, frozen:true } בצורה שכל הצרכנים כבר
+// מכירים, כדי שאף חזית לא תדע אם הנתון מוקפא או חי. הצבע נגזר מהציון (ולא
+// נשמר) — ספים במקום אחד.
+function _readinessThaw(snap) {
+    if (!snap || snap.score == null) return null;
+    const color = (typeof _rdColor === 'function') ? _rdColor(snap.score)
+        : (snap.score >= 66 ? 'var(--success)' : snap.score >= 34 ? 'var(--warn)' : 'var(--danger)');
+    const band = snap.band || ((typeof _rdBand === 'function') ? _rdBand(snap.score) : '');
+    const rd = {
+        score: snap.score, band, color, building: false,
+        usedCount: snap.used, totalCount: snap.total,
+        missingLabels: snap.missing || [],
+        drivers: (snap.drivers || []).map(_rdUnrow),
+        vitals: (snap.vitals || snap.drivers || []).map(_rdUnrow)
+    };
+    return { rd, night: { date: snap.date, asleepMin: snap.sleepMin || 0 }, frozen: true };
+}
+// READINESSFREEZE-END
+
+// _readinessFreezeInto — חריתת התמונה על הרשומה, פעם אחת. כותב גם לאובייקט
+// שבזיכרון (כדי שהקריאה הנוכחית כבר תראה מוקפא) וגם לארכיון.
+function _readinessFreezeInto(entry, rd, night) {
+    if (!entry || !entry.timestamp || entry.readiness) return null;
+    const snap = _readinessSnapshot(rd, night);
+    if (!snap) return null;                 // אין ציון → אין חריתה, הניסיון יחזור
+    entry.readiness = snap;
+    try {
+        if (typeof StorageManager !== 'undefined' && typeof StorageManager.updateArchiveEntry === 'function') {
+            StorageManager.updateArchiveEntry(entry.timestamp, { readiness: snap });
+        }
+    } catch (e) {}
+    return snap;
+}
+
 // _readinessCardHtml — המוכנות של בוקר האימון, מאותו מנוע שמזין את מסך השינה.
-// _readinessFor — מוכנות הבוקר של יום האימון: { rd, night } או null.
+// _readinessFor — מוכנות הבוקר של יום האימון: { rd, night, frozen } או null.
 // מקור אחד לכרטיס ולטקסט ההעתקה — שתי חזיתות שסטו זו מזו הן באג מחכה לקרות.
+// רשומה שיש לה readiness מוקפא מוחזרת ממנו, תמיד. רשומה ישנה בלי הקפאה
+// מחושבת פעם אחת ונחרתת — ומאותו רגע היא יציבה כמו כל השאר.
 function _readinessFor(entry) {
-    if (!entry || typeof computeReadiness !== 'function' || typeof StorageManager.getSleepDaily !== 'function') return null;
+    if (!entry) return null;
+    const frozen = _readinessThaw(entry.readiness);
+    if (frozen) return frozen;
+    if (typeof computeReadiness !== 'function' || typeof StorageManager.getSleepDaily !== 'function') return null;
     const nights = StorageManager.getSleepDaily();
     if (!nights.length) return null;
     const dstr = (typeof _blLocalDateStr === 'function') ? _blLocalDateStr(new Date(entry.timestamp)) : null;
@@ -9077,7 +9226,16 @@ function _readinessFor(entry) {
     let rd;
     try { rd = computeReadiness(nights, idx); } catch (e) { return null; }
     if (!rd || rd.building || rd.score == null) return null;
-    return { rd, night: nights[idx] };
+    _readinessFreezeInto(entry, rd, nights[idx]);
+    return { rd, night: nights[idx], frozen: false };
+}
+
+// _readinessAtSave — התמונה שנחרתת ברגע שמירת האימון. prev שומר על הקפאה
+// קיימת, כמו nutritionalState: שמירה חוזרת של אותו אימון לא מייצרת ציון חדש.
+function _readinessAtSave(ts, prev) {
+    if (prev && prev.readiness) return prev.readiness;
+    const found = _readinessFor({ timestamp: ts });
+    return found ? _readinessSnapshot(found.rd, found.night) : null;
 }
 
 function _readinessCardHtml(entry) {
@@ -10781,6 +10939,7 @@ function _saveCardioToArchive(note) {
     });
     // שיוך שעון שכבר נעשה לרשומה הזו נשמר — הוא לא נגזר מה-state
     if (prev && prev.watch) entry.watch = prev.watch;
+    entry.readiness = _readinessAtSave(ts, prev);
 
     let saved = StorageManager.updateArchiveEntry(ts, entry);
     if (!saved) saved = StorageManager.saveToArchive(entry);
@@ -10933,6 +11092,7 @@ function _adoptWatchWorkoutAs(rec, planName) {
         nutritionalState: (StorageManager.getNutritionalState() || {}).state || null
     });
     entry.watch = _watchAttach(rec, entry.date, 'manual');
+    entry.readiness = _readinessAtSave(ts, null);
 
     if (!StorageManager.saveToArchive(entry)) {
         showAlert('שגיאה: הרשומה לא נשמרה בארכיון — האחסון המקומי מלא.');

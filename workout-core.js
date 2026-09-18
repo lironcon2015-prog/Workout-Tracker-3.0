@@ -6384,7 +6384,7 @@ function _buildTdeeAIContext(slim) {
 // מההקפאה שעליה ולא מחושבים מחדש: אחרת סיכום שנוצר מחדש בערב היה נושא ציון
 // אחר מזה שעל כרטיס אותו אימון, כי ה-RHR התעדכן בינתיים.
 function _buildSleepAIContext(slim, refDate, entry) {
-    const nights = (typeof StorageManager.getSleepDaily === 'function') ? StorageManager.getSleepDaily() : [];
+    const nights = _rdNights();
     if (!nights || !nights.length) return '';   // אין נתוני שינה אמיתיים → לא מזריקים דמה ל-AI
     // בחירת הלילה לפי refDate — יישור ל-_readinessFor, שממנו נגזר הציון בכרטיס
     // ובייצוא המאוחד. עד v19.13.8 כאן נלקח תמיד **הלילה האחרון במערך**, ו-refDate
@@ -9193,6 +9193,26 @@ function _readinessThaw(snap) {
 }
 // READINESSFREEZE-END
 
+// _rdNights — לילות המוכנות דרך שכבת הקיבוע. מקור אחד עם מסך השינה: מי
+// שקורא את StorageManager.getSleepDaily() ישירות יקבל ויטלים טריים ויציג
+// ציון אחר מהכרטיס שלצידו.
+function _rdNights() {
+    if (typeof _readinessNights === 'function') return _readinessNights();
+    return (typeof StorageManager !== 'undefined' && typeof StorageManager.getSleepDaily === 'function')
+        ? StorageManager.getSleepDaily() : [];
+}
+
+// _rdDayClosed — האם היום של הרשומה נסגר (dstr הוא ISO). אימון של היום אינו
+// נחרת: הקיבוע היומי עדיין מקבל מדדים, וחריתה מוקדמת הייתה נועלת את הרשומה
+// על ציון חלקי לנצח.
+function _rdDayClosed(dstr) {
+    if (!dstr) return false;
+    const today = (typeof StorageManager !== 'undefined' && StorageManager._todayStr)
+        ? StorageManager._todayStr() : null;
+    return !!today && dstr < today;   // ISO מול ISO — השוואת מחרוזות בטוחה
+}
+
+
 // _readinessFreezeInto — חריתת התמונה על הרשומה, פעם אחת. כותב גם לאובייקט
 // שבזיכרון (כדי שהקריאה הנוכחית כבר תראה מוקפא) וגם לארכיון.
 function _readinessFreezeInto(entry, rd, night) {
@@ -9217,8 +9237,8 @@ function _readinessFor(entry) {
     if (!entry) return null;
     const frozen = _readinessThaw(entry.readiness);
     if (frozen) return frozen;
-    if (typeof computeReadiness !== 'function' || typeof StorageManager.getSleepDaily !== 'function') return null;
-    const nights = StorageManager.getSleepDaily();
+    if (typeof computeReadiness !== 'function') return null;
+    const nights = _rdNights();
     if (!nights.length) return null;
     const dstr = (typeof _blLocalDateStr === 'function') ? _blLocalDateStr(new Date(entry.timestamp)) : null;
     const idx = dstr ? nights.findIndex(n => n && n.date === dstr) : -1;
@@ -9226,14 +9246,19 @@ function _readinessFor(entry) {
     let rd;
     try { rd = computeReadiness(nights, idx); } catch (e) { return null; }
     if (!rd || rd.building || rd.score == null) return null;
-    _readinessFreezeInto(entry, rd, nights[idx]);
+    if (_rdDayClosed(dstr)) _readinessFreezeInto(entry, rd, nights[idx]);
     return { rd, night: nights[idx], frozen: false };
 }
 
 // _readinessAtSave — התמונה שנחרתת ברגע שמירת האימון. prev שומר על הקפאה
 // קיימת, כמו nutritionalState: שמירה חוזרת של אותו אימון לא מייצרת ציון חדש.
+// אימון של **היום** אינו נחרת בשמירה — הקיבוע היומי עדיין פתוח, ומדד שטרם
+// הגיע מ-Apple ייחרת בהמשך היום. הרשומה נחרתת בצפייה הראשונה למחרת; עד אז
+// היא קוראת חי מהקיבוע, שהוא עצמו יציב.
 function _readinessAtSave(ts, prev) {
     if (prev && prev.readiness) return prev.readiness;
+    const dstr = (typeof _blLocalDateStr === 'function' && ts) ? _blLocalDateStr(new Date(ts)) : null;
+    if (!_rdDayClosed(dstr)) return null;
     const found = _readinessFor({ timestamp: ts });
     return found ? _readinessSnapshot(found.rd, found.night) : null;
 }

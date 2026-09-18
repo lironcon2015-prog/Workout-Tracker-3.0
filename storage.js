@@ -26,6 +26,7 @@ const StorageManager = {
     KEY_NUTRITION_LOG: 'gympro_nutrition_log',
     KEY_NUTRITION_DAILY: 'gympro_nutrition_daily',   // ייבוא MFP — קלוריות/מאקרו לפי יום
     KEY_SLEEP_DAILY:     'gympro_sleep_daily',        // שינה + התאוששות לפי יום (Apple Health)
+    KEY_VITAL_LOCK:      'gympro_vital_lock',         // קיבוע ויטלי הבוקר ליום הנוכחי (ראה _vitalLockApply)
     KEY_NUTRITION_NOTES: 'gympro_nutrition_notes',   // הערה חופשית לפי יום — עצמאי מ-NUTRITION_DAILY
     KEY_TARGET_HISTORY:  'gympro_target_history',     // לוג יעדי קלוריות/מאקרו אפקטיבי-מתאריך (v16.91)
     KEY_NUTRITION_RAW:   'gympro_nutrition_raw',      // הקובץ הגולמי המקורי (שורה לכל ארוחה)
@@ -1081,6 +1082,7 @@ const StorageManager = {
             nutritionLog: this.getNutritionLog(),
             nutritionDaily: this.getNutritionDaily(),
             sleepDaily: this.getSleepDaily(),
+            vitalLock: this.getVitalLock(),
             watchWorkouts: this.getWatchWorkouts(),
             nutritionNotes: this.getNutritionNotes(),
             targetHistory: this.getTargetHistory(),
@@ -1147,6 +1149,7 @@ const StorageManager = {
             if (data.nutritionLog)   this.saveData(this.KEY_NUTRITION_LOG, data.nutritionLog);
             if (data.nutritionDaily) this.saveData(this.KEY_NUTRITION_DAILY, data.nutritionDaily);
             if (data.sleepDaily)     this.saveData(this.KEY_SLEEP_DAILY, data.sleepDaily);
+            if (Array.isArray(data.vitalLock)) this.saveVitalLock(data.vitalLock);
             if (Array.isArray(data.watchWorkouts)) this.saveWatchWorkouts(data.watchWorkouts);
             if (data.nutritionNotes) this.saveData(this.KEY_NUTRITION_NOTES, data.nutritionNotes);
             if (data.targetHistory)  this.saveData(this.KEY_TARGET_HISTORY, data.targetHistory);
@@ -1201,6 +1204,24 @@ const StorageManager = {
     // ── Sleep / Recovery (שינה + התאוששות מ-Apple Health) ─────────────────
     getSleepDaily() {
         return this.getData(this.KEY_SLEEP_DAILY) || [];
+    },
+
+    /* ── קיבוע ויטלי הבוקר ─────────────────────────────────────────────────
+     * SLEEP_DAILY נשאר **טרי** בכוונה: אפל מזקקת RHR לאורך היום, ו-v19.7.5
+     * קבע שהקפאתו שם מנציחה את הקריאה הפחות מדויקת ושוברת backfill.
+     * הקיבוע יושב בשכבה נפרדת מעליו וחל **על היום הנוכחי בלבד**: כל מדד נחרת
+     * בקריאה הראשונה התקינה שלו, כדי שציון המוכנות לא יזוז במהלך היום. הבסיס
+     * (_recoveryBaseline) ממשיך להיגזר מ-SLEEP_DAILY הטרי, ולכן תיקוני היסטוריה
+     * של אפל עדיין מתקנים את ה-z-score.
+     * מבנה: [{ date:'YYYY-MM-DD', hrv, rhr, ... }] — מערך של אובייקטים שטוחים,
+     * בלי undefined ובלי מערך בתוך מערך (גבול Firestore).
+     */
+    getVitalLock() {
+        const v = this.getData(this.KEY_VITAL_LOCK);
+        return Array.isArray(v) ? v : [];
+    },
+    saveVitalLock(arr) {
+        this.saveData(this.KEY_VITAL_LOCK, Array.isArray(arr) ? arr : []);
     },
     saveSleepDaily(arr) {
         this.saveData(this.KEY_SLEEP_DAILY, arr || []);
@@ -2992,6 +3013,7 @@ const FirebaseManager = {
                 nutritionLog:   StorageManager.getNutritionLog(),
                 nutritionDaily: StorageManager.getNutritionDaily(),
                 sleepDaily:     StorageManager.getSleepDaily(),
+                vitalLock:      StorageManager.getVitalLock(),
                 watchWorkouts:  StorageManager.getWatchWorkouts().map(w => this._encodeWatch(w)),
                 hrZones:        StorageManager.getHrZones(),
                 nutritionNotes: StorageManager.getNutritionNotes(),
@@ -3157,6 +3179,7 @@ const FirebaseManager = {
         if (data.nutritionLog)   StorageManager.saveData(StorageManager.KEY_NUTRITION_LOG, data.nutritionLog);
         if (data.nutritionDaily) StorageManager.saveData(StorageManager.KEY_NUTRITION_DAILY, data.nutritionDaily);
         if (data.sleepDaily)     StorageManager.saveData(StorageManager.KEY_SLEEP_DAILY, data.sleepDaily);
+        if (Array.isArray(data.vitalLock)) StorageManager.saveVitalLock(data.vitalLock);
         if (Array.isArray(data.watchWorkouts)) StorageManager.saveWatchWorkouts(data.watchWorkouts.map(w => FirebaseManager._decodeWatch(w)));
         if (data.hrZones)        StorageManager.saveHrZones(data.hrZones);
         if (data.nutritionNotes) StorageManager.saveData(StorageManager.KEY_NUTRITION_NOTES, data.nutritionNotes);

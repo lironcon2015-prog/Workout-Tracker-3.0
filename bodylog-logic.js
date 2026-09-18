@@ -1954,7 +1954,9 @@ function _sleepDemoData() {
 // _sleepData — מקור הנתונים: אמיתי אם קיים, אחרת דמה (עם דגל).
 function _sleepData() {
     const real = StorageManager.getSleepDaily();
-    if (real && real.length) return { nights: real, demo: false };
+    // ויטלי היום עוברים דרך הקיבוע — הטבעת, הצ'יפים והאריחים חייבים להציג את
+    // אותה קריאה שממנה נגזר הציון, אחרת הכרטיס סותר את עצמו.
+    if (real && real.length) return { nights: _vitalLockApply(real), demo: false };
     return { nights: _sleepDemoData(), demo: true };
 }
 
@@ -2035,6 +2037,113 @@ function _carriedVital(nights, idx, key) {
 function _carriedRHR(nights, idx) {
     const c = _carriedVital(nights, idx, 'rhr');
     return c.v != null ? c.v : (nights[idx] && nights[idx].rhr);
+}
+
+/* ═══ קיבוע ויטלי הבוקר ══════════════════════════════════════════════════════
+ * ציון המוכנות זז במהלך היום: אפל מזקקת "דופק במנוחה" ככל שמצטברים נתוני מנוחה,
+ * ולכן חישוב חי של אותו יום החזיר מספר אחר בכל רינדור — ובאותו יום גם רצועה
+ * אחרת (78 "מוכן" בבוקר מול 65 "בינוני" בערב, שני צדי הסף 66).
+ *
+ * הקיבוע: כל מדד נחרת ב-**קריאה הראשונה התקינה שלו** לאותו תאריך. מדד שחסר
+ * בבוקר נשאר pending ונחרת כשיגיע לראשונה — אין סף שעה, יש סף תקינות.
+ *
+ * ⚠️ הקיבוע חל על **היום הנוכחי בלבד** (RD_LOCK_KEEP_DAYS ימים אחורה לצורך
+ * חריתת רשומת אימון למחרת). SLEEP_DAILY עצמו נשאר טרי, וכך נשמר הלקח של
+ * v19.7.5: RHR הוא מדד מחושב שאפל מעדכנת, ו-fill-only עליו הנציח את הקריאה
+ * הפחות מדויקת ושבר backfill. הבסיס ממשיך להיגזר מהערכים הטריים.
+ * ═════════════════════════════════════════════════════════════════════════*/
+// VITALLOCK-START — בלוק טהור, נבדק ב-test/vital-lock.test.js (אל תסיר את הסמנים)
+const RD_LOCK_KEYS = ['hrv', 'rhr', 'respRate', 'asleepMin', 'efficiency', 'wristTempDev'];
+const RD_LOCK_KEEP_DAYS = 3;
+
+// _vitalLockRow — שורת הקיבוע של תאריך נתון, או null.
+function _vitalLockRow(lock, date) {
+    if (!Array.isArray(lock) || !date) return null;
+    return lock.find(r => r && r.date === date) || null;
+}
+
+// _vitalLockMerge — חורת כל מדד שטרם נחרת ויש לו כעת קריאה תקינה.
+// טהורה: מחזירה { lock, changed } ואינה נוגעת בקלט.
+// ערך שנחרת **אינו נדרס** — זו כל המטרה. ערך חסר/לא-תקין אינו נחרת, כדי
+// שהניסיון יחזור בסנכרון הבא (כלל "דגל טופל נחרת רק כשבאמת טופל").
+function _vitalLockMerge(lock, date, night) {
+    const src = Array.isArray(lock) ? lock : [];
+    const prev = _vitalLockRow(src, date);
+    const row = Object.assign({}, prev || { date });
+    let changed = false;
+    RD_LOCK_KEYS.forEach(k => {
+        if (row[k] != null) return;
+        const v = night ? night[k] : null;
+        if (!_validVital(k, v)) return;
+        row[k] = v;
+        changed = true;
+    });
+    if (!changed) return { lock: src, changed: false };
+    const out = src.filter(r => !r || r.date !== date);
+    out.push(row);
+    out.sort((a, b) => (a && a.date) < (b && b.date) ? -1 : 1);
+    return { lock: out, changed: true };
+}
+
+// _vitalLockOverlay — הלילה כפי שהמוכנות חייבת לראות אותו: ערך חרוט גובר על
+// הערך הטרי. מדד שלא נחרת עובר כמו שהוא (וייחרת ברגע שיהיה תקין).
+function _vitalLockOverlay(night, row) {
+    if (!night || !row) return night;
+    const out = Object.assign({}, night);
+    RD_LOCK_KEYS.forEach(k => { if (row[k] != null) out[k] = row[k]; });
+    return out;
+}
+
+// _vitalLockPrune — שומר רק את הימים שעוד נחוצים. תאריכי ISO בלבד, ולכן
+// השוואת מחרוזות בטוחה (כלל התאריכים: אין להשוות DD.MM.YY ל-ISO).
+function _vitalLockPrune(lock, todayStr, keep) {
+    if (!Array.isArray(lock)) return [];
+    const k = Math.max(1, keep || 1);
+    const t = new Date(todayStr + 'T00:00:00');
+    if (isNaN(t.getTime())) return lock.slice(-k);
+    t.setDate(t.getDate() - (k - 1));
+    const p = x => String(x).padStart(2, '0');
+    const cut = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
+    return lock.filter(r => r && r.date && r.date >= cut);
+}
+// VITALLOCK-END
+
+// _vitalLockApply — הלילות כפי שכל צרכני המוכנות רואים אותם. חורת מה שניתן
+// לחרות ליום הנוכחי, ומחזיר מערך חדש שבו הלילה של היום עבר overlay.
+// אינו נוגע ב-SLEEP_DAILY עצמו.
+function _vitalLockApply(nights) {
+    if (!Array.isArray(nights) || !nights.length) return nights || [];
+    const today = (typeof StorageManager !== 'undefined' && StorageManager._todayStr)
+        ? StorageManager._todayStr() : null;
+    if (!today) return nights;
+    const idx = nights.findIndex(n => n && n.date === today);
+    if (idx < 0) return nights;                 // אין רשומה להיום — אין מה לחרות
+    let lock;
+    try { lock = StorageManager.getVitalLock(); } catch (e) { return nights; }
+    const m = _vitalLockMerge(lock, today, nights[idx]);
+    if (m.changed) {
+        try {
+            StorageManager.saveVitalLock(_vitalLockPrune(m.lock, today, RD_LOCK_KEEP_DAYS));
+            // סנכרון ענן — כדי שמכשיר שנפתח בערב יראה את קריאת הבוקר ולא יחרות
+            // לעצמו את של הערב. קורה עד 6 פעמים ביום (פעם לכל מדד), לא בכל רינדור.
+            if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured
+                && FirebaseManager.isConfigured()) {
+                FirebaseManager.saveConfigToCloud().catch(() => {});
+            }
+        } catch (e) {}
+    }
+    const out = nights.slice();
+    out[idx] = _vitalLockOverlay(nights[idx], _vitalLockRow(m.lock, today));
+    return out;
+}
+
+// _readinessNights — מקור הלילות היחיד לכל צרכני המוכנות (טבעת מסך השינה,
+// האריחים, כרטיס האימון, ייצוא הפרומפטים, מקטע {recovery}). כל מי שעוקף אותו
+// יראה מספר אחר מהכרטיס שלצידו.
+function _readinessNights() {
+    const nights = (typeof StorageManager !== 'undefined' && typeof StorageManager.getSleepDaily === 'function')
+        ? StorageManager.getSleepDaily() : [];
+    return _vitalLockApply(nights);
 }
 
 // _rdBand / _rdColor — הרצועה והצבע נגזרים מהציון בלבד. מקור אחד: הציון מוקפא

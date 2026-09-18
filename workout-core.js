@@ -450,6 +450,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(async () => {
         const ok = await syncHealthNutrition(false);
         if (ok === false) setTimeout(() => syncHealthNutrition(false, true), 20000);
+        // אימון מהשעות האחרונות שעדיין ממתין לנתוני שעון — מעקב מתחיל מעצמו,
+        // בלי קשר למסך שעליו המשתמש נמצא.
+        try { startWatchAutoPull(); } catch (e) {}
     }, 2500);
     _scheduleHealthHourlySync();
     // חישוב מחדש של אזורי דופק לאימונים שחושבו במודל ישן — מקומי, פעם אחת
@@ -468,6 +471,10 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
         syncHealthNutrition(false, true); _refreshSettingsIfOpen(); _retryCloudSyncSilently();
+        // ירייה בודדת בחזרה לפרונט הייתה הבאג: אקספורט ידני ב-HAE נבנה ונשלח
+        // שניות אחרי שהמשתמש כבר חזר לאפליקציה, והמשיכה היחידה הקדימה אותו.
+        // startWatchAutoPull מאפס את קצב המעקב → בדיקה נוספת תוך שניות.
+        try { startWatchAutoPull(); } catch (e) {}
     }
     // ביציאה מהאפליקציה — דחיפת snapshot טרי לווידג'ט (beacon, שורד סגירת דף)
     if (document.visibilityState === 'hidden') {
@@ -497,7 +504,7 @@ window.addEventListener('online', () => _retryCloudSyncSilently());
 
 // iOS PWA: שחזור מ-bfcache לא תמיד יורה visibilitychange — pageshow מכסה את המקרה
 window.addEventListener('pageshow', (e) => {
-    if (e.persisted) syncHealthNutrition(false, true);
+    if (e.persisted) { syncHealthNutrition(false, true); try { startWatchAutoPull(); } catch (_) {} }
     _refreshSettingsIfOpen();   // חזרה מהורדת קובץ — השדות נבנו מחדש ריקים
 });
 
@@ -8018,6 +8025,62 @@ function toggleHealthBridge()      { toggleBridge('health'); }
 function saveHealthBridgeSettings(){ saveBridgeSettings('health'); }
 function updateHealthBridgeStatus(){ updateBridgeStatus('health'); }
 
+/* ─── אבחון גשר ה-Health ───────────────────────────────────────────────────
+ * השאלה שחזרה שוב ושוב — "הטריגר ירה, אבל האם משהו הגיע בכלל לגשר?" — לא
+ * הייתה ניתנת למענה מתוך האפליקציה. הגשר מתעד כל POST ב-push_log ומחזיר אותו
+ * בשדה `pushes` **מאז ומעולם**; פשוט אף מסך לא הציג אותו, והאבחון דרש לפתוח
+ * את כתובת הגשר בספארי ולקרוא JSON גולמי.
+ *
+ * הפאנל עונה על ההבחנה הקריטית: דחיפה שלא הגיעה (HAE לא רצה / המכשיר היה נעול)
+ * מול דחיפה שהגיעה ריקה (מדדים לא נבחרו) מול אימון שהגיע בלי סדרת דופק
+ * (Include Workout Metrics כבוי). שלוש תקלות שונות לגמרי, שנראו זהות. */
+async function showHealthBridgeDiag() {
+    const { url, token } = StorageManager.getHealthBridge();
+    if (!url) { showAlert('לא הוגדרה כתובת גשר.'); return; }
+    showCloudToast('בודק את הגשר…', true, 'pending');
+    let data;
+    try {
+        data = await _jsonpRequest(url, token, 30000);
+    } catch (e) {
+        showAlert('הפנייה לגשר נכשלה: ' + ((e && e.message) || 'שגיאת רשת') +
+                  '\n\nבדוק את ה-URL, את ה-token, ושפריסת הסקריפט היא "Anyone".');
+        return;
+    }
+    if (!data || data.ok !== true) {
+        showAlert('הגשר החזיר שגיאה: ' + ((data && data.error) || 'לא ידועה') +
+                  (data && data.hint ? '\n\n' + data.hint : ''));
+        return;
+    }
+    const works  = Array.isArray(data.workouts) ? data.workouts : [];
+    const sleep  = Array.isArray(data.sleep) ? data.sleep : [];
+    const pushes = Array.isArray(data.pushes) ? data.pushes : [];
+
+    const L = [];
+    L.push(`גרסת גשר: ${data.v || 'לא ידועה'}`);
+    L.push('');
+    L.push(`אימוני שעון בגשר: ${works.length}`);
+    if (works.length) {
+        const last = works.reduce((a, b) => ((a.end || 0) > (b.end || 0) ? a : b));
+        const series = Array.isArray(last.hrSeries) ? last.hrSeries.length : 0;
+        L.push(`  האחרון: ${_watchWhen(last.end)} · ${last.wType || 'ללא שם'} · ${last.durMin || 0} דק׳`);
+        L.push(`  דופק ${last.hrAvg || '—'}/${last.hrMax || '—'} · ${last.activeKcal || 0} קק״ל`);
+        L.push(series
+            ? `  סדרת דופק: ${series} נקודות`
+            : '  סדרת דופק: חסרה ← "Include Workout Metrics" כבוי ב-HAE');
+    } else {
+        L.push('  אף אימון לא הגיע. אם סיימת אימון בשעון — אוטומציית');
+        L.push('  "GymPro workouts" לא רצה, או שהטלפון היה נעול בזמן הריצה.');
+    }
+    L.push('');
+    L.push(`לילות שינה בגשר: ${sleep.length}${sleep.length ? ` · אחרון ${sleep[sleep.length - 1].date}` : ''}`);
+    L.push('');
+    L.push('יומן דחיפות (מה הגשר קיבל בפועל):');
+    if (!pushes.length) L.push('  ריק — הגשר לא קיבל אף POST.');
+    else pushes.slice(-8).reverse().forEach(p => L.push(`  ${p.t} · ${p.src}${p.date ? ' · ' + p.date : ''}`));
+
+    showAlert(L.join('\n'));
+}
+
 
 
 /**
@@ -8027,6 +8090,10 @@ function updateHealthBridgeStatus(){ updateBridgeStatus('health'); }
  */
 let _healthSyncLast = 0;
 const HEALTH_SYNC_THROTTLE_MS = 15 * 60 * 1000;
+// _healthSyncErr — סיבת הכשל האחרונה. משיכה שקטה (manual=false) לא מציגה דבר,
+// ולכן קורא שרוצה לדווח למשתמש — כמו הכפתור הידני — נשאר בלי הסיבה. כלל
+// "הודעת כשל נושאת את סיבתה" דורש שהיא תהיה זמינה, לא רק ב-console.
+let _healthSyncErr = '';
 
 async function syncHealthNutrition(manual = false, force = false) {
     if (!StorageManager.isHealthBridgeOn()) {
@@ -8123,12 +8190,14 @@ async function syncHealthNutrition(manual = false, force = false) {
         } else if (manual) {
             showCloudToast('הנתונים כבר מעודכנים', true);
         }
+        _healthSyncErr = '';
         return true;
     } catch (e) {
         // כשל משיכה — החזרת החותמת לערכה הקודם. בלי זה החותמת שנקבעה *לפני* הבקשה
         // חוסמת כל ניסיון אוטומטי ל-15 דק' בשקט מוחלט: משיכת-כניסה שנפלה משאירה את
         // המאמן עם דאטה ישנה לאורך כל האימון בלי שום חיווי.
         _healthSyncLast = _prevSyncAt;
+        _healthSyncErr = (e && e.message) ? e.message : 'שגיאת רשת';
         console.warn('GymPro: health sync failed', e);
         if (manual) showCloudToast('' + e.message, false);
         return false;
@@ -8282,6 +8351,41 @@ function _watchZoneSec(series, bounds, durSec) {
 }
 
 // WATCHZONES-END
+
+// WATCHLINK-START — בלוק טהור, נבדק ב-test/watch-link.test.js (אל תסיר את הסמנים)
+// _watchPickLink — בוחר את אימון השעון שיש לשייך לרשומת ארכיון, או null.
+// שני מסלולים, בסדר הזה:
+//   1. **חפיפת זמנים** — הגדולה ביותר מנצחת. זה המסלול הרגיל, כשהאימון תועד
+//      באפליקציה במקביל לשעון.
+//   2. **בהיעדר חפיפה כלשהי** — הקרוב ביותר בזמן הסיום, בתוך WATCH_LINK_MAX_GAP_MS.
+//
+// עד v19.13.7 מסלול 2 היה **קוד מת**: התנאי היה
+// `if (overlap > bestOverlap && (overlap > 0 || near))` כש-bestOverlap מאותחל
+// ל-0, ולכן `overlap > bestOverlap` כבר דרש חפיפה חיובית ו-`near` לא יכול היה
+// להשפיע לעולם; ומיד אחריו `if (bestOverlap <= 0) return` חסם שוב. התוצאה:
+// אימון שתועד באפליקציה **אחרי** שהשעון כבר סגר, או שנגע בו בדיוק בקצה
+// (חפיפה = 0 שניות), לא שויך לעולם — והמשתמש נשאר מול "ממתין" בלי סיבה
+// נראית לעין, למרות שהנתונים ישבו במאגר. כשל שקט קלאסי: קבוע מתועד
+// (WATCH_LINK_MAX_GAP_MS) שאין לו שום השפעה בפועל.
+function _watchPickLink(entry, pool) {
+    if (!entry || !entry.timestamp || !Array.isArray(pool)) return null;
+    const endTs = entry.timestamp;
+    const startTs = endTs - (entry.duration || 0) * 60000;
+    let best = null, bestOverlap = 0;          // מסלול 1 — חפיפה
+    let nearest = null, nearestGap = Infinity; // מסלול 2 — קרבת זמן סיום
+    pool.forEach(rec => {
+        if (!rec || rec.linkedTs) return;
+        if (!WATCH_STRENGTH_RE.test(rec.wType || '')) return;
+        if ((rec.durMin || 0) < WATCH_MIN_AUTO_LINK_MIN) return;
+        const overlap = Math.min(endTs, rec.end) - Math.max(startTs, rec.start);
+        if (overlap > bestOverlap) { best = rec; bestOverlap = overlap; }
+        const gap = Math.abs(rec.end - endTs);
+        if (gap <= WATCH_LINK_MAX_GAP_MS && gap < nearestGap) { nearest = rec; nearestGap = gap; }
+    });
+    return best || nearest;
+}
+// WATCHLINK-END
+
 // _watchAttach — בונה את אובייקט ה-watch שנשמר ברשומת הארכיון.
 function _watchAttach(rec, entryDate, by) {
     const zb = _hrZoneBounds(entryDate);
@@ -8392,17 +8496,8 @@ function _linkWatchWorkouts() {
         // (הוא עדיין יכול לבחור אימון מרשימת המועמדים).
         if (entry.watch !== undefined) return;
         const endTs = entry.timestamp;
-        const startTs = endTs - (entry.duration || 0) * 60000;
-        let best = null, bestOverlap = 0;
-        pool.forEach(rec => {
-            if (rec.linkedTs) return;
-            if (!WATCH_STRENGTH_RE.test(rec.wType || '')) return;
-            if ((rec.durMin || 0) < WATCH_MIN_AUTO_LINK_MIN) return;
-            const overlap = Math.min(endTs, rec.end) - Math.max(startTs, rec.start);
-            const near = Math.abs(rec.end - endTs) <= WATCH_LINK_MAX_GAP_MS;
-            if (overlap > bestOverlap && (overlap > 0 || near)) { best = rec; bestOverlap = overlap; }
-        });
-        if (!best || bestOverlap <= 0) return;
+        const best = _watchPickLink(entry, pool);
+        if (!best) return;
         entry.watch = _watchAttach(best, entry.date, 'auto');
         best.linkedTs = endTs;
         StorageManager.updateArchiveEntry(endTs, entry);
@@ -8453,19 +8548,36 @@ function unlinkWatchWorkout(archiveTs) {
     _refreshMetricsPane(archiveTs);
 }
 
-/* ─── משיכה אוטומטית בסיום אימון ──────────────────────────────────────────
- * אוטומציית סוף-האימון ב-iOS ממתינה ~3 דקות לפני שהיא דוחפת לגשר (סנכרון
- * השעון לטלפון + חישוב התאוששות הדופק), ולכן משיכה בודדת בשנייה שאחרי הסיום
- * תמיד תחזור ריקה. במקום זה: סדרת משיכות שקטות שנפרשת על ~6.5 דקות ונעצרת
- * ברגע שהנתונים הגיעו. אין טוסטים ואין כפתור — המשתמש רואה "מחפש…" ואז את
- * הכרטיס מתמלא מעצמו.
+/* ─── מעקב אחרי אימון ממתין (משיכה אוטומטית) ──────────────────────────────
+ * אוטומציית סוף-האימון ב-iOS דוחפת לגשר כחצי דקה אחרי הסיום — ורק אם הטלפון
+ * פתוח באותו רגע (Apple חוסמת קריאת HealthKit במכשיר נעול). לכן משיכה בודדת
+ * אחרי הסיום תחזור ריקה לעיתים קרובות, ודחיפת ההשלמה תגיע דקות או שעות אחר כך.
  *
- * המשיכה נעצרת גם כשעוזבים את המסך: אין טעם להמשיך לרשת בשביל תצוגה שאיננה. */
-const WATCH_POLL_STEPS = [5000, 25000, 60000, 60000, 60000, 60000, 60000, 60000];
-let _watchPollTimer = null, _watchPollIdx = 0, _watchPollTs = null;
+ * עד v19.13.7 המעקב היה **צמוד-מסך**: סדרה של 6.5 דקות שנעצרה ברגע שעזבת את
+ * מסך הסיכום. מי שסגר את הסיכום — או ביצע אקספורט ידני ב-HAE וחזר — נשאר בלי
+ * שום משיכה עד השעה העגולה הבאה (עד 60 דקות המתנה), וזה היה מקור התלונה
+ * "ביצעתי אקספורט והאפליקציה לא מושכת".
+ *
+ * כעת: **טיימר יחיד שאינו תלוי במסך**, עם קצב שנגזר ממנו. כשלשונית המדדים של
+ * האימון הנמשך על המסך — בדיקות צפופות (5ש׳, 25ש׳, ואז דקה); כשאינה —
+ * דלילות (30ש׳ → 10 דק׳). המעבר בין השניים קורה בטיק הבא, בלי לאפס את הסדרה.
+ * המעקב נעצר כשסדרת הדופק הגיעה, או בתום חלון של 45 דקות.
+ *
+ * למה טיימר אחד ולא שניים: `syncHealthNutrition` בולעת קריאה כפולה בתוך 4
+ * שניות **בשקט**, ולכן שני מנגנונים מקבילים היו מקדמים צעדי backoff על
+ * משיכות שכלל לא יצאו לרשת — בדיוק סוג הכשל השקט שהמסמך מזהיר מפניו. */
+// הצפיפות נחוצה רק בדקות הראשונות — דחיפת HAE מגיעה כחצי דקה אחרי סוף האימון.
+// אחרי כן שתי הסדרות מתכנסות: הצעד האחרון חוזר על עצמו עד תום החלון, ולכן
+// מסך סיכום שנשאר פתוח 45 דקות עולה ~14 משיכות ולא 45.
+const WATCH_STEPS_FG = [5000, 25000, 60000, 60000, 60000, 120000, 300000];  // לשונית המדדים על המסך
+const WATCH_STEPS_BG = [30000, 60000, 120000, 300000, 600000];              // כל מסך אחר / רקע
+const WATCH_WATCH_WINDOW_MS   = 45 * 60000;   // תקרת מעקב מרגע תחילתו
+const WATCH_PENDING_MAX_AGE_MS = 6 * 3600000; // "אימון באוויר" לסריקה האוטומטית
+let _watchPollTimer = null, _watchPollIdx = 0, _watchPollTs = null, _watchPollStart = 0;
 
 // _watchPollPane — לשונית המדדים שמציגה כרגע את האימון הנמשך, אם היא על המסך.
 // המסכים מוסתרים ולא נמחקים, ולכן לא די בקיום האלמנט — נדרש שהמסך יהיה פעיל.
+// כאן זה כבר לא תנאי להמשך המעקב אלא **רק בורר קצב**.
 function _watchPollPane() {
     const pairs = [['sum-tab-metrics', 'ui-summary'], ['arch-tab-metrics', 'ui-archive-detail']];
     for (const [paneId, screenId] of pairs) {
@@ -8481,52 +8593,181 @@ function stopWatchAutoPull() {
     if (_watchPollTimer) clearTimeout(_watchPollTimer);
     _watchPollTimer = null;
     _watchPollTs = null;
+    _watchPollIdx = 0;
+    _watchPollStart = 0;
 }
 
-// startWatchAutoPull — נקרא בפתיחת מסך סיכום/פרטי אימון שאין בו נתוני שעון.
+// _watchPendingEntry — האימון האחרון שעדיין ממתין לנתוני שעון. חלון של 6 שעות
+// ולא 24: אימון ישן מזה אינו "באוויר", ואין סיבה שפתיחת האפליקציה תתחיל בשבילו
+// סדרת משיכות. פתיחה מפורשת של אימון מהארכיון עוקפת את הסריקה הזו.
+function _watchPendingEntry() {
+    const cutoff = Date.now() - WATCH_PENDING_MAX_AGE_MS;
+    let best = null;
+    (StorageManager.getArchive() || []).forEach(e => {
+        if (!e || !e.timestamp || e.timestamp < cutoff) return;
+        if (e.watch === null) return;                      // השיוך בוטל ביודעין
+        if (e.watch && _watchComplete(e.watch)) return;    // כבר מלא
+        if (!best || e.timestamp > best.timestamp) best = e;
+    });
+    return best;
+}
+
+// startWatchAutoPull — מתחיל (או מאפס את הקצב של) המעקב.
+// ‏archiveTs = אימון מסוים; בלעדיו — האימון הממתין האחרון, אם יש.
+// קריאה חוזרת על אותו אימון **מאפסת את הקצב אך לא את חלון 45 הדקות**: חזרה
+// לפרונט או לחיצה ידנית מקרבות את הבדיקה הבאה, בלי להאריך את המעקב לנצח.
 function startWatchAutoPull(archiveTs) {
-    stopWatchAutoPull();
-    if (!archiveTs) return;
     if (!StorageManager.isHealthBridgeOn() || !StorageManager.isHealthPullWorkouts()) return;
     if (!StorageManager.getHealthBridge().url) return;
 
+    // סריקה זולה קודם: הפונקציה נקראת בכל חזרה לפרונט, ואין טעם לסרוק את
+    // הארכיון לשיוך כשאין בכלל אימון שממתין.
+    const target = archiveTs
+        ? (StorageManager.getArchive() || []).find(a => a.timestamp === archiveTs)
+        : _watchPendingEntry();
+    if (!target || target.watch === null) return;               // השיוך בוטל ביודעין
+    if (target.watch && _watchComplete(target.watch)) return;   // רשומה מלאה — אין מה לחפש
+
     // ניסיון מקומי לפני כל רשת: ייתכן שהאימון כבר במאגר מהמשיכה הקודמת ורק לא
     // שויך, כי רשומת הארכיון נוצרה אחריה.
-    if (_linkWatchWorkouts() > 0) _refreshMetricsPane(archiveTs);
+    if (_linkWatchWorkouts() > 0) _refreshOpenMetricsPanes();
+    const entry = (StorageManager.getArchive() || []).find(a => a.timestamp === target.timestamp);
+    if (!entry || entry.watch === null) return;
+    if (entry.watch && _watchComplete(entry.watch)) return;     // השיוך המקומי סגר את העניין
 
-    const entry = StorageManager.getArchive().find(a => a.timestamp === archiveTs);
-    if (!entry || entry.watch === null) return;                 // השיוך בוטל ביודעין
-    if (entry.watch && _watchComplete(entry.watch)) return;     // רשומה מלאה — אין מה לחפש
-
-    _watchPollTs = archiveTs;
+    const sameTarget = _watchPollTs === entry.timestamp && _watchPollStart > 0;
+    if (_watchPollTimer) clearTimeout(_watchPollTimer);
+    _watchPollTimer = null;
+    _watchPollTs = entry.timestamp;
     _watchPollIdx = 0;
+    if (!sameTarget) _watchPollStart = Date.now();
     _scheduleWatchPoll();
-    _refreshMetricsPane(archiveTs);   // הכרטיס מתחלף ל"מחפש…"
+    _refreshMetricsPane(entry.timestamp);   // הכרטיס מתחלף ל"מחפש…"
 }
 
 function _scheduleWatchPoll() {
-    const delay = WATCH_POLL_STEPS[_watchPollIdx];
-    if (delay == null) {                       // תם החלון — חזרה ל"ממתין" עם כפתור ידני
+    if (!_watchPollTs) return;
+    // תם חלון המעקב — חזרה ל"ממתין". הכפתור הידני גלוי ממילא (v19.13.8), ולחיצה
+    // עליו פותחת חלון מעקב חדש.
+    if (Date.now() - _watchPollStart >= WATCH_WATCH_WINDOW_MS) {
         const ts = _watchPollTs;
         stopWatchAutoPull();
-        if (ts) { _watchPollTs = ts; _refreshMetricsPane(ts); _watchPollTs = null; }
+        _refreshMetricsPane(ts);
         return;
     }
+    const steps = _watchPollPane() ? WATCH_STEPS_FG : WATCH_STEPS_BG;
+    const delay = steps[Math.min(_watchPollIdx, steps.length - 1)];
     _watchPollIdx++;
     _watchPollTimer = setTimeout(async () => {
         _watchPollTimer = null;
         const ts = _watchPollTs;
-        if (!ts || !_watchPollPane()) { stopWatchAutoPull(); return; }
+        if (!ts) return;
         // manual=false → שקט לחלוטין; force=true → עוקף את ה-throttle של 15 דק'
         try { await syncHealthNutrition(false, true); } catch (e) {}
         if (_watchPollTs !== ts) return;        // הופסק/הוחלף בזמן ההמתנה לרשת
-        // עוצרים רק על רשומה **מלאה**. דחיפה מיידית בסיום האימון מביאה אגרגטים
-        // בלי התאוששות דופק (היא נמדדת בדקה שאחרי), ועצירה עליה הייתה מפספסת
-        // את הדחיפה המשלימה. הכרטיס כבר מציג את מה שהגיע — ההמתנה שקופה.
-        const entry = StorageManager.getArchive().find(a => a.timestamp === ts);
-        if (entry && _watchComplete(entry.watch)) { stopWatchAutoPull(); return; }
+        // עוצרים על סדרת דופק בלבד. אגרגטים בלי סדרה אינם "מלא": הם בדיוק מה
+        // שמגיע כש-Include Workout Metrics כבוי, ודחיפה משלימה עוד עשויה להגיע.
+        const entry = (StorageManager.getArchive() || []).find(a => a.timestamp === ts);
+        if (!entry || entry.watch === null || (entry.watch && _watchComplete(entry.watch))) {
+            stopWatchAutoPull();
+            _refreshOpenMetricsPanes();         // הורדת ה"מחפש…" מהכרטיס
+            return;
+        }
         _scheduleWatchPoll();
     }, delay);
+}
+
+/* ─── משיכה ידנית של נתוני השעון ──────────────────────────────────────────
+ * המעקב האוטומטי מכסה את המקרה הרגיל, אבל הוא שקט ומוגבל בזמן. הכפתור הידני
+ * הוא הדרך של המשתמש לומר "עכשיו" — אחרי אקספורט ידני ב-HAE, או אחרי שחלון
+ * המעקב תם. הוא גלוי **תמיד**, גם בזמן "מחפש…" וגם על רשומה חלקית. */
+
+// _watchPartial — לרשומה חסר עדיין נתון שדחיפה מאוחרת יכולה להביא.
+function _watchPartial(w) {
+    if (!w) return true;
+    if (!_watchComplete(w)) return true;
+    return WATCH_NUM_FIELDS.some(k => !(w[k] > 0));
+}
+
+// _watchWhen — שעה, ועם תאריך כשזה לא היום. "18:42" לאימון מאתמול הוא בדיוק
+// סוג ההודעה שמטעה יותר משהיא מסבירה.
+function _watchWhen(ts) {
+    const d = new Date(ts);
+    const sameDay = d.toDateString() === new Date().toDateString();
+    const hm = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    return sameDay ? hm : `${d.getDate()}.${d.getMonth() + 1} ${hm}`;
+}
+
+// _watchPullWhy — למה המשיכה חזרה בלי נתוני שעון. ארבע סיבות שנראו עד כה
+// **זהות לחלוטין** למשתמש ("ממתין"), וכל אחת דורשת פעולה אחרת:
+//   א. הגשר לא קיבל אף דחיפת אימונים — האוטומציה ב-HAE לא רצה.
+//   ב. יש אימונים בגשר, אך אף אחד אינו בסביבת האימון הזה.
+//   ג. יש מועמד, אבל הוא הגיע בלי סדרת דופק — Include Workout Metrics כבוי.
+//   ד. יש מועמד תקין שלא שויך אוטומטית (הליכה/ריצה/אימון קצר) — בחירה ידנית.
+//   ה. הרשומה משויכת אך הגיעה בלי סדרה — ראה בגוף הפונקציה.
+function _watchPullWhy(archiveTs) {
+    const pool = StorageManager.getWatchWorkouts() || [];
+    // ה. הרשומה **כבר משויכת** אך חסרה סדרה. בלי הענף הזה ההודעה הייתה נופלת
+    // לענף ב' ומדווחת "אף אחד אינו בסביבת האימון הזה" — שקר גמור, כי המקור
+    // משויך; מה שחסר הוא הסדרה שבו. _watchCandidates מסנן משויכים, ולכן
+    // הענף חייב לקדום לו.
+    const entry = (StorageManager.getArchive() || []).find(a => a.timestamp === archiveTs);
+    if (entry && entry.watch && entry.watch.srcId) {
+        return `האימון מ-${_watchWhen(entry.watch.end)} משויך אך הגיע בלי סדרת דופק — הדלק "Include Workout Metrics" ב-HAE`;
+    }
+    if (!pool.length) {
+        return 'הגשר לא קיבל אף דחיפת אימונים — בדוק את אוטומציית "GymPro workouts" ב-HAE';
+    }
+    const cands = _watchCandidates({ timestamp: archiveTs });
+    if (!cands.length) {
+        const last = pool.reduce((a, b) => ((a.end || 0) > (b.end || 0) ? a : b));
+        return `בגשר ${pool.length} אימונים, האחרון ${_watchWhen(last.end)} — אף אחד אינו בסביבת האימון הזה`;
+    }
+    const c = cands[0].rec;
+    if (!(Array.isArray(c.hrSeries) && c.hrSeries.length)) {
+        return `האימון מ-${_watchWhen(c.end)} הגיע בלי סדרת דופק — הדלק "Include Workout Metrics" ב-HAE`;
+    }
+    return `יש מועמד מ-${_watchWhen(c.end)} — בחר אותו מרשימת המועמדים בכרטיס`;
+}
+
+// pullWatchNow — משיכה ידנית לאימון מסוים, מתוך כרטיס המדדים.
+// שלוש התנהגויות שמבדילות אותה מהמעקב האוטומטי: היא **לא נחסמת** ע"י throttle,
+// היא **מדווחת סיבה** כשלא הגיע כלום, והיא **מחיה את המעקב** אם כבר ויתר.
+async function pullWatchNow(archiveTs) {
+    haptic('light');
+    if (!StorageManager.isHealthBridgeOn() || !StorageManager.getHealthBridge().url) {
+        showAlert('גשר ה-Health כבוי או לא מוגדר — הגדרות → "גשר Apple Health".');
+        return;
+    }
+    if (!StorageManager.isHealthPullWorkouts()) {
+        showAlert('המתג "משוך גם אימוני שעון" כבוי — הדלק אותו בהגדרות → "גשר Apple Health".');
+        return;
+    }
+    const seriesOf = ts => {
+        const e = (StorageManager.getArchive() || []).find(a => a.timestamp === ts);
+        return !!(e && e.watch && _watchComplete(e.watch));
+    };
+    const had = seriesOf(archiveTs);
+
+    showCloudToast('מושך מהגשר…', true, 'pending');
+    _healthSyncLast = 0;                       // לחיצה ידנית אינה נחסמת ע"י throttle
+    const ok = await syncHealthNutrition(false, true);
+    _refreshOpenMetricsPanes();
+    if (!ok) { showCloudToast(_healthSyncErr || 'המשיכה נכשלה', false); return; }
+
+    if (seriesOf(archiveTs)) {
+        showCloudToast(had ? 'הנתונים כבר מעודכנים' : 'נתוני השעון התקבלו', true);
+        return;
+    }
+    showCloudToast(_watchPullWhy(archiveTs), true);
+    startWatchAutoPull(archiveTs);             // חלון מעקב חדש — הלחיצה אינה ירייה בודדת
+}
+
+// pullHealthNow — משיכה ידנית גלובלית מההגדרות (שינה + אימונים + תזונה).
+function pullHealthNow() {
+    haptic('light');
+    _healthSyncLast = 0;
+    syncHealthNutrition(true).then(() => startWatchAutoPull());
 }
 
 // _refreshMetricsPane — מרנדר מחדש את לשונית המדדים בכל מסך שבו היא פתוחה.
@@ -8647,7 +8888,10 @@ function _watchCardHtml(entry) {
         </div>
         ${tilesHtml}${chartHtml}${_watchZonesHtml(w.zoneSec, w.zoneBounds)}
         <div class="wc-meta">${escapeHtml(metaBits.join(' · '))}
-            <button class="wc-btn wc-btn--link" onclick="unlinkWatchWorkout(${entry.timestamp})">בטל שיוך</button>
+            <span class="wc-meta-acts">${_watchPartial(w)
+                ? `<button class="wc-btn wc-btn--link" onclick="pullWatchNow(${entry.timestamp})">משוך עכשיו</button>` : ''}
+                <button class="wc-btn wc-btn--link" onclick="unlinkWatchWorkout(${entry.timestamp})">בטל שיוך</button>
+            </span>
         </div>
     </div>`;
 }
@@ -8667,18 +8911,19 @@ function _watchEmptyHtml(entry) {
             <span class="wc-cand-g">פער ׳${Math.round(c.gap / 60000)}</span>
         </button>`).join('')}
     </div>` : '';
-    // מצב "מחפש…" — משיכה אוטומטית פעילה לאימון הזה. הכפתור הידני מוסתר בזמן
-    // הזה בכוונה: הוא היה מציע למשתמש לעשות בדיוק את מה שכבר קורה מעצמו.
+    // מצב "מחפש…" — מעקב אוטומטי פעיל לאימון הזה. עד v19.13.7 הכפתור הידני היה
+    // **מוסתר** במצב הזה ("הוא מציע מה שכבר קורה") — אבל המעקב שקט ומוגבל בזמן,
+    // ואחרי אקספורט ידני ב-HAE המשתמש רוצה לבדוק עכשיו, לא בטיק הבא. הכפתור גלוי.
     const polling = _watchPollTs === entry.timestamp && !!_watchPollTimer;
     return `<div class="wc wc--empty">
         <div class="wc-head"><span class="wc-title">נתוני שעון</span>
             <span class="wc-pill">${polling ? 'מחפש<span class="wc-dots"><i></i><i></i><i></i></span>' : 'ממתין'}</span></div>
         <div class="wc-empty-txt">${polling
-            ? 'ממתין לסיכום מ-Apple Watch. אוטומציית סוף-האימון דוחפת אותו לגשר כשלוש דקות אחרי הסיום, והאפליקציה בודקת שוב מעצמה עד שהוא מגיע.'
-            : 'טרם התקבל סיכום מ-Apple Watch לאימון הזה. הנתונים מגיעים דרך גשר ה-Health בייצוא הבא — בדרך כלל תוך דקות מרגע פתיחת הטלפון.'}</div>
-        ${polling ? '' : `<div class="wc-actions">
-            <button class="wc-btn wc-btn--primary" onclick="syncHealthNutrition(true)">משוך עכשיו</button>
-        </div>`}
+            ? 'ממתין לסיכום מ-Apple Watch. אוטומציית סוף-האימון דוחפת אותו לגשר כחצי דקה אחרי הסיום, והאפליקציה בודקת שוב מעצמה במשך 45 דקות — גם אם תעבור למסך אחר.'
+            : 'טרם התקבל סיכום מ-Apple Watch לאימון הזה. הנתונים מגיעים דרך גשר ה-Health בייצוא הבא — בדרך כלל תוך דקות מרגע פתיחת הטלפון. "משוך עכשיו" בודק מיד ומדווח מה נמצא בגשר.'}</div>
+        <div class="wc-actions">
+            <button class="wc-btn wc-btn--primary" onclick="pullWatchNow(${entry.timestamp})">משוך עכשיו</button>
+        </div>
         ${candHtml}
     </div>`;
 }

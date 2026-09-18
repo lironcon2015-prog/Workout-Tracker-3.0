@@ -730,9 +730,12 @@ function openArchiveDetail(idx) {
 
     navigate('ui-archive-detail');
 
-    // אימון מהיממה האחרונה בלי נתוני שעון — משיכה אוטומטית, כמו במסך הסיכום.
-    // אימון ישן לא מפעיל משיכה: הנתונים שלו לא בדרך, והמאגר בגשר נגזם ל-21 יום.
-    if (typeof startWatchAutoPull === 'function' && item.watch === undefined &&
+    // אימון מהיממה האחרונה שנתוני השעון שלו טרם שלמים — מעקב אוטומטי, כמו במסך
+    // הסיכום. אימון ישן לא מפעיל משיכה: הנתונים שלו לא בדרך, והמאגר בגשר נגזם
+    // ל-21 יום. הבדיקה היא על **שלמות** ולא על `undefined` בלבד: רשומה שהגיעה
+    // בלי סדרת דופק (Include Workout Metrics כבוי בדחיפה הראשונה) עדיין ממתינה.
+    if (typeof startWatchAutoPull === 'function' && item.watch !== null &&
+        !(typeof _watchComplete === 'function' && _watchComplete(item.watch)) &&
         Date.now() - item.timestamp < 24 * 3600000) {
         startWatchAutoPull(item.timestamp);
     }
@@ -781,7 +784,8 @@ function exitArchiveEditMode() {
 }
 
 function _renderArchiveEditView() {
-    if (typeof stopWatchAutoPull === 'function') stopWatchAutoPull();
+    // v19.13.8: המעקב כבר אינו צמוד-מסך, ולכן כניסה לעריכה אינה סיבה לעצור
+    // אותו. אם הרשומה תיעלם או תשתנה — הטיק הבא לא ימצא אותה ויעצור מעצמו.
     const item = _archiveEditItem;
     const contentEl = document.getElementById('archive-detail-content');
 

@@ -1759,9 +1759,9 @@ function exportUnifiedData(range) {
             c.date = _blLocalDateStr(new Date(w.timestamp));
             delete c.aiSummary;
             if (c.watch === null) delete c.watch;   // שיוך שעון שבוטל — לא מייצאים מפתח ריק
-            // מוכנות הבוקר של יום האימון — הכרטיס השלישי בלשונית "מדדים". מחושבת
-            // (לא מאוחסנת), ולכן בלי צירוף מפורש היא נעדרה מהקובץ אף שהמשתמש רואה
-            // אותה על המסך. הוויטלים הגולמיים ממילא ב-sleep_recovery.
+            // מוכנות הבוקר של יום האימון — הכרטיס השלישי בלשונית "מדדים". מוקפאת
+            // ברשומה ונקראת משם (_readinessFor), כך שהייצוא והכרטיס מציגים את אותו
+            // ציון בכל שעה ביום. הוויטלים הגולמיים ממילא ב-sleep_recovery.
             const _rd = (typeof _readinessFor === 'function') ? _readinessFor(w) : null;
             if (_rd) c.readiness = {
                 score: _rd.rd.score, band: _rd.rd.band,
@@ -1790,8 +1790,10 @@ function exportUnifiedData(range) {
             'לא ישנה את אזוריו כשדופק המנוחה זז). אזורי דופק אינם נתון ב-HealthKit — הם מחושבים מ-hrSeries. ' +
             'סכום zoneSec קטן ממשך האימון כשהיו פערי דגימה (מרווח מעל 60ש\' אינו נספר), בדיוק כמו במסך של אפל. ' +
             'linkedBy: auto = שויך לפי חפיפת זמנים, manual = שויך ידנית. אימון בלי watch = לא נלבש שעון או שהסיכום טרם הגיע.',
-            'workouts[].readiness = ציון מוכנות הבוקר של יום האימון (score 0-100, band, drivers) — מחושב מהוויטלים ' +
-            'שב-sleep_recovery ולא נתון גולמי. used/total = כמה מדדים נכנסו לציון מתוך הזמינים. ' +
+            'workouts[].readiness = ציון מוכנות הבוקר של יום האימון (score 0-100, band, drivers) — נגזר מהוויטלים ' +
+            'שב-sleep_recovery ולא נתון גולמי, ומוקפא ברשומת האימון ברגע השמירה. ' +
+            'הוויטלים מ-Apple Health ממשיכים להתעדכן במהלך היום, ולכן חישוב חי של אותו יום אינו יציב — ' +
+            'הציון שכאן הוא זה שהמתאמן ראה, והוא זהה בכל ייצוא. used/total = כמה מדדים נכנסו לציון מתוך הזמינים. ' +
             'drivers[]: val = הקריאה של אותו בוקר, base = החציון האישי (baseline) שמולו היא נמדדת, delta = הסטייה ביניהם. ' +
             'workouts[].nutritionalState = המצב התזונתי בזמן האימון (נשמר פעם אחת ואינו נדרס).',
             'workouts[].kind = "cardio" באימון אירובי (ברירת המחדל, בהיעדר השדה, היא אימון כוח). לאימון אירובי אין ' +
@@ -2035,6 +2037,11 @@ function _carriedRHR(nights, idx) {
     return c.v != null ? c.v : (nights[idx] && nights[idx].rhr);
 }
 
+// _rdBand / _rdColor — הרצועה והצבע נגזרים מהציון בלבד. מקור אחד: הציון מוקפא
+// ברשומת האימון, והרצועה שמוצגת לצידו חייבת להיגזר מאותם ספים בכל צרכן.
+function _rdBand(score)  { return score >= 66 ? 'מוכן' : score >= 34 ? 'בינוני' : 'נמוך'; }
+function _rdColor(score) { return score >= 66 ? 'var(--success)' : score >= 34 ? 'var(--warn)' : 'var(--danger)'; }
+
 // computeReadiness — ציון 0–100 מ-z-score מול baseline. מחזיר building עד 14 לילות.
 function computeReadiness(nights, idx) {
     const n = nights[idx];
@@ -2103,8 +2110,8 @@ function computeReadiness(nights, idx) {
     const wsum = parts.reduce((a, p) => a + p.w, 0);
     const composite = parts.reduce((a, p) => a + p.w * p.contrib, 0) / wsum;
     const score = Math.max(1, Math.min(99, Math.round(50 + 22 * composite)));
-    const band = score >= 66 ? 'מוכן' : score >= 34 ? 'בינוני' : 'נמוך';
-    const color = score >= 66 ? 'var(--success)' : score >= 34 ? 'var(--warn)' : 'var(--danger)';
+    const band = _rdBand(score);
+    const color = _rdColor(score);
     // drivers — 3 התורמים החזקים ביותר (לפי |w*contrib|)
     const drivers = parts.slice().sort((a, b) => Math.abs(b.w * b.contrib) - Math.abs(a.w * a.contrib))
         .slice(0, 3).map(p => ({ label: p.label, delta: p.delta, val: p.val, unit: p.unit,
@@ -2114,7 +2121,13 @@ function computeReadiness(nights, idx) {
     const ALL_METRICS = ['HRV', 'דופק מנוחה', 'נשימה', 'שינה', 'טמפ׳'];
     const usedLabels = parts.map(p => p.label);
     const missingLabels = ALL_METRICS.filter(l => !usedLabels.includes(l));
-    return { score, band, color, drivers, building: false, usedCount: usedLabels.length, totalCount: ALL_METRICS.length, missingLabels };
+    // vitals — **כל** המדדים שנכנסו לציון, לא רק שלושת החזקים. הפרומפט הציג עד כה
+    // את HRV/דופק מנוחה משליפה חיה נפרדת, בזמן ש-drivers הגיעו מכאן; שני מקורות
+    // לאותו מספר = שתי קריאות שונות באותה פסקה. הקפאת הרשומה שומרת את vitals,
+    // וכל מי שמצטט ערך גולמי קורא ממנו — ערך ובסיס מאותה שליפה, תמיד.
+    const vitals = parts.map(p => ({ label: p.label, val: p.val, unit: p.unit,
+                                     valTxt: p.valTxt, baseTxt: p.baseTxt, delta: p.delta, dir: p.dir }));
+    return { score, band, color, drivers, vitals, building: false, usedCount: usedLabels.length, totalCount: ALL_METRICS.length, missingLabels };
 }
 
 // _slRing — טבעת SVG (או מקווקוות במצב building)

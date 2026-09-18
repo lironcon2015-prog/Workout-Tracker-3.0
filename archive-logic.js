@@ -3590,8 +3590,9 @@ function _downloadClaudeFile(items, scopeLabel, scopeSlug) {
         .sort(function(a, b) { return a.timestamp - b.timestamp; }) // כרונולוגי — עולה
         .map(function(item) {
             var clone = JSON.parse(JSON.stringify(item));
-            // מוכנות הבוקר מחושבת ואינה שמורה ברשומה — בלי צירוף מפורש היא נעדרת
-            // מהקובץ אף שהיא מוצגת בלשונית "מדדים". נתוני השעון כבר בתוך ה-clone.
+            // מוכנות הבוקר מוקפאת ברשומה (_readinessFor קורא משם) אבל יושבת תחת
+            // clone.readiness בצורת התצוגה — בלי הצירוף המפורש היא נעדרת מהקובץ
+            // אף שהיא מוצגת בלשונית "מדדים". נתוני השעון כבר בתוך ה-clone.
             var rd = (typeof _readinessFor === 'function') ? _readinessFor(item) : null;
             if (rd) clone.readiness = {
                 score: rd.rd.score, band: rd.rd.band,

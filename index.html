@@ -1078,9 +1078,11 @@
                             </label>
                             <div class="bridge-btn-row">
                                 <button class="bridge-btn bridge-btn--save" onclick="saveHealthBridgeSettings()">שמור הגדרות</button>
+                                <button class="bridge-btn bridge-btn--go" onclick="pullHealthNow()">משוך עכשיו</button>
+                                <button class="bridge-btn bridge-btn--dim" onclick="showHealthBridgeDiag()">בדוק גשר</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">המקור המומלץ הוא <b>Health Auto Export</b> (טוטלים יומיים מעובדים, תואמים לאפליקציית Health), שנדחף לגשר בתזמון דטרמיניסטי דרך קיצורי דרך; האפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. ה-token נשמר מקומית בלבד. "משוך גם תזונה" כבוי כברירת מחדל — הדלק רק אם חזרת ל-MFP. ראה docs/hae-automation-recipe.md.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">"בדוק גשר" מציג מה <b>הגיע</b> לגשר בפועל — יומן הדחיפות, האימון האחרון והאם יש לו סדרת דופק. זו הדרך להבחין בין "האוטומציה לא רצה" לבין "רצה וחזרה ריקה". המקור המומלץ הוא <b>Health Auto Export</b> (טוטלים יומיים מעובדים, תואמים לאפליקציית Health), שנדחף לגשר בתזמון דטרמיניסטי דרך קיצורי דרך; האפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. ה-token נשמר מקומית בלבד. "משוך גם תזונה" כבוי כברירת מחדל — הדלק רק אם חזרת ל-MFP. ראה docs/hae-automation-recipe.md.</div>
                     </div>
 
                     <!-- אזורי דופק — גבולות לחישוב הזמן בכל אזור מסדרת הדופק -->

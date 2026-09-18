@@ -7858,6 +7858,8 @@ body.drop-mode-active .live-set-counter { color: var(--warn-strong); }
     font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; line-height: 1.7;
     display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
 }
+/* שתי פעולות בשורת המטא — נשארות צמודות זו לזו גם כשהטקסט עובר שורה */
+.wc-meta-acts { display: flex; align-items: center; gap: 14px; }
 .wc-empty-txt { font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.7; }
 .wc-actions { display: flex; gap: 8px; margin-top: 14px; }
 .wc-btn {

@@ -24,7 +24,8 @@ const validSrc = src.match(/function _validVital\(key, v\) \{[\s\S]*?\n\}/);
 if (!rangeSrc || !validSrc) { console.error('✗ _VITAL_RANGE/_validVital לא נמצאו'); process.exit(1); }
 
 const api = new Function(rangeSrc[0] + '\n' + validSrc[0] + '\n' + block +
-    '\nreturn { _vitalLockMerge, _vitalLockOverlay, _vitalLockPrune, _vitalLockRow, RD_LOCK_KEYS, RD_LOCK_KEEP_DAYS, _validVital };')();
+    '\nreturn { _vitalLockMerge, _vitalLockOverlay, _vitalLockPrune, _vitalLockRow, _vitalLockRd,' +
+    ' _vitalLockSetRd, _rdFreezeReady, RD_LOCK_KEYS, RD_LOCK_KEEP_DAYS, _validVital };')();
 const { _vitalLockMerge, _vitalLockOverlay, _vitalLockPrune, _vitalLockRow, RD_LOCK_KEYS } = api;
 
 let failed = 0;
@@ -79,6 +80,8 @@ ok(_vitalLockOverlay(null, r2) === null,     'בלי לילה — null ולא ק
 // שדה שאינו מדד מוכנות אינו מקובע: שלבי השינה ממשיכים להתעדכן מאפל
 const stages = _vitalLockOverlay({ date: D, hrv: 70, deepMin: 61, remMin: 98 }, r2);
 ok(stages.deepMin === 61 && stages.remMin === 98, 'שלבי שינה אינם מקובעים — הם לא רכיב בציון');
+ok(_vitalLockOverlay({ date: D, hrv: 70 }, Object.assign({ rd: { score: 78 } }, r2)).rd === undefined,
+   'ה-overlay אינו מדביק את הציון על הלילה — rd אינו מדד');
 ok(RD_LOCK_KEYS.length === 6 && RD_LOCK_KEYS.indexOf('wristTempDev') >= 0,
    'ששת מדדי הציון בדיוק מקובעים');
 
@@ -107,6 +110,10 @@ const many = [
 const pruned = _vitalLockPrune(many, D, 3);
 ok(pruned.length === 3 && pruned[0].date === '2026-09-16', 'נשמרים 3 הימים האחרונים בלבד');
 ok(pruned.every(r => r.date >= '2026-09-16'), 'הגיזום לפי תאריך ISO, לא לפי מקום במערך');
+ok(api.RD_LOCK_KEEP_DAYS >= 30,
+   'השמירה בפועל היא 30 יום ומעלה — השורה נושאת את הציון היומי וחייבת לשרוד את הלילה');
+ok(_vitalLockPrune(many, D, api.RD_LOCK_KEEP_DAYS).length === 5,
+   'בשמירה בפועל חמשת הימים נשמרים');
 // חודש קודם — הגיזום חייב לחצות את גבול החודש נכון (01–20 הוא בדיוק המקום
 // שבו השוואת תאריכים שבורה הפילה פיצ'רים בעבר)
 const cross = _vitalLockPrune(
@@ -124,16 +131,58 @@ ok(_vitalLockRow(two.lock, D).hrv === 85, 'היום הקודם נשאר עם ק�
 ok(_vitalLockRow(two.lock, '2026-09-19').hrv === 91, 'היום החדש נחרת בנפרד');
 ok(two.lock[0].date < two.lock[1].date, 'המערך נשמר ממוין כרונולוגית');
 
-/* ── חריתת רשומת האימון נדחית ליום שנסגר ─────────────────────────────────── */
+/* ── תנאי קיבוע הציון היומי ───────────────────────────────────────────────
+ * "מתקבע ברגע שיש את כל המדדים". גיבוי: היום נסגר — אחרת יום בלי טמפ׳ עור
+ * (אין שעון תואם, או פחות מ-14 לילות בסיס) לא היה נחרת לעולם.
+ * ═════════════════════════════════════════════════════════════════════════*/
+const { _rdFreezeReady, _vitalLockRd, _vitalLockSetRd } = api;
+const full    = { score: 78, building: false, usedCount: 5, totalCount: 5 };
+const partial = { score: 71, building: false, usedCount: 4, totalCount: 5 };
+
+ok(_rdFreezeReady(full, D, D) === true,      'כל חמשת המדדים נכנסו — נחרת מיד, גם באמצע היום');
+ok(_rdFreezeReady(partial, D, D) === false,  'מדד חסר והיום פתוח — לא נחרת, ממתינים לו');
+ok(_rdFreezeReady(partial, '2026-09-17', D) === true,
+   'מדד חסר אבל היום נסגר — נחרת עם מה שיש (גיבוי סוף-יום)');
+ok(_rdFreezeReady({ score: null, building: true, have: 9, need: 14 }, D, D) === false,
+   'baseline בבנייה — אין ציון, אין חריתה');
+ok(_rdFreezeReady({ score: null, building: false }, '2026-09-01', D) === false,
+   'אין ציון גם ביום שנסגר — לא נחרת, הניסיון חוזר');
+ok(_rdFreezeReady(full, D, null) === true,   'בלי תאריך היום — used===total עדיין מכריע');
+ok(_rdFreezeReady(partial, D, null) === false, 'בלי תאריך היום ובלי כל המדדים — לא נחרת');
+ok(_rdFreezeReady(null, D, D) === false,     'בלי rd — false ולא קריסה');
+
+/* ── הציון היומי נחרת פעם אחת, ולא נדרס גם אם ה-baseline זז ───────────────── */
+const snapA = { v: 1, score: 78, band: 'מוכן', used: 5, total: 5, missing: [],
+                drivers: [{ label: 'HRV', val: '85ms', base: '62ms', delta: '+23ms', dir: 'up' }],
+                vitals: [{ label: 'HRV', val: '85ms', base: '62ms', delta: '+23ms', dir: 'up' }],
+                date: D, sleepMin: 432 };
+const snapB = Object.assign({}, snapA, { score: 65, band: 'בינוני' });
+
+const w1 = _vitalLockSetRd(m2.lock, D, snapA);
+ok(w1.changed === true,                        'חריתת הציון היומי מסומנת כשינוי');
+ok(_vitalLockRd(w1.lock, D).score === 78,      'הציון נחרת על שורת התאריך');
+ok(_vitalLockRow(w1.lock, D).hrv === 85,       'הוויטלים החרותים נשמרים לצד הציון');
+
+const w2 = _vitalLockSetRd(w1.lock, D, snapB);
+ok(w2.changed === false,                       'ציון שנחרת אינו נדרס');
+ok(_vitalLockRd(w2.lock, D).score === 78,      'גם אחרי baseline חדש — 78, לא 65');
+ok(w2.lock === w1.lock,                        'בלי שינוי מוחזר אותו מערך');
+ok(_vitalLockRd([], D) === null && _vitalLockRd(w1.lock, '2026-09-19') === null,
+   'תאריך בלי ציון חרות — null, כדי שייפול לחישוב');
+ok(_vitalLockSetRd(w1.lock, D, null).changed === false, 'בלי snapshot — אין כתיבה');
+
+// גבול Firestore על השורה המלאה (ויטלים + ציון)
+const bad2 = [];
+scan(w1.lock, 'vitalLock', bad2);
+ok(bad2.length === 0, 'השורה המלאה עוברת את Firestore' + (bad2.length ? ' — ' + bad2.join(', ') : ''));
+
+/* ── רשומת אימון נחרתת כשהיום נחרת, ולא לפני ─────────────────────────────── */
 const wc = fs.readFileSync(path.join(__dirname, '..', 'workout-core.js'), 'utf8');
-const closed = wc.match(/function _rdDayClosed\(dstr\) \{[\s\S]*?\n\}/);
-if (!closed) { console.error('✗ _rdDayClosed לא נמצאה ב-workout-core.js'); process.exit(1); }
-const _rdDayClosed = new Function('StorageManager',
-    closed[0] + '\nreturn _rdDayClosed;')({ _todayStr: () => D });
-ok(_rdDayClosed(D) === false,            'אימון של היום — לא נחרת (הקיבוע עדיין פתוח)');
-ok(_rdDayClosed('2026-09-17') === true,  'אימון של אתמול — נחרת');
-ok(_rdDayClosed('2026-09-19') === false, 'תאריך עתידי — לא נחרת');
-ok(_rdDayClosed(null) === false,         'בלי תאריך — לא נחרת');
+ok(/if \(day\.frozen\) _readinessFreezeInto/.test(wc),
+   'רשומת האימון נחרתת רק כש-day.frozen (ולא לפי "היום נסגר")');
+ok(/return \(found && found\.frozen\) \? _readinessSnapshot/.test(wc),
+   '_readinessAtSave חורת בשמירה רק אם הציון היומי כבר נחרת');
+ok(!/_rdDayClosed/.test(wc), '_rdDayClosed הוסרה — התנאי עבר ל-_rdFreezeReady');
 
 console.log(failed ? `\n${failed} נכשלו` : '\nכל הבדיקות עברו');
 process.exit(failed ? 1 : 0);

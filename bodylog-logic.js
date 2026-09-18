@@ -2054,7 +2054,9 @@ function _carriedRHR(nights, idx) {
  * ═════════════════════════════════════════════════════════════════════════*/
 // VITALLOCK-START — בלוק טהור, נבדק ב-test/vital-lock.test.js (אל תסיר את הסמנים)
 const RD_LOCK_KEYS = ['hrv', 'rhr', 'respRate', 'asleepMin', 'efficiency', 'wristTempDev'];
-const RD_LOCK_KEEP_DAYS = 3;
+// 30 יום — השורה נושאת מעתה גם את הציון המוקפא (rd), ולכן היא חייבת לשרוד את
+// הלילה. 3 ימים הספיקו לוויטלים בלבד; ציון היום נקרא ממנה גם שבועות אחר כך.
+const RD_LOCK_KEEP_DAYS = 30;
 
 // _vitalLockRow — שורת הקיבוע של תאריך נתון, או null.
 function _vitalLockRow(lock, date) {
@@ -2094,6 +2096,38 @@ function _vitalLockOverlay(night, row) {
     return out;
 }
 
+// _vitalLockRd — הציון היומי המוקפא של תאריך, או null.
+function _vitalLockRd(lock, date) {
+    const r = _vitalLockRow(lock, date);
+    return (r && r.rd) ? r.rd : null;
+}
+
+// _vitalLockSetRd — חורת את הציון על שורת התאריך. **פעם אחת**: ציון שנחרת אינו
+// נדרס, וזו כל הנקודה — מרגע הקיבוע גם שינוי baseline עתידי אינו מזיז אותו,
+// כי הציון והבסיסים שמאחוריו שמורים כמספרים ולא מחושבים מחדש.
+function _vitalLockSetRd(lock, date, snap) {
+    const src = Array.isArray(lock) ? lock : [];
+    if (!snap || !date) return { lock: src, changed: false };
+    const prev = _vitalLockRow(src, date);
+    if (prev && prev.rd) return { lock: src, changed: false };
+    const row = Object.assign({}, prev || { date }, { rd: snap });
+    const out = src.filter(r => !r || r.date !== date);
+    out.push(row);
+    out.sort((a, b) => (a && a.date) < (b && b.date) ? -1 : 1);
+    return { lock: out, changed: true };
+}
+
+// _rdFreezeReady — האם מותר לחרות את הציון היומי.
+// התנאי: **כל** המדדים נכנסו לציון (used === total).
+// גיבוי: היום נסגר. בלעדיו יום שבו טמפ׳ עור אינה זמינה (אין שעון תואם, או
+// פחות מ-14 לילות בסיס) לא היה נחרת לעולם, והציון היה נשאר נייד לנצח.
+// אין ציון (building / null) → לא נחרת, כדי שהניסיון יחזור.
+function _rdFreezeReady(rd, date, todayStr) {
+    if (!rd || rd.building || rd.score == null) return false;
+    if (rd.usedCount != null && rd.totalCount != null && rd.usedCount >= rd.totalCount) return true;
+    return !!(date && todayStr && date < todayStr);   // ISO מול ISO
+}
+
 // _vitalLockPrune — שומר רק את הימים שעוד נחוצים. תאריכי ISO בלבד, ולכן
 // השוואת מחרוזות בטוחה (כלל התאריכים: אין להשוות DD.MM.YY ל-ISO).
 function _vitalLockPrune(lock, todayStr, keep) {
@@ -2113,28 +2147,76 @@ function _vitalLockPrune(lock, todayStr, keep) {
 // אינו נוגע ב-SLEEP_DAILY עצמו.
 function _vitalLockApply(nights) {
     if (!Array.isArray(nights) || !nights.length) return nights || [];
-    const today = (typeof StorageManager !== 'undefined' && StorageManager._todayStr)
-        ? StorageManager._todayStr() : null;
-    if (!today) return nights;
-    const idx = nights.findIndex(n => n && n.date === today);
-    if (idx < 0) return nights;                 // אין רשומה להיום — אין מה לחרות
     let lock;
     try { lock = StorageManager.getVitalLock(); } catch (e) { return nights; }
-    const m = _vitalLockMerge(lock, today, nights[idx]);
+    const today = (typeof StorageManager !== 'undefined' && StorageManager._todayStr)
+        ? StorageManager._todayStr() : null;
+    // חריתת מדדים חדשים — ליום הנוכחי בלבד. יום שעבר אינו מקבל ערכים חדשים:
+    // מה שלא נחרת בו אז, לא ייחרת עכשיו מקריאה מזוקקת של אפל.
+    const tIdx = today ? nights.findIndex(n => n && n.date === today) : -1;
+    if (tIdx >= 0) {
+        const m = _vitalLockMerge(lock, today, nights[tIdx]);
+        if (m.changed) {
+            lock = m.lock;
+            try {
+                StorageManager.saveVitalLock(_vitalLockPrune(lock, today, RD_LOCK_KEEP_DAYS));
+                // סנכרון ענן — כדי שמכשיר שנפתח בערב יראה את קריאת הבוקר ולא יחרות
+                // לעצמו את של הערב. קורה עד 6 פעמים ביום (פעם לכל מדד), לא בכל רינדור.
+                if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured
+                    && FirebaseManager.isConfigured()) {
+                    FirebaseManager.saveConfigToCloud().catch(() => {});
+                }
+            } catch (e) {}
+        }
+    }
+    // overlay לכל שורה שיש לה קיבוע, לא רק להיום. בלעדיו חריתת רשומת אימון
+    // למחרת נעשתה מהוויטלים **הטריים** של אפל — כלומר על מספר שלישי, שאינו
+    // של הבוקר ואינו זה שהיה על המסך בזמן האימון.
+    if (!Array.isArray(lock) || !lock.length) return nights;
+    let touched = false;
+    const out = nights.slice();
+    lock.forEach(r => {
+        if (!r || !r.date) return;
+        const i = out.findIndex(n => n && n.date === r.date);
+        if (i < 0) return;
+        out[i] = _vitalLockOverlay(out[i], r);
+        touched = true;
+    });
+    return touched ? out : nights;
+}
+
+// _readinessAt — **נקודת המעבר היחידה** לציון של לילה נתון. מחזירה
+// { rd, night, frozen }. ציון שנחרת מוחזר כמו שהוא; אחרת הוא מחושב, ונחרת
+// ברגע שהתנאי מתקיים (_rdFreezeReady). מי שיקרא computeReadiness ישירות
+// יקבל ציון שממשיך לזוז עם ה-baseline, בזמן שהכרטיס שלצידו קפוא.
+// allowFreeze=false — קריאה לתצוגה בלבד (נתוני דמה, צביעת גרף).
+function _readinessAt(nights, idx, allowFreeze) {
+    const n = (nights && nights[idx]) || null;
+    if (!n) return { rd: { score: null, building: true, have: 0, need: 14 }, night: null, frozen: false };
+    let lock = [];
+    try { lock = StorageManager.getVitalLock(); } catch (e) {}
+    const snap = _vitalLockRd(lock, n.date);
+    const thawed = (snap && typeof _readinessThaw === 'function') ? _readinessThaw(snap) : null;
+    if (thawed) return { rd: thawed.rd, night: n, frozen: true };
+
+    const rd = computeReadiness(nights, idx);
+    if (allowFreeze === false) return { rd, night: n, frozen: false };
+    const today = (typeof StorageManager !== 'undefined' && StorageManager._todayStr)
+        ? StorageManager._todayStr() : null;
+    if (!_rdFreezeReady(rd, n.date, today)) return { rd, night: n, frozen: false };
+    const fresh = (typeof _readinessSnapshot === 'function') ? _readinessSnapshot(rd, n) : null;
+    if (!fresh) return { rd, night: n, frozen: false };
+    const m = _vitalLockSetRd(lock, n.date, fresh);
     if (m.changed) {
         try {
             StorageManager.saveVitalLock(_vitalLockPrune(m.lock, today, RD_LOCK_KEEP_DAYS));
-            // סנכרון ענן — כדי שמכשיר שנפתח בערב יראה את קריאת הבוקר ולא יחרות
-            // לעצמו את של הערב. קורה עד 6 פעמים ביום (פעם לכל מדד), לא בכל רינדור.
             if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured
                 && FirebaseManager.isConfigured()) {
                 FirebaseManager.saveConfigToCloud().catch(() => {});
             }
         } catch (e) {}
     }
-    const out = nights.slice();
-    out[idx] = _vitalLockOverlay(nights[idx], _vitalLockRow(m.lock, today));
-    return out;
+    return { rd, night: n, frozen: true };
 }
 
 // _readinessNights — מקור הלילות היחיד לכל צרכני המוכנות (טבעת מסך השינה,
@@ -2278,7 +2360,7 @@ function _slDurChart(nights) {
     data.forEach((d, i) => {
         const x = pad + i * bw, last = i === data.length - 1;
         const v = d.asleepMin || 0;
-        const col = last ? (computeReadiness(nights, nights.length - 1).color || 'var(--accent)') : 'rgba(var(--accent-rgb),.5)';
+        const col = last ? ((_readinessAt(nights, nights.length - 1, false).rd || {}).color || 'var(--accent)') : 'rgba(var(--accent-rgb),.5)';
         bars += `<rect x="${x + bw * 0.16}" y="${y(v)}" width="${bw * 0.68}" height="${H - y(v)}" rx="3" fill="${col}"/>`;
     });
     const ny = y(need);
@@ -2361,7 +2443,8 @@ function renderSleepView() {
     }
     const idx = nights.length - 1;
     const n = nights[idx];
-    const rd = computeReadiness(nights, idx);
+    const _day = _readinessAt(nights, idx, !demo);
+    const rd = _day.rd, _rdFrozen = _day.frozen;
     const need = _sleepNeed(nights, idx);   // יעד שינה אישי (חציון חתוך ל-7–9ש')
     // asleepMin=0 (דחיפת ויטלים לפני ששלבי השינה נכתבו ב-Apple) הוא **חסר**, לא "לא ישנת".
     // בלי הבדיקה הזו _slFmtDur(0) הציג "0:00" + "מתחת ליעד" כאילו זו מדידה אמיתית.
@@ -2379,9 +2462,22 @@ function renderSleepView() {
     // "מלפני יום/N ימים" במקום "—", כדי שלמשתמש תמיד תהיה קריאה אינדיקטיבית. אין ערך בטווח → "—".
     const _cv = (k) => _carriedVital(nights, idx, k);
     const hrvC = _cv('hrv'), rhrC = _cv('rhr'), respC = _cv('respRate');
-    const hrvD = dlt(hrvC.v, b('hrv'), false, 'ms');
-    const rhrD = dlt(rhrC.v, b('rhr'), true, '');
-    const respD = dlt(respC.v, b('respRate'), true, '');
+    // ── הציון נחרת → גם האריחים קוראים מהתמונה שממנה הוא בא ─────────────────
+    // בלי זה הטבעת קפואה והדלתא שמתחתיה ממשיכה לזוז עם ה-baseline, כלומר
+    // הכרטיס סותר את עצמו. dlt() נשאר אותו מעצב — רק הערך והבסיס מוחלפים,
+    // ולכן delta == val − base מאותה שליפה, מובטח.
+    const _fzV = (label) => (_rdFrozen && rd.vitals)
+        ? (rd.vitals.find(v => v && v.label === label) || null) : null;
+    const _fzNum = t => { const x = parseFloat(String(t).replace(/[^\d.+-]/g, '')); return isNaN(x) ? null : x; };
+    const fHrv = _fzV('HRV'), fRhr = _fzV('דופק מנוחה'), fResp = _fzV('נשימה'), fTemp = _fzV('טמפ׳');
+    const hrvV  = (fHrv  && fHrv.valTxt  != null) ? _fzNum(fHrv.valTxt)  : hrvC.v;
+    const rhrV  = (fRhr  && fRhr.valTxt  != null) ? _fzNum(fRhr.valTxt)  : rhrC.v;
+    const respV = (fResp && fResp.valTxt != null) ? _fzNum(fResp.valTxt) : respC.v;
+    const hrvD  = (fHrv  && fHrv.baseTxt  != null) ? dlt(hrvV,  _fzNum(fHrv.baseTxt),  false, 'ms') : dlt(hrvC.v,  b('hrv'), false, 'ms');
+    const rhrD  = (fRhr  && fRhr.baseTxt  != null) ? dlt(rhrV,  _fzNum(fRhr.baseTxt),  true,  '')   : dlt(rhrC.v,  b('rhr'), true, '');
+    const respD = (fResp && fResp.baseTxt != null) ? dlt(respV, _fzNum(fResp.baseTxt), true,  '')   : dlt(respC.v, b('respRate'), true, '');
+    // ערך חרות אינו "נגרר" — הוא הקריאה של אותו בוקר, ולכן בלי תיוג גיל.
+    const hrvGap = fHrv ? 0 : hrvC.gap, rhrGap = fRhr ? 0 : rhrC.gap, respGap = fResp ? 0 : respC.gap;
     // טמפ' עור: הערך הגולמי מוחלט (°C) → מציגים סטייה מ-baseline אישי, אך רק אחרי 14 לילות
     // ("בונה" עד אז). לא-תקין/חסר → "—".
     // הערך עצמו נגרר עד 3 ימים אחורה (כמו HRV/דופק) — הדגימה מ-Apple מגיעה באיחור,
@@ -2398,7 +2494,11 @@ function renderSleepView() {
     const _tempBase = _bTemp.n >= TEMP_MIN_NIGHTS ? 'מול baseline' : 'בסיס ראשוני';
     const _tempSub = !_tempReady ? ''
         : (_tempAge ? _tempAge + (_bTemp.n >= TEMP_MIN_NIGHTS ? '' : ' · ראשוני') : _tempBase);
-    const tempCard = !_tempValid
+    // טמפ׳ חרותה נושאת את הסטייה עצמה (delta) בלי val/base — היא נמדדת מול
+    // baseline של אפל ולא מול חציון אישי.
+    const tempCard = fTemp
+        ? _slMetric(fTemp.delta, '', 'טמפ׳ עור', 'מול baseline', fTemp.dir, 0, true)
+        : !_tempValid
         ? _slMetric('—', '', 'טמפ׳ עור', '', 'flat')
         : !_tempReady
         ? _slMetric('בונה', '', 'טמפ׳ עור', `${_bTemp.n}/${TEMP_SHOW_MIN_NIGHTS} לילות`, 'flat')
@@ -2448,9 +2548,9 @@ function renderSleepView() {
         ${_validVital('efficiency', n.efficiency)
             ? _slMetric(Math.round(n.efficiency * 100), '%', 'יעילות', n.efficiency >= 0.88 ? 'טובה' : 'בינונית', n.efficiency >= 0.88 ? 'up' : 'flat')
             : _slMetric('—', '', 'יעילות', '', 'flat')}
-        ${_slMetric(hrvC.v ?? '—', ' ms', 'HRV', ...hrvD, hrvC.gap)}
-        ${_slMetric(rhrC.v ?? '—', ' bpm', 'דופק מנוחה', ...rhrD, rhrC.gap)}
-        ${_slMetric(respC.v ?? '—', '', 'קצב נשימה', ...respD, respC.gap)}
+        ${_slMetric(hrvV ?? '—', ' ms', 'HRV', ...hrvD, hrvGap)}
+        ${_slMetric(rhrV ?? '—', ' bpm', 'דופק מנוחה', ...rhrD, rhrGap)}
+        ${_slMetric(respV ?? '—', '', 'קצב נשימה', ...respD, respGap)}
         ${tempCard}
       </div>
     </div>

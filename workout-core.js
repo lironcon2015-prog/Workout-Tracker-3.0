@@ -6400,7 +6400,8 @@ function _buildSleepAIContext(slim, refDate, entry) {
     // כשלרשומת האימון יש ציון חרוט, כל מספר בפסקה הזו חייב לבוא מאותה תמונה
     // שממנה בא הציון. אחרת נוצר מה שהייצוא הראה: "HRV 85ms (+26ms מול
     // baseline)" לצד baseline 62 — הערך משליפה אחת, הדלתא מאחרת.
-    const _fzFound = (entry && typeof _readinessFor === 'function') ? _readinessFor(entry) : null;
+    const _fzFound = (entry && typeof _readinessFor === 'function') ? _readinessFor(entry)
+        : ((typeof _readinessAt === 'function') ? _readinessAt(nights, idx) : null);
     const _fz = (_fzFound && _fzFound.frozen) ? _fzFound.rd : null;
     const _fzV = (label) => _fz ? ((_fz.vitals || []).find(v => v && v.label === label) || null) : null;
     const _fzSleep = (_fzFound && _fzFound.frozen && _fzFound.night && _fzFound.night.asleepMin > 0)
@@ -6502,7 +6503,8 @@ function _buildSleepAIContext(slim, refDate, entry) {
     // פורמט מכוון: רצועה מפורשת + ספים גלויים (מונע מהמודל להמציא סקאלה משלו ולקרוא את הציון כאחוז),
     // ציון "מבוסס על X מתוך 5 מדדים" כשחלקי, שורת מניעים, ושורת "שינה בלילה שלפני האימון" (המדד
     // הרלוונטי לניתוח האימון — לא הממוצע השבועי / חוב השינה המצטבר, שאינם רכיב בציון וגם לא מוזרקים כאן).
-    const rdSrc = _fz || ((typeof computeReadiness === 'function') ? computeReadiness(nights, idx) : null);
+    const rdSrc = (_fzFound && _fzFound.rd)
+        || ((typeof computeReadiness === 'function') ? computeReadiness(nights, idx) : null);
     if (rdSrc) {
         const rd = rdSrc;
         if (rd.building) {
@@ -9202,16 +9204,6 @@ function _rdNights() {
         ? StorageManager.getSleepDaily() : [];
 }
 
-// _rdDayClosed — האם היום של הרשומה נסגר (dstr הוא ISO). אימון של היום אינו
-// נחרת: הקיבוע היומי עדיין מקבל מדדים, וחריתה מוקדמת הייתה נועלת את הרשומה
-// על ציון חלקי לנצח.
-function _rdDayClosed(dstr) {
-    if (!dstr) return false;
-    const today = (typeof StorageManager !== 'undefined' && StorageManager._todayStr)
-        ? StorageManager._todayStr() : null;
-    return !!today && dstr < today;   // ISO מול ISO — השוואת מחרוזות בטוחה
-}
-
 
 // _readinessFreezeInto — חריתת התמונה על הרשומה, פעם אחת. כותב גם לאובייקט
 // שבזיכרון (כדי שהקריאה הנוכחית כבר תראה מוקפא) וגם לארכיון.
@@ -9237,30 +9229,29 @@ function _readinessFor(entry) {
     if (!entry) return null;
     const frozen = _readinessThaw(entry.readiness);
     if (frozen) return frozen;
-    if (typeof computeReadiness !== 'function') return null;
+    if (typeof _readinessAt !== 'function') return null;
     const nights = _rdNights();
     if (!nights.length) return null;
     const dstr = (typeof _blLocalDateStr === 'function') ? _blLocalDateStr(new Date(entry.timestamp)) : null;
     const idx = dstr ? nights.findIndex(n => n && n.date === dstr) : -1;
     if (idx < 0) return null;
-    let rd;
-    try { rd = computeReadiness(nights, idx); } catch (e) { return null; }
-    if (!rd || rd.building || rd.score == null) return null;
-    if (_rdDayClosed(dstr)) _readinessFreezeInto(entry, rd, nights[idx]);
-    return { rd, night: nights[idx], frozen: false };
+    let day;
+    try { day = _readinessAt(nights, idx); } catch (e) { return null; }
+    if (!day || !day.rd || day.rd.building || day.rd.score == null) return null;
+    // הרשומה נחרתת כשהציון היומי נחרת — לא לפני. עד אז היא קוראת את הציון
+    // הזמני, ומדד שעוד יגיע עשוי להזיז אותו; מרגע הקיבוע הוא נעצר לתמיד.
+    if (day.frozen) _readinessFreezeInto(entry, day.rd, day.night);
+    return { rd: day.rd, night: day.night, frozen: day.frozen };
 }
 
 // _readinessAtSave — התמונה שנחרתת ברגע שמירת האימון. prev שומר על הקפאה
 // קיימת, כמו nutritionalState: שמירה חוזרת של אותו אימון לא מייצרת ציון חדש.
-// אימון של **היום** אינו נחרת בשמירה — הקיבוע היומי עדיין פתוח, ומדד שטרם
-// הגיע מ-Apple ייחרת בהמשך היום. הרשומה נחרתת בצפייה הראשונה למחרת; עד אז
-// היא קוראת חי מהקיבוע, שהוא עצמו יציב.
+// אם הציון היומי עוד לא נחרת (מדד חסר, והיום לא נסגר) הרשומה נשמרת בלי ציון,
+// והיא תיחרת בקריאה הראשונה שאחרי הקיבוע היומי. **הרשומה והיום נחרתים יחד.**
 function _readinessAtSave(ts, prev) {
     if (prev && prev.readiness) return prev.readiness;
-    const dstr = (typeof _blLocalDateStr === 'function' && ts) ? _blLocalDateStr(new Date(ts)) : null;
-    if (!_rdDayClosed(dstr)) return null;
     const found = _readinessFor({ timestamp: ts });
-    return found ? _readinessSnapshot(found.rd, found.night) : null;
+    return (found && found.frozen) ? _readinessSnapshot(found.rd, found.night) : null;
 }
 
 function _readinessCardHtml(entry) {

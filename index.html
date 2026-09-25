@@ -652,13 +652,33 @@
                     <div class="settings-group">
                         <div class="settings-group-label">תצוגה וצליל</div>
                         <div class="stg-bento">
-                            <div class="stg-toggle-row">
+                            <div class="stg-toggle-row" id="live-mode-row">
                                 <div class="stg-toggle-info">
                                     <div class="stg-row-title">מצב Live</div>
-                                    <div class="stg-toggle-hint">מסך אימון fullscreen — טיימר ענק, החלקה לרישום סט. מתאים לאימון אינטנסיבי ללא הסחות דעת.</div>
+                                    <div class="stg-toggle-hint" id="live-mode-hint">המסך הראשי של האימון. כדי לכבות — החזר קודם את מסך האימון הקלאסי.</div>
                                 </div>
                                 <label class="stg-switch">
                                     <input type="checkbox" id="live-mode-toggle" onchange="toggleLiveMode(this.checked)">
+                                    <span class="stg-switch-slider"></span>
+                                </label>
+                            </div>
+                            <div class="stg-toggle-row">
+                                <div class="stg-toggle-info">
+                                    <div class="stg-row-title">מסך אימון קלאסי</div>
+                                    <div class="stg-toggle-hint">מחזיר את מסך התרגיל הישן (פיקרים, כפתורים) ומאפשר לכבות את Live. ברירת מחדל: כבוי.</div>
+                                </div>
+                                <label class="stg-switch">
+                                    <input type="checkbox" id="classic-screen-toggle" onchange="toggleClassicScreen(this.checked)">
+                                    <span class="stg-switch-slider"></span>
+                                </label>
+                            </div>
+                            <div class="stg-toggle-row">
+                                <div class="stg-toggle-info">
+                                    <div class="stg-row-title">כפתור דיבור ב-Live</div>
+                                    <div class="stg-toggle-hint">תיעוד סט בקול (דורש מפתח AI ורשת). ברירת מחדל: כבוי.</div>
+                                </div>
+                                <label class="stg-switch">
+                                    <input type="checkbox" id="voice-btn-toggle" onchange="toggleVoiceBtn(this.checked)">
                                     <span class="stg-switch-slider"></span>
                                 </label>
                             </div>
@@ -2029,7 +2049,7 @@
 
     <!-- =================== SPRINT 4: WORKOUT LIVE VIEW =================== -->
     <div id="workout-live-overlay" class="workout-live" style="display:none;" aria-hidden="true" data-no-swipe-back>
-        <button id="live-exit-btn" class="live-exit-btn" onclick="exitWorkoutLiveMode()" aria-label="צא ממצב Live">
+        <button id="live-exit-btn" class="live-exit-btn" onclick="liveExitTap()" aria-label="חזור">
             <span class="material-symbols-outlined">close</span>
         </button>
         <button id="live-menu-btn" class="live-menu-btn workout-menu-btn" data-workout-menu-trigger onclick="toggleWorkoutQuickMenu()" aria-label="תפריט אימון">

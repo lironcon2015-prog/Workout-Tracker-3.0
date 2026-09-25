@@ -50,7 +50,9 @@ function _vcAvailable() {
 function vcSyncMicBtn() {
     const btn = document.getElementById('vc-mic-btn');
     if (!btn) return;
-    const show = _vcAvailable();
+    // מוסתר כברירת מחדל — מוצג רק אם המשתמש החזיר אותו בהגדרות
+    const userOn = typeof getAnalyticsPrefs === 'function' && !!getAnalyticsPrefs().voiceBtn;
+    const show = userOn && _vcAvailable();
     btn.style.display = show ? 'flex' : 'none';
     if (!show && _vcState !== 'idle') _vcReset();
 }

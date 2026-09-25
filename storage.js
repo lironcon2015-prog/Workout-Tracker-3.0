@@ -210,9 +210,10 @@ const StorageManager = {
             timestamp: Date.now()
         };
         sessionData.state.timerInterval = null;
-        this.saveData(this.KEY_SESSION, sessionData);
+        const ok = this.saveData(this.KEY_SESSION, sessionData);
         // נקודת-חנק יחידה לפרסום אל גשר השעון (no-op כשהגשר כבוי / לא נטען)
         try { if (typeof WatchBridge !== 'undefined') WatchBridge.onStateSaved(); } catch (e) { /* הגנתי */ }
+        return ok;   // המזעור נשען על זה: לא יוצאים מהאימון בלי שמירה שהצליחה
     },
 
     clearSessionState() {

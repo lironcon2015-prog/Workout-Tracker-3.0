@@ -16,6 +16,7 @@ function toggleWorkoutQuickMenu() {
     // "החלף תרגיל" רלוונטי רק בתוך סבב פעיל — מחוץ לסבב ההחלפה זמינה במסך האישור
     if (!isOpen && typeof _syncClusterSwapMenuItem === 'function') _syncClusterSwapMenuItem();
     if (!isOpen && typeof _syncLiveExMenu === 'function') _syncLiveExMenu();
+    if (!isOpen && typeof _minSyncMenuItem === 'function') _minSyncMenuItem();
 }
 
 // סגירת התפריט בלחיצה מחוץ לו — בודק כל אלמנט עם data-workout-menu-trigger

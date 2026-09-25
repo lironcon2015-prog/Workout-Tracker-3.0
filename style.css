@@ -5869,6 +5869,39 @@ body.live-mode-active .workout-quick-menu {
 .live-action-link:active { color: #fff; }
 
 /* ════════════════════════════════════════════════════════════════════
+   אימון ממוזער — פס מעל סרגל הטאבים (bottom נקבע ב-JS לפי גובה הסרגל)
+   ════════════════════════════════════════════════════════════════════ */
+.min-pill {
+    position: fixed; left: 16px; right: 16px; z-index: 198;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border: 1px solid rgba(var(--accent-rgb), 0.35);
+    border-radius: var(--r-pill);
+    color: #fff; font-family: 'Heebo', sans-serif; cursor: pointer;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+    -webkit-tap-highlight-color: transparent;
+}
+.min-pill:active { transform: scale(0.98); }
+.min-pill-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: var(--success);
+    animation: min-pill-pulse 1.6s infinite var(--ease);
+}
+@keyframes min-pill-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.min-pill-main { font-weight: 900; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
+.min-pill-sub {
+    margin-inline-start: auto;
+    font-weight: 700; font-size: var(--fs-md);
+    color: rgba(255,255,255,0.7); font-variant-numeric: tabular-nums;
+}
+.min-pill.is-done { border-color: var(--success); }
+.min-pill.is-done .min-pill-sub { color: var(--success); }
+@media (prefers-reduced-motion: reduce) { .min-pill-dot { animation: none; } }
+/* מקום לפס בתחתית התוכן, כדי שלא יסתיר את השורה האחרונה */
+body.workout-minimized .content-area::after { content: ""; display: block; flex: none; height: 64px; }
+
+/* ════════════════════════════════════════════════════════════════════
    Live Mode — bottom-sheets צריכים להיות מעל ה-overlay
    ════════════════════════════════════════════════════════════════════ */
 body.live-mode-active .bottom-sheet-overlay { z-index: 10005 !important; }

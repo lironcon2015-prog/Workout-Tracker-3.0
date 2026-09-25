@@ -617,6 +617,8 @@ function restoreSession() {
     if (session && session.state) {
         state = session.state;
         if (session.managerState) managerState = session.managerState;
+        // אימון שמוזער לפני הקריסה/הסגירה — חוזרים לאימון עצמו, לא לטאב שבו היה המשתמש
+        if (state.minimized) _minUnstash(state);
 
         document.getElementById('recovery-modal').style.display = 'none';
 
@@ -887,6 +889,7 @@ const WatchBridge = {
 };
 
 function discardSession() {
+    _minEndWorkout();
     try { WatchBridge.finishSession(); } catch (e) {}
     StorageManager.clearSessionState();
     stopSessionTimer();
@@ -983,7 +986,8 @@ function _applyScreenChrome(screenId) {
     const settingsBtn = document.getElementById('btn-settings');
     if (tabBar)      tabBar.style.display      = inWorkout ? 'none' : 'flex';
     if (strip)       strip.style.display       = inWorkout ? 'flex' : 'none';
-    if (settingsBtn) settingsBtn.style.display = inWorkout ? 'none' : 'flex';
+    // אימון ממוזער: ההגדרות נשארות חסומות (איפוס/שחזור/ייבוא/עורך דורסים אימון רץ)
+    if (settingsBtn) settingsBtn.style.display = (inWorkout || isWorkoutMinimized()) ? 'none' : 'flex';
 
     const backBtn = document.getElementById('global-back');
     if (backBtn) backBtn.style.display = !NO_BACK_SCREENS.includes(screenId) ? 'flex' : 'none';
@@ -992,7 +996,8 @@ function _applyScreenChrome(screenId) {
 function navigate(id, clearStack = false) {
     haptic('light');
     if (!document.getElementById(id)) id = 'ui-week';
-    if (id !== 'ui-main') stopRestTimer();
+    // אימון ממוזער — טיימר המנוחה ממשיך לרוץ בזמן שמטיילים בטאבים
+    if (id !== 'ui-main' && !isWorkoutMinimized()) stopRestTimer();
 
     _applyScreenChrome(id);
 
@@ -1013,7 +1018,7 @@ function navigate(id, clearStack = false) {
     // — אוטו-launch ל-ui-main כשההגדרה דלוקה והמשתמש לא ביצע exit מפורש
     // — exit silent כשעוזבים את ui-main (רק אם הוא באמת פעיל כעת)
     // — reset של ה-suppression flag כשמגיעים למסך הבית (התחלת אימון חדש)
-    if (id === 'ui-week') _liveModeSuppressed = false;
+    if (id === 'ui-week' && !isWorkoutMinimized()) _liveModeSuppressed = false;
     if (id === 'ui-main' && typeof isLiveModeEnabled === 'function' && isLiveModeEnabled() && !_liveModeSuppressed) {
         // הפעלה סינכרונית — בלי setTimeout, כדי שה-overlay יעלה באותו frame ולא יהיה הבזק של ui-main הרגיל
         if (typeof enterWorkoutLiveMode === 'function') enterWorkoutLiveMode();
@@ -1050,11 +1055,187 @@ function _workoutHasData() {
     return (state.log || []).some(l => !l.skip) || (state.completedExInSession || []).length > 0;
 }
 
+// ─── מזעור אימון פעיל ───────────────────────────────────────────────────────
+// מזעור = יציאה לטאבים בזמן שהאימון ממשיך לרוץ ברקע. הסכנה: switchMainTab מאפס את
+// state.historyStack — אותה ערימה ש-restoreSession נשען עליה כדי לדעת לאיזה מסך
+// אימון לחזור. לכן הערימה של האימון נשמרת בצד (state.minimized.stack) ונשמרת
+// ל-localStorage *לפני* שעוזבים. כל סיום/התחלה/נטישה של אימון מנקים את השמירה בצד.
+// MINIMIZE-START — בלוק טהור, נבדק ב-test/minimize.test.js (אל תסיר את הסמנים)
+const MINIMIZABLE_SCREENS = ['ui-confirm', 'ui-main', 'ui-1rm', 'ui-cluster-rest', 'ui-variation',
+                             'ui-swap-list', 'ui-ask-extra', 'ui-extra-cluster', 'ui-cardio'];
+
+function _minCanMinimize(st, screen) {
+    if (!st || !st.workoutStartTime || st.minimized) return false;
+    if (!MINIMIZABLE_SCREENS.includes(screen)) return false;
+    // אירובי: רק אחרי "התחל" ולפני הסיום
+    if (screen === 'ui-cardio' && !(st.cardio && st.cardio.phase && st.cardio.phase !== 'idle' && st.cardio.phase !== 'done')) return false;
+    return Array.isArray(st.historyStack) && st.historyStack.length > 0
+        && st.historyStack[st.historyStack.length - 1] === screen;
+}
+
+// שמירה בצד. מזעור שני לא דורס שמירה קיימת — אחרת הוא היה שומר את ערימת הבית.
+function _minStash(st) {
+    if (!st || st.minimized) return false;
+    st.minimized = {
+        stack: st.historyStack.slice(),
+        at: Date.now(),
+        logLen: (st.log || []).length,
+        exName: st.currentExName || null
+    };
+    return true;
+}
+
+// החזרה: משחזר את ערימת האימון ומחזיר את המסך העליון (null = אין מה לשחזר).
+function _minUnstash(st) {
+    if (!st || !st.minimized) return null;
+    const m = st.minimized;
+    st.minimized = null;
+    if (!m || !Array.isArray(m.stack) || !m.stack.length) return null;
+    st.historyStack = m.stack.slice();
+    return st.historyStack[st.historyStack.length - 1];
+}
+
+// האם השעון שינה משהו בזמן המזעור — אז מסך התרגיל צריך רענון מה-state
+function _minNeedsRefresh(m, st) {
+    if (!m || !st) return false;
+    return m.logLen !== (st.log || []).length || m.exName !== (st.currentExName || null);
+}
+// MINIMIZE-END
+
+let _minPillTimer = null;
+let _minRestDoneNotified = false;
+
+function isWorkoutMinimized() { return !!(state && state.minimized); }
+
+function _minSyncMenuItem() {
+    const item = document.getElementById('wq-minimize-item');
+    if (item) item.style.display = _minCanMinimize(state, _activeScreenId()) ? 'flex' : 'none';
+}
+
+function minimizeWorkout() {
+    const screen = _activeScreenId();
+    if (!_minCanMinimize(state, screen)) return;
+    try { if (document.getElementById('live-edit-sheet')?.classList.contains('open')) closeLiveEditSheet(); } catch (e) {}
+    const menu = document.getElementById('workout-quick-menu');
+    if (menu) menu.style.display = 'none';
+
+    _minStash(state);
+    const ok = StorageManager.saveSessionState();
+    if (!ok) {
+        // שמירה שנכשלה — לא עוזבים את האימון. הסיבה נאמרת (האחסון), לא "שגיאה"
+        state.minimized = null;
+        showAlert('לא ניתן למזער: השמירה לאחסון המקומי נכשלה (האחסון מלא או חסום). האימון ממשיך כרגיל.');
+        return;
+    }
+    if (document.body.classList.contains('live-mode-active')) exitWorkoutLiveMode(true);
+    document.body.classList.add('workout-minimized');
+    _minRestDoneNotified = false;
+    _setNavDirection('back');
+    switchMainTab('workout');
+    _minStartPill();
+}
+
+function restoreMinimizedWorkout() {
+    if (!state.minimized) return;
+    const m = state.minimized;
+    const top = _minUnstash(state);
+    _minTeardownUI();
+    if (!top) { switchMainTab('workout'); return; }
+    // בכוונה בלי navigate(): הוא עוצר את טיימר המנוחה בכל מסך שאינו ui-main
+    // (מסך מנוחת הסבב היה מאבד את הטיימר שלו)
+    _setNavDirection('forward');
+    _applyScreenChrome(top);
+    updatePlanFloatBtn(top);
+    if (top === 'ui-main') {
+        if (_minNeedsRefresh(m, state) && state.currentEx && typeof initPickers === 'function') {
+            try { initPickers(); } catch (e) {}
+        }
+        if (isLiveModeEnabled() && !_liveModeSuppressed) enterWorkoutLiveMode();
+        else setTimeout(_syncLiveResumeBtn, 80);
+    }
+    if (top === 'ui-cardio' && typeof _cardioSyncUI === 'function') { try { _cardioSyncUI(); } catch (e) {} }
+    StorageManager.saveSessionState();
+    saveUIState();
+    haptic('light');
+}
+
+// ניקוי ה-UI של המזעור (פס + קלאס). השמירה בצד עצמה מנוקה ע"י הקורא.
+function _minTeardownUI() {
+    document.body.classList.remove('workout-minimized');
+    if (_minPillTimer) { clearInterval(_minPillTimer); _minPillTimer = null; }
+    const pill = document.getElementById('min-pill');
+    if (pill) pill.style.display = 'none';
+}
+
+// סוף אימון / התחלת אימון / נטישה — שמירה בצד לא שורדת לאימון הבא
+function _minEndWorkout() {
+    if (state) state.minimized = null;
+    _minTeardownUI();
+}
+
+// הודעת חסימה: פעולה שמתחילה/משנה אימון בזמן שאימון ממוזער
+function _minBlocked() {
+    if (!isWorkoutMinimized()) return false;
+    showConfirm('יש אימון פעיל ברקע. כדי להתחיל אימון חדש צריך קודם לסיים אותו. לחזור לאימון?', restoreMinimizedWorkout);
+    return true;
+}
+
+function _minStartPill() {
+    const pill = document.getElementById('min-pill');
+    if (!pill) return;
+    pill.style.display = 'flex';
+    _minPositionPill();
+    _minRenderPill();
+    if (_minPillTimer) clearInterval(_minPillTimer);
+    _minPillTimer = setInterval(_minRenderPill, 500);
+}
+
+function _minPositionPill() {
+    const pill = document.getElementById('min-pill');
+    const bar = document.querySelector('.tab-bar');
+    if (!pill) return;
+    const h = bar ? bar.getBoundingClientRect().height : 0;
+    pill.style.bottom = (h + 10) + 'px';
+}
+
+function _minFmt(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    const mm = Math.floor(sec / 60), ss = sec % 60;
+    return (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
+}
+
+function _minRenderPill() {
+    if (!isWorkoutMinimized()) { _minTeardownUI(); return; }
+    const mainEl = document.getElementById('min-pill-main');
+    const subEl = document.getElementById('min-pill-sub');
+    const pill = document.getElementById('min-pill');
+    if (!mainEl || !subEl || !pill) return;
+    const elapsed = state.sessionElapsedSecs || 0;
+    mainEl.textContent = (state.cardio && state.type === state.cardio.plan ? 'אירובי' : 'אימון פעיל') + ' · ' + _minFmt(elapsed);
+
+    let sub = 'חזור לאימון', done = false;
+    const c = state.cardio;
+    if (c && state.type === c.plan && c.phase && c.phase !== 'done') {
+        const lbl = { prep: 'היכון', work: 'עבודה', rest: 'מנוחה' }[c.phase];
+        if (c.paused) sub = 'מושהה';
+        else if (lbl && c.phaseEndsAt) sub = `${lbl} ${_minFmt((c.phaseEndsAt - Date.now()) / 1000)} · סבב ${c.roundIdx || 0}/${c.rounds}`;
+    } else if (state.timerInterval && state.startTime && state.restTarget) {
+        const left = state.restTarget - (Date.now() - state.startTime) / 1000;
+        if (left > 0) sub = 'מנוחה ' + _minFmt(left);
+        else { sub = 'המנוחה הסתיימה'; done = true; }
+    }
+    subEl.textContent = sub;
+    pill.classList.toggle('is-done', done);
+    if (done && !_minRestDoneNotified) { _minRestDoneNotified = true; haptic('success'); }
+    if (!done && state.timerInterval) _minRestDoneNotified = false;
+}
+
 // _abandonWorkout — נטישת אימון פעיל מבלי לשמור לארכיון.
 // חובה לאפס גם את דגלי ה-state ולא רק את האחסון: בלי זה `state.workoutStartTime`
 // נשאר דולק, ‏`_persistOnTeardown` כותב מחדש את ה-session שזה עתה נמחק, וההפעלה
 // הבאה מציעה לשחזר אימון שהמשתמש נטש במפורש.
 function _abandonWorkout() {
+    _minEndWorkout();
     try { if (typeof WatchBridge !== 'undefined') WatchBridge.finishSession(); } catch (e) {}
     StorageManager.clearSessionState();
     stopSessionTimer();
@@ -1640,6 +1821,7 @@ function refreshAllBridgeStatus() {
 }
 
 function openSettings() {
+    if (isWorkoutMinimized()) return;   // הכפתור מוסתר; הגנה כפולה
     navigate('ui-settings');
     renderUserAvatar();
     refreshAllBridgeStatus();
@@ -2335,6 +2517,7 @@ function updatePlanFloatBtn(screenId) {
 // ─── WEEK / WORKOUT SELECTION ──────────────────────────────────────────────
 
 function selectWeek(w) {
+    if (_minBlocked()) return;
     state.week = w;
     // ברירת המחדל בכל כניסה לשבוע היא כוח — גם אם הפעם הקודמת הסתיימה באירובי
     if (typeof _workoutKindFilter !== 'undefined') _workoutKindFilter = 'strength';
@@ -2344,7 +2527,9 @@ function selectWeek(w) {
 
 function selectWorkout(t) {
     // תוכנית אירובית — מסלול נפרד לגמרי (אין תרגילים, אין סטים, אין נפח)
+    if (_minBlocked()) return;
     if (typeof isCardioWorkout === 'function' && isCardioWorkout(t)) { startCardio(t); return; }
+    _minEndWorkout();
     state.type = t; state.exIdx = 0; state.log = [];
     state.completedExInSession = []; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
     state.cardio = null;
@@ -3826,6 +4011,7 @@ function resetAndStartTimer(customTime = null) {
     if (customTime !== null) target = customTime;
     else if (state.currentEx.restTime) target = state.currentEx.restTime;
     else target = (state.exIdx === 0 && !state.clusterMode) ? 120 : 90;
+    state.restTarget = target;   // לפס האימון הממוזער — היעד חי אחרת רק בתוך ה-interval
 
     const circle = document.getElementById('timer-progress');
     const text = document.getElementById('rest-timer');
@@ -4497,6 +4683,8 @@ function selectExtraCluster(workoutName, clusterIdx) {
 // ─── FREESTYLE ─────────────────────────────────────────────────────────────
 
 function startFreestyle() {
+    if (_minBlocked()) return;
+    _minEndWorkout();
     state.type = 'Freestyle'; state.log = []; state.completedExInSession = [];
     state.isFreestyle = true; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
@@ -5194,6 +5382,7 @@ async function copyResult() {
     // R4: נקה את live_session לפני הניקוי/reload — מונע סשן-רפאים שהשעון יחיה
     try { await WatchBridge.finishSession(); } catch (e) {}
     state.liveSessionId = null;
+    _minEndWorkout();
     StorageManager.clearSessionState();
     state.workoutStartTime = null; // מניעת שחזור רפאים בעת ריענון העמוד
     stopSessionTimer();
@@ -10496,6 +10685,8 @@ function cardioBlip() {
 // startCardio — נקראת מ-selectWorkout כשהתוכנית אירובית. לא מאפסת אימון פעיל:
 // הבדיקה על אימון קיים נעשית ב-selectWorkout כמו באימון כוח.
 function startCardio(name) {
+    if (_minBlocked()) return;
+    _minEndWorkout();
     const cfg = _cardioNormalize(cardioPlanConfig(name));
     state.type = name;
     state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
@@ -10977,6 +11168,9 @@ function finishCardio() {
     }
     c.phase = 'done';
     c.paused = false;
+    // אימון סבבים שנגמר בזמן מזעור: השמירה בצד מתבטלת לפני הניווט לסיכום —
+    // אחרת "חזור לאימון" היה מחזיר לאימון שכבר נשמר
+    if (isWorkoutMinimized()) _minEndWorkout();
     _cardioStopTimer();
     stopSessionTimer();
     _releaseWakeLock();

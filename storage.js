@@ -109,13 +109,88 @@ const StorageManager = {
         }
     },
 
-    initDB() {
-        const storedEx = this.getData(this.KEY_DB_EXERCISES);
-        const storedWo = this.getData(this.KEY_DB_WORKOUTS);
-        const storedMeta = this.getData(this.KEY_META);
+    // ── הגנת טעינה של התוכניות/התרגילים (v19.14.1) ─────────────────────────
+    // עד v19.14.0: קריאה שנכשלה (getData מחזיר null על כל שגיאה) או ערך ריק נחשבו
+    // "אין תוכניות", וברירות המחדל **נשמרו מעל** הדאטה האמיתית — ומשם נדחפו לענן
+    // בסנכרון הבא (set מלא). כך נמחקו כל התוכניות והתרגילים ב-25.9 בלי שום התראה.
+    // עכשיו: ברירות מחדל נכתבות רק בהתקנה טרייה באמת. בכל מצב חשוד — הדאטה לא
+    // נדרסת, ערך פגום נשמר בצד, הסנכרון של הקונפיג לענן נחסם, והמשתמש מקבל סיבה.
+    // DBGUARD-START — בלוק טהור, נבדק ב-test/db-guard.test.js (אל תסיר את הסמנים)
+    // raw = המחרוזת הגולמית מ-localStorage (null = אין מפתח). parsed = אחרי JSON.parse
+    // (undefined = הפענוח נכשל). kind: 'list' | 'map' | 'meta'. hasUserData = יש במכשיר
+    // דאטה אחרת (ארכיון, או מפתחות אפליקציה רבים) — כלומר זו לא התקנה טרייה.
+    _dbLoadDecision(raw, parsed, kind, hasUserData) {
+        let valid;
+        if (kind === 'list') valid = Array.isArray(parsed) && parsed.length > 0;
+        else if (kind === 'meta') valid = !!parsed && typeof parsed === 'object' && !Array.isArray(parsed);
+        else valid = !!parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length > 0;
+        if (valid) return { use: 'stored', persist: false, quarantine: false, suspicious: false };
+        // יש ערך, אבל הוא לא קריא / ריק — לעולם לא דורסים. שומרים עותק בצד.
+        if (raw !== null && raw !== undefined) return { use: 'defaults', persist: false, quarantine: true, suspicious: true };
+        // המפתח חסר במכשיר שיש בו דאטה אחרת — חשוד (מחיקה/כשל), לא התקנה טרייה
+        if (hasUserData) return { use: 'defaults', persist: false, quarantine: false, suspicious: true };
+        return { use: 'defaults', persist: true, quarantine: false, suspicious: false };
+    },
+    // DBGUARD-END
 
-        if (storedEx && storedEx.length > 0) {
-            state.exercises = storedEx;
+    _dbSuspect: null,   // { keys: [...], quarantined: [...] } — לא null = הקונפיג לא נטען באמת
+
+    // הסבר למשתמש — הסיבה עצמה, לא "שגיאה" (כלל 4 ב-CLAUDE.md)
+    dbSuspectReason() {
+        if (!this._dbSuspect) return '';
+        const names = { [this.KEY_DB_WORKOUTS]: 'התוכניות', [this.KEY_DB_EXERCISES]: 'התרגילים', [this.KEY_META]: 'הגדרות התוכניות' };
+        const what = this._dbSuspect.keys.map(k => names[k] || k).join(', ');
+        return `${what} השמורים לא נקראו בפתיחת האפליקציה` +
+               (this._dbSuspect.quarantined.length ? ' (הערך השמור פגום, ועותק שלו נשמר בצד)' : ' (הערך חסר במכשיר שיש בו נתונים)') +
+               '. כדי לא למחוק אותם, לא נשמרו עליהם ברירות מחדל, והסנכרון שלהם לענן מושהה.';
+    },
+
+    _readRaw(key) {
+        let raw = null, parsed;
+        try { raw = localStorage.getItem(key); } catch (e) { raw = undefined; }
+        if (raw === undefined) return { raw: '__unreadable__', parsed: undefined };   // עצם הגישה נכשלה = חשוד
+        if (raw === null) return { raw: null, parsed: null };
+        try { parsed = JSON.parse(raw); } catch (e) { parsed = undefined; }
+        return { raw, parsed };
+    },
+
+    _deviceHasUserData() {
+        try {
+            const arch = localStorage.getItem(this.KEY_ARCHIVE);
+            if (arch && arch.length > 2) return true;   // '[]' = ארכיון ריק
+            let n = 0;
+            for (let i = 0; i < localStorage.length; i++) if (this._isAppKey(localStorage.key(i))) n++;
+            return n >= 12;   // התקנה טרייה מחזיקה רק קומץ מפתחות (ערכת צבעים וכד')
+        } catch (e) { return true; }   // לא ניתן לבדוק — מניחים שיש דאטה (הצד הבטוח)
+    },
+
+    initDB() {
+        const ex = this._readRaw(this.KEY_DB_EXERCISES);
+        const wo = this._readRaw(this.KEY_DB_WORKOUTS);
+        const mt = this._readRaw(this.KEY_META);
+        const hasUser = this._deviceHasUserData()
+            // מפתח DB אחר שנקרא תקין = המכשיר בשימוש, גם בלי ארכיון
+            || (Array.isArray(ex.parsed) && ex.parsed.length > 0)
+            || (wo.parsed && typeof wo.parsed === 'object' && Object.keys(wo.parsed).length > 0);
+        const dEx = this._dbLoadDecision(ex.raw, ex.parsed, 'list', hasUser);
+        const dWo = this._dbLoadDecision(wo.raw, wo.parsed, 'map', hasUser);
+        const dMt = this._dbLoadDecision(mt.raw, mt.parsed, 'meta', hasUser);
+
+        const suspect = { keys: [], quarantined: [] };
+        // עותק בצד בשם קבוע — פתיחות חוזרות עם אותו ערך פגום לא ממלאות את האחסון
+        const quarantine = (key, raw) => {
+            const bk = key + '__bad';
+            try { if (localStorage.getItem(bk) === null) localStorage.setItem(bk, String(raw)); suspect.quarantined.push(bk); }
+            catch (e) { /* אין מקום — המקור עצמו לא נדרס בכל מקרה */ }
+        };
+        [[this.KEY_DB_EXERCISES, dEx, ex], [this.KEY_DB_WORKOUTS, dWo, wo], [this.KEY_META, dMt, mt]].forEach(([key, d, r]) => {
+            if (d.suspicious) suspect.keys.push(key);
+            if (d.quarantine) quarantine(key, r.raw);
+        });
+        this._dbSuspect = suspect.keys.length ? suspect : null;
+
+        if (dEx.use === 'stored') {
+            state.exercises = ex.parsed;
             const missing = defaultExercises.filter(def => !state.exercises.find(e => e.name === def.name));
             if (missing.length > 0) {
                 state.exercises = [...state.exercises, ...missing];
@@ -123,25 +198,28 @@ const StorageManager = {
             }
         } else {
             state.exercises = JSON.parse(JSON.stringify(defaultExercises));
-            this.saveData(this.KEY_DB_EXERCISES, state.exercises);
+            if (dEx.persist) this.saveData(this.KEY_DB_EXERCISES, state.exercises);
         }
 
-        if (storedWo && Object.keys(storedWo).length > 0) {
-            state.workouts = storedWo;
+        if (dWo.use === 'stored') {
+            state.workouts = wo.parsed;
         } else {
             state.workouts = JSON.parse(JSON.stringify(defaultWorkouts));
-            this.saveData(this.KEY_DB_WORKOUTS, state.workouts);
+            if (dWo.persist) this.saveData(this.KEY_DB_WORKOUTS, state.workouts);
         }
 
-        if (storedMeta) {
-            state.workoutMeta = storedMeta;
+        if (dMt.use === 'stored') {
+            state.workoutMeta = mt.parsed;
         } else {
             state.workoutMeta = {};
-            this.saveData(this.KEY_META, state.workoutMeta);
+            if (dMt.persist) this.saveData(this.KEY_META, state.workoutMeta);
         }
 
-        this.seedCardioWorkouts();
-        this.migrateCardioThumbs();
+        // זריעות/מיגרציות כותבות את התוכניות — לא על דאטה שלא נטענה באמת
+        if (!this._dbSuspect) {
+            this.seedCardioWorkouts();
+            this.migrateCardioThumbs();
+        }
 
         // ריפוי דאטה שנכתבה עם מפתח-יום פגום (v19.7.4) — לפני הרינדור הראשון
         this.sanitizeDayKeyedData();
@@ -899,6 +977,8 @@ const StorageManager = {
     // שולח את הגיבוי המלא לגשר האימייל אם עברו ≥7 ימים מהשליחה האחרונה.
     // כשל שקט (רשת/גשר) — ינוסה שוב בפתיחה הבאה; force מציג שגיאות למשתמש.
     maybeSendWeeklyBackup(force) {
+        // תוכניות שלא נטענו — גיבוי עכשיו היה נושא ברירות מחדל כ"גיבוי האחרון"
+        if (this._dbSuspect) return;
         const WEEK_MS = 7 * 86400000;
         const { on, url, token } = this.getBackupBridge();
         if (!on || !url) {
@@ -3003,6 +3083,11 @@ const FirebaseManager = {
 
     async saveConfigToCloud() {
         if (!this._isSyncArmed()) { console.warn('GymPro: sync not armed — דילוג על העלאת קונפיג (הגנת ענן)'); return false; }
+        // התוכניות/התרגילים לא נטענו באמת בעלייה (ראה initDB) — העלאה הייתה דורסת
+        // בענן (set מלא) את העותק הטוב בברירות המחדל. דילוג מכוון, לא כשל.
+        // מחזיר 'skipped' (truthy): הקוראים האוטומטיים לא מציגים "כשל", והקוראים הידניים
+        // בודקים את dbSuspectReason() מראש ומציגים את הסיבה האמיתית.
+        if (StorageManager._dbSuspect) { console.warn('GymPro: config not loaded (' + StorageManager._dbSuspect.keys.join(',') + ') — דילוג על העלאת קונפיג (הגנת ענן)'); return 'skipped'; }
         this._markSyncPending('config');   // הדגל נסגר רק בהצלחה — ראה _recordSync
         if (!await this._ensureReady()) { this._recordSync('config', false, 'auth', 'החיבור לענן לא נפתח (הזדהות או רשת)'); return false; }
         const _t0 = Date.now(); let _bytes = 0;

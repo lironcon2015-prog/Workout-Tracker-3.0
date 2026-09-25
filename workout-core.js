@@ -9747,9 +9747,25 @@ let _liveSwipeAttached = false;
 // (מתאפס ב-navigate('ui-week'))
 let _liveModeSuppressed = false;
 
+// מסך האימון הקלאסי (ui-main) מוסתר כברירת מחדל: Live הוא המסך הראשי, ו-ui-main נשאר
+// ברקע כמקור האמת של הפיקרים/הכפתורים. רק כשהמשתמש החזיר את המסך הקלאסי בהגדרות —
+// מתג "מצב Live" חוזר לשלוט.
+function isClassicScreenEnabled() {
+    if (typeof getAnalyticsPrefs !== 'function') return false;
+    return !!getAnalyticsPrefs().classicScreen;
+}
+
 function isLiveModeEnabled() {
     if (typeof getAnalyticsPrefs !== 'function') return false;
+    if (!isClassicScreenEnabled()) return true;
     return !!getAnalyticsPrefs().liveMode;
+}
+
+// X ב-Live: עם מסך קלאסי — יציאה אליו (כמו קודם). בלעדיו — "חזור" של מסך התרגיל
+// (מחיקת הסט האחרון באישור, או חזרה למסך הקודם; היציאה מ-Live נעשית ב-navigate).
+function liveExitTap() {
+    if (isClassicScreenEnabled()) { exitWorkoutLiveMode(); return; }
+    handleBackClick();
 }
 
 async function enterWorkoutLiveMode() {
@@ -10135,6 +10151,8 @@ function _attachLiveSwipe() {
 
 function toggleLiveMode(enabled) {
     if (typeof getAnalyticsPrefs !== 'function') return;
+    // בלי מסך קלאסי Live נעול על פעיל — המתג מושבת ב-UI, וזו הגנה כפולה
+    if (!isClassicScreenEnabled()) { syncLiveModeToggle(); return; }
     const p = getAnalyticsPrefs();
     p.liveMode = !!enabled;
     if (typeof saveAnalyticsPrefs === 'function') saveAnalyticsPrefs(p);
@@ -10151,8 +10169,46 @@ function toggleLiveMode(enabled) {
 
 // סנכרון מצב ה-toggle כשנכנסים להגדרות
 function syncLiveModeToggle() {
+    const classic = isClassicScreenEnabled();
     const tog = document.getElementById('live-mode-toggle');
-    if (tog) tog.checked = isLiveModeEnabled();
+    if (tog) { tog.checked = isLiveModeEnabled(); tog.disabled = !classic; }
+    const row = document.getElementById('live-mode-row');
+    if (row) row.classList.toggle('is-locked', !classic);
+    const hint = document.getElementById('live-mode-hint');
+    if (hint) hint.textContent = classic
+        ? 'מסך אימון fullscreen — טיימר ענק, החלקה לרישום סט.'
+        : 'המסך הראשי של האימון. כדי לכבות — החזר קודם את מסך האימון הקלאסי.';
+    const cTog = document.getElementById('classic-screen-toggle');
+    if (cTog) cTog.checked = classic;
+    const vTog = document.getElementById('voice-btn-toggle');
+    if (vTog) vTog.checked = !!getAnalyticsPrefs().voiceBtn;
+}
+
+// החזרת מסך האימון הקלאסי. כיבוי = Live נעול שוב על פעיל (ונפתח מיד אם עומדים ב-ui-main).
+function toggleClassicScreen(on) {
+    if (typeof getAnalyticsPrefs !== 'function') return;
+    const p = getAnalyticsPrefs();
+    p.classicScreen = !!on;
+    if (on) p.liveMode = true;   // בהחזרה — ממשיכים ב-Live עד שהמשתמש יכבה אותו בעצמו
+    if (typeof saveAnalyticsPrefs === 'function') saveAnalyticsPrefs(p);
+    _liveModeSuppressed = false;
+    haptic('light');
+    if (!on && state.historyStack[state.historyStack.length - 1] === 'ui-main'
+        && !document.body.classList.contains('live-mode-active')) {
+        enterWorkoutLiveMode();
+    }
+    syncLiveModeToggle();
+    _syncLiveResumeBtn();
+}
+
+// כפתור הדיבור ב-Live — מוסתר כברירת מחדל
+function toggleVoiceBtn(on) {
+    if (typeof getAnalyticsPrefs !== 'function') return;
+    const p = getAnalyticsPrefs();
+    p.voiceBtn = !!on;
+    if (typeof saveAnalyticsPrefs === 'function') saveAnalyticsPrefs(p);
+    haptic('light');
+    if (typeof vcSyncMicBtn === 'function') vcSyncMicBtn();
 }
 
 // ── ערכות צבעים ──────────────────────────────────────────────────────

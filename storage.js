@@ -329,6 +329,8 @@ const StorageManager = {
             plateauThreshold: 3,  // מינימום שבועות flat שמסומנים כ-plateau
             // Sprint 4 — Workout Live View
             liveMode: false,      // מצב fullscreen עם טיימר ענק וסוואייפ לרישום סט
+            classicScreen: false, // מסך האימון הקלאסי מוסתר; Live נעול על פעיל עד שמחזירים אותו
+            voiceBtn: false,      // כפתור הדיבור ב-Live — מוסתר כברירת מחדל
             // מסך הבית — 'today' (כרטיסי תזונה+גוף) או 'pr' (גרף שיאים).
             // משתמשים קיימים: ה-prefs השמורים לא עוברים merge — קוראים תמיד עם || 'today'
             homeCard: 'today',

@@ -5275,6 +5275,8 @@ body::before {
 }
 .stg-switch input:checked + .stg-switch-slider { background: var(--accent); }
 .stg-switch input:checked + .stg-switch-slider::before { transform: translateX(20px); }
+/* מתג נעול (Live בלי מסך קלאסי) — נראה פעיל אך לא לחיץ */
+.stg-switch input:disabled + .stg-switch-slider { opacity: 0.45; cursor: not-allowed; }
 
 /* === LIVE OVERLAY === */
 .workout-live {

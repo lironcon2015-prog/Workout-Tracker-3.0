@@ -1421,7 +1421,14 @@ function handleBackClick() {
     }
 
     if (currentScreen === 'ui-workout-editor') {
-        showConfirm("לצאת ללא שמירה?", () => {
+        // אין שינויים — יוצאים בלי לשאול (השאלה הופיעה גם אחרי צפייה בלבד)
+        if (typeof _edIsDirty === 'function' && !_edIsDirty()) {
+            if (typeof edCloseSheets === 'function') edCloseSheets();
+            _doBack(currentScreen);
+            return;
+        }
+        showConfirm("לצאת בלי לשמור את השינויים?", () => {
+            if (typeof edCloseSheets === 'function') edCloseSheets();
             _doBack(currentScreen);   // חוזר למנהל התוכניות ומרנדר אותו מחדש
         });
         return;
@@ -1699,6 +1706,11 @@ function _initAllSheetsDrag() {
         { id: 'micro-sort-sheet',           closer: () => (typeof closeMicroSortSheet === 'function') && closeMicroSortSheet() },
         { id: 'alias-sheet',                closer: () => (typeof closeAliasSheet === 'function') && closeAliasSheet() },
         { id: 'workout-plan-sheet',         closer: () => closePlanSheet() },
+        // עורך התוכניות v2
+        { id: 'ed-ex-sheet',                closer: () => (typeof edCloseSheets === 'function') && edCloseSheets() },
+        { id: 'ed-cl-sheet',                closer: () => (typeof edCloseSheets === 'function') && edCloseSheets() },
+        { id: 'ed-add-sheet',               closer: () => (typeof edCloseSheets === 'function') && edCloseSheets() },
+        { id: 'ed-plan-sheet',              closer: () => (typeof edCloseSheets === 'function') && edCloseSheets() },
         { id: 'range-copy-sheet',           closer: () => (typeof closeRangeSheet === 'function') && closeRangeSheet() },
         { id: 'set-rec-sheet',              closer: () => dismissAIRecommendation() },
         { id: 'fd-add-sheet',               closer: () => (typeof closeFoodAdd === 'function') && closeFoodAdd() },

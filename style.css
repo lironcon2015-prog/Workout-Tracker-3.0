@@ -73,6 +73,9 @@
     --danger-soft: #ff6b6b;       /* P2: אדום רך לטקסט קטן על כהה (קריאות) */
     --danger-soft-rgb: 255, 107, 107;
     --success: #30D158;           /* P2: ירוק סמנטי אחד (היו 3: 30D158/32D74B/47e266) */
+    /* v19.15: צבעי קבוצות שריר — פס "סטים לפי שריר" בעורך התוכניות */
+    --m-chest: #FF6B6B; --m-back: #64D2FF; --m-legs: #30D158; --m-sh: #FF9F0A;
+    --m-bi: #BF5AF2; --m-tri: #5E5CE6; --m-core: #FFD60A; --m-cal: #AC8E68; --m-other: #8E8E93;
     --success-rgb: 48, 209, 88;
     --warn: #FFD60A;              /* ענבר סמנטי — פעולות משניות "זהירות" (סריקה/שחזור) */
     --warn-rgb: 255, 214, 10;
@@ -8208,3 +8211,153 @@ body.cardio-paused .cl-ring { opacity: 0.45; }
     background: var(--danger-soft); border: none; color: #fff; font-family: inherit;
     font-size: 1rem; font-weight: 900; cursor: pointer;
 }
+
+
+/* ════════════════════════════════════════════════════════════════════
+   עורך תוכניות v2 (v19.15) — רשימות מקובצות, גיליונות, ערך גמיש
+   כלל: בלי ריווח אותיות בעברית, בלי uppercase, כפתורים בטקסט בלבד
+   ════════════════════════════════════════════════════════════════════ */
+.ed2-screen { gap: 12px; padding-top: 4px; overflow-x: clip; }   /* clip ולא hidden: hidden הופך את המסך למיכל גלילה ושובר את ה-sticky של הסרגל */
+.ed2-screen *, .ed-sheet *, .ed-modal * , .fv-overlay * { box-sizing: border-box; }
+.ed2-screen .km-seg-btn, .ed-sheet .km-seg-btn, .ed-modal .km-seg-btn { letter-spacing: 0; text-transform: none; font-weight: 700; padding: 9px 4px; font-size: var(--fs-sm); white-space: nowrap; }
+.ed-seg { background: var(--surface-2); }
+.ed-head { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
+.ed-head--end { justify-content: flex-end; min-height: 28px; margin-bottom: -6px; }
+.ed-title { font-size: 1.6rem; font-weight: 900; margin: 0; }
+.ed-link { background: none; border: none; color: var(--accent); font-family: inherit; font-weight: 700; font-size: var(--fs-lg); padding: 6px 2px; cursor: pointer; }
+.ed-link--sm { font-size: var(--fs-sm); padding: 2px 0; }
+.ed-quiet-link { background: none; border: none; color: var(--text-dim); font-family: inherit; font-size: var(--fs-sm); padding: 14px; cursor: pointer; align-self: center; }
+.ed-stack { display: flex; flex-direction: column; gap: 10px; }
+.ed-glbl { font-size: var(--fs-sm); font-weight: 700; color: var(--text-dim); margin: 6px 6px -4px; }
+.ed-glbl--row { display: flex; justify-content: space-between; align-items: center; }
+.ed-group { background: var(--surface-2); border-radius: var(--r-md); overflow: hidden; }
+.ed-pad { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.ed-row {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 11px 14px; min-height: 52px; position: relative;
+    background: none; border: none; color: #fff; font-family: inherit; text-align: right;
+}
+.ed-row--btn { cursor: pointer; transition: background var(--dur-1) var(--ease); -webkit-tap-highlight-color: transparent; }
+.ed-row--btn:active { background: rgba(255,255,255,0.05); }
+.ed-row + .ed-row::before { content: ""; position: absolute; top: 0; right: 14px; left: 0; border-top: 1px solid var(--hairline); }
+.ed-row--img + .ed-row--img::before { right: 70px; }
+.ed-row--col { flex-direction: column; align-items: stretch; gap: 8px; }
+.ed-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ed-n { font-weight: 700; font-size: var(--fs-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-n--lg { font-size: var(--fs-xl); font-weight: 900; white-space: normal; }
+.ed-m { font-size: var(--fs-sm); color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-accent { color: var(--accent); }
+.ed-chev { color: rgba(255,255,255,0.28); font-size: 1.1rem; line-height: 1; flex-shrink: 0; }
+.ed-photo { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; background: var(--surface-4) center/cover no-repeat; position: relative; }
+.ed-pdot { position: absolute; bottom: 3px; left: 3px; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface-2); }
+.ed-mono { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; background: var(--surface-3); color: var(--text-dim); display: grid; place-items: center; font-size: var(--fs-sm); font-weight: 700; }
+.ed-idx { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; background: var(--surface-4); color: var(--text-dim); display: grid; place-items: center; font-size: var(--fs-sm); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ed-idx--ss { background: rgba(var(--accent-rgb), 0.16); color: var(--accent); }
+.ed-badge { display: inline-block; font-size: .62rem; font-weight: 700; padding: 2px 7px; border-radius: var(--r-pill); margin-inline-start: 6px; vertical-align: 2px; }
+.ed-badge--main { color: var(--accent); background: rgba(var(--accent-rgb), 0.14); }
+.ed-badge--drop { color: #FF9F0A; background: rgba(255,159,10,0.13); }
+.ed-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 28px 20px; color: var(--text-dim); }
+.ed-empty b { color: #fff; font-size: var(--fs-xl); }
+.ed-empty p { margin: 0; font-size: var(--fs-md); line-height: 1.5; max-width: 32ch; }
+.ed-note { font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.5; margin: 0 4px; }
+
+/* גיבור העורך */
+.ed-hero { border-radius: var(--r-md); padding: 14px 16px 16px; background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 14%, var(--surface-2)), var(--surface-2) 70%); }
+.ed-title-input { width: 100%; background: none; border: none; outline: none; color: #fff; font-family: inherit; font-size: 1.45rem; font-weight: 900; padding: 0; }
+.ed-title-input::placeholder { color: rgba(255,255,255,0.3); }
+.ed-sub { font-size: var(--fs-sm); color: var(--text-dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.ed-sub--pad { margin: -2px 6px 0; }
+.ed-mbar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; gap: 2px; margin-top: 12px; }
+.ed-mbar i { display: block; }
+.ed-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 7px; font-size: var(--fs-sm); color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.ed-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.ed-legend span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+
+/* סבב */
+.ed-cl { box-shadow: inset -3px 0 0 var(--accent); }
+.ed-clh { display: flex; align-items: center; gap: 8px; padding: 11px 14px 4px; width: 100%; background: none; border: none; font-family: inherit; text-align: right; color: var(--text-dim); font-size: var(--fs-sm); }
+.ed-clh b { color: var(--accent); font-size: var(--fs-sm); }
+.ed-clh em { margin-inline-start: auto; font-style: normal; color: var(--accent); font-weight: 700; }
+.ed-clh--btn { cursor: pointer; }
+
+/* סרגל תחתון */
+.ed-bar {
+    position: sticky; bottom: calc(78px + env(safe-area-inset-bottom, 0px)); z-index: 5;
+    display: flex; gap: 8px; padding: 10px 0 4px;
+    background: linear-gradient(to top, var(--bg) 70%, transparent);
+}
+.ed-bar.is-hidden { display: none; }
+.ed-bar > span { display: contents; }
+.ed-btn { flex: 1; border: none; border-radius: var(--r-pill); padding: 13px; font-family: inherit; font-weight: 900; font-size: var(--fs-lg); cursor: pointer; transition: transform var(--dur-1) var(--ease), opacity var(--dur-1) var(--ease); }
+.ed-btn:active { transform: scale(0.97); }
+.ed-btn--pri { background: var(--accent); color: #fff; }
+.ed-btn--sec { background: var(--surface-3); color: var(--accent); font-weight: 700; }
+.ed-btn--block { width: 100%; flex: none; }
+.ed-btn.is-off, .ed-btn:disabled { background: var(--surface-3); color: rgba(255,255,255,0.3); cursor: default; transform: none; }
+.ed-danger { background: none; border: none; color: var(--danger); font-family: inherit; font-weight: 700; font-size: var(--fs-lg); padding: 12px; cursor: pointer; width: 100%; }
+
+/* מצב סידור */
+.ed-reorder-hint { font-size: var(--fs-sm); color: var(--text-dim); margin: 0 6px; }
+.ed-minus { width: 22px; height: 22px; border-radius: 50%; background: var(--danger); border: none; flex-shrink: 0; position: relative; cursor: pointer; }
+.ed-minus::after { content: ""; position: absolute; top: 10px; left: 6px; width: 10px; height: 2px; border-radius: 1px; background: #fff; }
+.ed-handle { width: 28px; height: 32px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; flex-shrink: 0; touch-action: none; cursor: grab; }
+.ed-handle i { display: block; width: 16px; height: 2px; border-radius: 1px; background: rgba(255,255,255,0.35); }
+.ed-drag-item { transition: transform var(--dur-2) var(--ease); }
+.ed-lifted { transition: none !important; position: relative; z-index: 10; background: var(--surface-3) !important; box-shadow: 0 12px 32px rgba(0,0,0,0.6); border-radius: 14px; }
+
+/* גיליונות העורך */
+.ed-sheet { max-height: 86vh; display: flex; flex-direction: column; gap: 12px; padding-top: 10px; }
+.ed-sheet .sheet-handle { margin-bottom: 4px; flex-shrink: 0; }
+#ed-ex-body, #ed-cl-body, #ed-kind-block { display: flex; flex-direction: column; gap: 12px; }
+.ed-sheet .ed-group { background: var(--surface-2); }
+.ed-sheet-title { font-size: var(--fs-xl); font-weight: 900; margin: 0 4px; }
+.ed-sh-head { display: flex; align-items: center; gap: 12px; }
+.ed-sh-head .ed-mono { width: 48px; height: 48px; border-radius: 12px; }
+.ed-hist { display: flex; gap: 6px; }
+.ed-hist span { flex: 1; min-width: 0; background: var(--surface-2); border-radius: 10px; padding: 7px 0; text-align: center; font-size: var(--fs-md); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ed-hist small { display: block; font-size: .6rem; color: var(--text-dim); font-weight: 500; margin-top: 1px; }
+.ed-tgt { display: flex; gap: 6px; }
+.ed-tgt > div { flex: 1; background: var(--surface-2); border-radius: 12px; padding: 4px 0 7px; text-align: center; }
+.ed-tgt small { display: block; font-size: .62rem; color: var(--text-dim); }
+
+/* ערך גמיש */
+.fv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fv-chip { background: var(--surface-4); color: var(--text-dim); border: none; border-radius: var(--r-pill); padding: 7px 12px; font-family: inherit; font-weight: 700; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; cursor: pointer; }
+.fv-chip.on { background: #fff; color: #000; }
+.fv-chip.cust::after { content: " ·"; opacity: .45; }
+.fv-chip.other { color: var(--accent); background: var(--surface-3); }
+.fv-step { display: flex; align-items: center; background: var(--surface-4); border-radius: var(--r-pill); flex-shrink: 0; }
+.fv-step button { width: 34px; height: 32px; background: none; border: none; color: var(--text-dim); font-size: 1.1rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+.fv-step b { min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; cursor: text; }
+.fv-val { width: 100%; background: none; border: none; color: #fff; font-family: inherit; font-size: 1.1rem; font-weight: 900; padding: 4px 0 0; font-variant-numeric: tabular-nums; cursor: pointer; }
+.fv-val.empty { color: rgba(255,255,255,0.32); font-size: var(--fs-md); font-weight: 700; padding-top: 7px; }
+.fv-overlay { position: fixed; inset: 0; z-index: 10020; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+.fv-box { width: 100%; max-width: 420px; background: var(--surface-3); border-radius: var(--r-lg); padding: 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 -8px 40px rgba(0,0,0,0.6); }
+.fv-title { font-weight: 900; font-size: var(--fs-xl); }
+.fv-field { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1.5px solid var(--accent); border-radius: 14px; padding: 8px 12px; direction: ltr; }
+.fv-field input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: #fff; font-family: inherit; font-size: 1.5rem; font-weight: 900; text-align: center; font-variant-numeric: tabular-nums; }
+.fv-colon { font-size: 1.4rem; font-weight: 900; color: var(--text-dim); }
+.fv-unit { font-size: var(--fs-sm); color: var(--text-dim); direction: rtl; white-space: nowrap; }
+.fv-hint { font-size: var(--fs-sm); color: var(--text-dim); }
+.fv-err { font-size: var(--fs-sm); color: var(--danger); min-height: 1em; }
+.fv-err:empty { display: none; }
+.fv-actions { display: flex; gap: 8px; }
+.fv-actions .ed-btn { padding: 11px 6px; }
+
+/* v19.15 — בחירה מרובה, מאגר, טופס תרגיל */
+.ed-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--surface-4); flex-shrink: 0; display: grid; place-items: center; font-size: .7rem; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.ed-check.on { background: var(--accent); border-color: var(--accent); }
+.ed2-screen .search-wrap { margin: 0; }
+.ed2-screen .chip-container { margin: 0; }
+.ed-modal .ed-modal-box { max-width: 420px; width: 100%; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; text-align: right; background: var(--surface-3); padding: 14px 16px 18px; }
+.ed-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ed-modal-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: 900; }
+.ed-field { width: 100%; box-sizing: border-box; background: var(--surface-2); border: none; border-radius: var(--r-sm); padding: 13px 14px; color: #fff; font-family: inherit; font-size: var(--fs-xl); font-weight: 900; outline: none; }
+.ed-field::placeholder { color: rgba(255,255,255,0.3); font-weight: 700; }
+.ed-inline-val .fv-val { width: auto; min-width: 56px; padding: 6px 12px; background: var(--surface-4); border-radius: var(--r-pill); font-size: var(--fs-lg); }
+.ed-inline-val .fv-val.empty { font-size: var(--fs-sm); padding: 8px 12px; }
+.ed-range { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ed-dash { color: var(--text-dim); }
+.ed-modal .conf-cue-add { align-self: flex-start; }
+/* מיכלי flex עם גלילה: בלי זה הילדים נדחסים לגובה המיכל ונחתכים */
+.ed-sheet > *, #ed-ex-body > *, #ed-cl-body > *, .ed-modal-box > * { flex-shrink: 0; }

@@ -2216,6 +2216,13 @@
         </button>
     </div>
 
+    <!-- פס אימון ממוזער — מעל סרגל הטאבים; לחיצה מחזירה לאימון -->
+    <button id="min-pill" class="min-pill" type="button" style="display:none;" onclick="restoreMinimizedWorkout()" aria-label="חזור לאימון">
+        <span class="min-pill-dot"></span>
+        <span id="min-pill-main" class="min-pill-main">אימון פעיל</span>
+        <span id="min-pill-sub" class="min-pill-sub">חזור לאימון</span>
+    </button>
+
     <!-- Live Mode: Edit Current Set Sheet (פותח לעריכת weight/reps/RIR) -->
     <div id="live-edit-overlay" class="bottom-sheet-overlay" onclick="closeLiveEditSheet()"></div>
     <div id="live-edit-sheet" class="bottom-sheet live-edit-sheet">
@@ -2303,6 +2310,10 @@
         <button id="wq-cluster-swap-item" class="workout-menu-item" style="display:none;" onclick="openClusterSwapMenu();toggleWorkoutQuickMenu();">
             <span class="material-symbols-outlined">swap_horiz</span>
             <span class="wq-item-text">החלף תרגיל</span>
+        </button>
+        <!-- מזעור — יציאה לטאבים בזמן שהאימון ממשיך ברקע. ראה _minSyncMenuItem -->
+        <button id="wq-minimize-item" class="workout-menu-item" style="display:none;" onclick="minimizeWorkout();">
+            <span class="wq-item-text">מזער אימון</span>
         </button>
         <button id="wq-weekend-item" class="workout-menu-item wq-weekend-item" onclick="toggleWeekEnd()">
             <span class="material-symbols-outlined">event_available</span>

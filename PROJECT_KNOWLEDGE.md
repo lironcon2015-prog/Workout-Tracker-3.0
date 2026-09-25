@@ -4,7 +4,19 @@
 
 ---
 
-## גרסה נוכחית: 19.13.14
+## גרסה נוכחית: 19.14.0
+
+### v19.14.0 — מזעור אימון פעיל
+- "מזער אימון" בתפריט ה-··· (Live ופס האימון) → טאבים רגילים + פס `#min-pill` מעל סרגל הטאבים; לחיצה = `restoreMinimizedWorkout()`.
+  (השם `resumeWorkout` תפוס — חזרה מהפרעה בוריאציות.)
+- **הליבה:** `switchMainTab` מאפס את `state.historyStack`, ש-`restoreSession` נשען עליו. לכן הערימה נשמרת בצד (`state.minimized.stack`) ונכתבת ל-localStorage לפני היציאה; שמירה שנכשלה = אין מזעור (הודעה עם סיבה).
+- `restoreSession` מבטל מזעור ⇒ קריסה/רענון תמיד חוזרים לאימון עצמו. החזרה לא עוברת דרך `navigate` (הוא עוצר את טיימר המנוחה בכל מסך שאינו `ui-main`).
+- בזמן מזעור: `navigate` לא עוצר את טיימר המנוחה; ההגדרות מוסתרות; `selectWeek/selectWorkout/startFreestyle/startCardio` חסומים (`_minBlocked`); `finishCardio` מבטל מזעור לפני הסיכום.
+- כל התחלה/סיום/נטישה מנקים את השמירה בצד (`_minEndWorkout`). `state.restTarget` נשמר לספירת המנוחה בפס.
+- בדיקות: `test/minimize.test.js` (בלוק MINIMIZE) + `test/e2e/minimize.e2e.js` (17 תסריטים, 52 בדיקות, Playwright).
+- לא נבדק אלא במכשיר: הריגה אמיתית ע"י iOS, נעילת מסך, מצלמה מול הגונג.
+- קיים מקודם (לא מהמזעור): שחזור אחרי רענון מאפס את טיימר המנוחה ל-0 (`restoreSession` → `resetAndStartTimer`).
+
 
 ### v19.13.14 — Live הוא מסך האימון הראשי
 - `ui-main` (המסך הקלאסי) נשאר ב-DOM כמקור האמת של הפיקרים והכפתורים, אבל מוסתר תמיד מתחת ל-Live.

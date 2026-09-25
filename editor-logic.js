@@ -1632,6 +1632,7 @@ function saveWorkoutManagerToCloud() {
         showAlert('Firebase לא מוגדר. הגדר חיבור בהגדרות.');
         return;
     }
+    if (StorageManager._dbSuspect) { showAlert('לא נשמר לענן: ' + StorageManager.dbSuspectReason()); return; }
     FirebaseManager.saveConfigToCloud().then(ok => {
         showAlert(ok ? 'הקונפיגורציה נשמרה בענן!' : 'שגיאה בשמירה לענן — ' + FirebaseManager.describeSyncFailure('config') + '.');
     });

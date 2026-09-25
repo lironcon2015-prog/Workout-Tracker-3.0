@@ -383,6 +383,12 @@ document.addEventListener('visibilitychange', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     StorageManager.initDB();
+    // התוכניות/התרגילים לא נקראו — לא נדרסו. טעינה מחדש פותרת לרוב כשל קריאה רגעי.
+    if (StorageManager._dbSuspect) {
+        setTimeout(() => showConfirm(StorageManager.dbSuspectReason() +
+            '\n\nטעינה מחדש פותרת לרוב כשל קריאה רגעי. אם זה חוזר — שחזר את התוכניות מהגיבוי השבועי במייל (הגדרות ← חיבורים ← ייצוא/ייבוא מתקדם ← ייבוא תבנית).\n\nלטעון מחדש עכשיו?',
+            () => window.location.reload()), 400);
+    }
     // הגנת סנכרון: מזיינים העלאות לענן רק אם המכשיר כבר מכיל דאטה (מקור-אמת).
     // מצב ריק (אחרי התקנה מחדש) נשאר חסום עד שחזור — מונע דריסת הגיבוי בענן.
     try { if (typeof FirebaseManager !== 'undefined') FirebaseManager.armSyncOnBoot(); } catch (e) {}
@@ -2037,6 +2043,7 @@ function backupAllToCloud() {
     if (!FirebaseManager.isConfigured()) { showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.'); return; }
     // הגנת ענן (הועברה לכאן מ-uploadAllToCloud שהוסרה): לא מעלים ממכשיר ריק —
     // אחרת התקנה טרייה הייתה דורסת גיבוי ענן קיים. מכשיר עם דאטה = מקור אמת.
+    if (StorageManager._dbSuspect) { showAlert('הגיבוי לענן לא בוצע: ' + StorageManager.dbSuspectReason() + ' טען מחדש את האפליקציה, או שחזר את התוכניות מגיבוי (ייבוא תבנית).'); return; }
     const hasData = (StorageManager.getArchive().length > 0) || (StorageManager.getBodyLog().length > 0) ||
                     (StorageManager.getFoodDb().length > 0) || (StorageManager.getNutritionDaily().length > 0);
     if (!hasData) { showAlert('אין נתונים מקומיים להעלאה — בוטל כדי לא לדרוס את הגיבוי בענן.'); return; }

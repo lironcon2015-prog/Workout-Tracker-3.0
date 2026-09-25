@@ -285,73 +285,6 @@ function _setManagerTab(tab) {
     renderManagerList();
 }
 
-function renderManagerList() {
-    const list = document.getElementById('manager-list');
-    if (!list) return;
-    list.innerHTML = "";
-
-    const keys = Object.keys(state.workouts);
-
-    // Segmented control — pill style, HIDDEN | ACTIVE order (כמו במוקאפ)
-    const seg = document.createElement('div');
-    seg.className = 'km-seg-control mb-lg';
-    seg.innerHTML = `
-        <button class="km-seg-btn ${_managerTab === 'hidden' ? 'active' : ''}" onclick="_setManagerTab('hidden')">מוסתרות</button>
-        <button class="km-seg-btn ${_managerTab === 'active' ? 'active' : ''}" onclick="_setManagerTab('active')">פעילות</button>
-    `;
-    list.appendChild(seg);
-
-    const activeKeys = keys.filter(k => { const m = state.workoutMeta[k]; return !m || !m.isHidden; });
-    const hiddenKeys = keys.filter(k => { const m = state.workoutMeta[k]; return m && m.isHidden; });
-    const displayKeys = _managerTab === 'active' ? activeKeys : hiddenKeys;
-
-    if (displayKeys.length === 0) {
-        const empty = document.createElement('p');
-        empty.className = 'text-center color-dim mt-lg';
-        empty.textContent = _managerTab === 'active' ? 'אין תוכניות פעילות' : 'אין תוכניות מוסתרות';
-        list.appendChild(empty);
-    } else {
-        displayKeys.forEach((key, cardIdx) => {
-            const wo = state.workouts[key];
-            const meta = state.workoutMeta[key] || {};
-            let count = 0;
-            if (Array.isArray(wo)) {
-                wo.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
-            }
-            const thumbIdx = (typeof meta._thumbIdx === 'number') ? meta._thumbIdx : (cardIdx % WORKOUT_THUMB_IMAGES.length);
-            const imgUrl = WORKOUT_THUMB_IMAGES[thumbIdx % WORKOUT_THUMB_IMAGES.length];
-            const safeKey = escapeJsAttr(key);
-
-            const card = document.createElement('div');
-            card.className = 'km-manager-card' + (_managerTab === 'hidden' ? ' km-manager-card--hidden' : '');
-            card.innerHTML = `
-                <div class="km-manager-card-img" style="background-image:url('${imgUrl}')"></div>
-                <div class="km-manager-card-body">
-                    <h2 class="km-manager-card-title">${escapeHtml(key)}${
-                        (typeof isCardioWorkout === 'function' && isCardioWorkout(key)) ? '<span class="km-kind-badge">אירובי</span>' : ''}</h2>
-                    <p class="km-manager-card-count">${_managerCardSubtitle(key, count)}</p>
-                    <div class="km-manager-card-actions">
-                        <button class="km-pill-btn km-pill-btn--danger" onclick="event.stopPropagation(); deleteWorkout('${safeKey}')">
-                            <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">delete</span>
-                            מחק
-                        </button>
-                        <button class="km-pill-btn" onclick="event.stopPropagation(); duplicateWorkout('${safeKey}')">
-                            <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">content_copy</span>
-                            שכפל
-                        </button>
-                    </div>
-                </div>
-            `;
-            card.onclick = () => editWorkout(key);
-            list.appendChild(card);
-        });
-    }
-
-    // Show/hide create button — only in active tab
-    const createBtn = document.getElementById('btn-create-workout');
-    if (createBtn) createBtn.style.display = _managerTab === 'active' ? '' : 'none';
-}
-
 // _managerCardSubtitle — שורת המשנה בכרטיס המנהל. זהה בתוכן לזו של מסך
 // בחירת האימון, ומוגדרת בנפרד כי renderManagerList אינו חולק עם renderWorkoutMenu.
 function _managerCardSubtitle(key, count) {
@@ -403,7 +336,7 @@ function editWorkout(key) {
 }
 
 function openEditorUI() {
-    document.getElementById('editor-workout-name').value = managerState.currentName;
+    document.getElementById('editor-workout-name').value = managerState.currentName === 'New Plan' ? '' : managerState.currentName;
     const meta = state.workoutMeta[managerState.currentName] || {};
     // סוג התוכנית וקונפיג האירובי — נטענים לפני הרינדור כדי שהטופס יעלה נכון
     if (_editorKind !== 'cardio' || managerState.originalName) {
@@ -416,10 +349,20 @@ function openEditorUI() {
     document.getElementById('editor-deload-check').checked = !!meta.availableInDeload;
     document.getElementById('editor-deload-only-check').checked = !!meta.isDeloadOnly;
     document.getElementById('editor-hidden-check').checked = !!meta.isHidden;
+    _edSyncWhenSeg();
     _renderColorSwatches(meta.color || '');
     _renderThumbPicker(typeof meta._thumbIdx === 'number' ? meta._thumbIdx : 0);
+    // בורר הסוג: בתוכנית חדשה בגוף העורך (החלטה ראשונה), בקיימת — בגיליון ההגדרות
+    const isNew = !managerState.originalName;
+    const kindBlock = document.getElementById('ed-kind-block');
+    const slot = document.getElementById(isNew ? 'ed-kind-slot-body' : 'ed-kind-slot-sheet');
+    if (kindBlock && slot && kindBlock.parentNode !== slot) slot.appendChild(kindBlock);
+    ['ed-dup-row', 'ed-del-row'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = isNew ? 'none' : ''; });
+    _edReorder = false;
     renderEditorList();
     _applyEditorKindUI();
+    _edSnap = _edStateStr();
+    _edRefreshSave();
     navigate('ui-workout-editor');
 }
 
@@ -502,6 +445,7 @@ function openExerciseCreator() {
     document.getElementById('btn-ex-subs').classList.add('d-none');
 
     document.getElementById('ex-config-modal').dataset.mode = "create";
+    _confSyncUI();
     document.getElementById('ex-config-modal').style.display = 'flex';
 }
 
@@ -541,6 +485,7 @@ function openExerciseEditor(exName) {
     document.getElementById('ex-config-modal').dataset.mode = "edit";
     document.getElementById('ex-config-modal').dataset.target = exName;
     updateSubsCountLabels();
+    _confSyncUI();
     document.getElementById('ex-config-modal').style.display = 'flex';
 }
 
@@ -566,11 +511,14 @@ function setDbFilter(filter, btn) {
 
 function renderExerciseDatabase() {
     const list = document.getElementById('db-list');
-    list.innerHTML = "";
-    const searchVal = document.getElementById('db-search').value.toLowerCase();
-
+    if (!list) return;
+    const searchVal = document.getElementById('db-search').value.toLowerCase().trim();
+    const sub = document.getElementById('db-sub');
+    if (sub) {
+        const groups = new Set(state.exercises.map(e => getMuscleBadge(e.muscles)).filter(Boolean));
+        sub.textContent = `${state.exercises.length} תרגילים · ${groups.size} קבוצות שריר`;
+    }
     const sorted = [...state.exercises].sort((a, b) => a.name.localeCompare(b.name));
-
     const filtered = sorted.filter(ex => {
         if (managerState.dbFilter !== 'all') {
             const muscleMap = { 'יד קדמית': 'biceps', 'יד אחורית': 'triceps', 'ידיים': 'ידיים' };
@@ -582,19 +530,30 @@ function renderExerciseDatabase() {
         }
         return ex.name.toLowerCase().includes(searchVal);
     });
-
-    if (filtered.length === 0) {
-        list.innerHTML = `<p class="text-center color-dim mt-md">לא נמצאו תרגילים</p>`;
+    if (!filtered.length) {
+        list.innerHTML = `<div class="ed-empty"><b>לא נמצאו תרגילים</b></div>`;
         return;
     }
-
+    let html = '', letter = null, open = false;
     filtered.forEach(ex => {
-        const row = document.createElement('div');
-        row.className = "ex-card";
-        row.onclick = () => openExerciseEditor(ex.name);
-        row.innerHTML = buildExCardInner(ex.name, ex.muscles);
-        list.appendChild(row);
+        const L = (ex.name[0] || '#').toUpperCase();
+        if (L !== letter) {
+            if (open) html += '</div>';
+            html += `<div class="ed-glbl">${escapeHtml(L)}</div><div class="ed-group">`;
+            letter = L; open = true;
+        }
+        const n = _edPlanUsage(ex.name);
+        const rm = StorageManager.getLastRM ? StorageManager.getLastRM(ex.name) : null;
+        const parts = [escapeHtml(getMuscleBadge(ex.muscles) || '')];
+        if (rm) parts.push(`1RM ${_fvFmt(rm, 'num')} ק״ג`);
+        if (ex.isUnilateral) parts.push('חד-צדדי');
+        parts.push(n ? `ב-${n} ${n === 1 ? 'תוכנית' : 'תוכניות'}` : 'לא בשימוש');
+        html += `<button class="ed-row ed-row--btn" onclick="openExerciseEditor('${escapeJsAttr(ex.name)}')">${_edMono(ex.name)}
+            <span class="ed-tx"><span class="ed-n">${escapeHtml(ex.name)}</span><span class="ed-m">${parts.filter(Boolean).join(' · ')}</span></span>
+            <span class="ed-chev">‹</span></button>`;
     });
+    if (open) html += '</div>';
+    list.innerHTML = html;
 }
 
 function saveExerciseConfig() {
@@ -632,8 +591,16 @@ function saveExerciseConfig() {
         };
         state.exercises.push(newEx);
         StorageManager.saveData(StorageManager.KEY_DB_EXERCISES, state.exercises);
+        autoSaveConfigToCloud();
         closeExConfigModal();
-        showAlert("התרגיל נוצר בהצלחה!");
+        // נוצר מתוך מסך ההוספה — מסומן מיד, כדי שלא יצטרכו לחפש אותו
+        if (document.getElementById('ui-exercise-selector').classList.contains('active')) {
+            if ((managerState.selectorMode || 'add') !== 'replace' && !_selPicked.includes(name)) _selPicked.push(name);
+            renderSelectorList();
+        } else if (document.getElementById('ui-exercise-db').classList.contains('active')) {
+            renderExerciseDatabase();
+        }
+        if (typeof showCloudToast === 'function') showCloudToast(`"${name}" נוסף למאגר`, true);
 
     } else {
         const targetName = document.getElementById('ex-config-modal').dataset.target;
@@ -758,80 +725,84 @@ function closeExConfigModal() {
 
 function renderEditorList() {
     const list = document.getElementById('editor-list');
-    list.innerHTML = "";
-
-    managerState.exercises.forEach((item, idx) => {
-        if (item.type === 'cluster') {
-            renderClusterItem(item, idx, list);
-        } else {
-            renderRegularItem(item, idx, list);
-        }
+    if (!list) return;
+    const items = managerState.exercises || [];
+    let html = '', num = 0, letter = 0;
+    items.forEach((item, idx) => {
+        if (item.type === 'cluster') html += _edClusterHtml(item, idx, String.fromCharCode(65 + letter++));
+        else html += _edItemHtml(item, idx, ++num);
     });
-
-    // עדכון מונה בלוקים בכותרת EXERCISE FLOW
+    list.innerHTML = html;
+    list.classList.toggle('is-reorder', _edReorder);
     const countEl = document.getElementById('editor-block-count');
-    if (countEl) countEl.textContent = `${managerState.exercises.length} בלוקים סה"כ`;
-
+    if (countEl) countEl.textContent = `${items.length} בלוקים סה"כ`;
+    const empty = document.getElementById('ed-empty');
+    if (empty) empty.style.display = (!items.length && _editorKind !== 'cardio') ? '' : 'none';
+    if (_edReorder) _edBindDrag();
+    const rb = document.getElementById('ed-reorder-btn');
+    if (rb) rb.style.display = (_editorKind !== 'cardio' && (items.length > 1 || items.some(x => x.type === 'cluster' && (x.exercises || []).length > 1)) || _edReorder) ? '' : 'none';
+    _edRenderHero();
+    _edRefreshSave();
     StorageManager.saveSessionState();
 }
 
-function renderRegularItem(item, idx, list) {
-    const blockNum = String(idx + 1).padStart(2, '0');
-    const row = document.createElement('div');
-    row.className = "km-editor-block";
+// שורת מטא לתרגיל בתוכנית — מה שקובע את הביצוע, בשורה אחת
+function _edItemMeta(ex, inCluster) {
+    const parts = [];
+    if (inCluster) {
+        if (ex.targetReps != null) parts.push(`${ex.targetReps} חזרות`);
+        parts.push(`מעבר ${_fvFmt(ex.restTime != null ? ex.restTime : 30, 'time')}`);
+    } else {
+        parts.push(ex.isMain ? 'יעד לפי 1RM' : `${ex.sets || 3} סטים`);
+        parts.push(`מנוחה ${_fvFmt(ex.restTime || (ex.isMain ? 120 : 90), 'time')}`);
+    }
+    if (ex.targetWeight != null && ex.targetReps != null && !inCluster) parts.push(`${_fvFmt(ex.targetWeight, 'num')} × ${ex.targetReps}`);
+    else if (ex.targetWeight != null) parts.push(`${_fvFmt(ex.targetWeight, 'num')} ק״ג`);
+    return parts.join(' · ');
+}
 
-    const setsHtml = !item.isMain ? `
-        <div class="km-sets-row">
-            <span class="km-sets-label">סטים יעד</span>
-            <div class="km-stepper">
-                <button class="km-stepper-btn" onclick="changeSetCount(${idx}, -1)">-</button>
-                <span class="km-stepper-val">${item.sets}</span>
-                <button class="km-stepper-btn" onclick="changeSetCount(${idx}, 1)">+</button>
-            </div>
-        </div>` : '';
+function _edBadges(ex) {
+    let b = '';
+    if (ex.isMain) b += '<span class="ed-badge ed-badge--main">ראשי</span>';
+    if (ex.dropSet) b += `<span class="ed-badge ed-badge--drop">דרופ −${ex.dropPct || 20}%</span>`;
+    return b;
+}
 
-    const mainPill = item.isMain
-        ? `<button class="km-tag-pill km-tag-pill--main" onclick="toggleMainStatus(${idx})">MAIN LIFT</button>`
-        : `<button class="km-tag-pill" onclick="toggleMainStatus(${idx})">+ תגית</button>`;
-    const dropPill = `<button class="km-tag-pill${item.dropSet ? ' km-tag-pill--drop' : ''}" onclick="toggleDropSetFlag(${idx})">DROP SET</button>`;
-    const tagHtml = `<div class="km-tags-row"><span class="km-tag-label">תגיות</span>${mainPill}${dropPill}</div>`;
+function _edItemHtml(item, idx, num) {
+    if (_edReorder) {
+        return `<div class="ed-group ed-drag-item" data-scope="top" data-index="${idx}">
+            <div class="ed-row"><button class="ed-minus" onclick="removeExFromEditor(${idx})" aria-label="הסר"></button>
+            <span class="ed-tx"><span class="ed-n">${escapeHtml(item.name)}</span></span>
+            <span class="ed-handle" aria-label="גרור"><i></i><i></i><i></i></span></div></div>`;
+    }
+    return `<div class="ed-group"><button class="ed-row ed-row--btn" onclick="edOpenExSheet(${idx})">
+        <span class="ed-idx">${num}</span>
+        <span class="ed-tx"><span class="ed-n">${escapeHtml(item.name)}${_edBadges(item)}</span><span class="ed-m">${_edItemMeta(item, false)}</span></span>
+        <span class="ed-chev">‹</span></button></div>`;
+}
 
-    // שורת אחוז הירידה — רק כשהדרופ דלוק, כדי לא להעמיס בלוקים רגילים
-    const dropPctHtml = item.dropSet ? `
-        <div class="km-sets-row">
-            <span class="km-sets-label">ירידת משקל בדרופ</span>
-            <div class="km-stepper">
-                <button class="km-stepper-btn" onclick="changeDropPct(${idx}, -5)">-</button>
-                <span class="km-stepper-val">${item.dropPct || 20}%</span>
-                <button class="km-stepper-btn" onclick="changeDropPct(${idx}, 5)">+</button>
-            </div>
-        </div>` : '';
-
-    row.innerHTML = `
-        <div class="km-block-header">
-            <span class="km-block-num">בלוק ${blockNum}</span>
-            <div class="km-block-header-btns">
-                <button class="km-icon-btn" onclick="moveExInEditor(${idx}, -1)">
-                    <span class="material-symbols-outlined">keyboard_arrow_up</span>
-                </button>
-                <button class="km-icon-btn" onclick="moveExInEditor(${idx}, 1)">
-                    <span class="material-symbols-outlined">keyboard_arrow_down</span>
-                </button>
-            </div>
-        </div>
-        <div class="km-block-name" onclick="openRestTimerModal(${idx})">${escapeHtml(item.name)}</div>
-        <div class="km-block-footer">
-            <div class="km-block-footer-meta">
-                ${setsHtml}
-                ${dropPctHtml}
-                ${tagHtml}
-            </div>
-            <button class="km-trash-btn" onclick="removeExFromEditor(${idx})">
-                <span class="material-symbols-outlined">delete</span>
-            </button>
-        </div>
-    `;
-    list.appendChild(row);
+function _edClusterHtml(cluster, idx, letter) {
+    const info = _getClusterLabel(cluster);
+    const exs = cluster.exercises || [];
+    const head = `${info.title} ${letter}`;
+    if (_edReorder) {
+        const rows = exs.map((ex, i) => `<div class="ed-row ed-drag-item" data-scope="cl:${idx}" data-index="${i}">
+            <button class="ed-minus" onclick="removeExFromCluster(${idx}, ${i})" aria-label="הסר"></button>
+            <span class="ed-tx"><span class="ed-n">${escapeHtml(ex.name)}</span></span>
+            <span class="ed-handle"><i></i><i></i><i></i></span></div>`).join('');
+        return `<div class="ed-group ed-cl ed-drag-item" data-scope="top" data-index="${idx}">
+            <div class="ed-clh"><button class="ed-minus" onclick="edRemoveCluster(${idx})" aria-label="הסר סבב"></button>
+            <b>${head}</b><span class="ed-handle"><i></i><i></i><i></i></span></div>${rows}</div>`;
+    }
+    const rows = exs.map((ex, i) => `<button class="ed-row ed-row--btn" onclick="edOpenExSheet(${idx}, ${i})">
+        <span class="ed-idx ed-idx--ss">${letter}${i + 1}</span>
+        <span class="ed-tx"><span class="ed-n">${escapeHtml(ex.name)}${_edBadges(ex)}</span><span class="ed-m">${_edItemMeta(ex, true)}</span></span>
+        <span class="ed-chev">‹</span></button>`).join('');
+    const empty = exs.length ? '' : `<button class="ed-row ed-row--btn" onclick="openExerciseSelectorForCluster(${idx})"><span class="ed-tx"><span class="ed-n ed-accent">הוסף תרגילים לסבב</span></span></button>`;
+    return `<div class="ed-group ed-cl">
+        <button class="ed-clh ed-clh--btn" onclick="edOpenClusterSheet(${idx})"><b>${head}</b>
+            <span>${cluster.rounds} סבבים · מנוחה ${_fvFmt(cluster.clusterRest, 'time')}</span><em>ערוך</em></button>
+        ${rows}${empty}</div>`;
 }
 
 // CLUSTER_MAX_EX — מספר תרגילים מקסימלי בסבב/סופרסט/ג'יאנט.
@@ -843,92 +814,6 @@ function _getClusterLabel(cluster) {
     if (n >= 3) return { title: 'ג׳יאנט סט', type: 'giant' };
     if (n === 2) return { title: 'סופרסט', type: 'super' };
     return { title: 'בלוק סבב', type: 'block' };
-}
-
-function renderClusterItem(cluster, idx, list) {
-    const blockNum = String(idx + 1).padStart(2, '0');
-    const labelInfo = _getClusterLabel(cluster);
-    const atMax = (cluster.exercises || []).length >= CLUSTER_MAX_EX;
-    const box = document.createElement('div');
-    box.className = "km-cluster-block";
-
-    let exRows = '';
-    const lastIdx = cluster.exercises.length - 1;
-    cluster.exercises.forEach((ex, internalIdx) => {
-        const label = String.fromCharCode(65 + internalIdx); // A, B, C...
-        // חצי סדר בתוך הסבב — מנוטרלים בקצוות כדי שלא ייראו לחיצים ללא אפקט
-        const upDis = internalIdx === 0 ? ' disabled' : '';
-        const dnDis = internalIdx === lastIdx ? ' disabled' : '';
-        exRows += `
-        <div class="km-cluster-ex-row">
-            <span class="km-cluster-ex-label">${label}${internalIdx + 1}</span>
-            <span class="km-cluster-ex-name" onclick="openRestTimerModal(${idx}, ${internalIdx})">${escapeHtml(ex.name)}</span>
-            <span class="km-cluster-ex-reps">${ex.sets ? ex.sets + ' סטים' : ''}</span>
-            <div class="km-cluster-ex-actions">
-                <button class="km-icon-btn-sm" aria-label="העלה תרגיל" onclick="moveExInCluster(${idx}, ${internalIdx}, -1)"${upDis}>
-                    <span class="material-symbols-outlined" style="font-size:0.95rem;">keyboard_arrow_up</span>
-                </button>
-                <button class="km-icon-btn-sm" aria-label="הורד תרגיל" onclick="moveExInCluster(${idx}, ${internalIdx}, 1)"${dnDis}>
-                    <span class="material-symbols-outlined" style="font-size:0.95rem;">keyboard_arrow_down</span>
-                </button>
-                <button class="km-icon-btn-sm km-icon-btn-sm--del" aria-label="הסר תרגיל" onclick="removeExFromCluster(${idx}, ${internalIdx})">
-                    <span class="material-symbols-outlined" style="font-size:0.95rem;">close</span>
-                </button>
-            </div>
-        </div>`;
-    });
-
-    const addBtnHtml = atMax
-        ? `<div class="km-cluster-cap">מקסימום ${CLUSTER_MAX_EX} תרגילים בסבב</div>`
-        : `<button class="km-add-to-cluster-btn" onclick="openExerciseSelectorForCluster(${idx})">
-            <span class="material-symbols-outlined" style="font-size:1rem;line-height:1;">add</span>
-            הוסף תרגיל לסבב
-        </button>`;
-
-    box.innerHTML = `
-        <div class="km-block-header">
-            <span class="km-block-num">בלוק ${blockNum}</span>
-            <div class="km-block-header-btns">
-                <button class="km-icon-btn" onclick="moveExInEditor(${idx}, -1)">
-                    <span class="material-symbols-outlined">keyboard_arrow_up</span>
-                </button>
-                <button class="km-icon-btn" onclick="moveExInEditor(${idx}, 1)">
-                    <span class="material-symbols-outlined">keyboard_arrow_down</span>
-                </button>
-                <button class="km-trash-btn" onclick="removeExFromEditor(${idx})">
-                    <span class="material-symbols-outlined">delete</span>
-                </button>
-            </div>
-        </div>
-        <div class="km-cluster-title-row km-cluster-title-row--${labelInfo.type}">
-            <span class="material-symbols-outlined" style="color:#5E5CE6;font-size:1.1rem;line-height:1;">hub</span>
-            <span class="km-cluster-title">${labelInfo.title}</span>
-            <span class="km-cluster-meta">${cluster.exercises.length} תרגילים</span>
-            <span class="km-cluster-meta">${cluster.rounds} סבבים</span>
-            <span class="km-cluster-meta">${cluster.clusterRest}ש' מנוחה</span>
-        </div>
-        <div class="km-cluster-ex-list">${exRows}</div>
-        <div class="km-cluster-controls">
-            <div class="km-ctrl-group">
-                <span class="km-ctrl-label">סבבים</span>
-                <div class="km-stepper">
-                    <button class="km-stepper-btn" onclick="changeClusterRounds(${idx}, -1)">-</button>
-                    <span class="km-stepper-val">${cluster.rounds}</span>
-                    <button class="km-stepper-btn" onclick="changeClusterRounds(${idx}, 1)">+</button>
-                </div>
-            </div>
-            <div class="km-ctrl-group">
-                <span class="km-ctrl-label">מנוחה</span>
-                <div class="km-stepper">
-                    <button class="km-stepper-btn" onclick="changeClusterRest(${idx}, -30)">-</button>
-                    <span class="km-stepper-val">${cluster.clusterRest}ש'</span>
-                    <button class="km-stepper-btn" onclick="changeClusterRest(${idx}, 30)">+</button>
-                </div>
-            </div>
-        </div>
-        ${addBtnHtml}
-    `;
-    list.appendChild(box);
 }
 
 function toggleMainStatus(idx) { managerState.exercises[idx].isMain = !managerState.exercises[idx].isMain; renderEditorList(); }
@@ -1015,6 +900,7 @@ function saveWorkoutChanges() {
         const cfg = (typeof _cardioNormalize === 'function') ? _cardioNormalize(_editorCardio) : (_editorCardio || {});
         state.workouts[newName] = [Object.assign({ type: 'cardio' }, cfg)];
         StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
+        _edSnap = '';
         autoSaveConfigToCloud();
         haptic('success');
         state.historyStack.pop();
@@ -1027,6 +913,7 @@ function saveWorkoutChanges() {
 
     state.workouts[newName] = managerState.exercises;
     StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
+    _edSnap = '';
     autoSaveConfigToCloud();
 
     haptic('success');
@@ -1291,12 +1178,25 @@ function updateSubsCountLabels() {
 
 // ─── SMART EXERCISE SELECTOR ───────────────────────────────────────────────
 
-function openExerciseSelector() { managerState.activeClusterRef = null; prepareSelector(); }
-function openExerciseSelectorForCluster(clusterIdx) { managerState.activeClusterRef = clusterIdx; prepareSelector(); }
+function openExerciseSelector() { managerState.activeClusterRef = null; managerState.selectorMode = 'add'; prepareSelector(); }
+function openExerciseSelectorForCluster(clusterIdx) { managerState.activeClusterRef = clusterIdx; managerState.selectorMode = 'cluster'; prepareSelector(); }
+
+let _selPicked = [];        // שמות שסומנו, לפי סדר הסימון — זה הסדר שבו יתווספו
+let _selReplaceRef = null;  // { idx, i } — במצב החלפה
 
 function prepareSelector() {
     document.getElementById('selector-search').value = "";
     managerState.selectorFilter = 'all';
+    _selPicked = [];
+    const mode = managerState.selectorMode || 'add';
+    const title = document.getElementById('sel-title');
+    if (title) {
+        if (mode === 'replace') title.textContent = 'החלף תרגיל';
+        else if (mode === 'cluster') title.textContent = 'הוסף לסבב';
+        else title.textContent = 'הוסף תרגילים';
+    }
+    const bar = document.getElementById('sel-bar');
+    if (bar) bar.style.display = mode === 'replace' ? 'none' : '';
     updateSelectorChips();
     renderSelectorList();
     navigate('ui-exercise-selector');
@@ -1313,54 +1213,130 @@ function updateSelectorChips() {
 
 function filterSelector() { renderSelectorList(); }
 
-function renderSelectorList() {
-    const list = document.getElementById('selector-list'); list.innerHTML = "";
-    const searchVal = document.getElementById('selector-search').value.toLowerCase();
-
-    const filtered = state.exercises.filter(ex => {
-        const matchesFilter = managerState.selectorFilter === 'all' || ex.muscles.includes(managerState.selectorFilter);
-        const matchesSearch = ex.name.toLowerCase().includes(searchVal);
-        return matchesFilter && matchesSearch;
-    }).sort((a, b) => a.name.localeCompare(b.name));
-
-    filtered.forEach(ex => {
-        const row = document.createElement('div');
-        row.className = "ex-card";
-        const safeName = escapeJsAttr(ex.name);
-        row.onclick = () => selectExerciseFromList(ex.name);
-        row.innerHTML = `
-            <div class="ex-card-body">
-                <div class="ex-card-icon"><span class="ex-card-initials">${getExInitials(ex.name)}</span></div>
-                <div class="ex-card-info">
-                    <div class="ex-card-name">${escapeHtml(ex.name)}</div>
-                    ${ex.muscles ? `<span class="ex-card-tag">${getMuscleBadge(ex.muscles)}</span>` : ''}
-                </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:0.6rem;">
-                <button class="btn-text-edit" onclick="event.stopPropagation(); openExerciseEditor('${safeName}')">ערוך</button>
-                <div class="ex-card-chevron"></div>
-            </div>`;
-        list.appendChild(row);
-    });
+// תרגילים שבוצעו לאחרונה — מה-log של האימונים האחרונים בארכיון
+function _selRecent(limit) {
+    const out = [];
+    for (const a of _edArchive().slice(0, 12)) {
+        for (const l of (a.log || [])) {
+            if (!l || l.skip || !l.exName || out.includes(l.exName)) continue;
+            if (state.exercises.some(e => e.name === l.exName)) out.push(l.exName);
+            if (out.length >= limit) return out;
+        }
+    }
+    return out;
 }
 
-function selectExerciseFromList(exName) {
-    const newExObj = { name: exName, isMain: false, sets: 3, restTime: 90 };
-    if (managerState.activeClusterRef !== null) {
-        const cluster = managerState.exercises[managerState.activeClusterRef];
-        if (cluster.exercises.length >= CLUSTER_MAX_EX) {
-            showAlert(`מקסימום ${CLUSTER_MAX_EX} תרגילים בסבב.`);
-            return;
-        }
-        newExObj.restTime = 30;
-        cluster.exercises.push(newExObj);
-    } else {
-        managerState.exercises.push(newExObj);
-    }
+function _selInPlan(name) {
+    return (managerState.exercises || []).some(it => it && (it.name === name || (it.type === 'cluster' && (it.exercises || []).some(x => x.name === name))));
+}
 
+function _selRowHtml(ex) {
+    const mode = managerState.selectorMode || 'add';
+    const n = _edPlanUsage(ex.name);
+    let sub = escapeHtml(getMuscleBadge(ex.muscles) || '');
+    if (_selInPlan(ex.name)) sub += ' · כבר בתוכנית הזו';
+    else if (n) sub += ` · ב-${n} ${n === 1 ? 'תוכנית' : 'תוכניות'}`;
+    const k = _selPicked.indexOf(ex.name);
+    const right = mode === 'replace' ? '<span class="ed-chev">‹</span>'
+        : `<span class="ed-check${k >= 0 ? ' on' : ''}">${k >= 0 ? (k + 1) : ''}</span>`;
+    return `<button class="ed-row ed-row--btn" onclick="selTap('${escapeJsAttr(ex.name)}')">${_edMono(ex.name)}
+        <span class="ed-tx"><span class="ed-n">${escapeHtml(ex.name)}</span><span class="ed-m">${sub}</span></span>${right}</button>`;
+}
+
+function renderSelectorList() {
+    const list = document.getElementById('selector-list');
+    if (!list) return;
+    const searchVal = document.getElementById('selector-search').value.toLowerCase().trim();
+    const flt = managerState.selectorFilter || 'all';
+    const filtered = state.exercises.filter(ex => {
+        const matchesFilter = flt === 'all' || (ex.muscles || []).includes(flt);
+        return matchesFilter && ex.name.toLowerCase().includes(searchVal);
+    }).sort((a, b) => a.name.localeCompare(b.name));
+
+    let html = '';
+    let rest = filtered;
+    if (!searchVal && flt === 'all') {
+        const recent = _selRecent(6).map(n => state.exercises.find(e => e.name === n)).filter(Boolean);
+        if (recent.length) {
+            html += `<div class="ed-glbl">בשימוש לאחרונה</div><div class="ed-group">${recent.map(_selRowHtml).join('')}</div>`;
+            rest = filtered.filter(e => !recent.includes(e));
+        }
+    }
+    if (!filtered.length) html += `<div class="ed-empty"><b>לא נמצאו תרגילים</b><p>אפשר ליצור תרגיל חדש בכפתור "חדש".</p></div>`;
+    let letter = null, open = false;
+    rest.forEach(ex => {
+        const L = (ex.name[0] || '#').toUpperCase();
+        if (L !== letter) {
+            if (open) html += '</div>';
+            html += `<div class="ed-glbl">${escapeHtml(L)}</div><div class="ed-group">`;
+            letter = L; open = true;
+        }
+        html += _selRowHtml(ex);
+    });
+    if (open) html += '</div>';
+    list.innerHTML = html;
+    _selRefreshBar();
+}
+
+function _selRefreshBar() {
+    const btn = document.getElementById('sel-add-btn');
+    if (!btn) return;
+    const n = _selPicked.length;
+    btn.disabled = !n;
+    btn.classList.toggle('is-off', !n);
+    btn.textContent = n ? (n === 1 ? 'הוסף תרגיל אחד' : `הוסף ${n} תרגילים`) : 'סמן תרגילים להוספה';
+}
+
+function selTap(name) {
+    if ((managerState.selectorMode || 'add') === 'replace') { _selReplaceWith(name); return; }
+    const k = _selPicked.indexOf(name);
+    if (k >= 0) _selPicked.splice(k, 1); else _selPicked.push(name);
+    haptic('light');
+    renderSelectorList();
+}
+
+// תאימות: קוראים ישנים שבחרו תרגיל בודד
+function selectExerciseFromList(exName) { _selPicked = [exName]; selCommit(); }
+
+function _selBackToEditor() {
     state.historyStack.pop();
+    _setNavDirection('back');
     navigate('ui-workout-editor');
     renderEditorList();
+}
+
+function selCommit() {
+    if (!_selPicked.length) return;
+    const mk = (name, inCl) => ({ name, isMain: false, sets: 3, restTime: inCl ? 30 : 90 });
+    if (managerState.activeClusterRef !== null && managerState.activeClusterRef !== undefined && managerState.selectorMode === 'cluster') {
+        const cluster = managerState.exercises[managerState.activeClusterRef];
+        if (!cluster) return;
+        const room = CLUSTER_MAX_EX - cluster.exercises.length;
+        if (_selPicked.length > room) {
+            showAlert(`בסבב יש מקום ל-${room} תרגילים נוספים (מקסימום ${CLUSTER_MAX_EX}). סימנת ${_selPicked.length}.`);
+            return;
+        }
+        _selPicked.forEach(n => cluster.exercises.push(mk(n, true)));
+    } else {
+        _selPicked.forEach(n => managerState.exercises.push(mk(n, false)));
+    }
+    haptic('success');
+    _selPicked = [];
+    _selBackToEditor();
+}
+
+// החלפה: השם מתחלף, הסטים/המנוחה/היעד נשמרים
+function _selReplaceWith(name) {
+    const r = _selReplaceRef;
+    managerState.selectorMode = 'add';
+    _selReplaceRef = null;
+    if (r) {
+        const it = managerState.exercises[r.idx];
+        const obj = it ? (r.i == null ? it : (it.exercises || [])[r.i]) : null;
+        if (obj) obj.name = name;
+    }
+    haptic('success');
+    _selBackToEditor();
 }
 
 // ─── IMPORT / EXPORT ───────────────────────────────────────────────────────
@@ -1451,6 +1427,7 @@ function selectEditorThumb(idx, el) {
     _selectedThumbIdx = idx;
     document.querySelectorAll('.editor-thumb-option').forEach(s => s.classList.remove('active'));
     if (el) el.classList.add('active');
+    if (typeof _edRefreshSave === 'function') _edRefreshSave();
 }
 
 function _renderThumbPicker(currentIdx) {
@@ -1490,6 +1467,7 @@ function selectEditorColor(hex, el) {
     _selectedEditorColor = hex;
     document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
     if (el) el.classList.add('active');
+    if (typeof _edRefreshSave === 'function') _edRefreshSave();
 }
 
 function _renderColorSwatches(currentColor) {
@@ -1730,9 +1708,11 @@ function _applyEditorKindUI() {
         b.classList.toggle('active', (b.dataset.kind === 'cardio') === isCardio);
     });
     show('editor-cardio-block', isCardio);
-    show('editor-flow-header', !isCardio);
+    show('editor-flow-header', !isCardio && _edReorder);
     show('editor-list', !isCardio);
     show('editor-add-row', !isCardio);
+    show('ed-reorder-btn', !isCardio && managerState.exercises.length > 1);
+    show('ed-muscles', !isCardio);
     if (isCardio) {
         const mode = (_editorCardio && _editorCardio.mode === 'open') ? 'open' : 'interval';
         document.querySelectorAll('#editor-cardio-mode-seg .km-seg-btn').forEach(b => {
@@ -1740,6 +1720,8 @@ function _applyEditorKindUI() {
         });
         renderEditorCardioFields();
     }
+    _edRenderHero();
+    _edRefreshSave();
 }
 
 function _ecStep(field, delta) {
@@ -1788,31 +1770,26 @@ function renderEditorCardioFields() {
     const host = document.getElementById('editor-cardio-fields');
     if (!host || !_editorCardio) return;
     const c = _editorCardio;
-    const f = sec => (typeof _fmtClock === 'function' ? _fmtClock(sec || 0) : String(sec || 0));
-    const stepRow = (label, sub, field, valTxt) => `
-        <div class="cs-row">
-            <div class="cs-row-txt"><div class="cs-row-k">${label}</div><span class="cs-row-sub">${sub}</span></div>
-            <div class="cs-stepper">
-                <button class="cs-sq" onclick="_ecStep('${field}',-1)" aria-label="הפחת">−</button>
-                <b>${valTxt}</b>
-                <button class="cs-sq" onclick="_ecStep('${field}',1)" aria-label="הוסף">+</button>
-            </div>
-        </div>`;
+    const f = sec => _fvFmt(sec || 0, 'time');
+    const done = () => { renderEditorCardioFields(); _edRenderHero(); _edRefreshSave(); };
+    const reg = key => _fvRegister('ec-' + key, key, () => c[key], v => { c[key] = v; done(); }, key === 'targetSec');
+    ['workSec', 'restSec', 'prepSec', 'rounds', 'targetSec'].forEach(reg);
 
     if (c.mode === 'open') {
         host.innerHTML = `
-            <div class="obsidian-card cs-card">
-                ${stepRow('יעד זמן', c.targetSec ? 'הטבעת נסגרת אל היעד' : 'ללא יעד — שעון עולה',
-                          'targetSec', c.targetSec ? f(c.targetSec) : 'פתוח')}
+            <div class="ed-group">
+                <div class="ed-row ed-row--col"><span class="ed-n">יעד זמן</span>
+                    <span class="ed-m">${c.targetSec ? 'הטבעת נסגרת אל היעד' : 'ללא יעד — שעון עולה ("ללא" בהקלדה)'}</span>
+                    ${fvChipsHtml('ec-targetSec')}</div>
             </div>
-            <div class="obsidian-card cs-card">
-                <h3 class="cs-card-t">סוגי אימון בשעון</h3>
-                <p class="cs-note">שמות סוג האימון כפי שהם מגיעים מ-Apple Watch, מופרדים בפסיק.
+            <div class="ed-group ed-pad">
+                <div class="ed-n">סוגי אימון בשעון</div>
+                <p class="ed-note">שמות סוג האימון כפי שהם מגיעים מ-Apple Watch, מופרדים בפסיק.
                 אימון שעון בסוג הזה ישויך לתוכנית הזו בלחיצה אחת מ"אימונים מהשעון" בארכיון.</p>
                 <input type="text" class="minimal-input m-0" id="ec-watchtypes"
                        value="${escapeHtml((c.watchTypes || []).join(', '))}"
                        placeholder="Cycling, Indoor Cycle, אופניים"
-                       onchange="_ecSetWatchTypes(this.value)">
+                       onchange="_ecSetWatchTypes(this.value);_edRefreshSave()">
             </div>`;
         return;
     }
@@ -1820,27 +1797,746 @@ function renderEditorCardioFields() {
     const t = (typeof cardioTotals === 'function') ? cardioTotals(c) : { workTotalSec: 0, totalSec: 0 };
     const combos = Array.isArray(c.combos) ? c.combos : [];
     host.innerHTML = `
-        <div class="obsidian-card cs-card">
-            ${stepRow('עבודה', 'אורך סבב', 'workSec', f(c.workSec))}
-            ${stepRow('מנוחה', 'בין סבבים', 'restSec', f(c.restSec))}
-            ${stepRow('סבבים', `סה״כ ${f(t.workTotalSec)} עבודה · ${Math.round(t.totalSec / 60)} דק׳ אימון`, 'rounds', String(c.rounds))}
-            ${stepRow('היכון', 'לפני הגונג הראשון', 'prepSec', f(c.prepSec))}
+        <div class="ed-group">
+            <div class="ed-row ed-row--col"><span class="ed-n">עבודה</span>${fvChipsHtml('ec-workSec')}</div>
+            <div class="ed-row ed-row--col"><span class="ed-n">מנוחה בין סבבים</span>${fvChipsHtml('ec-restSec')}</div>
+            <div class="ed-row"><span class="ed-tx"><span class="ed-n">סבבים</span></span>${fvStepperHtml('ec-rounds', 1)}</div>
+            <div class="ed-row ed-row--col"><span class="ed-n">היכון לפני הגונג הראשון</span>${fvChipsHtml('ec-prepSec')}</div>
         </div>
-        <div class="obsidian-card cs-card">
-            <h3 class="cs-card-t">קומבינציות</h3>
-            <p class="cs-note">מה מוצג במסך האימון בסבב הנוכחי. סבב שאינו מכוסה בשום טווח יציג את
+        <div class="ed-sub ed-sub--pad">סה״כ ${c.rounds} סבבים · ${f(t.workTotalSec)} עבודה · ${f(t.totalSec)} כולל מנוחות</div>
+        <div class="ed-group ed-pad">
+            <div class="ed-n">קומבינציות</div>
+            <p class="ed-note">מה מוצג במסך האימון בסבב הנוכחי. סבב שאינו מכוסה בשום טווח יציג את
             הפאזה הבאה בלבד.</p>
             ${combos.map((x, i) => `
                 <div class="ec-combo-row">
                     <input type="number" class="ec-num" min="1" max="${c.rounds}" value="${x.from}"
-                           onchange="_ecSetCombo(${i},'from',this.value)" aria-label="מסבב">
+                           onchange="_ecSetCombo(${i},'from',this.value);_edRefreshSave()" aria-label="מסבב">
                     <span class="ec-dash">–</span>
                     <input type="number" class="ec-num" min="1" max="${c.rounds}" value="${x.to}"
-                           onchange="_ecSetCombo(${i},'to',this.value)" aria-label="עד סבב">
+                           onchange="_ecSetCombo(${i},'to',this.value);_edRefreshSave()" aria-label="עד סבב">
                     <input type="text" class="ec-txt" value="${escapeHtml(x.text || '')}"
-                           placeholder="1-2 · סליפ · 1-2-3" onchange="_ecSetCombo(${i},'text',this.value)">
+                           placeholder="1-2 · סליפ · 1-2-3" onchange="_ecSetCombo(${i},'text',this.value);_edRefreshSave()">
                     <button class="ec-del" onclick="_ecRemoveCombo(${i})" aria-label="מחק">×</button>
                 </div>`).join('')}
-            <button class="btn-text" onclick="_ecAddCombo()">+ הוסף קומבינציה</button>
+            <button class="ed-link ed-link--sm" onclick="_ecAddCombo()">+ הוסף קומבינציה</button>
         </div>`;
+    _edRefreshSave();
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// עורך תוכניות v2 (v19.15) — ערך גמיש, רשימות מקובצות, גיליונות, סידור בגרירה
+// עיקרון: כל שדות הטופס הישנים (IDs) נשארים ומוזנים מה-UI החדש, ולכן
+// saveWorkoutChanges / saveExerciseConfig — ומבנה הדאטה — לא השתנו.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─── ערך גמיש: הצעות מוכנות + כל מספר ידני ──────────────────────────────────
+// FLEXVAL-START — בלוק טהור, נבדק ב-test/flexval.test.js (אל תסיר את הסמנים)
+// kind: 'time' (שניות; קלט "1:45" או "105") | 'num' (עשרוני, מקבל גם פסיק) | 'min' (דקות → שניות)
+function _fvParse(raw, kind) {
+    const s = String(raw == null ? '' : raw).trim().replace(',', '.');
+    if (!s) return { ok: false, reason: 'לא הוזן ערך' };
+    if (kind === 'time') {
+        let m = s.match(/^(\d{1,3}):(\d{1,2})$/);
+        if (m) {
+            const sec = Number(m[2]);
+            if (sec >= 60) return { ok: false, reason: 'השניות חייבות להיות בין 0 ל-59' };
+            return { ok: true, value: Number(m[1]) * 60 + sec };
+        }
+        if (/^\d+$/.test(s)) return { ok: true, value: Number(s) };
+        return { ok: false, reason: 'יש להזין דקות ושניות (1:45) או שניות (105)' };
+    }
+    if (!/^\d+(\.\d+)?$/.test(s)) return { ok: false, reason: 'יש להזין מספר' };
+    const v = Number(s);
+    return { ok: true, value: kind === 'min' ? Math.round(v * 60) : v };
+}
+
+function _fvFmt(value, kind) {
+    if (value == null || value === '' || isNaN(value)) return '—';
+    if (kind === 'time' || kind === 'min') {
+        const v = Math.max(0, Math.round(Number(value)));
+        if (kind === 'min') return (v % 60 === 0) ? String(v / 60) : (Math.floor(v / 60) + ':' + String(v % 60).padStart(2, '0'));
+        return Math.floor(v / 60) + ':' + String(v % 60).padStart(2, '0');
+    }
+    return String(Math.round(Number(value) * 1000) / 1000);
+}
+
+// spec: { kind, min, max, int?, stepOf? } — min/max ביחידות הערך השמור (שניות לזמן)
+function _fvValidate(value, spec) {
+    if (typeof value !== 'number' || isNaN(value)) return { ok: false, reason: 'יש להזין מספר' };
+    if (spec.int && !Number.isInteger(value)) return { ok: false, reason: 'יש להזין מספר שלם' };
+    if (spec.stepOf) {
+        const q = value / spec.stepOf;
+        if (Math.abs(q - Math.round(q)) > 1e-9) return { ok: false, reason: `בקפיצות של ${spec.stepOf}` };
+    }
+    if (value < spec.min || value > spec.max) {
+        return { ok: false, reason: `הטווח המותר: ${_fvFmt(spec.min, spec.kind)} עד ${_fvFmt(spec.max, spec.kind)}` };
+    }
+    return { ok: true, value };
+}
+
+// שדות העורך: הצעות + טווח. הטווחים חוסמים טעויות הקלדה (900 במקום 90), לא בחירות.
+const FV_SPECS = {
+    rest:        { kind: 'time', min: 10,  max: 600,   presets: [60, 90, 120, 180],  label: 'מנוחה' },
+    clRest:      { kind: 'time', min: 0,   max: 600,   presets: [90, 120, 180],      label: 'מנוחה בין סבבים' },
+    clExRest:    { kind: 'time', min: 0,   max: 600,   presets: [0, 15, 30, 60],     label: 'מעבר לתרגיל הבא' },
+    step:        { kind: 'num',  min: 0.25, max: 25,   presets: [1, 1.25, 2.5, 5],   label: 'קפיצה', unit: 'ק״ג' },
+    base:        { kind: 'num',  min: 0,   max: 500,   label: 'משקל התחלתי', unit: 'ק״ג' },
+    rangeMin:    { kind: 'num',  min: 0,   max: 500,   label: 'מינימום בגלגלת', unit: 'ק״ג' },
+    rangeMax:    { kind: 'num',  min: 0,   max: 500,   label: 'מקסימום בגלגלת', unit: 'ק״ג' },
+    dropPct:     { kind: 'num',  min: 5,   max: 60,    int: true, presets: [10, 20, 30], label: 'ירידה בדרופ', unit: '%' },
+    sets:        { kind: 'num',  min: 1,   max: 20,    int: true, label: 'סטים' },
+    tW:          { kind: 'num',  min: 0,   max: 500,   label: 'משקל יעד', unit: 'ק״ג' },
+    tR:          { kind: 'num',  min: 1,   max: 100,   int: true, label: 'חזרות יעד' },
+    tRIR:        { kind: 'num',  min: 0,   max: 5,     stepOf: 0.5, label: 'RIR יעד' },
+    rounds:      { kind: 'num',  min: 1,   max: 30,    int: true, label: 'סבבים' },
+    workSec:     { kind: 'time', min: 10,  max: 3600,  presets: [60, 120, 180],      label: 'עבודה' },
+    restSec:     { kind: 'time', min: 0,   max: 1800,  presets: [30, 60],            label: 'מנוחה' },
+    prepSec:     { kind: 'time', min: 0,   max: 60,    presets: [5, 10, 20],         label: 'היכון' },
+    targetSec:   { kind: 'min',  min: 60,  max: 21600, presets: [1200, 1800, 2700, 3600], label: 'יעד זמן', unit: 'דק׳' }
+};
+// FLEXVAL-END
+
+// רישום שדה פעיל: key → { spec, get(), set(v) }. הרינדור קורא ל-_fvRegister לפני שבונה את ה-HTML.
+const _fvFields = {};
+// clearable: שדה אופציונלי (יעד, טווח) — בגיליון מופיע "ללא", שמאפס ל-undefined
+function _fvRegister(id, specKey, get, set, clearable) {
+    _fvFields[id] = { spec: FV_SPECS[specKey], get, set, clearable: !!clearable };
+    return id;
+}
+
+function _fvLabel(v, spec) {
+    const t = _fvFmt(v, spec.kind);
+    return spec.unit === '%' ? t + '%' : t;
+}
+
+// שבבי הצעות + ערך ידני נבחר (אם אינו אחת ההצעות) + "אחר"
+function fvChipsHtml(id) {
+    const f = _fvFields[id]; if (!f) return '';
+    const cur = f.get();
+    const presets = f.spec.presets || [];
+    const isPreset = presets.some(p => p === cur);
+    let h = presets.map(p =>
+        `<button type="button" class="fv-chip${p === cur ? ' on' : ''}" onclick="_fvPick('${id}', ${p})">${_fvLabel(p, f.spec)}</button>`).join('');
+    if (cur != null && cur !== '' && !isPreset) h += `<button type="button" class="fv-chip on cust" onclick="fvOpen('${id}')">${_fvLabel(cur, f.spec)}</button>`;
+    h += `<button type="button" class="fv-chip other" onclick="fvOpen('${id}')">אחר</button>`;
+    return `<div class="fv-chips">${h}</div>`;
+}
+
+// stepper עם מספר שניתן להקליד עליו
+function fvStepperHtml(id, delta) {
+    const f = _fvFields[id]; if (!f) return '';
+    const cur = f.get();
+    return `<div class="fv-step">
+        <button type="button" onclick="_fvNudge('${id}', ${-delta})" aria-label="הפחת">−</button>
+        <b onclick="fvOpen('${id}')">${cur == null || cur === '' ? '—' : _fvLabel(cur, f.spec)}</b>
+        <button type="button" onclick="_fvNudge('${id}', ${delta})" aria-label="הוסף">+</button>
+    </div>`;
+}
+
+// ערך שמוצג כטקסט ונפתח להקלדה בלחיצה (יעדים)
+function fvValueHtml(id, emptyTxt) {
+    const f = _fvFields[id]; if (!f) return '';
+    const cur = f.get();
+    const has = cur != null && cur !== '' && !isNaN(cur);
+    return `<button type="button" class="fv-val${has ? '' : ' empty'}" onclick="fvOpen('${id}')">${has ? _fvLabel(cur, f.spec) : (emptyTxt || '—')}</button>`;
+}
+
+function _fvPick(id, v) {
+    const f = _fvFields[id]; if (!f) return;
+    haptic('light');
+    f.set(v);
+}
+
+function _fvNudge(id, delta) {
+    const f = _fvFields[id]; if (!f) return;
+    const cur = Number(f.get()) || 0;
+    let v = Math.round((cur + delta) * 1000) / 1000;
+    v = Math.max(f.spec.min, Math.min(f.spec.max, v));
+    haptic('light');
+    f.set(v);
+}
+
+// ── גיליון ההקלדה ────────────────────────────────────────────────────────────
+let _fvOpenId = null;
+function fvOpen(id) {
+    const f = _fvFields[id]; if (!f) return;
+    _fvOpenId = id;
+    const spec = f.spec, cur = f.get();
+    document.getElementById('fv-title').textContent = spec.label || '';
+    document.getElementById('fv-err').textContent = '';
+    const time = spec.kind === 'time';
+    document.getElementById('fv-time').style.display = time ? 'flex' : 'none';
+    document.getElementById('fv-num').style.display = time ? 'none' : 'flex';
+    document.getElementById('fv-hint').textContent = `הטווח: ${_fvLabel(spec.min, spec)} עד ${_fvLabel(spec.max, spec)}`;
+    if (time) {
+        const v = (cur == null || cur === '') ? '' : Math.round(Number(cur));
+        document.getElementById('fv-mm').value = v === '' ? '' : Math.floor(v / 60);
+        document.getElementById('fv-ss').value = v === '' ? '' : String(v % 60).padStart(2, '0');
+    } else {
+        const inp = document.getElementById('fv-input');
+        inp.value = (cur == null || cur === '' || isNaN(cur)) ? '' : (spec.kind === 'min' ? _fvFmt(cur, 'min') : _fvFmt(cur, 'num'));
+        inp.setAttribute('inputmode', (spec.int && spec.kind !== 'min') ? 'numeric' : 'decimal');
+        document.getElementById('fv-unit').textContent = spec.unit || '';
+    }
+    document.getElementById('fv-clear').style.display = f.clearable ? '' : 'none';
+    document.getElementById('fv-overlay').style.display = 'flex';
+    setTimeout(() => { const el = document.getElementById(time ? 'fv-mm' : 'fv-input'); if (el) { el.focus(); el.select && el.select(); } }, 60);
+}
+
+function fvClose() {
+    document.getElementById('fv-overlay').style.display = 'none';
+    _fvOpenId = null;
+}
+
+function fvClear() {
+    const f = _fvFields[_fvOpenId]; if (!f) { fvClose(); return; }
+    fvClose();
+    haptic('light');
+    f.set(undefined);
+}
+
+function fvConfirm() {
+    const f = _fvFields[_fvOpenId]; if (!f) { fvClose(); return; }
+    const spec = f.spec;
+    let raw;
+    if (spec.kind === 'time') {
+        const mm = document.getElementById('fv-mm').value.trim();
+        const ss = document.getElementById('fv-ss').value.trim();
+        raw = (mm === '' && ss === '') ? '' : `${mm || 0}:${ss || 0}`;
+    } else {
+        raw = document.getElementById('fv-input').value;
+    }
+    const p = _fvParse(raw, spec.kind);
+    const v = p.ok ? _fvValidate(p.value, spec) : p;
+    if (!v.ok) { document.getElementById('fv-err').textContent = v.reason; haptic('warning'); return; }
+    fvClose();
+    haptic('light');
+    f.set(v.value);
+}
+
+// ─── עזרים: שריר, סטטיסטיקה, היסטוריה ──────────────────────────────────────
+const ED_MUSCLE_COLOR = {
+    'חזה': 'var(--m-chest)', 'גב': 'var(--m-back)', 'רגליים': 'var(--m-legs)', 'כתפיים': 'var(--m-sh)',
+    'יד קדמית': 'var(--m-bi)', 'יד אחורית': 'var(--m-tri)', 'ידיים': 'var(--m-bi)', 'בטן': 'var(--m-core)',
+    'קליסטניקס': 'var(--m-cal)'
+};
+
+function _edExMuscle(name) {
+    const ex = (state.exercises || []).find(e => e.name === name);
+    return (ex && typeof getMuscleBadge === 'function' && getMuscleBadge(ex.muscles)) || 'אחר';
+}
+
+// סטים לכל פריט: תרגיל רגיל = sets; תרגיל בסבב = סט אחד בכל סבב
+function _edPlanStats(items) {
+    let exCount = 0, sets = 0; const byMuscle = {};
+    (items || []).forEach(it => {
+        if (!it) return;
+        if (it.type === 'cluster') {
+            (it.exercises || []).forEach(ex => {
+                exCount++; const n = Number(it.rounds) || 1; sets += n;
+                const m = _edExMuscle(ex.name); byMuscle[m] = (byMuscle[m] || 0) + n;
+            });
+        } else if (it.type !== 'cardio' && it.name) {
+            exCount++; const n = Number(it.sets) || 3; sets += n;
+            const m = _edExMuscle(it.name); byMuscle[m] = (byMuscle[m] || 0) + n;
+        }
+    });
+    return { exCount, sets, byMuscle };
+}
+
+function _edRel(ts) {
+    if (!ts) return 'טרם בוצע';
+    const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+    const d1 = new Date(ts); d1.setHours(0, 0, 0, 0);
+    const days = Math.round((d0 - d1) / 86400000);
+    if (days <= 0) return 'היום';
+    if (days === 1) return 'אתמול';
+    if (days < 7) return `לפני ${days} ימים`;
+    if (days < 14) return 'לפני שבוע';
+    if (days < 60) return `לפני ${Math.floor(days / 7)} שבועות`;
+    return `לפני ${Math.floor(days / 30)} חודשים`;
+}
+
+let _edArchCache = null, _edArchAt = 0;
+function _edArchive() {
+    // קריאה אחת לרינדור — הארכיון גדול, ורשימת הניהול קוראת אותו לכל תוכנית
+    if (!_edArchCache || Date.now() - _edArchAt > 3000) {
+        try { _edArchCache = (StorageManager.getArchive() || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); }
+        catch (e) { _edArchCache = []; }
+        _edArchAt = Date.now();
+    }
+    return _edArchCache;
+}
+
+function _edLastDone(key) {
+    const hit = _edArchive().find(a => a && a.type === key);
+    return hit ? hit.timestamp : null;
+}
+
+// הביצוע האחרון של תרגיל — מתוך log המובנה של רשומת הארכיון (סטים רגילים, בלי דרופים)
+function _edLastPerf(exName) {
+    for (const a of _edArchive()) {
+        const sets = (a.log || []).filter(l => l && l.exName === exName && !l.skip && !l.drop && l.w != null && l.r != null);
+        if (sets.length) return { ts: a.timestamp, date: a.date, sets };
+    }
+    return null;
+}
+
+function _edPlanUsage(exName) {
+    let n = 0;
+    Object.keys(state.workouts || {}).forEach(k => {
+        const wo = state.workouts[k];
+        if (Array.isArray(wo) && wo.some(it => it && (it.name === exName || (it.type === 'cluster' && (it.exercises || []).some(x => x.name === exName))))) n++;
+    });
+    return n;
+}
+
+function _edMono(name) {
+    return `<span class="ed-mono">${escapeHtml(typeof getExInitials === 'function' ? getExInitials(name) : String(name || '').slice(0, 2))}</span>`;
+}
+
+// ─── רשימת ניהול התוכניות ───────────────────────────────────────────────────
+function _edWhen(meta) {
+    if (meta && meta.isDeloadOnly) return 'deload';
+    if (meta && meta.availableInDeload) return 'both';
+    return 'regular';
+}
+
+function renderManagerList() {
+    const list = document.getElementById('manager-list');
+    if (!list) return;
+    const keys = Object.keys(state.workouts || {});
+    const metaOf = k => state.workoutMeta[k] || {};
+    const buckets = {
+        active: keys.filter(k => !metaOf(k).isHidden && !metaOf(k).isDeloadOnly),
+        deload: keys.filter(k => !metaOf(k).isHidden && metaOf(k).isDeloadOnly),
+        hidden: keys.filter(k => metaOf(k).isHidden)
+    };
+    if (!buckets[_managerTab]) _managerTab = 'active';
+    const tab = (id, label) => `<button class="km-seg-btn ${_managerTab === id ? 'active' : ''}" onclick="_setManagerTab('${id}')">${label} · ${buckets[id].length}</button>`;
+    let html = `<div class="km-seg-control ed-seg">${tab('active', 'פעילות')}${tab('deload', 'דילואוד')}${tab('hidden', 'מוסתרות')}</div>`;
+
+    const shown = buckets[_managerTab];
+    if (!shown.length) {
+        html += `<div class="ed-empty"><b>${_managerTab === 'hidden' ? 'אין תוכניות מוסתרות' : _managerTab === 'deload' ? 'אין תוכניות לדילואוד בלבד' : 'אין תוכניות פעילות'}</b></div>`;
+    } else {
+        const isCardio = k => typeof isCardioWorkout === 'function' && isCardioWorkout(k);
+        const groups = [['כוח', shown.filter(k => !isCardio(k))], ['אירובי', shown.filter(isCardio)]];
+        groups.forEach(([label, ks]) => {
+            if (!ks.length) return;
+            html += `<div class="ed-glbl">${label}</div><div class="ed-group">`;
+            ks.forEach(key => {
+                const meta = metaOf(key);
+                const allIdx = keys.indexOf(key);
+                const thumbIdx = (typeof meta._thumbIdx === 'number') ? meta._thumbIdx : (allIdx % WORKOUT_THUMB_IMAGES.length);
+                const img = WORKOUT_THUMB_IMAGES[thumbIdx % WORKOUT_THUMB_IMAGES.length];
+                let sub;
+                if (isCardio(key)) sub = _managerCardSubtitle(key, 0);
+                else {
+                    const st = _edPlanStats(state.workouts[key]);
+                    const clusters = (state.workouts[key] || []).filter(i => i && i.type === 'cluster').length;
+                    sub = `${st.exCount} תרגילים · ${st.sets} סטים${clusters ? ` · ${clusters === 1 ? 'סבב אחד' : clusters + ' סבבים'}` : ''}`;
+                }
+                sub += ' · ' + _edRel(_edLastDone(key));
+                html += `<button class="ed-row ed-row--btn ed-row--img" onclick="editWorkout('${escapeJsAttr(key)}')">
+                    <span class="ed-photo" style="background-image:url('${img}')">${meta.color ? `<i class="ed-pdot" style="background:${meta.color}"></i>` : ''}</span>
+                    <span class="ed-tx"><span class="ed-n">${escapeHtml(key)}</span><span class="ed-m">${sub}</span></span>
+                    <span class="ed-chev">‹</span>
+                </button>`;
+            });
+            html += `</div>`;
+        });
+    }
+    list.innerHTML = html;
+    const createBtn = document.getElementById('btn-create-workout');
+    if (createBtn) createBtn.style.display = '';
+}
+
+// ─── מצב העורך: שמירה, "מלוכלך", גיבור ─────────────────────────────────────
+let _edReorder = false;
+let _edSnap = '';
+
+function _edStateStr() {
+    const g = id => { const el = document.getElementById(id); return el ? el.checked : false; };
+    const nameEl = document.getElementById('editor-workout-name');
+    return JSON.stringify({
+        n: nameEl ? nameEl.value.trim() : '', k: _editorKind,
+        x: _editorKind === 'cardio' ? null : managerState.exercises,
+        c: _editorKind === 'cardio' ? _editorCardio : null,
+        d: g('editor-deload-check'), o: g('editor-deload-only-check'), h: g('editor-hidden-check'),
+        col: typeof _selectedEditorColor !== 'undefined' ? _selectedEditorColor : '',
+        th: typeof _selectedThumbIdx !== 'undefined' ? _selectedThumbIdx : -1
+    });
+}
+
+function _edIsDirty() {
+    if (!_edSnap) return false;
+    return _edStateStr() !== _edSnap;
+}
+
+// "שמור" פעיל רק כשיש מה לשמור: שם + תוכן, ובתוכנית קיימת — שינוי כלשהו
+function _edRefreshSave() {
+    const btn = document.getElementById('ed-save-btn');
+    if (!btn) return;
+    const nameEl = document.getElementById('editor-workout-name');
+    const name = nameEl ? nameEl.value.trim() : '';
+    const isNew = !managerState.originalName;
+    let ok = !!name && (_editorKind === 'cardio' || (managerState.exercises || []).length > 0);
+    if (ok && !isNew) ok = _edIsDirty();
+    btn.disabled = !ok;
+    btn.classList.toggle('is-off', !ok);
+    btn.textContent = (!isNew && ok) ? 'שמור שינויים' : 'שמור';
+}
+
+const ED_WHEN_LABEL = { regular: 'שבועות 1–3', both: 'גם בדילואוד', deload: 'רק בדילואוד' };
+
+function _edCurWhen() {
+    const d = document.getElementById('editor-deload-check'), o = document.getElementById('editor-deload-only-check');
+    if (o && o.checked) return 'deload';
+    if (d && d.checked) return 'both';
+    return 'regular';
+}
+
+function _edRenderHero() {
+    const sub = document.getElementById('ed-hero-sub');
+    const bar = document.getElementById('ed-muscles');
+    const when = ED_WHEN_LABEL[_edCurWhen()];
+    const hidden = document.getElementById('editor-hidden-check');
+    const setSub = document.getElementById('ed-settings-sub');
+    if (setSub) setSub.textContent = `${when}${hidden && hidden.checked ? ' · מוסתרת' : ''}`;
+    if (!sub) return;
+    if (_editorKind === 'cardio') {
+        const c = _editorCardio || {};
+        const f = x => _fvFmt(x || 0, 'time');
+        sub.textContent = c.mode === 'open'
+            ? `אירובי רציף · ${c.targetSec ? 'יעד ' + Math.round(c.targetSec / 60) + ' דק׳' : 'ללא יעד'} · ${when}`
+            : `אירובי · ${c.rounds || 0} סבבים · ${f(c.workSec)} / ${f(c.restSec)} · ${when}`;
+        if (bar) bar.innerHTML = '';
+        return;
+    }
+    const st = _edPlanStats(managerState.exercises);
+    sub.textContent = st.exCount ? `${st.exCount} תרגילים · ${st.sets} סטים · ${when}` : when;
+    if (!bar) return;
+    const ent = Object.entries(st.byMuscle).sort((a, b) => b[1] - a[1]);
+    if (!ent.length) { bar.innerHTML = ''; return; }
+    bar.innerHTML = `<div class="ed-mbar">${ent.map(([m, n]) => `<i style="flex:${n};background:${ED_MUSCLE_COLOR[m] || 'var(--m-other)'}"></i>`).join('')}</div>
+        <div class="ed-legend">${ent.map(([m, n]) => `<span style="--c:${ED_MUSCLE_COLOR[m] || 'var(--m-other)'}">${escapeHtml(m)} ${n}</span>`).join('')}</div>`;
+}
+
+// ─── גיליונות ────────────────────────────────────────────────────────────────
+const ED_SHEETS = ['ed-ex-sheet', 'ed-cl-sheet', 'ed-add-sheet', 'ed-plan-sheet'];
+let _edSheetWant = null;   // הגיליון שאמור להיות פתוח — סגירה מהירה לפני ה-frame הבא לא תידרס
+function _edOpenSheet(id) {
+    ED_SHEETS.forEach(s => { const el = document.getElementById(s); if (el && s !== id) el.classList.remove('open'); });
+    document.getElementById('ed-sheet-overlay').style.display = 'block';
+    _edSheetWant = id;
+    requestAnimationFrame(() => { if (_edSheetWant === id) document.getElementById(id).classList.add('open'); });
+}
+function edCloseSheets() {
+    _edSheetWant = null;
+    ED_SHEETS.forEach(s => { const el = document.getElementById(s); if (el) el.classList.remove('open'); });
+    const ov = document.getElementById('ed-sheet-overlay');
+    if (ov) ov.style.display = 'none';
+    _edExRef = null;
+}
+
+function edOpenAddSheet() { _edOpenSheet('ed-add-sheet'); }
+
+// ─── גיליון תרגיל ────────────────────────────────────────────────────────────
+let _edExRef = null;   // { idx, i } — i=null לתרגיל רגיל
+
+function edOpenExSheet(idx, i) {
+    _edExRef = { idx, i: (i === undefined ? null : i) };
+    _edRenderExSheet();
+    _edOpenSheet('ed-ex-sheet');
+}
+
+function _edExObj() {
+    const r = _edExRef; if (!r) return null;
+    const it = managerState.exercises[r.idx]; if (!it) return null;
+    return r.i == null ? it : (it.exercises || [])[r.i] || null;
+}
+
+function _edExChanged() { renderEditorList(); _edRenderExSheet(); }
+
+function _edRenderExSheet() {
+    const body = document.getElementById('ed-ex-body');
+    const ex = _edExObj();
+    if (!body) return;
+    if (!ex) { edCloseSheets(); return; }
+    const inCl = _edExRef.i != null;
+    const items = managerState.exercises;
+    let pos;
+    if (inCl) {
+        const letter = String.fromCharCode(65 + items.slice(0, _edExRef.idx).filter(x => x.type === 'cluster').length);
+        pos = `${_getClusterLabel(items[_edExRef.idx]).title} ${letter} · ${letter}${_edExRef.i + 1}`;
+    } else {
+        const num = items.slice(0, _edExRef.idx + 1).filter(x => x.type !== 'cluster').length;
+        pos = `תרגיל ${num} מתוך ${items.filter(x => x.type !== 'cluster').length}`;
+    }
+    _fvRegister('ex-sets', 'sets', () => ex.sets || 3, v => { ex.sets = v; _edExChanged(); });
+    _fvRegister('ex-rest', inCl ? 'clExRest' : 'rest',
+        () => ex.restTime != null ? ex.restTime : (inCl ? 30 : (ex.isMain ? 120 : 90)),
+        v => { ex.restTime = v; _edExChanged(); });
+    _fvRegister('ex-tw', 'tW', () => ex.targetWeight, v => { ex.targetWeight = v; _edExChanged(); }, true);
+    _fvRegister('ex-tr', 'tR', () => ex.targetReps, v => { ex.targetReps = v; _edExChanged(); }, true);
+    _fvRegister('ex-trir', 'tRIR', () => ex.targetRIR, v => { ex.targetRIR = v; _edExChanged(); }, true);
+    _fvRegister('ex-drop', 'dropPct', () => ex.dropPct || 20, v => { ex.dropPct = v; _edExChanged(); });
+
+    const last = _edLastPerf(ex.name);
+    const lastHtml = last
+        ? `<div class="ed-glbl">פעם קודמת · ${escapeHtml(last.date || '')}</div>
+           <div class="ed-hist">${last.sets.slice(0, 6).map((l, k) => `<span>${_fvFmt(l.w, 'num')}×${l.r}<small>${l.rir != null && l.rir !== '' ? 'RIR ' + l.rir : 'סט ' + (k + 1)}</small></span>`).join('')}</div>`
+        : `<div class="ed-glbl">פעם קודמת</div><div class="ed-note">אין עדיין היסטוריה לתרגיל הזה.</div>`;
+
+    const setsRow = (!inCl && !ex.isMain)
+        ? `<div class="ed-row"><span class="ed-tx"><span class="ed-n">סטים</span></span>${fvStepperHtml('ex-sets', 1)}</div>` : '';
+    const mainRow = !inCl ? `<div class="ed-row"><span class="ed-tx"><span class="ed-n">תרגיל ראשי</span><span class="ed-m">יעד המשקל נגזר מה-1RM</span></span>
+        <label class="km-switch"><input type="checkbox" ${ex.isMain ? 'checked' : ''} onchange="edToggleMain()"><span class="km-switch-track"></span></label></div>` : '';
+    const dropRow = !inCl ? `<div class="ed-row"><span class="ed-tx"><span class="ed-n">דרופ סט</span><span class="ed-m">אחרי הסט האחרון</span></span>
+        <label class="km-switch"><input type="checkbox" ${ex.dropSet ? 'checked' : ''} onchange="edToggleDrop()"><span class="km-switch-track"></span></label></div>
+        ${ex.dropSet ? `<div class="ed-row ed-row--col"><span class="ed-n">ירידה במשקל</span>${fvChipsHtml('ex-drop')}</div>` : ''}` : '';
+    const hasTarget = ex.targetWeight != null || ex.targetReps != null || ex.targetRIR != null;
+
+    body.innerHTML = `
+        <div class="ed-sh-head">${_edMono(ex.name)}<span class="ed-tx"><span class="ed-n ed-n--lg">${escapeHtml(ex.name)}</span><span class="ed-m">${escapeHtml(_edExMuscle(ex.name))} · ${pos}</span></span></div>
+        ${lastHtml}
+        <div class="ed-group">
+            ${setsRow}
+            <div class="ed-row ed-row--col"><span class="ed-n">${inCl ? 'מעבר לתרגיל הבא' : 'מנוחה'}</span>${fvChipsHtml('ex-rest')}</div>
+        </div>
+        <div class="ed-glbl ed-glbl--row"><span>יעד</span>${last ? `<button class="ed-link ed-link--sm" onclick="edFillFromLast()">מלא מהפעם הקודמת</button>` : (hasTarget ? `<button class="ed-link ed-link--sm" onclick="edClearTargets()">נקה יעד</button>` : '')}</div>
+        <div class="ed-tgt">
+            <div>${fvValueHtml('ex-tw', 'אוטומטי')}<small>ק״ג</small></div>
+            <div>${fvValueHtml('ex-tr', 'אוטומטי')}<small>חזרות</small></div>
+            <div>${fvValueHtml('ex-trir', 'אוטומטי')}<small>RIR</small></div>
+        </div>
+        ${(mainRow || dropRow) ? `<div class="ed-group">${mainRow}${dropRow}</div>` : ''}
+        <div class="ed-group"><button class="ed-row ed-row--btn" onclick="edReplaceEx()"><span class="ed-tx"><span class="ed-n">החלף תרגיל</span><span class="ed-m">שומר את הסטים, המנוחה והיעד</span></span><span class="ed-chev">‹</span></button></div>
+        <button class="ed-danger" onclick="edRemoveEx()">הסר מהתוכנית</button>`;
+}
+
+function edToggleMain() { const ex = _edExObj(); if (!ex) return; ex.isMain = !ex.isMain; haptic('light'); _edExChanged(); }
+function edToggleDrop() {
+    const ex = _edExObj(); if (!ex) return;
+    ex.dropSet = !ex.dropSet;
+    if (ex.dropSet && !ex.dropPct) ex.dropPct = 20;
+    haptic('light'); _edExChanged();
+}
+function edClearTargets() { const ex = _edExObj(); if (!ex) return; ex.targetWeight = undefined; ex.targetReps = undefined; ex.targetRIR = undefined; _edExChanged(); }
+// יעד מהביצוע האחרון: הסט הכבד (שוויון — יותר חזרות)
+function edFillFromLast() {
+    const ex = _edExObj(); if (!ex) return;
+    const last = _edLastPerf(ex.name); if (!last) return;
+    const top = last.sets.slice().sort((a, b) => (Number(b.w) - Number(a.w)) || (Number(b.r) - Number(a.r)))[0];
+    ex.targetWeight = Number(top.w);
+    ex.targetReps = parseInt(top.r, 10) || undefined;
+    const rir = parseFloat(top.rir);
+    ex.targetRIR = isNaN(rir) ? undefined : rir;
+    haptic('light'); _edExChanged();
+}
+function edRemoveEx() {
+    const r = _edExRef; if (!r) return;
+    edCloseSheets();
+    if (r.i == null) removeExFromEditor(r.idx); else removeExFromCluster(r.idx, r.i);
+    haptic('warning');
+}
+function edReplaceEx() {
+    if (!_edExRef) return;
+    _selReplaceRef = Object.assign({}, _edExRef);
+    edCloseSheets();
+    managerState.activeClusterRef = null;
+    managerState.selectorMode = 'replace';
+    prepareSelector();
+}
+
+// ─── סבב ────────────────────────────────────────────────────────────────────
+let _edClIdx = null;
+function edOpenClusterSheet(idx) { _edClIdx = idx; _edRenderClSheet(); _edOpenSheet('ed-cl-sheet'); }
+function _edRenderClSheet() {
+    const body = document.getElementById('ed-cl-body');
+    const c = managerState.exercises[_edClIdx];
+    if (!body) return;
+    if (!c || c.type !== 'cluster') { edCloseSheets(); return; }
+    const done = () => { renderEditorList(); _edRenderClSheet(); };
+    _fvRegister('cl-rounds', 'rounds', () => c.rounds, v => { c.rounds = v; done(); });
+    _fvRegister('cl-rest', 'clRest', () => c.clusterRest, v => { c.clusterRest = v; done(); });
+    const atMax = (c.exercises || []).length >= CLUSTER_MAX_EX;
+    body.innerHTML = `
+        <h3 class="ed-sheet-title">${_getClusterLabel(c).title}</h3>
+        <div class="ed-group">
+            <div class="ed-row"><span class="ed-tx"><span class="ed-n">סבבים</span></span>${fvStepperHtml('cl-rounds', 1)}</div>
+            <div class="ed-row ed-row--col"><span class="ed-n">מנוחה בין סבבים</span>${fvChipsHtml('cl-rest')}</div>
+        </div>
+        <div class="ed-note">זמן המעבר בין התרגילים בתוך הסבב נקבע בגיליון של כל תרגיל.</div>
+        <div class="ed-group">${atMax
+            ? `<div class="ed-row"><span class="ed-tx"><span class="ed-m">מקסימום ${CLUSTER_MAX_EX} תרגילים בסבב</span></span></div>`
+            : `<button class="ed-row ed-row--btn" onclick="edCloseSheets();openExerciseSelectorForCluster(${_edClIdx})"><span class="ed-tx"><span class="ed-n ed-accent">הוסף תרגילים לסבב</span></span><span class="ed-chev">‹</span></button>`}</div>
+        <button class="ed-danger" onclick="edRemoveCluster(${_edClIdx})">הסר את הסבב</button>`;
+}
+function edRemoveCluster(idx) {
+    const c = managerState.exercises[idx]; if (!c) return;
+    const go = () => { managerState.exercises.splice(idx, 1); edCloseSheets(); renderEditorList(); _applyEditorKindUI(); };
+    if ((c.exercises || []).length) showConfirm(`להסיר את הסבב ואת ${c.exercises.length} התרגילים שבו?`, go); else go();
+}
+
+// ─── הגדרות תוכנית ───────────────────────────────────────────────────────────
+function openPlanSettings() { _edSyncWhenSeg(); _edOpenSheet('ed-plan-sheet'); }
+
+function _edSyncWhenSeg() {
+    const w = _edCurWhen();
+    document.querySelectorAll('#ed-when-seg .km-seg-btn').forEach(b => b.classList.toggle('active', b.dataset.when === w));
+}
+
+// "מתי מוצג" — אותם שני שדות דאטה (availableInDeload / isDeloadOnly), בורר אחד
+function edSetWhen(w) {
+    document.getElementById('editor-deload-only-check').checked = (w === 'deload');
+    document.getElementById('editor-deload-check').checked = (w === 'both' || w === 'deload');
+    haptic('light');
+    _edSyncWhenSeg(); _edRenderHero(); _edRefreshSave();
+}
+
+function edDuplicatePlan() {
+    const key = managerState.originalName; if (!key) return;
+    if (_edIsDirty()) { showAlert('יש שינויים שלא נשמרו. השכפול יוצר עותק של הגרסה השמורה — שמור קודם אם תרצה שהם ייכללו.'); }
+    const before = Object.keys(state.workouts).length;
+    duplicateWorkout(key);
+    if (Object.keys(state.workouts).length > before && typeof showCloudToast === 'function') showCloudToast(`נוצר "${key} Copy"`, true);
+}
+
+function edDeletePlan() {
+    const key = managerState.originalName; if (!key) return;
+    showConfirm(`למחוק את התוכנית "${key}"? הארכיון לא נפגע.`, () => {
+        delete state.workouts[key];
+        if (state.workoutMeta[key]) delete state.workoutMeta[key];
+        StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
+        StorageManager.saveData(StorageManager.KEY_META, state.workoutMeta);
+        autoSaveConfigToCloud();
+        edCloseSheets();
+        _edSnap = '';
+        state.historyStack.pop();
+        _setNavDirection('back');
+        navigate('ui-workout-manager');
+        renderManagerList(); renderWorkoutMenu();
+    });
+}
+
+// ─── מצב סידור + גרירה ──────────────────────────────────────────────────────
+function edToggleReorder() {
+    _edReorder = !_edReorder;
+    const btn = document.getElementById('ed-reorder-btn');
+    if (btn) btn.textContent = _edReorder ? 'סיום' : 'סדר';
+    const hint = document.getElementById('editor-flow-header');
+    if (hint) hint.style.display = _edReorder ? '' : 'none';
+    const bar = document.getElementById('ed-bar');
+    if (bar) bar.classList.toggle('is-hidden', _edReorder);
+    haptic('light');
+    renderEditorList();
+}
+
+function _edArrFor(scope) {
+    if (scope === 'top') return managerState.exercises;
+    const m = /^cl:(\d+)$/.exec(scope || '');
+    const c = m ? managerState.exercises[Number(m[1])] : null;
+    return c && c.type === 'cluster' ? c.exercises : null;
+}
+
+// גרירה עם Pointer Events על הידית בלבד (touch-action:none ב-CSS) — בלי ספרייה
+function _edBindDrag() {
+    const list = document.getElementById('editor-list');
+    if (!list) return;
+    list.querySelectorAll('.ed-handle').forEach(h => {
+        h.onpointerdown = (e) => {
+            const item = h.closest('.ed-drag-item'); if (!item) return;
+            const scope = item.dataset.scope;
+            const container = scope === 'top' ? list : item.parentNode;
+            const sibs = Array.from(container.children).filter(el => el.classList.contains('ed-drag-item') && el.dataset.scope === scope);
+            const from = sibs.indexOf(item); if (from < 0) return;
+            e.preventDefault();
+            try { h.setPointerCapture(e.pointerId); } catch (_) {}
+            const rects = sibs.map(el => el.getBoundingClientRect());
+            const startY = e.clientY, gap = 8;
+            const hgt = rects[from].height + (scope === 'top' ? gap : 0);
+            let to = from;
+            item.classList.add('ed-lifted');
+            haptic('light');
+            const move = (ev) => {
+                const dy = ev.clientY - startY;
+                item.style.transform = `translateY(${dy}px)`;
+                const center = rects[from].top + rects[from].height / 2 + dy;
+                to = 0;
+                rects.forEach((r, k) => { if (k !== from && center > r.top + r.height / 2) to++; });
+                sibs.forEach((el, k) => {
+                    if (k === from) return;
+                    let shift = 0;
+                    if (from < to && k > from && k <= to) shift = -hgt;
+                    if (from > to && k >= to && k < from) shift = hgt;
+                    el.style.transform = shift ? `translateY(${shift}px)` : '';
+                });
+            };
+            const up = () => {
+                h.removeEventListener('pointermove', move);
+                h.removeEventListener('pointerup', up);
+                h.removeEventListener('pointercancel', up);
+                sibs.forEach(el => { el.style.transform = ''; });
+                item.classList.remove('ed-lifted');
+                const arr = _edArrFor(scope);
+                if (arr && to !== from) {
+                    const [moved] = arr.splice(from, 1);
+                    arr.splice(to, 0, moved);
+                    haptic('medium');
+                }
+                renderEditorList();
+            };
+            h.addEventListener('pointermove', move);
+            h.addEventListener('pointerup', up);
+            h.addEventListener('pointercancel', up);
+        };
+    });
+}
+
+
+// ─── טופס תרגיל: UI מעל השדות הנסתרים ───────────────────────────────────────
+const CONF_MUSCLES = ['חזה', 'גב', 'רגליים', 'כתפיים', 'יד קדמית', 'יד אחורית', 'בטן', 'קליסטניקס'];
+
+function _confNum(id) { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? undefined : v; }
+function _confSetNum(id, v) { document.getElementById(id).value = (v == null || isNaN(v)) ? '' : String(v); }
+
+function _confSetMuscle(m) { document.getElementById('conf-ex-muscle').value = m; haptic('light'); _confSyncUI(); }
+function _confSetWMode(m) { document.getElementById('conf-ex-wmode').value = m; haptic('light'); _confSyncUI(); }
+
+function _confSyncUI() {
+    const muscle = document.getElementById('conf-ex-muscle').value;
+    const chips = document.getElementById('conf-muscle-chips');
+    if (chips) chips.innerHTML = CONF_MUSCLES.map(m =>
+        `<button type="button" class="fv-chip${m === muscle ? ' on' : ''}" onclick="_confSetMuscle('${m}')">${m}</button>`).join('');
+    const wm = document.getElementById('conf-ex-wmode').value || 'kg';
+    document.querySelectorAll('#conf-wmode-seg .km-seg-btn').forEach(b => b.classList.toggle('active', b.dataset.wm === wm));
+
+    _fvRegister('conf-base', 'base', () => _confNum('conf-ex-base'), v => { _confSetNum('conf-ex-base', v); _confSyncUI(); }, true);
+    _fvRegister('conf-step', 'step', () => _confNum('conf-ex-step') || 2.5, v => { _confSetNum('conf-ex-step', v); _confSyncUI(); });
+    const rangeSet = (id, other, isMin) => v => {
+        const o = _confNum(other);
+        if (v != null && o != null && (isMin ? v >= o : v <= o)) {
+            showAlert(isMin ? 'המינימום חייב להיות קטן מהמקסימום.' : 'המקסימום חייב להיות גדול מהמינימום.');
+            return;
+        }
+        _confSetNum(id, v); _confSyncUI();
+    };
+    _fvRegister('conf-min', 'rangeMin', () => _confNum('conf-ex-min'), rangeSet('conf-ex-min', 'conf-ex-max', true), true);
+    _fvRegister('conf-max', 'rangeMax', () => _confNum('conf-ex-max'), rangeSet('conf-ex-max', 'conf-ex-min', false), true);
+
+    const grp = document.getElementById('conf-weight-group');
+    if (!grp) return;
+    if (wm === 'bw') {
+        grp.innerHTML = `<div class="ed-row"><span class="ed-tx"><span class="ed-m">במשקל גוף אין משקל התחלתי וקפיצות.</span></span></div>`;
+        return;
+    }
+    grp.innerHTML = `
+        <div class="ed-row"><span class="ed-tx"><span class="ed-n">משקל התחלתי</span><span class="ed-m">ריק = לפי ההיסטוריה</span></span>
+            <span class="ed-inline-val">${fvValueHtml('conf-base', 'אוטומטי')}</span></div>
+        <div class="ed-row ed-row--col"><span class="ed-n">קפיצה${wm === 'plates' ? ' (לכל צד)' : ''}</span><span class="ed-m">כמה מוסיפים בכל צעד בגלגלת</span>${fvChipsHtml('conf-step')}</div>
+        <div class="ed-row"><span class="ed-tx"><span class="ed-n">טווח בגלגלת</span><span class="ed-m">מה מוצג בזמן אימון</span></span>
+            <span class="ed-range"><span class="ed-inline-val">${fvValueHtml('conf-min', 'מינ׳')}</span><span class="ed-dash">–</span><span class="ed-inline-val">${fvValueHtml('conf-max', 'מקס׳')}</span></span></div>`;
 }

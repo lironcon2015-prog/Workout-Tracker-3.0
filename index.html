@@ -126,80 +126,66 @@
     </div>
 
     <!-- Exercise Config Modal -->
-    <div id="ex-config-modal" class="modal-overlay">
-        <div class="modal-content max-w-350">
-            <h3 id="ex-config-title">הגדרת תרגיל</h3>
-            <div class="vertical-stack gap-md text-right">
-                <div>
-                    <label class="input-label m-0 mb-xs">שם התרגיל</label>
-                    <input type="text" id="conf-ex-name" class="minimal-input m-0" placeholder="למשל: לחיצת חזה">
-                </div>
-                <div>
-                    <label class="input-label m-0 mb-xs">קבוצת שריר</label>
-                    <select id="conf-ex-muscle" class="minimal-input m-0 bg-card">
-                        <option value="חזה">חזה</option>
-                        <option value="גב">גב</option>
-                        <option value="רגליים">רגליים</option>
-                        <option value="כתפיים">כתפיים</option>
-                        <option value="יד קדמית">יד קדמית</option>
-                        <option value="יד אחורית">יד אחורית</option>
-                        <option value="בטן">בטן</option>
-                        <option value="קליסטניקס">קליסטניקס</option>
-                    </select>
-                </div>
-                <button class="subs-entry-row" id="btn-ex-subs" onclick="openSubsFromExConfig()">
-                    <span class="subs-entry-label">תרגילים תחליפיים</span>
-                    <span class="subs-entry-count" id="ex-config-subs-count">—</span>
-                </button>
-                <div class="flex-between border-bottom pb-sm">
-                    <span class="input-label m-0">חד-צדדי (Unilateral)</span>
-                    <input type="checkbox" id="conf-ex-uni" class="archive-checkbox">
-                </div>
-                <div>
-                    <label class="input-label m-0 mb-xs">תגיות תרגיל</label>
-                    <div class="conf-cue-hint">המתג קובע את מצב התגית בתחילת כל סט. סימון ידני חל על אותו סט בלבד.</div>
-                    <div id="conf-ex-cues" class="conf-cues"></div>
-                    <button type="button" class="conf-cue-add" onclick="addConfCue()">+ הוסף תגית</button>
-                </div>
-                <div>
-                    <label class="input-label m-0 mb-xs">שיטת משקל</label>
-                    <select id="conf-ex-wmode" class="minimal-input m-0 bg-card">
-                        <option value="kg">משקל (ק״ג)</option>
-                        <option value="plates">פלטות</option>
-                        <option value="bw">משקל גוף</option>
-                    </select>
-                </div>
-                <div class="input-grid grid-2-cols">
-                    <div>
-                        <label class="input-label m-0 mb-xs">משקל בסיס</label>
-                        <input type="number" id="conf-ex-base" class="minimal-input m-0" placeholder="kg">
-                    </div>
-                    <div>
-                        <label class="input-label m-0 mb-xs">קפיצות (Step)</label>
-                        <select id="conf-ex-step" class="minimal-input m-0 bg-card">
-                            <option value="0.5">0.5</option>
-                            <option value="1">1.0</option>
-                            <option value="1.25">1.25</option>
-                            <option value="2.5">2.5</option>
-                            <option value="5">5.0</option>
-                            <option value="10">10.0</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="input-grid grid-2-cols">
-                    <div>
-                        <label class="input-label m-0 mb-xs">מינימום</label>
-                        <input type="number" id="conf-ex-min" class="minimal-input m-0" placeholder="0">
-                    </div>
-                    <div>
-                        <label class="input-label m-0 mb-xs">מקסימום</label>
-                        <input type="number" id="conf-ex-max" class="minimal-input m-0" placeholder="200">
-                    </div>
-                </div>
+    <!-- יצירה / עריכה של תרגיל (v2) — כל ה-IDs הישנים נשמרים ונקראים ב-saveExerciseConfig -->
+    <div id="ex-config-modal" class="modal-overlay ed-modal">
+        <div class="modal-content ed-modal-box">
+            <div class="ed-modal-head">
+                <button class="ed-link" onclick="closeExConfigModal()">ביטול</button>
+                <h3 id="ex-config-title">תרגיל חדש</h3>
+                <button class="ed-link" onclick="saveExerciseConfig()">שמור</button>
             </div>
-            <button class="btn-main primary-gradient" onclick="saveExerciseConfig()">שמור הגדרות</button>
-            <button id="btn-delete-ex" class="btn-text color-danger d-none" onclick="deleteExercise()">מחק תרגיל מהמאגר</button>
-            <button class="btn-text" onclick="closeExConfigModal()">ביטול</button>
+            <input type="text" id="conf-ex-name" class="ed-field" placeholder="שם התרגיל">
+
+            <div class="ed-glbl">קבוצת שריר</div>
+            <div id="conf-muscle-chips" class="fv-chips"></div>
+            <select id="conf-ex-muscle" hidden>
+                <option value="חזה">חזה</option>
+                <option value="גב">גב</option>
+                <option value="רגליים">רגליים</option>
+                <option value="כתפיים">כתפיים</option>
+                <option value="יד קדמית">יד קדמית</option>
+                <option value="יד אחורית">יד אחורית</option>
+                <option value="בטן">בטן</option>
+                <option value="קליסטניקס">קליסטניקס</option>
+            </select>
+
+            <div class="ed-glbl">איך נמדד המשקל</div>
+            <div class="km-seg-control ed-seg" id="conf-wmode-seg">
+                <button class="km-seg-btn" data-wm="kg" onclick="_confSetWMode('kg')">ק״ג</button>
+                <button class="km-seg-btn" data-wm="plates" onclick="_confSetWMode('plates')">פלטות</button>
+                <button class="km-seg-btn" data-wm="bw" onclick="_confSetWMode('bw')">משקל גוף</button>
+            </div>
+            <select id="conf-ex-wmode" hidden>
+                <option value="kg">משקל (ק״ג)</option>
+                <option value="plates">פלטות</option>
+                <option value="bw">משקל גוף</option>
+            </select>
+
+            <div class="ed-group" id="conf-weight-group"></div>
+            <input type="hidden" id="conf-ex-base">
+            <input type="hidden" id="conf-ex-step" value="2.5">
+            <input type="hidden" id="conf-ex-min">
+            <input type="hidden" id="conf-ex-max">
+
+            <div class="ed-group">
+                <div class="ed-row">
+                    <span class="ed-tx"><span class="ed-n">חד-צדדי</span><span class="ed-m">כל סט נרשם לכל צד בנפרד</span></span>
+                    <label class="km-switch"><input type="checkbox" id="conf-ex-uni"><span class="km-switch-track"></span></label>
+                </div>
+                <button class="ed-row ed-row--btn" id="btn-ex-subs" onclick="openSubsFromExConfig()">
+                    <span class="ed-tx"><span class="ed-n">תרגילים תחליפיים</span></span>
+                    <span class="ed-m" id="ex-config-subs-count">—</span><span class="ed-chev">‹</span>
+                </button>
+            </div>
+
+            <div class="ed-glbl">תגיות</div>
+            <div class="ed-group ed-pad">
+                <div class="ed-note">המתג ליד כל תגית קובע אם היא דלוקה בתחילת כל סט.</div>
+                <div id="conf-ex-cues" class="conf-cues"></div>
+                <button type="button" class="ed-link ed-link--sm conf-cue-add" onclick="addConfCue()">+ הוסף תגית</button>
+            </div>
+
+            <button id="btn-delete-ex" class="ed-danger d-none" onclick="deleteExercise()">מחק תרגיל מהמאגר</button>
         </div>
     </div>
 
@@ -1158,15 +1144,18 @@
 
             </div>
 
-            <!-- EXERCISE DATABASE -->
-            <div id="ui-exercise-db" class="screen">
-                <div class="sticky-header">
-                    <h2 class="section-title mb-sm">מאגר תרגילים</h2>
-                    <div class="search-wrap">
-                        <span class="material-symbols-outlined search-wrap-icon">search</span>
-                        <input type="text" id="db-search" class="search-input" placeholder="חפש תרגיל לעריכה..." oninput="renderExerciseDatabase()">
-                    </div>
-                    <div class="chip-container">
+            <!-- EXERCISE DATABASE (v2) -->
+            <div id="ui-exercise-db" class="screen ed2-screen">
+                <div class="ed-head">
+                    <h2 class="ed-title">תרגילים</h2>
+                    <button class="ed-link" onclick="openExerciseCreator()">חדש</button>
+                </div>
+                <div id="db-sub" class="ed-sub ed-sub--pad"></div>
+                <div class="search-wrap">
+                    <span class="material-symbols-outlined search-wrap-icon">search</span>
+                    <input type="text" id="db-search" class="search-input" placeholder="חיפוש תרגיל" oninput="renderExerciseDatabase()">
+                </div>
+                <div class="chip-container">
                         <button class="chip active" onclick="setDbFilter('all', this)">הכל</button>
                         <button class="chip" onclick="setDbFilter('חזה', this)">חזה</button>
                         <button class="chip" onclick="setDbFilter('גב', this)">גב</button>
@@ -1175,116 +1164,77 @@
                         <button class="chip" onclick="setDbFilter('ידיים', this)">ידיים</button>
                         <button class="chip" onclick="setDbFilter('בטן', this)">בטן</button>
                         <button class="chip" onclick="setDbFilter('קליסטניקס', this)">קליסטניקס</button>
-                    </div>
-                    <button class="btn-text color-type-b border-dashed border-type-b mt-sm font-semi" onclick="openExerciseCreator()">+ יצירת תרגיל חדש</button>
                 </div>
-                <div id="db-list" class="vertical-stack pt-sm"></div>
-                <button class="btn-text" onclick="handleBackClick()">חזור</button>
+                <div id="db-list" class="ed-stack"></div>
             </div>
 
-            <!-- WORKOUT MANAGER -->
-            <div id="ui-workout-manager" class="screen km-manager-screen">
-                <div id="manager-list" class="km-manager-list"></div>
-                <div class="km-manager-bottom-actions">
-                    <button id="btn-create-workout" class="km-fab-btn primary-gradient" onclick="createNewWorkout()">
-                        <span class="material-symbols-outlined" style="font-size:1.2rem;line-height:1;">add</span>
-                        צור תוכנית חדשה
-                    </button>
-                    <button class="btn-save-cloud km-cloud-link" onclick="saveWorkoutManagerToCloud()"><span class="material-symbols-outlined inline-arrow">cloud_upload</span> שמור קונפיגורציה לענן</button>
+            <!-- WORKOUT MANAGER (v2) -->
+            <div id="ui-workout-manager" class="screen km-manager-screen ed2-screen">
+                <div class="ed-head">
+                    <h2 class="ed-title">תוכניות</h2>
+                    <button id="btn-create-workout" class="ed-link" onclick="createNewWorkout()">חדשה</button>
                 </div>
+                <div id="manager-list" class="ed-stack"></div>
+                <button class="ed-quiet-link" onclick="saveWorkoutManagerToCloud()">שמור קונפיגורציה לענן</button>
             </div>
 
-            <!-- WORKOUT EDITOR -->
-            <div id="ui-workout-editor" class="screen km-editor-screen">
-
-                <!-- זהות אימון -->
-                <div class="km-section-label">זהות אימון</div>
-                <div class="km-identity-card">
-                    <input type="text" id="editor-workout-name" class="km-title-input" placeholder="שם תוכנית">
-                    <div class="km-toggle-row km-toggle-row--first">
-                        <span class="km-toggle-label">דילואוד</span>
-                        <label class="km-switch">
-                            <input type="checkbox" id="editor-deload-check">
-                            <span class="km-switch-track"></span>
-                        </label>
-                    </div>
-                    <div class="km-toggle-row">
-                        <span class="km-toggle-label">מוגבל</span>
-                        <label class="km-switch">
-                            <input type="checkbox" id="editor-deload-only-check">
-                            <span class="km-switch-track"></span>
-                        </label>
-                    </div>
-                    <div class="km-toggle-row">
-                        <span class="km-toggle-label">מוסתר</span>
-                        <label class="km-switch">
-                            <input type="checkbox" id="editor-hidden-check">
-                            <span class="km-switch-track"></span>
-                        </label>
-                    </div>
+            <!-- WORKOUT EDITOR (v2) — שדות ה-IDs הישנים נשמרים; ה-UI החדש מזין אותם -->
+            <div id="ui-workout-editor" class="screen km-editor-screen ed2-screen">
+                <div class="ed-head ed-head--end">
+                    <button id="ed-reorder-btn" class="ed-link" onclick="edToggleReorder()">סדר</button>
+                </div>
+                <div class="ed-hero" id="ed-hero">
+                    <input type="text" id="editor-workout-name" class="ed-title-input" placeholder="שם התוכנית" oninput="_edRefreshSave()">
+                    <div id="ed-hero-sub" class="ed-sub"></div>
+                    <div id="ed-muscles"></div>
                 </div>
 
-                <!-- סוג תוכנית: כוח / אירובי -->
-                <div class="km-section-label km-section-label--mt">סוג תוכנית</div>
-                <div class="km-seg-control" id="editor-kind-seg">
-                    <button class="km-seg-btn" data-kind="cardio" onclick="setEditorKind('cardio')">אירובי</button>
-                    <button class="km-seg-btn active" data-kind="strength" onclick="setEditorKind('strength')">כוח</button>
-                </div>
+                <!-- סוג תוכנית: בתוכנית חדשה מוצג כאן, בקיימת עובר לגיליון ההגדרות -->
+                <div id="ed-kind-slot-body"></div>
 
                 <!-- אירובי: מודל, זמנים וקומבינציות -->
                 <div id="editor-cardio-block" style="display:none;">
-                    <div class="km-section-label km-section-label--mt">מודל אימון</div>
-                    <div class="km-seg-control" id="editor-cardio-mode-seg">
+                    <div class="km-seg-control ed-seg" id="editor-cardio-mode-seg">
                         <button class="km-seg-btn" data-mode="open" onclick="setEditorCardioMode('open')">רציף</button>
                         <button class="km-seg-btn active" data-mode="interval" onclick="setEditorCardioMode('interval')">סבבים</button>
                     </div>
                     <div id="editor-cardio-fields"></div>
                 </div>
 
-                <!-- צבע מזהה -->
-                <div class="km-section-label km-section-label--mt">צבע מזהה</div>
-                <div id="editor-color-swatches" class="km-accent-row"></div>
-
-                <!-- תמונת אימון -->
-                <div class="km-section-label km-section-label--mt">תמונת אימון</div>
-                <div id="editor-thumb-picker" class="km-thumb-grid"></div>
-
-                <!-- זרימת אימון -->
-                <div class="km-flow-header" id="editor-flow-header">
-                    <span class="km-section-label" style="margin:0;">זרימת אימון</span>
-                    <span id="editor-block-count" class="km-block-count">0 בלוקים סה"כ</span>
+                <div id="editor-flow-header" class="ed-reorder-hint">גרור כדי לשנות סדר. העיגול האדום מסיר.</div>
+                <span id="editor-block-count" style="display:none;"></span>
+                <div id="editor-list" class="ed-stack"></div>
+                <div id="ed-empty" class="ed-empty" style="display:none;">
+                    <b>אין עדיין תרגילים</b>
+                    <p>מוסיפים כמה תרגילים בבת אחת, ומסדרים אחר כך בגרירה. סבב (סופרסט) נוצר דרך "הוסף".</p>
+                    <button class="ed-btn ed-btn--sec" onclick="openExerciseSelector()">הוסף תרגילים</button>
                 </div>
-                <div id="editor-list" class="vertical-stack km-editor-list"></div>
 
-                <!-- BOTTOM ACTIONS -->
-                <div class="km-editor-bottom-actions">
-                    <div class="km-add-row" id="editor-add-row">
-                        <button class="km-add-btn" onclick="openExerciseSelector()">
-                            <span class="material-symbols-outlined km-add-icon">add_circle</span>
-                            הוסף תרגיל
-                        </button>
-                        <button class="km-add-btn km-add-btn--cluster" onclick="addClusterToEditor()">
-                            <span class="material-symbols-outlined km-add-icon">hub</span>
-                            צור סבב
-                        </button>
-                    </div>
-                    <button class="btn-main primary-gradient km-save-btn" onclick="saveWorkoutChanges()">
-                        <span class="material-symbols-outlined" style="font-size:1.1rem;">save</span>
-                        שמור שינויים
+                <div class="ed-group" id="ed-settings-row">
+                    <button class="ed-row ed-row--btn" onclick="openPlanSettings()">
+                        <span class="ed-tx"><span class="ed-n">הגדרות תוכנית</span><span class="ed-m" id="ed-settings-sub">שם, צבע, תמונה, מתי מוצג</span></span>
+                        <span class="ed-chev">‹</span>
                     </button>
-                    <button class="btn-text" onclick="handleBackClick()">ביטול</button>
+                </div>
+
+                <!-- סרגל תחתון -->
+                <div class="ed-bar" id="ed-bar">
+                    <span id="editor-add-row"><button class="ed-btn ed-btn--sec" onclick="edOpenAddSheet()">הוסף</button></span>
+                    <button id="ed-save-btn" class="ed-btn ed-btn--pri" onclick="saveWorkoutChanges()">שמור</button>
                 </div>
             </div>
 
-            <!-- EXERCISE SELECTOR -->
-            <div id="ui-exercise-selector" class="screen">
-                <div class="sticky-header">
-                    <h2 class="section-title mb-sm">בחר תרגיל</h2>
-                    <div class="search-wrap">
-                        <span class="material-symbols-outlined search-wrap-icon">search</span>
-                        <input type="text" id="selector-search" class="search-input" placeholder="חפש תרגיל..." oninput="filterSelector()">
-                    </div>
-                    <div class="chip-container">
+            <!-- EXERCISE SELECTOR (v2) — בחירה מרובה / החלפה -->
+            <div id="ui-exercise-selector" class="screen ed2-screen">
+                <div class="ed-head">
+                    <h2 class="ed-title" id="sel-title">הוסף תרגילים</h2>
+                    <button class="ed-link" onclick="openExerciseCreator()">חדש</button>
+                </div>
+                <div class="search-wrap">
+                    <span class="material-symbols-outlined search-wrap-icon">search</span>
+                    <input type="text" id="selector-search" class="search-input" placeholder="חיפוש תרגיל" oninput="filterSelector()">
+                </div>
+                <div class="chip-container">
                         <button class="chip active" onclick="setSelectorFilter('all', this)">הכל</button>
                         <button class="chip" onclick="setSelectorFilter('חזה', this)">חזה</button>
                         <button class="chip" onclick="setSelectorFilter('גב', this)">גב</button>
@@ -1293,11 +1243,11 @@
                         <button class="chip" onclick="setSelectorFilter('ידיים', this)">ידיים</button>
                         <button class="chip" onclick="setSelectorFilter('בטן', this)">בטן</button>
                         <button class="chip" onclick="setSelectorFilter('קליסטניקס', this)">קליסטניקס</button>
-                    </div>
-                    <button class="btn-text color-type-b border-dashed border-type-b mt-sm font-semi" onclick="openExerciseCreator()">+ יצירת תרגיל חדש</button>
                 </div>
-                <div id="selector-list" class="vertical-stack pt-sm"></div>
-                <button class="btn-text" onclick="handleBackClick()">ביטול</button>
+                <div id="selector-list" class="ed-stack"></div>
+                <div class="ed-bar" id="sel-bar">
+                    <button id="sel-add-btn" class="ed-btn ed-btn--pri is-off" disabled onclick="selCommit()">סמן תרגילים להוספה</button>
+                </div>
             </div>
 
             <div id="ui-workout-type" class="screen">
@@ -2222,6 +2172,78 @@
         <span id="min-pill-main" class="min-pill-main">אימון פעיל</span>
         <span id="min-pill-sub" class="min-pill-sub">חזור לאימון</span>
     </button>
+
+    <!-- ═══ עורך תוכניות v2: גיליונות ═══ -->
+    <div id="ed-sheet-overlay" class="bottom-sheet-overlay" onclick="edCloseSheets()"></div>
+    <div id="ed-ex-sheet" class="bottom-sheet ed-sheet"><div class="sheet-handle"></div><div id="ed-ex-body"></div></div>
+    <div id="ed-cl-sheet" class="bottom-sheet ed-sheet"><div class="sheet-handle"></div><div id="ed-cl-body"></div></div>
+    <div id="ed-add-sheet" class="bottom-sheet ed-sheet">
+        <div class="sheet-handle"></div>
+        <div class="ed-group">
+            <button class="ed-row ed-row--btn" onclick="edCloseSheets();openExerciseSelector()"><span class="ed-tx"><span class="ed-n">תרגילים</span><span class="ed-m">בחירה של כמה תרגילים בבת אחת</span></span><span class="ed-chev">‹</span></button>
+            <button class="ed-row ed-row--btn" onclick="edCloseSheets();addClusterToEditor()"><span class="ed-tx"><span class="ed-n">סבב חדש</span><span class="ed-m">סופרסט או ג׳יאנט סט</span></span><span class="ed-chev">‹</span></button>
+        </div>
+    </div>
+    <div id="ed-plan-sheet" class="bottom-sheet ed-sheet ed-sheet--tall">
+        <div class="sheet-handle"></div>
+        <h3 class="ed-sheet-title">הגדרות תוכנית</h3>
+        <div id="ed-kind-slot-sheet">
+            <div id="ed-kind-block">
+                <div class="ed-glbl">סוג</div>
+                <div class="km-seg-control ed-seg" id="editor-kind-seg">
+                    <button class="km-seg-btn active" data-kind="strength" onclick="setEditorKind('strength')">כוח</button>
+                    <button class="km-seg-btn" data-kind="cardio" onclick="setEditorKind('cardio')">אירובי</button>
+                </div>
+            </div>
+        </div>
+        <div class="ed-glbl">מתי מוצג</div>
+        <div class="km-seg-control ed-seg" id="ed-when-seg">
+            <button class="km-seg-btn" data-when="regular" onclick="edSetWhen('regular')">שבועות 1–3</button>
+            <button class="km-seg-btn" data-when="both" onclick="edSetWhen('both')">גם בדילואוד</button>
+            <button class="km-seg-btn" data-when="deload" onclick="edSetWhen('deload')">רק בדילואוד</button>
+        </div>
+        <div class="ed-glbl">צבע ותמונה</div>
+        <div class="ed-group ed-pad">
+            <div id="editor-color-swatches" class="km-accent-row"></div>
+            <div id="editor-thumb-picker" class="km-thumb-grid"></div>
+        </div>
+        <div class="ed-group">
+            <div class="ed-row">
+                <span class="ed-tx"><span class="ed-n">הסתר מבחירת אימון</span><span class="ed-m">נשמרת, אבל לא מופיעה בשבוע</span></span>
+                <label class="km-switch"><input type="checkbox" id="editor-hidden-check" onchange="_edRefreshSave()"><span class="km-switch-track"></span></label>
+            </div>
+            <button class="ed-row ed-row--btn" id="ed-dup-row" onclick="edDuplicatePlan()"><span class="ed-tx"><span class="ed-n">שכפל תוכנית</span><span class="ed-m">עותק של הגרסה השמורה</span></span><span class="ed-chev">‹</span></button>
+        </div>
+        <!-- שדות הדאטה הישנים של "מתי מוצג" — נקראים ב-saveWorkoutChanges -->
+        <input type="checkbox" id="editor-deload-check" hidden>
+        <input type="checkbox" id="editor-deload-only-check" hidden>
+        <button class="ed-danger" id="ed-del-row" onclick="edDeletePlan()">מחק תוכנית</button>
+        <button class="ed-btn ed-btn--sec ed-btn--block" onclick="edCloseSheets()">סיום</button>
+    </div>
+
+    <!-- ערך גמיש: גיליון הקלדה ידנית (מעל כל הגיליונות) -->
+    <div id="fv-overlay" class="fv-overlay" style="display:none;" onclick="if(event.target===this)fvClose()">
+        <div class="fv-box" role="dialog" aria-labelledby="fv-title">
+            <div class="fv-title" id="fv-title"></div>
+            <div class="fv-field" id="fv-time">
+                <input type="text" id="fv-mm" inputmode="numeric" maxlength="3" placeholder="0" aria-label="דקות" onkeydown="if(event.key==='Enter')fvConfirm()">
+                <span class="fv-colon">:</span>
+                <input type="text" id="fv-ss" inputmode="numeric" maxlength="2" placeholder="00" aria-label="שניות" onkeydown="if(event.key==='Enter')fvConfirm()">
+                <span class="fv-unit">דק׳ : שנ׳</span>
+            </div>
+            <div class="fv-field" id="fv-num">
+                <input type="text" id="fv-input" inputmode="decimal" aria-label="ערך" onkeydown="if(event.key==='Enter')fvConfirm()">
+                <span class="fv-unit" id="fv-unit"></span>
+            </div>
+            <div class="fv-hint" id="fv-hint"></div>
+            <div class="fv-err" id="fv-err" role="alert"></div>
+            <div class="fv-actions">
+                <button class="ed-btn ed-btn--sec" id="fv-clear" onclick="fvClear()">ללא</button>
+                <button class="ed-btn ed-btn--sec" onclick="fvClose()">ביטול</button>
+                <button class="ed-btn ed-btn--pri" onclick="fvConfirm()">אישור</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Live Mode: Edit Current Set Sheet (פותח לעריכת weight/reps/RIR) -->
     <div id="live-edit-overlay" class="bottom-sheet-overlay" onclick="closeLiveEditSheet()"></div>

@@ -389,9 +389,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // החלת ערכת הצבעים השמורה (גיבוי לסקריפט ה-head) + סנכרון השבבים
     if (typeof initColorTheme === 'function') initColorTheme();
     // שחזור העדפת הצלילים (ברירת מחדל: כבוי) + סנכרון אייקון הכפתור
+    // מעבר חד-פעמי: עד v19.13.12 אימון סבבים באירובי הדליק את המתג הזה ושמר אותו,
+    // כך שהערך השמור לא משקף בחירה של המשתמש — מאפסים לכבוי פעם אחת.
+    if (StorageManager.getData('gympro_sound_split_v1') !== true) {
+        StorageManager.saveData(StorageManager.KEY_SOUND, false);
+        StorageManager.saveData('gympro_sound_split_v1', true);
+    }
     soundEnabled = StorageManager.getData(StorageManager.KEY_SOUND) === true;
     const _soundTgl = document.getElementById('sound-toggle');
     if (_soundTgl) _soundTgl.checked = soundEnabled;
+    const _cSoundTgl = document.getElementById('cardio-sound-settings-toggle');
+    if (_cSoundTgl) _cSoundTgl.checked = _cardioSoundOn();
     if (typeof renderWorkoutMenu === 'function') renderWorkoutMenu();
     // קריאה לפני checkRecovery — היא מבחינה לפיה בין רענון לא-רצוני להפעלה טרייה
     _bootUIState = readUIState();
@@ -1643,6 +1651,8 @@ function openSettings() {
     if (typeof syncThemePicker === 'function') syncThemePicker();
     const _st = document.getElementById('sound-toggle');
     if (_st) _st.checked = soundEnabled;
+    const _cst = document.getElementById('cardio-sound-settings-toggle');
+    if (_cst) _cst.checked = _cardioSoundOn();
     switchSettingsTab('general');   // תמיד נפתח על לשונית "כללי"
 }
 
@@ -9781,6 +9791,47 @@ async function exitWorkoutLiveMode(silent = false) {
 }
 
 // Helper שמופעל מהכפתור "המשך לתרגיל הבא" בתוך ה-Live View
+// _syncLiveExMenu — מקטע "התרגיל הנוכחי" בתפריט ה-··· (Live בלבד). "דלג" ו"סיים סבב"
+// משקפים את הכפתורים ב-ui-main (מקור אמת אחד לנראות). "סט נוסף" — לא בסבב ולא בדרופ.
+function _syncLiveExMenu() {
+    const sec = document.getElementById('wq-live-ex');
+    if (!sec) return;
+    const live = document.body.classList.contains('live-mode-active') && _activeScreenId() === 'ui-main';
+    const shown = id => { const el = document.getElementById(id); return !!(el && el.style.display !== 'none' && el.style.display !== ''); };
+    const dp = document.getElementById('drop-panel');
+    const dropOpen = !!(dp && dp.style.display === 'block');
+    const items = {
+        'wq-live-add-set':      !state.clusterMode && !state.dropMode && !dropOpen && !!state.currentEx,
+        'wq-live-finish-round': shown('btn-finish-round'),
+        'wq-live-skip':         shown('btn-skip-exercise')
+    };
+    let any = false;
+    Object.keys(items).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (live && items[id]) ? 'flex' : 'none';
+        any = any || (live && items[id]);
+    });
+    sec.style.display = any ? 'block' : 'none';
+}
+
+// _liveAddSet — "סט נוסף" מ-Live. בסוף תרגיל = addExtraSet (כמו במסך הרגיל);
+// באמצע תרגיל = מוסיף סט בסוף הרשימה בלי לגעת בסט הנוכחי ובפיקרים.
+function _liveAddSet() {
+    if (!state.currentEx || !Array.isArray(state.currentEx.sets) || !state.currentEx.sets.length) return;
+    const ap = document.getElementById('action-panel');
+    if (ap && ap.style.display === 'block') {
+        addExtraSet();
+    } else {
+        const sets = state.currentEx.sets;
+        sets.push({ ...sets[sets.length - 1] });
+        const badge = document.getElementById('set-counter');
+        if (badge && !state.clusterMode) badge.innerText = `SET ${Math.min(state.setIdx, sets.length - 1) + 1}/${sets.length}`;
+        StorageManager.saveSessionState();
+        haptic('light');
+    }
+    setTimeout(updateLiveViewContent, 80);
+}
+
 function _liveContinueExercise() {
     if (typeof finishCurrentExercise === 'function') {
         finishCurrentExercise();
@@ -9996,11 +10047,13 @@ function updateLiveViewContent() {
     const mode = apVisible ? 'action' : (dpVisible ? 'drop' : 'swipe');
     if (swipeCard && swipeCard.dataset.mode !== mode) {
         swipeCard.dataset.mode = mode;
+        swipeCard.classList.toggle('live-swipe-card--action', mode === 'action');
         if (mode === 'action') {
             swipeCard.innerHTML = `
                 <button class="live-action-btn" onclick="_liveContinueExercise()">
                     המשך לתרגיל הבא
-                </button>`;
+                </button>
+                ${state.clusterMode ? '' : '<button class="live-action-link" onclick="_liveAddSet()">+ סט נוסף</button>'}`;
             swipeCard.style.cursor = 'default';
         } else if (mode === 'drop') {
             const atMax = (state.dropLevel || 0) >= DROP_MAX;
@@ -10321,8 +10374,25 @@ function _cardioBell(when) {
     src.start(t0);
 }
 
+// צלילי אירובי — העדפה נפרדת מצלילי אימון הכוח (soundEnabled). ברירת מחדל: פעיל.
+function _cardioSoundOn() {
+    return StorageManager.getCardioPrefs().soundOn !== false;
+}
+
+// cardioSetSound — מתג הצלילים של האירובי (הגדרות + מסך היכון). לא נוגע ב-soundEnabled.
+function cardioSetSound(on) {
+    StorageManager.saveCardioPrefs({ soundOn: !!on });
+    ['cardio-sound-toggle', 'cardio-sound-settings-toggle'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!on;
+    });
+    haptic('medium');
+    // הדלקה = מחוות משתמש: פותחים את ה-AudioContext עכשיו (חובה ב-iOS) ומשמיעים אישור
+    if (on && _cardioArmAudio()) setTimeout(() => cardioGong(1), 60);
+}
+
 function cardioGong(times) {
-    if (!soundEnabled || !audioContext) return;
+    if (!_cardioSoundOn() || !audioContext) return;
     const n = Math.max(1, Math.min(3, times || 1));
     const t0 = audioContext.currentTime;
     for (let i = 0; i < n; i++) _cardioBell(t0 + i * 0.4);
@@ -10346,14 +10416,14 @@ function _cardioClack(when) {
 }
 
 function cardioClapper() {
-    if (!soundEnabled || !audioContext) return;
+    if (!_cardioSoundOn() || !audioContext) return;
     const t0 = audioContext.currentTime;
     [0, 0.22, 0.44].forEach(d => _cardioClack(t0 + d));
 }
 
 // cardioBlip — ספירת 3-2-1 בסוף ה"היכון".
 function cardioBlip() {
-    if (!soundEnabled || !audioContext) return;
+    if (!_cardioSoundOn() || !audioContext) return;
     const t0 = audioContext.currentTime;
     const o = audioContext.createOscillator();
     const g = audioContext.createGain();
@@ -10383,15 +10453,8 @@ function startCardio(name) {
         paused: false, pausedAt: null, pausedTotalMs: 0,
         startedAt: null, roundLog: []
     };
-    // אימון סבבים בלי צליל הוא חסר משמעות — הצלילים נדלקים כאן, לפני הרינדור,
-    // כדי שהמתג במסך יציג את המצב האמיתי ושכיבוי מכוון יישאר מכובד.
-    // בלי צפצוף: ה-AudioContext נפתח על הלחיצה על "התחל אימון" (חובה ב-iOS).
-    if (cfg.mode === 'interval' && !soundEnabled) {
-        soundEnabled = true;
-        StorageManager.saveData(StorageManager.KEY_SOUND, true);
-        const _tg = document.getElementById('sound-toggle');
-        if (_tg) _tg.checked = true;
-    }
+    // צלילי האירובי נשלטים ע"י cardioPrefs.soundOn (ברירת מחדל: פעיל) — לא נוגעים
+    // כאן ב-soundEnabled של אימון הכוח. הדלקה כפויה שלו גרמה לצפצופים בטיימר המנוחה.
     navigate('ui-cardio-setup');
     renderCardioSetup();
     StorageManager.saveSessionState();
@@ -10474,8 +10537,8 @@ function renderCardioSetup() {
                     <span class="cs-row-sub">גונג, קלאקר ${CARDIO_CLAPPER_AT} שניות, ספירה לאחור</span>
                 </div>
                 <label class="km-switch">
-                    <input type="checkbox" id="cardio-sound-toggle" ${soundEnabled ? 'checked' : ''}
-                           onchange="toggleSound(this.checked)">
+                    <input type="checkbox" id="cardio-sound-toggle" ${_cardioSoundOn() ? 'checked' : ''}
+                           onchange="cardioSetSound(this.checked)">
                     <span class="km-switch-track"></span>
                 </label>
             </div>
@@ -10538,7 +10601,9 @@ function cardioSetVolume(v) {
 }
 
 function cardioTestGong() {
-    if (!soundEnabled) { toggleSound(true); }
+    if (!_cardioSoundOn()) StorageManager.saveCardioPrefs({ soundOn: true });
+    const _ct = document.getElementById('cardio-sound-toggle');
+    if (_ct) _ct.checked = true;
     _cardioArmAudio();
     setTimeout(() => cardioGong(1), 60);
     haptic('light');

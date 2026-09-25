@@ -82,7 +82,7 @@ const StorageManager = {
     _todayKey() { const d = new Date(), p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; },
 
     // ── אירובי: העדפות צליל וזמן ──────────────────────────────────────────
-    CARDIO_PREFS_DEFAULT: { soundPack: 'boxing', gongVolume: 0.7, soloDucking: false },
+    CARDIO_PREFS_DEFAULT: { soundPack: 'boxing', gongVolume: 0.7, soloDucking: false, soundOn: true },
     getCardioPrefs() {
         const p = this.getData(this.KEY_CARDIO_PREFS) || {};
         return Object.assign({}, this.CARDIO_PREFS_DEFAULT, p);

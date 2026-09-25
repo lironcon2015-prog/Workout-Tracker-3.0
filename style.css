@@ -5840,9 +5840,31 @@ body.live-mode-active .workout-quick-menu {
     flex-shrink: 0;
     font-variation-settings: 'FILL' 0, 'wght' 400;
 }
-.workout-menu-item:nth-child(2) .material-symbols-outlined { color: var(--secondary); }
-.workout-menu-item:nth-child(3) .material-symbols-outlined { color: var(--type-c); }
+.workout-menu-item:nth-of-type(2) .material-symbols-outlined { color: var(--secondary); }
+.workout-menu-item:nth-of-type(3) .material-symbols-outlined { color: var(--type-c); }
 .wq-item-text { flex: 1; }
+
+/* מקטע "התרגיל הנוכחי" — Live בלבד, טקסט בלי אייקונים */
+.wq-sec-lbl {
+    padding: 6px 12px 2px;
+    font-size: var(--fs-xs); font-weight: 700;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.4);
+}
+.wq-sec-sep { height: 1px; background: rgba(255,255,255,0.08); margin: 6px 8px; }
+.workout-menu-item.wq-item--warn { color: var(--danger); }
+
+/* סוף תרגיל ב-Live — "המשך" + קישור שקט "+ סט נוסף" מתחתיו */
+.live-swipe-card.live-swipe-card--action { flex-direction: column; gap: 6px; }
+.live-action-link {
+    background: none; border: none; cursor: pointer;
+    font-family: 'Heebo', sans-serif; font-weight: 700;
+    font-size: var(--fs-md);
+    color: rgba(255,255,255,0.7);
+    padding: 6px 12px;
+    -webkit-tap-highlight-color: transparent;
+}
+.live-action-link:active { color: #fff; }
 
 /* ════════════════════════════════════════════════════════════════════
    Live Mode — bottom-sheets צריכים להיות מעל ה-overlay

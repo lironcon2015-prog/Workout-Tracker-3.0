@@ -188,6 +188,7 @@ const CoachDrive = {
         if (err && err.name === 'AbortError') return 'הגשר לא ענה בזמן (timeout)';
         if (m === 'BAD_ACTION') return 'הגשר לא מכיר את coachWrite — פרוס גרסה חדשה של photo-bridge.gs (Deploy → New version)';
         if (m === 'BAD_TOKEN') return 'ה-token של גשר התמונות שגוי';
+        if (m === 'TOKEN_NOT_SET') return 'בסקריפט של גשר התמונות לא הוגדר SECRET_TOKEN (Project Settings → Script properties)';
         if (m === 'BUSY') return 'הגשר עסוק בסנכרון אחר';
         if (m === 'NO_BRIDGE') return 'גשר התמונות לא מוגדר (URL ו-token בהגדרות "תמונות התקדמות")';
         if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'שגיאת רשת';

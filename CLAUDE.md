@@ -284,6 +284,13 @@ version.json: { "version": "19.MINOR.PATCH" }
 | `version.json` | גרסה נוכחית |
 | `test/` | בדיקות Node ללא תלויות — נטענות מסמני `X-START`/`X-END` בקוד המקור |
 
+### token של גשר Apps Script — ב-Script properties, לא בקוד
+
+`docs/photo-bridge.gs` קורא את ה-token מ-Script properties (`SECRET_TOKEN`), כמו `ADMIN_CODE`
+בגשר של MGivatayim. token שכתוב בקובץ נמחק בכל הדבקה של גרסה חדשה, והמשתמש נאלץ להעתיק
+אותו מחדש. "לא הוגדר" (`TOKEN_NOT_SET`) ו"שגוי" (`BAD_TOKEN`) הן שתי שגיאות נפרדות.
+שאר הגשרים עוד מחזיקים `SECRET_TOKEN` בקוד — כשנוגעים בגשר, מעבירים אותו לאותו דפוס.
+
 ### כלל אחידות פיקרים (תיעוד סטים)
 
 לפיקרים של תיעוד סטים יש **שתי חזיתות UI**: המסך המפורט (`ui-main` — weight/reps/rir pickers + steppers) ומסך ה-**Live** (`live-edit-sheet` — proxy לאותם pickers). **כל שינוי או פיצ'ר בפיקרים חייב לחול על שתיהן** (כולל `_syncLiveEditSheetDisplays`, `_syncLiveWeightModeUI`, `editLivePickerValue`, `_liveStepPicker`). חריג: שינוי שנועד בכוונה לחזית אחת בלבד — ואז **חובה לשאול את המשתמש** האם להחיל בשתיהן לפני הביצוע.
@@ -298,7 +305,7 @@ version.json: { "version": "19.MINOR.PATCH" }
 ---
 
 ## גרסה נוכחית
-19.16.0
+19.16.1
 
 ---
 

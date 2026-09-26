@@ -120,7 +120,7 @@ const gasSandbox = {
     Utilities: { newBlob: (content, mime, name) => ({ content, mime, name }) },
     ContentService: { createTextOutput: text => ({ text, setMimeType() { return this; } }), MimeType: { JSON: 'json' } }
 };
-const bridgeSrc = read('docs/photo-bridge.gs').replace("var SECRET_TOKEN = 'CHANGE_ME_to_a_random_secret';", "var SECRET_TOKEN = 'tok';");
+const bridgeSrc = read('docs/photo-bridge.gs');
 const bridge = new Function(...Object.keys(gasSandbox), bridgeSrc + '\nreturn { doPost };')(...Object.values(gasSandbox));
 
 const ls = {};
@@ -182,6 +182,16 @@ ctx.CoachDrive.setOn(true);
 
 const liveFiles = () => drive.files.filter(f => !f.trashed);
 (async () => {
+    // ה-token נקרא מ-Script properties, לא מהקובץ — כך הדבקת גרסה חדשה לא מאפסת אותו
+    ok(!/CHANGE_ME/.test(bridgeSrc), 'אין token בקוד הגשר');
+    const post = (tok, extra) => JSON.parse(bridge.doPost({ postData: { contents: JSON.stringify(Object.assign({ token: tok, action: 'coachCheck', ids: [] }, extra)) }, parameter: {} }).text);
+    eq(post('tok').error, 'TOKEN_NOT_SET', 'אין SECRET_TOKEN ב-Script properties → TOKEN_NOT_SET (לא BAD_TOKEN)');
+    ok(!(await ctx.CoachDrive.sync({})), 'סנכרון בלי token מוגדר נכשל');
+    ok(/Script properties/.test(ctx.CoachDrive.getState().lastError), 'ההודעה מפנה ל-Script properties');
+    props.SECRET_TOKEN = 'tok';
+    eq(post('wrong').error, 'BAD_TOKEN', 'token שגוי → BAD_TOKEN');
+    eq(post('tok').ok, true, 'token נכון מ-Script properties מתקבל');
+
     // 1. סנכרון ראשון
     ok(await ctx.CoachDrive.sync({}), 'סנכרון ראשון הצליח');
     const names = liveFiles().map(f => f.name).sort();

@@ -13,15 +13,24 @@
  *
  * ── פריסה (חד-פעמי, זהה לשאר הגשרים) ───────────────────────────────────────
  * 1. היכנס ל-https://script.google.com → New project.
- * 2. הדבק את כל הקובץ הזה. שנה את SECRET_TOKEN לערך אקראי משלך.
+ * 2. הדבק את כל הקובץ הזה — כמו שהוא, בלי לערוך בו כלום.
+ *    Project Settings (גלגל שיניים) → Script properties → Add script property:
+ *        Property: SECRET_TOKEN
+ *        Value:    ערך אקראי משלך (אותיות/ספרות) — אותו ערך שמודבק בהגדרות GYMPRO.
+ *    ה-token לא נכתב בקובץ בכוונה: כך הדבקה של גרסה חדשה של הקובץ לא מאפסת אותו,
+ *    ואין צורך להעתיק אותו מחדש בכל עדכון. (הדפוס מגשר MGivatayim, ADMIN_CODE.)
  * 3. Deploy → New deployment → type: Web app.
  *      - Execute as:  Me
  *      - Who has access: Anyone (ה-token מגן על הגישה)
  *    בהרצה/פריסה ראשונה גוגל תבקש אישור הרשאות Drive — אשר.
  * 4. העתק את "Web app URL" → הדבק בהגדרות GYMPRO ("תמונות התקדמות") יחד עם
- *    ה-SECRET_TOKEN, הפעל את המתג ולחץ "בדוק חיבור".
+ *    ערך ה-SECRET_TOKEN, הפעל את המתג ולחץ "בדוק חיבור".
  *
- * בדיקה בדפדפן:  <WebAppURL>?token=<SECRET_TOKEN>  ← אמור להחזיר {"ok":true,...}
+ * עדכון הקובץ בעתיד: מדביקים את הגרסה החדשה במקום הישנה → Deploy → Manage
+ * deployments → עריכה → Version: New version. ה-token נשאר ב-Script properties.
+ * החלפת token: משנים את SECRET_TOKEN ב-Script properties — בתוקף מיד, בלי פריסה.
+ *
+ * בדיקה בדפדפן:  <WebAppURL>?token=<ה-token>  ← אמור להחזיר {"ok":true,...}
  *
  * ── נתוני מאמן (מאז v19.16) ──────────────────────────────────────────────────
  * אותו גשר כותב גם את קבצי הנתונים של מאמן ה-Claude לתיקייה COACH_FOLDER_NAME
@@ -29,8 +38,27 @@
  * עריכה → Version: New version. בלי זה ה-URL ממשיך להריץ את הקוד הישן.
  * ==========================================================================*/
 
-// 🔐 שנה לערך אקראי משלך (אותיות/ספרות). העתק אותו גם להגדרות GYMPRO.
-var SECRET_TOKEN = 'CHANGE_ME_to_a_random_secret';
+// 🔐 ה-token לא נמצא בקובץ — הוא ב-Script properties (SECRET_TOKEN). ראה "פריסה" למעלה.
+function _secretToken() {
+  return String(PropertiesService.getScriptProperties().getProperty('SECRET_TOKEN') || '').trim();
+}
+
+// null = מורשה; אחרת קוד השגיאה. "לא הוגדר" ו"שגוי" הן תקלות שונות — הודעה אחת
+// לשתיהן הייתה שולחת לבדוק את ההגדרות באפליקציה כשהחסר הוא בצד של הסקריפט.
+function _authError(tok) {
+  var secret = _secretToken();
+  if (!secret) return 'TOKEN_NOT_SET';
+  return _sameString(String(tok || ''), secret) ? null : 'BAD_TOKEN';
+}
+
+// השוואה בזמן קבוע — זמן התגובה לא מלמד כמה תווים נוחשו נכון
+function _sameString(a, b) {
+  var diff = a.length ^ b.length;
+  for (var i = 0; i < Math.max(a.length, b.length); i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
 
 var FOLDER_NAME = 'GymPro Progress Photos';
 var COACH_FOLDER_NAME = 'GymPro Coach Data';
@@ -50,7 +78,8 @@ function doPost(e) {
   catch (err) { return _json({ ok: false, error: 'BAD_JSON' }); }
 
   var tok = (body && body.token) || (e && e.parameter && e.parameter.token) || '';
-  if (tok !== SECRET_TOKEN) return _json({ ok: false, error: 'BAD_TOKEN' });
+  var authErr = _authError(tok);
+  if (authErr) return _json({ ok: false, error: authErr });
 
   try {
     switch (body.action) {
@@ -72,7 +101,8 @@ function doPost(e) {
  */
 function doGet(e) {
   var p = (e && e.parameter) || {};
-  if (p.token !== SECRET_TOKEN) return _json({ ok: false, error: 'BAD_TOKEN' });
+  var authErr = _authError(p.token);
+  if (authErr) return _json({ ok: false, error: authErr });
   var folder = _folder();
   var count = 0;
   var it = folder.getFiles();

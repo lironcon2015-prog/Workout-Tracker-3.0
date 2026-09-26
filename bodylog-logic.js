@@ -1728,11 +1728,34 @@ function _unifiedRange(range) {
     return { from: null, to: null, label: 'הכל' }; // 'all'
 }
 
-function exportUnifiedData(range) {
-    const r = _unifiedRange(range);
-    if (r === null) return;
-    const inRange = d => (!r.from || d >= r.from) && (!r.to || d <= r.to);
+// ההסבר המוטמע בקובץ המאוחד מעבר ל-_NUTRI_EXPORT_README — משותף גם ל-00_readme.json בדרייב
+const _UNIFIED_README_EXTRA = [
+    'הקובץ מכיל 6 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימוני כוח ואירובי), sleep_recovery (שינה + התאוששות), memory_box (כללים מאושרים לתיבת זיכרון המאמן — אין להם תאריך, נכללים במלואם בכל טווח).',
+    'workouts[].watch = סיכום האימון מ-Apple Watch, כשקיים: hrAvg/hrMax (דופק), activeKcal (קלוריות פעילות), ' +
+    'hrRecovery1 (ירידת הדופק בדקה הראשונה), hrSeries ([שניות-מההתחלה, min, avg, max] בדילול 30ש\'), ' +
+    'zoneSec (שניות בכל אחד מחמשת אזורי הדופק) ו-zoneBounds (הגבולות ששימשו לחישוב, נשמרים כדי שאימון ישן ' +
+    'לא ישנה את אזוריו כשדופק המנוחה זז). אזורי דופק אינם נתון ב-HealthKit — הם מחושבים מ-hrSeries. ' +
+    'סכום zoneSec קטן ממשך האימון כשהיו פערי דגימה (מרווח מעל 60ש\' אינו נספר), בדיוק כמו במסך של אפל. ' +
+    'linkedBy: auto = שויך לפי חפיפת זמנים, manual = שויך ידנית. אימון בלי watch = לא נלבש שעון או שהסיכום טרם הגיע.',
+    'workouts[].readiness = ציון מוכנות הבוקר של יום האימון (score 0-100, band, drivers) — נגזר מהוויטלים ' +
+    'שב-sleep_recovery ולא נתון גולמי, ומוקפא ברשומת האימון ברגע השמירה. ' +
+    'הוויטלים מ-Apple Health ממשיכים להתעדכן במהלך היום, ולכן חישוב חי של אותו יום אינו יציב — ' +
+    'הציון שכאן הוא זה שהמתאמן ראה, והוא זהה בכל ייצוא. used/total = כמה מדדים נכנסו לציון מתוך הזמינים. ' +
+    'drivers[]: val = הקריאה של אותו בוקר, base = החציון האישי (baseline) שמולו היא נמדדת, delta = הסטייה ביניהם. ' +
+    'workouts[].nutritionalState = המצב התזונתי בזמן האימון (נשמר פעם אחת ואינו נדרס).',
+    'workouts[].kind = "cardio" באימון אירובי (ברירת המחדל, בהיעדר השדה, היא אימון כוח). לאימון אירובי אין ' +
+    'נפח ולכן details ריק, והנתונים שלו יושבים ב-workouts[].cardio: mode ("interval" = סבבי עבודה/מנוחה, ' +
+    '"open" = רציף כמו אופניים/ריצה/הליכה), roundsPlanned/roundsDone, workSec/restSec/prepSec (המתוכנן), ' +
+    'targetSec (יעד זמן ברציף), workTotalSec/restTotalSec (בפועל), ו-rounds[] = שורה לכל סבב ' +
+    '(i, workSec, restSec, skipped, combo). אימון אירובי מסונן ממדדי הנפח באנליטיקה — לא כדי להסתיר אותו ' +
+    'אלא כי 0 נפח היה מדלל ממוצעים.'
+];
 
+// _buildUnifiedSections — בונה משותף לששת המקטעים של הקובץ המאוחד, לטווח { from, to }
+// (YYYY-MM-DD, null = בלי גבול). נצרך ע"י exportUnifiedData וע"י סנכרון נתוני המאמן
+// לדרייב (coach-drive-logic.js) — מקור אמת אחד לשדות, כדי ששני המסלולים לא יתפצלו.
+function _buildUnifiedSections(r) {
+    const inRange = d => (!r.from || d >= r.from) && (!r.to || d <= r.to);
     // שקילות + תזונה יומית — סינון לפי YYYY-MM-DD
     const weights = StorageManager.getBodyLog().filter(e => inRange(e.date))
         .sort((a, b) => a.date < b.date ? -1 : 1);
@@ -1776,33 +1799,21 @@ function exportUnifiedData(range) {
     // תיבת זיכרון וניסיון — כללים קבועים שאין להם תאריך, מיוצאים תמיד במלואם
     const memoryBox = StorageManager.getMemoryBox();
 
+    return { weights, nutritionDaily, nutritionDetailed, sleepRecovery, workouts, memoryBox };
+}
+
+function exportUnifiedData(range) {
+    const r = _unifiedRange(range);
+    if (r === null) return;
+    const { weights, nutritionDaily, nutritionDetailed, sleepRecovery, workouts, memoryBox } = _buildUnifiedSections(r);
+
     if (!weights.length && !nutritionDaily.length && !nutritionDetailed.length && !workouts.length && !sleepRecovery.length && !memoryBox.length) {
         showAlert('אין נתונים לייצוא בטווח שנבחר.'); return;
     }
 
     const payload = {
         app: 'GYMPRO ELITE', type: 'unified_export',
-        readme: _NUTRI_EXPORT_README.concat(
-            'הקובץ מכיל 6 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימוני כוח ואירובי), sleep_recovery (שינה + התאוששות), memory_box (כללים מאושרים לתיבת זיכרון המאמן — אין להם תאריך, נכללים במלואם בכל טווח).',
-            'workouts[].watch = סיכום האימון מ-Apple Watch, כשקיים: hrAvg/hrMax (דופק), activeKcal (קלוריות פעילות), ' +
-            'hrRecovery1 (ירידת הדופק בדקה הראשונה), hrSeries ([שניות-מההתחלה, min, avg, max] בדילול 30ש\'), ' +
-            'zoneSec (שניות בכל אחד מחמשת אזורי הדופק) ו-zoneBounds (הגבולות ששימשו לחישוב, נשמרים כדי שאימון ישן ' +
-            'לא ישנה את אזוריו כשדופק המנוחה זז). אזורי דופק אינם נתון ב-HealthKit — הם מחושבים מ-hrSeries. ' +
-            'סכום zoneSec קטן ממשך האימון כשהיו פערי דגימה (מרווח מעל 60ש\' אינו נספר), בדיוק כמו במסך של אפל. ' +
-            'linkedBy: auto = שויך לפי חפיפת זמנים, manual = שויך ידנית. אימון בלי watch = לא נלבש שעון או שהסיכום טרם הגיע.',
-            'workouts[].readiness = ציון מוכנות הבוקר של יום האימון (score 0-100, band, drivers) — נגזר מהוויטלים ' +
-            'שב-sleep_recovery ולא נתון גולמי, ומוקפא ברשומת האימון ברגע השמירה. ' +
-            'הוויטלים מ-Apple Health ממשיכים להתעדכן במהלך היום, ולכן חישוב חי של אותו יום אינו יציב — ' +
-            'הציון שכאן הוא זה שהמתאמן ראה, והוא זהה בכל ייצוא. used/total = כמה מדדים נכנסו לציון מתוך הזמינים. ' +
-            'drivers[]: val = הקריאה של אותו בוקר, base = החציון האישי (baseline) שמולו היא נמדדת, delta = הסטייה ביניהם. ' +
-            'workouts[].nutritionalState = המצב התזונתי בזמן האימון (נשמר פעם אחת ואינו נדרס).',
-            'workouts[].kind = "cardio" באימון אירובי (ברירת המחדל, בהיעדר השדה, היא אימון כוח). לאימון אירובי אין ' +
-            'נפח ולכן details ריק, והנתונים שלו יושבים ב-workouts[].cardio: mode ("interval" = סבבי עבודה/מנוחה, ' +
-            '"open" = רציף כמו אופניים/ריצה/הליכה), roundsPlanned/roundsDone, workSec/restSec/prepSec (המתוכנן), ' +
-            'targetSec (יעד זמן ברציף), workTotalSec/restTotalSec (בפועל), ו-rounds[] = שורה לכל סבב ' +
-            '(i, workSec, restSec, skipped, combo). אימון אירובי מסונן ממדדי הנפח באנליטיקה — לא כדי להסתיר אותו ' +
-            'אלא כי 0 נפח היה מדלל ממוצעים.'
-        ),
+        readme: _NUTRI_EXPORT_README.concat(_UNIFIED_README_EXTRA),
         generated: _blIsoWithTz(new Date(), _BL_EXPORT_TZ),
         range: { label: r.label, from: r.from, to: r.to },
         counts: {

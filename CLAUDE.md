@@ -130,7 +130,7 @@
 ### Stack
 
 - Vanilla JS (ES6+), HTML5, CSS3 — ללא Frameworks
-- מבנה קבצים: `index.html`, `style.css`, `workout-core.js`, `archive-logic.js`, `editor-logic.js`, `bodylog-logic.js`, `food-logic.js`, `storage.js`, `data.js`, `sw.js`, `version.json`, `vendor/` (ספריות צד-שלישי)
+- מבנה קבצים: `index.html`, `style.css`, `workout-core.js`, `archive-logic.js`, `editor-logic.js`, `bodylog-logic.js`, `food-logic.js`, `coach-drive-logic.js`, `storage.js`, `data.js`, `sw.js`, `version.json`, `vendor/` (ספריות צד-שלישי)
 - Storage: LocalStorage דרך StorageManager
 - Offline First: אפס תלות בשרת, 0ms latency
 
@@ -277,7 +277,8 @@ version.json: { "version": "19.MINOR.PATCH" }
 | `docs/widget-bridge.gs` | Google Apps Script — גשר ווידג'ט: האפליקציה דוחפת snapshot, ווידג'ט Scriptable מושך |
 | `docs/widget-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הבית ל-iOS (תזונה+מאקרו, משקל+מגמה, אימון אחרון). ללא רקע שקוף: ווידג'ט צד-שלישי שאינו צובע את עצמו מקבל מיכל מערכת לבן ואטום, לא Liquid Glass — נוסה ונפסל |
 | `docs/widget-lockscreen-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הנעילה ל-iOS (accessoryCircular/Rectangular/Inline). אותו גשר ו-snapshot; רינדור מונוכרומטי (vibrancy) — היררכיה ב-alpha בלבד. שדה Parameter של הווידג'ט בוחר תוכן: ריק=תזונה, `weight`=ריבוע/מלבן משקל |
-| `docs/photo-bridge.gs` | Google Apps Script — גשר תמונות התקדמות: upload/get/list/del מול תיקיית Drive פרטית |
+| `docs/photo-bridge.gs` | Google Apps Script — גשר תמונות התקדמות: upload/get/list/del מול תיקיית Drive פרטית; וגם coachWrite/coachCheck לנתוני המאמן |
+| `coach-drive-logic.js` | סנכרון נתוני מאמן לדרייב (`GymPro Coach Data`): 8 קבצים מ-`_buildUnifiedSections`, חלונות ב-`COACH_DRIVE_WINDOWS`, hash לכל קובץ, readme אחרון. דרך גשר התמונות |
 | `vendor/zbar.js` | ספריית ZBar (WASM) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
@@ -297,7 +298,7 @@ version.json: { "version": "19.MINOR.PATCH" }
 ---
 
 ## גרסה נוכחית
-19.15.0
+19.16.0
 
 ---
 

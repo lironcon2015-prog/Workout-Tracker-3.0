@@ -1830,7 +1830,7 @@ function _syncBridgeCollapse() {
 function refreshAllBridgeStatus() {
     ['updateFirebaseStatus', 'updateAIStatus',
      'updateMfpBridgeStatus', 'updateHealthBridgeStatus', 'updateWatchBridgeStatus',
-     'updateBackupBridgeStatus', 'updateWidgetBridgeStatus', 'updatePhotoBridgeStatus']
+     'updateBackupBridgeStatus', 'updateWidgetBridgeStatus', 'updatePhotoBridgeStatus', '_cdRefreshSettings']
         .forEach(name => {
             try { const fn = window[name]; if (typeof fn === 'function') fn(); }
             catch (e) { console.warn('GymPro: bridge status refresh failed', name, e); }

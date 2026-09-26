@@ -1,8 +1,8 @@
 /**
  * GYMPRO ELITE — ווידג'ט מסך הנעילה (Scriptable, iOS 16+)
  * ----------------------------------------------------------------------------
- * סקריפט נפרד מ-docs/widget-scriptable.js (ווידג'ט מסך הבית). מושך את אותו
- * snapshot מאותו גשר (docs/widget-bridge.gs).
+ * סקריפט נפרד מ-bridges/widget-scriptable.js (ווידג'ט מסך הבית). מושך את אותו
+ * snapshot מאותו גשר (bridges/widget-bridge.gs).
  *
  * ✅ אין מה לערוך — הסקריפט מאתר לבד את ה-URL וה-token מסקריפט הווידג'ט של
  *    מסך הבית שכבר מוגדר אצלך ב-Scriptable, ושומר אותם ב-Keychain של המכשיר.

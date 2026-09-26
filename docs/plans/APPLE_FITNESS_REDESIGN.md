@@ -24,7 +24,7 @@
 | פריט | מצב |
 |------|-----|
 | מסך **סיכום אימון** (`ui-summary`) | ✅ מוקאפ v2 מאושר-לכיוון |
-| מוקאפ | `docs/mockup-apple-fitness.html` (השוואה side-by-side + מפרט טוקנים) |
+| מוקאפ | `docs/mockups/mockup-apple-fitness.html` (השוואה side-by-side + מפרט טוקנים) |
 | יישום ב-`style.css` | ⏳ טרם — ממתין להחלטת התחלת יישום |
 | מסכים נוספים | ⏳ לא התחילו (ראה Roadmap, סעיף 7) |
 
@@ -127,16 +127,16 @@
 
 | # | מסך | פונקציית רינדור עיקרית | סטטוס |
 |---|------|------------------------|--------|
-| 1 | סיכום אימון (`ui-summary`) | `buildSummaryUI` (`workout-core.js`) | ✅ מוקאפ v2 · `docs/mockup-apple-fitness.html` |
-| 2 | מסך בית / dashboard (`ui-week`) + tab-bar גלובלי | `navigate`, `switchMainTab` | ✅ מוקאפ · `docs/mockup-apple-fitness-home.html` |
-| 3 | מסך אימון פעיל (`ui-main`) | `workout-core.js` (pickers, session strip) | ✅ מוקאפ · `docs/mockup-apple-fitness-workout.html` |
-| 3b | מסך Live (`workout-live-overlay`) + Live Edit Sheet | `workout-core.js` | ✅ מוקאפ · `docs/mockup-apple-fitness-live.html` |
+| 1 | סיכום אימון (`ui-summary`) | `buildSummaryUI` (`workout-core.js`) | ✅ מוקאפ v2 · `docs/mockups/mockup-apple-fitness.html` |
+| 2 | מסך בית / dashboard (`ui-week`) + tab-bar גלובלי | `navigate`, `switchMainTab` | ✅ מוקאפ · `docs/mockups/mockup-apple-fitness-home.html` |
+| 3 | מסך אימון פעיל (`ui-main`) | `workout-core.js` (pickers, session strip) | ✅ מוקאפ · `docs/mockups/mockup-apple-fitness-workout.html` |
+| 3b | מסך Live (`workout-live-overlay`) + Live Edit Sheet | `workout-core.js` | ✅ מוקאפ · `docs/mockups/mockup-apple-fitness-live.html` |
 | 4 | **ארכיון (`switchMainTab` archive)** | `archive-logic.js` | ⏳ **הבא בתור** |
 | 5 | Composition (משקל/תזונה) | `bodylog-logic.js` | ⏳ |
 | 6 | עורך תוכנית / תפריט אימון | `renderWorkoutMenu` (`editor-logic.js`) | ⏳ |
 
 **תהליך לכל מסך:** (1) לזהות פונקציית רינדור + מבנה HTML נוכחי → (2) מוקאפ השוואתי באותו
-`docs/mockup-apple-fitness.html` (או קובץ נפרד למסך) → (3) אישור כיוון → (4) יישום ב-CSS/HTML/JS + bump גרסה.
+`docs/mockups/mockup-apple-fitness.html` (או קובץ נפרד למסך) → (3) אישור כיוון → (4) יישום ב-CSS/HTML/JS + bump גרסה.
 
 ---
 

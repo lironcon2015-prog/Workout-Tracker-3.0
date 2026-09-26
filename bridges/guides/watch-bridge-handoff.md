@@ -8,7 +8,7 @@
 
 ## מה כבר מותקן ועובד
 - **Firebase:** פרויקט `gympro-elite` (Spark plan, Anonymous auth).
-- **Proxy פרוס:** `docs/watch-bridge.gs` ב-Apps Script, Web App (Anyone), עם Script Properties: `SECRET_TOKEN`, `FB_PROJECT_ID=gympro-elite`, `FB_CLIENT_EMAIL`, `FB_PRIVATE_KEY` (service account). URL מסתיים ב-`/exec` (מוגן ב-token).
+- **Proxy פרוס:** `bridges/watch-bridge.gs` ב-Apps Script, Web App (Anyone), עם Script Properties: `SECRET_TOKEN`, `FB_PROJECT_ID=gympro-elite`, `FB_CLIENT_EMAIL`, `FB_PRIVATE_KEY` (service account). URL מסתיים ב-`/exec` (מוגן ב-token).
 - **אומת שעובד:** `getState`/`logSet`/`finish` + dedupe.
 - **קיצור "Log Set":** Text(URL) → getState(POST token+action) → Get Dictionary suggestWeight + currentExName → Ask Number משקל/חזרות/RIR → logSet(POST token, action=logSet, w, r, rir) → Get Dictionary restTime → Start Timer → Show Result.
 
@@ -18,7 +18,7 @@
   - `wlog` — מסלול השעון: הסטים מהשעון (`'w_'`) + מצביע-תרגיל. **נכתב רק ע"י ה-proxy (append-only).**
 - כל צד **קורא את שני המסלולים וממזג לפי setId** (`_unwrapLive` בטלפון, `_mergeLog` ב-proxy). כיוון שאף צד לא כותב לשדה של השני (Firestore `updateMask`/`set(merge)` = מיזוג ברמת-שדה) — **clobber בלתי אפשרי מבנית, ללא transactions**.
 - `currentExName` אפקטיבי = המסלול עם ה-`currentTs` החדש יותר. `setIdx` **נגזר** מהלוג המאוחד (כמות סטים לתרגיל הנוכחי) — לא counter שנדרס.
-- **קבצים:** `storage.js` (FirebaseManager: `_unwrapLive` ממזג שני מסלולים, `publishLiveSession(obj, resetWlog)` כותב רק `data`, `clearLiveSession` מאפס שניהם); `workout-core.js` (`WatchBridge`: `_buildPayload` מסנן סטי-`'w_'`, `_doPublish` כותב מסלול-טלפון בלבד, `_adopt`/`forceAdopt` עם gating על `_wlogRev`, `_deriveSetIdx`); `docs/watch-bridge.gs` (proxy: `_writeWlog` עם updateMask ל-`wlog`+`active`). הגשר **כבוי כברירת מחדל**.
+- **קבצים:** `storage.js` (FirebaseManager: `_unwrapLive` ממזג שני מסלולים, `publishLiveSession(obj, resetWlog)` כותב רק `data`, `clearLiveSession` מאפס שניהם); `workout-core.js` (`WatchBridge`: `_buildPayload` מסנן סטי-`'w_'`, `_doPublish` כותב מסלול-טלפון בלבד, `_adopt`/`forceAdopt` עם gating על `_wlogRev`, `_deriveSetIdx`); `bridges/watch-bridge.gs` (proxy: `_writeWlog` עם updateMask ל-`wlog`+`active`). הגשר **כבוי כברירת מחדל**.
 - **איפוס מסלול-השעון:** בתחילת סשן הטלפון מפרסם עם `resetWlog=true` (מנקה סטי-שעון מסשן קודם); ב-`clearLiveSession` שני המסלולים מתאפסים.
 - proxy actions: `getState`/`logSet`/`nextExercise`/`finish`. Guards: active+sessionId (מ-`data`), נרמול rir, ולידציית w/r, dedupe מול הלוג המאוחד, נרמול סיומת "(Main)". `doGet` מעביר את כל הפרמטרים (לבדיקות בדפדפן).
 
@@ -26,7 +26,7 @@
 **Clobber דו-כיווני** (טלפון בקדמה דרס כתיבות שעון) — נפתר ע"י הפרדת בעלות לשני מסלולים. תיקוני v15.90 (`forceAdopt`) ו-v15.91 (read-merge-write) נגעו רק בסימפטום והשאירו חלון מרוץ (lost-update); הפיצול מבטל אותו מבנית.
 
 ## פעולות שהמשתמש חייב לבצע לאחר הפריסה
-1. **פרוס מחדש את ה-proxy:** העתק את `docs/watch-bridge.gs` המעודכן ל-Apps Script → Deploy → **Manage deployments → Edit → New version** (אותו URL נשמר). בלי זה, ה-proxy עדיין כותב למסלול `data` הישן ויהיה clobber.
+1. **פרוס מחדש את ה-proxy:** העתק את `bridges/watch-bridge.gs` המעודכן ל-Apps Script → Deploy → **Manage deployments → Edit → New version** (אותו URL נשמר). בלי זה, ה-proxy עדיין כותב למסלול `data` הישן ויהיה clobber.
 2. **עדכן את ה-PWA ל-15.92** (הגדרות → בדוק עדכון).
 3. **העבר את הקיצור לשעון:** הקיצור כרגע באייפון. צריך להעבירו ל-Apple Watch (Shortcuts מסתנכרן אוטומטית; ודא שהקיצור מסומן "Show on Apple Watch"). **חוזה ה-HTTP זהה** — אין שינוי בקיצור עצמו, רק הרצה מהשעון. אפשר להוסיף קומפליקציה/כפתור בשעון להרצה מהירה.
 

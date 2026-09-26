@@ -1,7 +1,7 @@
 # GYMPRO ELITE — Polish Pass (ליטוש UI ל-Top-of-the-Top)
 
 > **מסמך עבודה חי.** עדכן את טבלת הסטטוס בסיום כל שלב. שיחות חדשות בנושא ליטוש UI /
-> Polish / P1-P5 — קרא מסמך זה במלואו לפני פעולה. מוקאפ השוואתי: `docs/mockup-polish-comparison.html`.
+> Polish / P1-P5 — קרא מסמך זה במלואו לפני פעולה. מוקאפ השוואתי: `docs/mockups/mockup-polish-comparison.html`.
 
 ---
 

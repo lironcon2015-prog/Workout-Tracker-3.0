@@ -2,14 +2,14 @@
  * test/bridge-workouts.test.js — אחסון אימוני שעון בגשר Apps Script
  * הרצה: node test/bridge-workouts.test.js   (ללא תלויות, ללא build)
  *
- * הבדיקה מריצה את הגשר האמיתי (docs/health-nutrition-bridge.gs) מול
+ * הבדיקה מריצה את הגשר האמיתי (bridges/health-nutrition-bridge.gs) מול
  * PropertiesService מדומה שאוכף את **מגבלת 9KB לכל ערך** של Apps Script.
  * זו המגבלה שהפילה את התכנון הראשון (כל האימונים ב-property אחד), ולכן
  * היא נבדקת ולא מונחת: כתיבה חורגת זורקת, בדיוק כמו בשרת.
  * ==========================================================================*/
 const fs = require('fs');
 const path = require('path');
-const src = fs.readFileSync(path.join(__dirname, '..', 'docs', 'health-nutrition-bridge.gs'), 'utf8');
+const src = fs.readFileSync(path.join(__dirname, '..', 'bridges', 'health-nutrition-bridge.gs'), 'utf8');
 
 const store = {};
 const LIMIT = 9216; // 9KB

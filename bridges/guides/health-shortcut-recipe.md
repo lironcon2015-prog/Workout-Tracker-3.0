@@ -1,7 +1,7 @@
 # מתכון Shortcuts — סנכרון תזונה מ-Apple Health
 
 מטרה: MyFitnessPal מזרים תזונה ל-Apple Health; קיצור דרך שולח את סיכום היום
-(קלוריות + מאקרו) לגשר (`docs/health-nutrition-bridge.gs`) כמה פעמים ביום,
+(קלוריות + מאקרו) לגשר (`bridges/health-nutrition-bridge.gs`) כמה פעמים ביום,
 והאפליקציה מושכת משם אוטומטית בכל כניסה ובכל שעה עגולה כשהיא פתוחה.
 
 > **חשוב:** MFP נשאר מקור האמת. ימי Health הם השלמה שוטפת בלבד — ייבוא MFP

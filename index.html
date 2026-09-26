@@ -990,7 +990,7 @@
                                 <button id="backup-send-btn" class="bridge-btn bridge-btn--go" onclick="sendBackupNow()">שלח גיבוי עכשיו</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">בכל פתיחת אפליקציה נבדק אם עברו 7 ימים מהגיבוי האחרון — ואם כן, קובץ הגיבוי המלא נשלח לאימייל שלך דרך הגשר (docs/backup-bridge.gs, רץ בחשבון ה-Gmail שלך). בנוסף, <b>בכל שינוי של מפתח חיבור נשלח מיד קובץ חיבורים מעודכן</b> — כך שלמפתח חדש אף פעם אין חלון בלי גיבוי. <span class="material-symbols-outlined inline-warn">warning</span> המייל מכיל את כל המפתחות — הוא נשלח מחשבונך לעצמך בלבד.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">בכל פתיחת אפליקציה נבדק אם עברו 7 ימים מהגיבוי האחרון — ואם כן, קובץ הגיבוי המלא נשלח לאימייל שלך דרך הגשר (bridges/backup-bridge.gs, רץ בחשבון ה-Gmail שלך). בנוסף, <b>בכל שינוי של מפתח חיבור נשלח מיד קובץ חיבורים מעודכן</b> — כך שלמפתח חדש אף פעם אין חלון בלי גיבוי. <span class="material-symbols-outlined inline-warn">warning</span> המייל מכיל את כל המפתחות — הוא נשלח מחשבונך לעצמך בלבד.</div>
                     </div>
 
                     <!-- ווידג'ט אייפון (Scriptable) -->
@@ -1015,7 +1015,7 @@
                                 <button class="bridge-btn bridge-btn--go" onclick="pushWidgetNow()">דחוף snapshot עכשיו</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">האפליקציה דוחפת לגשר (docs/widget-bridge.gs) תמונת מצב: תזונה היום + מאקרו, משקל ומגמה, האימון האחרון — בכל פתיחה וביציאה. שני ווידג'טים מושכים מאותו גשר: <b>מסך הבית</b> (docs/widget-scriptable.js, גודל Medium) ו<b>מסך הנעילה</b> (docs/widget-lockscreen-scriptable.js — עיגול / מלבן / שורה מעל השעון). אותם URL ו-token לשניהם, אין הגדרה נוספת.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">האפליקציה דוחפת לגשר (bridges/widget-bridge.gs) תמונת מצב: תזונה היום + מאקרו, משקל ומגמה, האימון האחרון — בכל פתיחה וביציאה. שני ווידג'טים מושכים מאותו גשר: <b>מסך הבית</b> (bridges/widget-scriptable.js, גודל Medium) ו<b>מסך הנעילה</b> (bridges/widget-lockscreen-scriptable.js — עיגול / מלבן / שורה מעל השעון). אותם URL ו-token לשניהם, אין הגדרה נוספת.</div>
                     </div>
 
                     <!-- תמונות התקדמות (Google Drive) -->
@@ -1041,7 +1041,7 @@
                                 <button class="bridge-btn bridge-btn--alt" onclick="scanPhotoDriveNow()">סרוק דרייב</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">תמונות ההתקדמות נשמרות בתיקייה פרטית בדרייב שלך דרך הגשר (docs/photo-bridge.gs) — מקור האמת; במכשיר נשמר רק cache. <span class="material-symbols-outlined inline-warn">warning</span> פרטיות: ניתוח ה-AI שולח את התמונות ל-Gemini API — ב-free tier גוגל רשאית להשתמש בקלט לשיפור מודלים; במסלול בתשלום לא.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">תמונות ההתקדמות נשמרות בתיקייה פרטית בדרייב שלך דרך הגשר (bridges/photo-bridge.gs) — מקור האמת; במכשיר נשמר רק cache. <span class="material-symbols-outlined inline-warn">warning</span> פרטיות: ניתוח ה-AI שולח את התמונות ל-Gemini API — ב-free tier גוגל רשאית להשתמש בקלט לשיפור מודלים; במסלול בתשלום לא.</div>
                     </div>
 
                     <!-- נתוני מאמן (Google Drive) -->
@@ -1057,7 +1057,7 @@
                                 <button class="bridge-btn bridge-btn--go" onclick="syncCoachDriveNow()">סנכרן עכשיו</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">קבצי נתונים קטנים למאמן ה-Claude בתיקייה "GymPro Coach Data" בדרייב שלך: שקילות, תזונה ושינה (90 יום), אימונים (56 יום, גם כיומן טקסט ב-Google Doc בשם workouts_log), פירוט תזונה ועקומות דופק (30 יום), תיבת הזיכרון, ו-00_readme.json. מתעדכן בפתיחה ובחזרה לאפליקציה, לכל היותר פעם ב-6 שעות, ורק קבצים שהשתנו. משתמש ב-URL וב-token של גשר התמונות (docs/photo-bridge.gs) — אחרי עדכון הגשר צריך לפרוס גרסה חדשה שלו.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">קבצי נתונים קטנים למאמן ה-Claude בתיקייה "GymPro Coach Data" בדרייב שלך: שקילות, תזונה ושינה (90 יום), אימונים (56 יום, גם כיומן טקסט ב-Google Doc בשם workouts_log), פירוט תזונה ועקומות דופק (30 יום), תיבת הזיכרון, ו-00_readme.json. מתעדכן בפתיחה ובחזרה לאפליקציה, לכל היותר פעם ב-6 שעות, ורק קבצים שהשתנו. משתמש ב-URL וב-token של גשר התמונות (bridges/photo-bridge.gs) — אחרי עדכון הגשר צריך לפרוס גרסה חדשה שלו.</div>
                     </div>
 
                     <!-- ייבוא תזונה (MyFitnessPal) -->
@@ -1115,7 +1115,7 @@
                                 <button class="bridge-btn bridge-btn--dim" onclick="showHealthBridgeDiag()">בדוק גשר</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">"בדוק גשר" מציג מה <b>הגיע</b> לגשר בפועל — יומן הדחיפות, האימון האחרון והאם יש לו סדרת דופק. זו הדרך להבחין בין "האוטומציה לא רצה" לבין "רצה וחזרה ריקה". המקור המומלץ הוא <b>Health Auto Export</b> (טוטלים יומיים מעובדים, תואמים לאפליקציית Health), שנדחף לגשר בתזמון דטרמיניסטי דרך קיצורי דרך; האפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. ה-token נשמר מקומית בלבד. "משוך גם תזונה" כבוי כברירת מחדל — הדלק רק אם חזרת ל-MFP. ראה docs/hae-automation-recipe.md.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">"בדוק גשר" מציג מה <b>הגיע</b> לגשר בפועל — יומן הדחיפות, האימון האחרון והאם יש לו סדרת דופק. זו הדרך להבחין בין "האוטומציה לא רצה" לבין "רצה וחזרה ריקה". המקור המומלץ הוא <b>Health Auto Export</b> (טוטלים יומיים מעובדים, תואמים לאפליקציית Health), שנדחף לגשר בתזמון דטרמיניסטי דרך קיצורי דרך; האפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. ה-token נשמר מקומית בלבד. "משוך גם תזונה" כבוי כברירת מחדל — הדלק רק אם חזרת ל-MFP. ראה bridges/guides/hae-automation-recipe.md.</div>
                     </div>
 
                     <!-- אזורי דופק — גבולות לחישוב הזמן בכל אזור מסדרת הדופק -->
@@ -1155,7 +1155,7 @@
                                 <button class="bridge-btn bridge-btn--save" onclick="saveWatchBridgeSettings()">שמור הגדרות</button>
                             </div>
                         </div>
-                        <div class="ai-security-note" style="margin-top:6px;">מתעד אימון מ-Apple Watch (דרך Shortcuts) ל-Firestore, והטלפון מסכם בסוף. דורש Firebase מחובר. ה-token נשמר מקומית. ראה docs/watch-shortcut-recipe.md.</div>
+                        <div class="ai-security-note" style="margin-top:6px;">מתעד אימון מ-Apple Watch (דרך Shortcuts) ל-Firestore, והטלפון מסכם בסוף. דורש Firebase מחובר. ה-token נשמר מקומית. ראה bridges/guides/watch-shortcut-recipe.md.</div>
                     </div>
                 </div>
 

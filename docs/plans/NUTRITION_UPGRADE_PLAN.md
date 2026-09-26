@@ -60,7 +60,7 @@
 
 - כל שלב = commit נפרד + העלאת `CACHE_VERSION` ב-`sw.js` + `version.json` + שורת הגרסה ב-`CLAUDE.md`.
 - push לענף העבודה + merge ידני ל-main + אימות `CACHE_VERSION` ב-main.
-- עדכון `docs/ROADMAP.md` (כיוונים פתוחים: טבעות אדהרנס ✅) ו-`PROJECT_KNOWLEDGE.md` (חוב טכני: composite ללא fb/sg/na; החלטות: נתרן במ"ג, יעדי בריאות בלי היסטוריה).
+- עדכון `docs/plans/ROADMAP.md` (כיוונים פתוחים: טבעות אדהרנס ✅) ו-`PROJECT_KNOWLEDGE.md` (חוב טכני: composite ללא fb/sg/na; החלטות: נתרן במ"ג, יעדי בריאות בלי היסטוריה).
 
 ## Verification
 

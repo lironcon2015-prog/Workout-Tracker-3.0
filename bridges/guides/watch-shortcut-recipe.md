@@ -1,7 +1,7 @@
 # מתכון Shortcuts — גשר אפל-ווטש (אימון חי)
 
 מטרה: לתעד אימון מ-Apple Watch בלי להוציא את הטלפון מהתיק. השעון שולח פעולות
-ל-Apps Script proxy (`docs/watch-bridge.gs`), שכותב ל-Firestore `live_session`,
+ל-Apps Script proxy (`bridges/watch-bridge.gs`), שכותב ל-Firestore `live_session`,
 והטלפון (PWA) מסכם בסוף.
 
 > **דרישות מקדימות:** Firebase מחובר ב-PWA · ה-proxy פרוס (ראה הראש של `watch-bridge.gs`) ·

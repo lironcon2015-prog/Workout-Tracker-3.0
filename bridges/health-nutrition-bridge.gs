@@ -13,7 +13,7 @@
  *   • Health Auto Export (REST API) — { data:{ metrics:[…] } } (טוטלים יומיים
  *     מעובדים, תואמים לאפליקציית Health). מומלץ — מדויק יותר מדגימות הגלם של הקיצור.
  *     ב-HAE: הפעל Aggregate, שים את ה-token ב-URL (…/exec?token=…), פורמט JSON.
- *     מתכון מלא (כולל תזמון דטרמיניסטי דרך Shortcuts): docs/hae-automation-recipe.md
+ *     מתכון מלא (כולל תזמון דטרמיניסטי דרך Shortcuts): bridges/guides/hae-automation-recipe.md
  *
  * אין תלות ב-Firestore או ב-Service Account — האחסון הוא PropertiesService
  * של הסקריפט עצמו (רשומות זעירות; נשמרים ~120 ימים אחרונים לכל סוג).
@@ -26,7 +26,7 @@
  *      - Who has access: Anyone (ה-token מגן על הגישה)
  * 4. העתק את "Web app URL" → הדבק בהגדרות GYMPRO ("גשר Apple Health (שינה)")
  *    יחד עם ה-SECRET_TOKEN.
- * 5. הגדר את Health Auto Export + אוטומציות הקיצור לפי docs/hae-automation-recipe.md
+ * 5. הגדר את Health Auto Export + אוטומציות הקיצור לפי bridges/guides/hae-automation-recipe.md
  *    (‏sleep-shortcut-recipe.md הוא המסלול הישן — גיבוי בלבד).
  *
  * בדיקה: פתח בדפדפן  <WebAppURL>?token=<SECRET_TOKEN>  ← אמור להחזיר JSON.

@@ -5,7 +5,7 @@
  * שני חלקים:
  *  1. הבלוק הטהור COACHDRIVE מ-coach-drive-logic.js — חלונות, partial, הסרת summary
  *     בלי לאבד הערות, פיצול עקומת הדופק.
- *  2. הסנכרון המלא: הגשר האמיתי (docs/photo-bridge.gs) על DriveApp מדומה בזיכרון,
+ *  2. הסנכרון המלא: הגשר האמיתי (bridges/photo-bridge.gs) על DriveApp מדומה בזיכרון,
  *     והמודול האמיתי עם הבונה האמיתי של הייצוא המאוחד (bodylog-logic.js).
  *     בודק 8 קבצים בלי כפילויות, סנכרון חוזר בלי כתיבות, ששינוי שקילה כותב
  *     רק את weights + readme, ושהרשומות זהות לייצוא המאוחד.
@@ -133,7 +133,7 @@ function docOf(f) {
     return { getId: () => f.id, saveAndClose() {},
              getBody: () => ({ setText(t) { f.content = t; drive.writes.push(f.name); } }) };
 }
-const bridgeSrc = read('docs/photo-bridge.gs');
+const bridgeSrc = read('bridges/photo-bridge.gs');
 const bridge = new Function(...Object.keys(gasSandbox), bridgeSrc + '\nreturn { doPost };')(...Object.values(gasSandbox));
 
 const ls = {};

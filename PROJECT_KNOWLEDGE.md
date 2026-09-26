@@ -4,7 +4,12 @@
 
 ---
 
-## גרסה נוכחית: 19.17.0
+## גרסה נוכחית: 19.17.1
+
+### v19.17.1 — סדר בתיקיות: גשרים ב-`bridges/`, מסמכים בתתי-תיקיות
+‏`docs/` החזיקה 47 קבצים מעורבבים. עכשיו: `bridges/` (6 גשרים, 2 ווידג'טים, `guides/`, ו-README
+עם טבלת הגשרים), `docs/plans/`, `docs/specs/`, `docs/mockups/`. כל ההפניות לנתיבים עודכנו
+(קוד, טקסטים בהגדרות, בדיקות, CLAUDE.md). אין שינוי התנהגות — אף קובץ ב-docs לא נטען בזמן ריצה.
 
 ### v19.17.0 — יומן אימונים כ-Google Doc לצד workouts.json
 המאמן מקבל JSON גדול מהדרייב כ-base64, ו-Doc כטקסט ישיר. לכן `workouts_log`: Google Doc
@@ -389,14 +394,14 @@ RHR 51 / ציון 78 / "מוכן", וייצוא הפרומפטים RHR 55 / צי
   ו-`adoptWatchWorkout`. אימוץ אוטומטי שקט נשקל ונדחה: מנגנון שיוצר רשומות ארכיון
   מעצמו הוא בדיוק סוג הכשל השקט שהאפליקציה נכוותה ממנו (v19.10.10–12).
 
-**חוב פתוח:** הגשר (`docs/health-nutrition-bridge.gs`) אינו שולח מרחק, ולכן ריצה ורכיבה
+**חוב פתוח:** הגשר (`bridges/health-nutrition-bridge.gs`) אינו שולח מרחק, ולכן ריצה ורכיבה
 מגיעות בלי ק״מ וקצב. צד האפליקציה כבר מוכן — `_watchAttach` שומר `distanceKm`
 ו-`_watchPaceTxt` מחשב קצב/מהירות; האריחים יידלקו מעצמם ברגע שהשדה יגיע.
 
 **בדיקה:** `test/cardio-archive.test.js` (נפח 0, סינון האנליטיקה, גבולות Firestore,
 בחירת קומבינציה לפי סבב, שורות ה-summary, ומודל רציף).
 
-**אפיון מלא:** `docs/CARDIO_SHADOWBOXING.md`.
+**אפיון מלא:** `docs/plans/CARDIO_SHADOWBOXING.md`.
 
 ---
 
@@ -1059,7 +1064,7 @@ auth ורשת — בדיוק ברגע שבו הקר-סטארט הכי חלש. כ
 **למה בכרטיס הנתונים ולא בכותרת** (שם הוא יושב ב-`ui-main`): ההמלצה משנה בדיוק את
 המספרים שבכרטיס. נקודת הכניסה יושבת על מה שהיא מזיזה. נכנס ל-`.live-target-head`
 שכבר `flex` עם `gap:8px` — אפס פיקסלים נוספים למסך, וה-header נשאר שורה נקייה.
-מוקאפ: `docs/mockup-live-recommendation.html`.
+מוקאפ: `docs/mockups/mockup-live-recommendation.html`.
 
 **שתי נקודות שהיו חייבות טיפול, ושתיהן מהסוג שנשכח:**
 
@@ -1266,7 +1271,7 @@ Meal Builder. **לא מכוסים במכוון:** ימי MFP (החלטת משת�
 
 **מה השתנה:** הבורר במסך הארכיון עבר מ-3 לשוניות + כפתור אייקון נפרד ל**סטריפ מלא של 4**:
 אימונים / שקילות / תזונה / לוח שנה. `.archive-cal-btn` ו-`#btn-view-calendar` הוסרו.
-מוקאפ: `docs/mockup-archive-strip.html`.
+מוקאפ: `docs/mockups/mockup-archive-strip.html`.
 
 **למה זה לא היה באמת "שני צירים":** על הנייר `archiveSubTab` ו-`archiveView` היו
 אורתוגונליים, אבל `setArchiveTab` תמיד קרא ל-`switchArchiveView('list')` — כלומר בחירת
@@ -1719,6 +1724,12 @@ v19.4.2 הסיק "אד-הוק" מהשוואת הזוג הנבחר לזוג הא�
 שחזור מחזיר את מפתח הבחירה (`gympro-bg-choices-v2`) אך הוא מצביע ל-blob שאינו קיים —
 ו-`resolveSrc` נופל לברירות המחדל. תמונות התקדמות **בסדר** (Drive = מקור אמת).
 
+### 5. ה-readme בדרייב של המאמן: השורה הראשונה לא מדויקת מאז workouts_log (v19.17.0)
+
+השורה הראשונה ב-`readme` של `00_readme.json` (`_cdReadmeBody` ב-`coach-drive-logic.js`) אומרת
+"כל קובץ בתיקייה הוא מערך JSON" — ו-`workouts_log` הוא Google Doc. שורה מאוחרת יותר מסבירה
+אותו נכון, ולכן לא תוקן. התיקון: "כל קובץ `.json` בתיקייה". שינוי בה כותב מחדש את ה-readme פעם אחת.
+
 ## מסך החיבורים: האחדה + גיבוי חיבורים אוטומטי לאימייל (v17.81)
 
 - **המיפוי שהניע את המהלך:** מדידה על גיבוי אמיתי הראתה שהענן מחזיק **24 מתוך 65** מפתחות.
@@ -1853,7 +1864,7 @@ v19.4.2 הסיק "אד-הוק" מהשוואת הזוג הנבחר לזוג הא�
   בנוסף **Apple חוסמת קריאת HealthKit כשהמכשיר נעול**, כך שייצוא לא יכול לרוץ בזמן השינה.
   **אין הגדרה ב-HAE שתיתן שעה מדויקת.** הפתרון: פעולת ה-Shortcuts **Run Automation** של HAE
   (מריצה אוטומציה קיימת מיידית), תלויה באוטומציית **"כיבוי שעון מעורר"** + 09:00 (רשת ביטחון)
-  + 12:30 (השלמת RHR — בטוח כי `mergeSleepDays` הוא fill-only לוויטלים). מתועד ב-`docs/hae-automation-recipe.md`.
+  + 12:30 (השלמת RHR — בטוח כי `mergeSleepDays` הוא fill-only לוויטלים). מתועד ב-`bridges/guides/hae-automation-recipe.md`.
 - **תסמין 2 — "היה ייצוא אבל ה-PWA לא התעדכן":** שני כשלים **שקטים** ב-`_parseHAE`, שניהם תוקנו:
   1. **⭐ הסיבה בפועל — `Export Version: v2` אינו מכיל `date` כלל.** אומת מול הגדרות המשתמש
      (Summarize Data היה **דלוק** כל הזמן — ההשערה הראשונית על Aggregate הייתה שגויה).
@@ -1935,7 +1946,7 @@ v19.4.2 הסיק "אד-הוק" מהשוואת הזוג הנבחר לזוג הא�
 **ארכיטקטורת אחסון היברידית (החלטה):** תמונות גוף דחוסות (~1600px JPEG q0.82, ‏150-400KB)
 לעולם **לא** ב-Firestore (מחסום 1MB/doc — נלחמנו בו ב-v17.15) ולא רק מקומית (iOS מפנה
 אחסון PWA). לכן: **IndexedDB** (`gympro-photos`, stores: photos+thumbs) = cache מקומי
-וגלריה מיידית; **Google Drive** דרך גשר `docs/photo-bridge.gs` = מקור אמת (תיקייה פרטית
+וגלריה מיידית; **Google Drive** דרך גשר `bridges/photo-bridge.gs` = מקור אמת (תיקייה פרטית
 "GymPro Progress Photos", קובץ `YYYY-MM-DD.jpg` ליום); על ה-config המסונכרן רוכבים רק
 `photoIndex` (קל: date/driveId/bytes) ו-`photoTrend` (זיכרון ה-AI, entries≤30).
 זו התבנית הראשונה של IndexedDB בריפו — עטופה ב-`photos-logic.js` (`_ppIdb*`).
@@ -2180,7 +2191,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 | `--r-xs/sm/md/lg/pill` | `8 / 14 / 20 / 28px / 9999px` | סולם radius אחיד (P3) |
 | `--dur-1/2/3` + `--ease(-spring)` | `120/200/320ms` | סולם מושן אחיד (P4) |
 
-**Polish Pass P1–P5 הושלם (v16.89–16.97, `docs/POLISH_ROADMAP.md`):** טיפוגרפיה על טוקני
+**Polish Pass P1–P5 הושלם (v16.89–16.97, `docs/plans/POLISH_ROADMAP.md`):** טיפוגרפיה על טוקני
 `--fs-*` + tabular-nums; צבע על surfaces + `--success/--danger(-soft)`; radius/gap/padding על
 רשת; מושן על `--dur/--ease` + מצב לחיצה `scale(0.98)` אחיד; רשימות hairline (שקילות/תזונה/
 ארכיון), גרבר 36×4 אחיד, `emptyStateHtml()` גלובלי (workout-core.js). פרטי סטיות — במסמך ה-roadmap.
@@ -2224,7 +2235,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 | 8 | inline styles ב-`index.html` עם radius/spacing קשיחים — מחוץ לתחולת Polish (P3) | נמוכה |
 | 9 | transitions מ-JS לא על טוקני מושן: sheet snap-back (`workout-core.js`), טבעת (`food-logic.js`) | נמוכה |
 | 7 | ✅ נפתר (v16.81) — עריכת סט details-only כעת בונה מחדש את הסטרינג לפי mode (kg/פלטות/BW), לא קשיח kg | — |
-| 10 | ✅ נפתר ברובו (v17.12) — **Audit v17.05** (`docs/BUG_AUDIT_v17.05.md`): תוקנו #1-#18, #20-#23 + נוקה הקוד המת (zxing 332KB, ‎~450 שורות CSS מת, פונקציות ללא קוראים). קריאות Gemini מאוחדות כעת ב-`_geminiRequest` (workout-core) — **אין לשכפל לולאת fetch, להשתמש בה**. נותרו פתוחים: `openExerciseSettings` תוך-אימון (דורש הכרעת מוצר — להחזיר entry point או למחוק), תנאי מת ב-`_fdMealsHTML` (הושאר בכוונה), ותמונות unsplash שהן עדיין דומיין חיצוני אך נתפסות כעת ב-runtime cache של ה-SW | בינונית |
+| 10 | ✅ נפתר ברובו (v17.12) — **Audit v17.05** (`docs/specs/BUG_AUDIT_v17.05.md`): תוקנו #1-#18, #20-#23 + נוקה הקוד המת (zxing 332KB, ‎~450 שורות CSS מת, פונקציות ללא קוראים). קריאות Gemini מאוחדות כעת ב-`_geminiRequest` (workout-core) — **אין לשכפל לולאת fetch, להשתמש בה**. נותרו פתוחים: `openExerciseSettings` תוך-אימון (דורש הכרעת מוצר — להחזיר entry point או למחוק), תנאי מת ב-`_fdMealsHTML` (הושאר בכוונה), ותמונות unsplash שהן עדיין דומיין חיצוני אך נתפסות כעת ב-runtime cache של ה-SW | בינונית |
 | 11 | `getArchive()` מפרסר את כל ה-JSON בכל קריאה (51 אתרי קריאה) ו-`renderArchiveList` בונה DOM לכל ההיסטוריה גם בחודשים מכווצים — ישלם ריבית ככל שהארכיון גדל. פתרון עתידי: memo-cache שמתבטל ב-save + בניית חודש עצלה | נמוכה |
 | 12 | פונקציות יתומות (dead code) אחרי הסרת כפתורי הגיבוי הישנים מהארכיון (v17.71): `exportData`/`triggerImport`/`importData` (`editor-logic.js`) ו-`exportClaudeFile` (`archive-logic.js`) — כבר לא מקושרות לשום UI. להסיר בהזדמנות אחרי ניתוח השפעה (לוודא שאין קוראים דינמיים/onclick שנותרו). המחליף החי: סנכרון ענן + "ייצוא קובץ מאוחד" בהגדרות | נמוכה |
 | 13 | חוסר עקביות שמות למסך "בריאות" (health): המזהה הפונקציונלי בפועל הוא `bodylog` (`ui-bodylog`, `_blTab`, `setBodyTab`, `switchMainTab('bodylog')`, `tabbtn-bodylog`) — עקבי ותקין. אבל שריד השם הישן "Composition" נשאר בשם פונקציה אחת `goToComposition` (call sites: `index.html` כרטיסי הבית) ובהערות/תיעוד, בעוד תווית ה-UI היא "health". **המחרוזת "composition" אינה load-bearing** — אין storage key / id ניווט / שדה סנכרון שנשען עליה, ולכן אי-ההתאמה קוסמטית בלבד (חוב קוגניטיבי, לא באג ריצה). **הוחלט מפורשות לא לגעת** (סיכון רגרסיה קטן אך מיותר — רינה־מ של הפונקציה מחייב לעדכן את 2 ה-onclick בו-זמנית). אם יישור שמות בעתיד — משימה מכוונת נפרדת | נמוכה |
@@ -2264,7 +2275,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 ---
 
 ## גשר אפל-ווטש — אימון חי שעון⇄טלפון (v15.92, Two-lane union)
-מטרה: לתעד אימון מ-Apple Watch בלי native/App Store/$99, עם **טרנזיטיביות מלאה דו-כיוונית**. שעון = **Apple Shortcuts** → Apps Script proxy (`docs/watch-bridge.gs`) → Firestore `gympro_data/live_session` → ה-PWA קורא ב-`onSnapshot` ומסכם.
+מטרה: לתעד אימון מ-Apple Watch בלי native/App Store/$99, עם **טרנזיטיביות מלאה דו-כיוונית**. שעון = **Apple Shortcuts** → Apps Script proxy (`bridges/watch-bridge.gs`) → Firestore `gympro_data/live_session` → ה-PWA קורא ב-`onSnapshot` ומסכם.
 - **ייצוג ה-doc (v15.92):** `{ active:bool, data:"<json>", wlog:"<json>" }` — **שני מסלולים נפרדים**: `data`=מסלול הטלפון (metadata + סטי-`'p_'`, נכתב רק ע"י ה-PWA), `wlog`=מסלול השעון (סטי-`'w_'` + מצביע-תרגיל, נכתב רק ע"י ה-proxy, append-only). `_unwrapLive` ממזג את שניהם בקריאה (union לפי setId; `currentExName` מהמסלול עם `currentTs` חדש; `setIdx` **נגזר** מהאיחוד).
 - **clobber נפתר מבנית (v15.92):** אף צד לא כותב לשדה של השני (`set(merge)`/`updateMask` = מיזוג ברמת-שדה) → אין lost-update, ללא transactions. קודם (v15.90 forceAdopt, v15.91 read-merge-write) נגעו בסימפטום והשאירו חלון מרוץ.
 - **`WatchBridge`** (workout-core.js) — **כבוי כברירת מחדל** (`KEY_WATCH_BRIDGE_ON`), no-op מוחלט כשכבוי. `onStateSaved()` (hook יחיד ב-`saveSessionState`, debounce 400ms, hash) → `_doPublish()` כותב מסלול-טלפון בלבד; בתחילת סשן `resetWlog=true` מנקה מסלול-שעון מסשן קודם. `_adopt()` עם gating על `_wlogRev` (מתעלם מ-echo עצמי); `forceAdopt()` על load/restore/visibilitychange/focus.
@@ -2287,14 +2298,14 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 - **מתג הפעלה/כיבוי לכל גשר:** MFP ו-Health כעת ניתנים לכיבוי (`KEY_MFP_BRIDGE_ON`/`KEY_HEALTH_BRIDGE_ON`, **ברירת מחדל דלוק** — רק `'0'` מכבה, להבדיל מהשעון שכבוי). Gating בנקודה אחת: `syncHealthNutrition` ו-`importNutritionFromGmail` בודקים `is…BridgeOn()` בראש. שלושת ה-`*_ON` בקובץ החיבורים.
 - **ייצוא תזונה — בדיוק 2 קבצי JSON**: `exportNutritionDailyJson` (מקוצר: date+cal+macros) ו-`exportNutritionDetailedJson` (מפורט). מ-v17.36 שניהם מקבלים bounds ‏{from,to,slug,label} מבורר הייצוא המשותף (`range-export-sheet`, ‏`openRangeExportSheet`) — לא תלויים בשום צ'יפים על מסך. גם `exportBodyCsv` עבר לאותו בורר. הוסרו: `exportNutritionCsv`, `exportNutritionRawCsv`, `exportFoodDiaryJson`, `bl-export-modal` הישן, `_nutritionRangeBounds`.
 - **`_buildNutritionDetailed(from,to)`** (בונה משותף לייצוא הנפרד ולמאוחד) — **קדימות ליום: תיעוד ישיר (`getFoodLogDay`) גובר על MFP**; אחרת MFP; אחרת סיכום. מקור יחיד ליום, בלי ספירה כפולה. כולל `components` של Meal Builder.
-- **ווידג'ט אייפון (v17.19):** `buildWidgetSnapshot` (storage.js) — snapshot קומפקטי: תזונה היום + יעדים + `state` תזונתי, משקל + מגמה שבועית (`weekDelta` מול שקילה ≥7 ימים אחורה) + 7 נקודות ספארקליין, אימון אחרון (`type`/sets/volume מ-details). דחיפה: `maybePushWidgetSnapshot` בפתיחה (throttle 10 דק') + `pushWidgetSnapshotBeacon` ביציאה (visibilitychange→hidden, sendBeacon). גשר `docs/widget-bridge.gs` (PropertiesService, snapshot יחיד) + ווידג'ט `docs/widget-scriptable.js` (Scriptable, פריסת "גרסה 2" מ-`docs/mockup-widget.html`, תצוגה בלבד). מפתחות הגשר ב-`_connectionKeys()`. **מגבלת iOS (נבדק בפועל):** אי אפשר לפתוח PWA מבחוץ בכלל — web clip לא מופיע ב-"Open App" של Shortcuts, וקישור לכתובת נפתח בספארי (אחסון נפרד!). לכן אין יעד לחיצה (`TAP_URL` ריק בסקריפט).
-- **גיבוי מלא + גיבוי שבועי לאימייל (v17.17):** `buildFullBackup`/`exportFullBackup`/`restoreFullBackup` (storage.js) — צילום גולמי של **כל** מפתחות `gympro_*` (מחרוזות, בלי parse) ⇒ שחזור מדויק ביט-לביט כולל סודות; עמיד לעתיד (מפתח חדש נכנס אוטומטית, בניגוד ל-allowlist של `exportConfiguration`). שחזור = מחיקת כל `gympro_*` ← כתיבה ← reload. גשר חדש `docs/backup-bridge.gs` (doPost → GmailApp לבעל הסקריפט, בלי אחסון); `maybeSendWeeklyBackup` נקרא ב-DOMContentLoaded (delay 4s) ושולח אם עברו ≥7 ימים (`KEY_BACKUP_LAST`), fetch POST עם `text/plain` (בקשה פשוטה, בלי preflight). מפתחות הגשר (URL/TOKEN/ON, כבוי כברירת מחדל) נכללו ב-`_connectionKeys()`. UI: קבוצת "גיבוי שבועי לאימייל" בהגדרות + כפתורי גיבוי/שחזור מלא בקבוצת גיבוי מקומי.
+- **ווידג'ט אייפון (v17.19):** `buildWidgetSnapshot` (storage.js) — snapshot קומפקטי: תזונה היום + יעדים + `state` תזונתי, משקל + מגמה שבועית (`weekDelta` מול שקילה ≥7 ימים אחורה) + 7 נקודות ספארקליין, אימון אחרון (`type`/sets/volume מ-details). דחיפה: `maybePushWidgetSnapshot` בפתיחה (throttle 10 דק') + `pushWidgetSnapshotBeacon` ביציאה (visibilitychange→hidden, sendBeacon). גשר `bridges/widget-bridge.gs` (PropertiesService, snapshot יחיד) + ווידג'ט `bridges/widget-scriptable.js` (Scriptable, פריסת "גרסה 2" מ-`docs/mockups/mockup-widget.html`, תצוגה בלבד). מפתחות הגשר ב-`_connectionKeys()`. **מגבלת iOS (נבדק בפועל):** אי אפשר לפתוח PWA מבחוץ בכלל — web clip לא מופיע ב-"Open App" של Shortcuts, וקישור לכתובת נפתח בספארי (אחסון נפרד!). לכן אין יעד לחיצה (`TAP_URL` ריק בסקריפט).
+- **גיבוי מלא + גיבוי שבועי לאימייל (v17.17):** `buildFullBackup`/`exportFullBackup`/`restoreFullBackup` (storage.js) — צילום גולמי של **כל** מפתחות `gympro_*` (מחרוזות, בלי parse) ⇒ שחזור מדויק ביט-לביט כולל סודות; עמיד לעתיד (מפתח חדש נכנס אוטומטית, בניגוד ל-allowlist של `exportConfiguration`). שחזור = מחיקת כל `gympro_*` ← כתיבה ← reload. גשר חדש `bridges/backup-bridge.gs` (doPost → GmailApp לבעל הסקריפט, בלי אחסון); `maybeSendWeeklyBackup` נקרא ב-DOMContentLoaded (delay 4s) ושולח אם עברו ≥7 ימים (`KEY_BACKUP_LAST`), fetch POST עם `text/plain` (בקשה פשוטה, בלי preflight). מפתחות הגשר (URL/TOKEN/ON, כבוי כברירת מחדל) נכללו ב-`_connectionKeys()`. UI: קבוצת "גיבוי שבועי לאימייל" בהגדרות + כפתורי גיבוי/שחזור מלא בקבוצת גיבוי מקומי.
 - **פורמט meals אחיד בייצוא (v17.16):** כל יום ב-`nutrition_detailed` מחזיר שדה `meals` באותו מבנה — ימי MFP מומרים דרך `_detailMealsFromMfpRows` (item לכל שורת ארוחה, שם גנרי, מאקרו + `micros`), ימי summary מקבלים `meals: []`. השדה `mfp_rows` הוסר. **סיבה:** LLM שקרא קובץ שבו הימים הראשונים היו `mfp_rows` הסיק ש"אין פירוט" בימי `app` (שדה `meals` שונה). בנוסף `readme` מוטמע בראש שני הייצואים (`_NUTRI_EXPORT_README`) שמסביר את המבנה לקוראים אוטומטיים.
 - **קובץ מאוחד (`exportUnifiedData`):** `nutrition_raw_mfp` הוחלף ב-`nutrition_detailed`. כעת = weights + nutrition_daily + nutrition_detailed + workouts.
 - **המאגר המקומי בענן בלבד:** `KEY_FOOD_DB`+`KEY_FOOD_LOG` מסונכרנים דרך מסמך `config` (saveConfigToCloud) — אין ייצוא JSON מקומי.
 - **קובץ החיבורים:** נוסף `KEY_USDA_KEY`. כלל ב-CLAUDE.md: בכל סוד/אינטגרציה חדשים — לשאול אם לכלול ב-`_connectionKeys()`.
 - **סריקת ברקוד חופשית (v16.67):** `fdLiveScanStart` (food-logic.js) משתמש ב-`_FD_CAM_CONSTRAINTS` (1080p, environment) במקום מצלמה בברירת מחדל; `_fdTuneCamera` מפעיל `focusMode:'continuous'` ומזהה תמיכת `torch` (כפתור `fd-live-torch` + `fdLiveToggleTorch`). נתיב iOS (ZXing) עם hints `TRY_HARDER`+`POSSIBLE_FORMATS` ו-`decodeFromConstraints` ברזולוציה גבוהה (fallback ל-`decodeFromVideoDevice`); כיוון מצלמה ב-ZXing דרך `_fdTuneWhenReady` (polling ל-`video.srcObject`, לא נסמך על promise הסורק). לולאת native עברה מ-RAF ל-throttle 120ms. כל ה-capability tuning guarded → no-op במכשירים ישנים. הזיהוי תמיד full-frame; המסגרת רוככה ל-UX סלחני.
-- **אבחנת ארוחות בצבע (v16.66):** `_FD_MEAL_ACCENT` (food-logic.js) ממפה ארוחות ברירת מחדל לגוון עדין (בוקר=ענבר/צהריים=ירוק/ערב=אינדיגו/נשנוש=סגול). `_fdMealsHTML` מזריק `--fd-meal-accent` ל-`.fd-meal`; ה-CSS (`.fd-meal` border-inline-start, `.fd-meal-icon`, `.fd-meal-add`) צובע דרך `color-mix(... var(--fd-meal-accent, var(--accent)) ...)`. ארוחה מותאמת/ששמה שונה → נופל ל-`var(--accent)`. מוקאפ ההשוואה: `docs/mockup-meal-distinction.html`.
+- **אבחנת ארוחות בצבע (v16.66):** `_FD_MEAL_ACCENT` (food-logic.js) ממפה ארוחות ברירת מחדל לגוון עדין (בוקר=ענבר/צהריים=ירוק/ערב=אינדיגו/נשנוש=סגול). `_fdMealsHTML` מזריק `--fd-meal-accent` ל-`.fd-meal`; ה-CSS (`.fd-meal` border-inline-start, `.fd-meal-icon`, `.fd-meal-add`) צובע דרך `color-mix(... var(--fd-meal-accent, var(--accent)) ...)`. ארוחה מותאמת/ששמה שונה → נופל ל-`var(--accent)`. מוקאפ ההשוואה: `docs/mockups/mockup-meal-distinction.html`.
 - **נראות יומן מזון לסוכן (v16.65):** `_buildFoodDiaryAIContext(slim)` (workout-core.js) מזריק ל-system prompt את פירוט `getFoodLog()` — היום לפי ארוחות+פריטים+מאקרו, יעדי `getAnalyticsPrefs`, ו-7 ימי היסטוריה (guard ~3K, `!slim` בלבד), אחרי `_buildNutritionAIContext`. תוקן תיוג `src==='app'`→"יומן פנימי" (היה "MyFitnessPal"). הסוכן ראה קודם רק סיכומי NUTRITION_DAILY, לא רזולוציית מזון/ארוחה.
 - **מרכיב מהמאגר (v16.64):** ב-Meal Builder כפתור "חפש מרכיב" (`fdMealSearchComponent`) פותח את שיט החיפוש במצב `_fdCompPickMode` (body class `fd-comp-pick` מרים z-index מעל ה-Meal Builder). בחירת תוצאה → `_fdAddComponentFromFood` (במקום `_fdOpenPortion`) מוסיפה כמרכיב עם per100. `closeFoodAdd`/`_fdOpenPortion` מאפסים את המצב. כפתור "ידני" נשאר להזנה ידנית.
 - **זרימת ברקוד (v16.62):** `resolveBarcode(code)` — resolver מרוכז: `KEY_FOOD_DB` לפי ברקוד (מיידי, offline, נסרק בעבר) → OFF (`lookupBarcode`). מחליף קריאות ישירות ב-`fdOnPhoto`/`_fdLiveOnHit`. בהחטאה: `_fdPendingBarcode` מצמיד את הברקוד למזון שייבנה מ-OCR תווית (`_fdLabelViaGemini`, id `off:<barcode>`) → זיהוי חד-פעמי שנשמר ל-cache ומסונכרן. בסריקה חיה — כפתור "צלם תווית" (`fdLiveSnapLabel`, רק עם מפתח Gemini). `_isIsraeliBarcode` (729) להתאמת ההודעה. קטלוג שקיפות-מחירים נדחה (אין API חי).
@@ -2309,7 +2320,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 - **שקילה** — משקל + אחוז שומן, גרפים, היסטוריה, צילום/OCR, ייבוא/ייצוא CSV.
 - **תזונה** — נתוני MyFitnessPal: כרטיס ממוצעים דינמי (קלוריות/חלבון/פחמימה/שומן) לפי טווח 7/30/90/הכל/**מותאם**, גרף קלוריות + גרף חלבון, היסטוריה יומית, 4 ייצואים — סיכום יומי (הכל/תקופה) + גולמי MFP per-meal (הכל/תקופה), וכפתור איפוס. ייצוא "תקופה" (יומי וגולמי כאחד) מכבד את בורר הטווח בראש המסך דרך `_blFilter`; הגולמי מסנן שורות לפי `_parseFlexDate(row[dateIdx])` (v15.83).
 
-**הגשר (Apps Script, `docs/mfp-nutrition-bridge.gs`):** רץ בחשבון ה-Gmail של המשתמש; מאתר את ייצוא ה-MFP האחרון, מוריד את ה-ZIP מ-S3 (עוקף CORS בצד-שרת), מאגד תזונה לפי יום ומחזיר JSON + `rawCsv`. מוגן ב-`SECRET_TOKEN`.
+**הגשר (Apps Script, `bridges/mfp-nutrition-bridge.gs`):** רץ בחשבון ה-Gmail של המשתמש; מאתר את ייצוא ה-MFP האחרון, מוריד את ה-ZIP מ-S3 (עוקף CORS בצד-שרת), מאגד תזונה לפי יום ומחזיר JSON + `rawCsv`. מוגן ב-`SECRET_TOKEN`.
 - **JSONP חובה:** `fetch` חוצה-מקור ל-Apps Script נכשל תמיד (ה-redirect ל-googleusercontent חסר כותרות CORS). הקריאה דרך `<script>` (JSONP, פרמטר `callback`) — `_jsonpRequest` ב-workout-core.
 - **מיזוג ללא כפילויות:** `saveNutritionDaily`/`saveNutritionRaw` עושים upsert לפי תאריך — קובץ חדש דורס ימים חופפים. משיכה שבועית מצטברת.
 - **ניקוי ספייקים בגרף בלבד:** ימים <50% מהממוצע (הזנה חסרה) מוחלפים בממוצע (`_cleanNutriOutliers`). הממוצעים/הרשימה/הייצוא עם הנתונים האמיתיים.
@@ -2317,7 +2328,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 
 ## מנוע TDEE / מאזן אנרגיה (v15.77–15.79)
 
-`computeTDEE()` ב-`bodylog-logic.js` (offline). כרטיס בטאב תזונה; עוגן ל-AI ב-`_buildTdeeAIContext()`. מתודולוגיה מלאה: `docs/tdee-methodology.md`.
+`computeTDEE()` ב-`bodylog-logic.js` (offline). כרטיס בטאב תזונה; עוגן ל-AI ב-`_buildTdeeAIContext()`. מתודולוגיה מלאה: `docs/specs/tdee-methodology.md`.
 - **רב-שיטתי:** מדידה (back-calc) + Katch-McArdle + Cunningham (ממשקל+%שומן) + Mifflin (מפרופיל גוף). מציג טבלת השוואה + טווח ביטחון, לא מספר בודד.
 - **מדידה = `avgIntake − slope×7700`** (slope ק"ג/יום מרגרסיה על המשקל). מעגן כשיש מספיק נתונים.
 - **דיוק — לקחים קריטיים (v15.78):** חלון רגיל מערבב שלבים (תחזוקה+קאט) וקפיצות כיול-משקל → TDEE מנופח. לכן: (1) פילוח ל**שלב התזונתי הנוכחי** (מלוג המעברים), (2) **דילוג על 7 ימים ראשונים** של השלב (מים), (3) הנמכת ביטחון+הרחבת טווח (±12%) כש-RMSE>0.7 או <14 ימים, (4) חסם שפיות: קצב >1.6 ק"ג/שבוע = נתון פגום → לא מעגנים.
@@ -2349,7 +2360,7 @@ TDEE, AI). היומן הפנימי שומר רשומות per-food ב-`KEY_FOOD_L
 - **משקלי פונט חייבים להיטען בקישור Google Fonts** (v16.89, P1) — עד אז ה-CSS השתמש ב-`font-weight:700`
   ב-131 מקומות אבל הקישור טען רק 300/400/600/800/900 — הדפדפן עיגל 700→800 בשקט. כל הוספת משקל ב-CSS
   מחייבת עדכון ה-`<link>` ב-index.html. סולם P1: 900/700/600/400 (+200/300 thin לספרות hero בלבד).
-  טוקני `--fs-*` ב-:root — כל font-size חדש חייב טוקן, לא ערך חופשי (docs/POLISH_ROADMAP.md).
+  טוקני `--fs-*` ב-:root — כל font-size חדש חייב טוקן, לא ערך חופשי (docs/plans/POLISH_ROADMAP.md).
 
 - **תאריכים: תמיד מקומי, לעולם לא `toISOString().slice(0,10)`** (v16.04) — UTC החזיר את "אתמול" בין חצות ל-03:00 שעון ישראל; היום שהסתיים לא "נסגר" בתזונה (נשאר מסונן מהיסטוריה/ממוצע/גרפים) עד לפנות בוקר. תוקן ב-`_blTodayStr`/`_blCutoff`/`StorageManager._todayStr`. שמות קבצים להורדה נשארו UTC — קוסמטי.
 

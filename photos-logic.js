@@ -194,7 +194,7 @@ function _ppSyncConfigSoon() {
     }, 3000);
 }
 
-// ─── גשר הדרייב (Apps Script — docs/photo-bridge.gs) ───────────────────────
+// ─── גשר הדרייב (Apps Script — bridges/photo-bridge.gs) ───────────────────────
 // Content-Type: text/plain — בקשה "פשוטה" בלי preflight (כמו שאר הגשרים).
 
 function _ppBridgePost(payload, timeoutMs) {

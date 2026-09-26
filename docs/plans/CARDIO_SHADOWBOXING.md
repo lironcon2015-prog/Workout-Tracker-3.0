@@ -296,7 +296,7 @@ session ולעצור את המוזיקה** — ואז האימון מתחיל ב
 | `storage.js` | `KEY_CARDIO_PREFS` + `_connectionKeys()` |
 | `style.css` | מסך ה-Live של הסבבים, מסילת הסבבים, שורת סבב בארכיון |
 | `sw.js` / `version.json` | 19.13.0 |
-| `docs/health-nutrition-bridge.gs` | רק אם מוסיפים מרחק/קצב (§13.3) — דורש פרסום מחדש |
+| `bridges/health-nutrition-bridge.gs` | רק אם מוסיפים מרחק/קצב (§13.3) — דורש פרסום מחדש |
 | `test/cardio-archive.test.js` | נפח 0, סינון, בחירת קומבינציה, שורות summary |
 
 ---
@@ -349,7 +349,7 @@ session ולעצור את המוזיקה** — ואז האימון מתחיל ב
 
 ### 13.3 מרחק וקצב — חסר בגשר
 
-`_parseWorkout` ב-`docs/health-nutrition-bridge.gs` **אינו שולח מרחק** היום.
+`_parseWorkout` ב-`bridges/health-nutrition-bridge.gs` **אינו שולח מרחק** היום.
 ריצה או רכיבה בלי ק״מ וקצב היא חצי אימון, ולכן: הוספת `distance` (וגזירת
 קצב/מהירות ממנו ומ-`durMin`) בגשר, ואריח "מרחק"/"קצב" בכרטיס השעון —
 מוצג רק כשהנתון קיים, בדיוק כמו שאר האריחים. **דורש פרסום מחדש של ה-Apps

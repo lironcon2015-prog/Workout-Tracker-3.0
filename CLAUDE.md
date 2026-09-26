@@ -26,35 +26,35 @@
 
 ## תוכנית שדרוג פעילה — חובה לקרוא
 
-קיימת תוכנית roadmap מאושרת ב-**`docs/ROADMAP.md`** (5 ספרינטים, ~2,800 שורות, יעד: רמת Apple Fitness / Whoop).
+קיימת תוכנית roadmap מאושרת ב-**`docs/plans/ROADMAP.md`** (5 ספרינטים, ~2,800 שורות, יעד: רמת Apple Fitness / Whoop).
 
-**טריגרים שמחייבים קריאה של `docs/ROADMAP.md` לפני פעולה:**
+**טריגרים שמחייבים קריאה של `docs/plans/ROADMAP.md` לפני פעולה:**
 - "המשך מהתוכנית" / "המשך roadmap" / "המשך שדרוג"
 - "בצע Sprint X" / "התחל Sprint X" / "נמשיך Sprint X"
 - כל שאלה על שדרוג, פיצ'רים חדשים, או הכיוון של האפליקציה
 - אזכור של אחד מהפיצ'רים: Giant Sets, Nutritional State, Plateau Detection, PR Prediction, Heatmap, Live View, Swipe Navigation, Skeleton Loaders, AI Recommendations
 
 **כיצד לפעול כשטריגר מזוהה:**
-1. קרא במלואו את `docs/ROADMAP.md`.
+1. קרא במלואו את `docs/plans/ROADMAP.md`.
 2. בדוק את טבלת סטטוס הספרינטים שם — מה הסטטוס הנוכחי.
 3. אל תתחיל לתכנן מחדש; התוכנית מאושרת. שאל רק מה שלא ברור.
 4. בסיום ספרינט — עדכן את הטבלה לסטטוס ✅ Done ואת מספר הגרסה.
 
 ### תוכנית ליטוש UI — Polish Pass
 
-קיימת תוכנית ליטוש עיצובי מאושרת ב-**`docs/POLISH_ROADMAP.md`** (5 שלבים P1-P5: טיפוגרפיה,
-צבע, radius/ריווח, מושן, ליטושים) + מוקאפ השוואתי ב-`docs/mockup-polish-comparison.html`.
+קיימת תוכנית ליטוש עיצובי מאושרת ב-**`docs/plans/POLISH_ROADMAP.md`** (5 שלבים P1-P5: טיפוגרפיה,
+צבע, radius/ריווח, מושן, ליטושים) + מוקאפ השוואתי ב-`docs/mockups/mockup-polish-comparison.html`.
 
-**טריגרים שמחייבים קריאה של `docs/POLISH_ROADMAP.md` לפני פעולה:** "ליטוש UI" / "Polish" /
+**טריגרים שמחייבים קריאה של `docs/plans/POLISH_ROADMAP.md` לפני פעולה:** "ליטוש UI" / "Polish" /
 "polish pass" / "בצע P1..P5" / כל בקשה על שיפור נראות, עקביות עיצובית, טיפוגרפיה, או טוקני CSS.
 פעל לפי אותם כללים: קרא → בדוק סטטוס → אל תתכנן מחדש → עדכן טבלה בסיום שלב.
 
 ### עיצוב מחדש — שפת Apple Fitness (מהלך פעיל)
 
-קיים מהלך redesign מדורג להעברת האפליקציה לשפת **Apple Fitness**, מתועד ב-**`docs/APPLE_FITNESS_REDESIGN.md`**
-(טוקנים, פלטה, עקרונות, Roadmap מסכים) + מוקאפ השוואתי ב-`docs/mockup-apple-fitness.html`.
+קיים מהלך redesign מדורג להעברת האפליקציה לשפת **Apple Fitness**, מתועד ב-**`docs/plans/APPLE_FITNESS_REDESIGN.md`**
+(טוקנים, פלטה, עקרונות, Roadmap מסכים) + מוקאפ השוואתי ב-`docs/mockups/mockup-apple-fitness.html`.
 
-**טריגרים שמחייבים קריאה של `docs/APPLE_FITNESS_REDESIGN.md` לפני פעולה:** "Apple Fitness" /
+**טריגרים שמחייבים קריאה של `docs/plans/APPLE_FITNESS_REDESIGN.md` לפני פעולה:** "Apple Fitness" /
 "המשך redesign" / "ליים / glass / טבעות" / "המסך הבא בעיצוב אפל" / כל בקשה על מסך נוסף בשפה הזו.
 פעל לפי אותם כללים: קרא → בדוק סטטוס/Roadmap → אל תתכנן מחדש טוקנים → עדכן טבלה בסיום מסך.
 
@@ -271,22 +271,30 @@ version.json: { "version": "19.MINOR.PATCH" }
 | `food-logic.js` | יומן מזון מובנה: חיפוש Open Food Facts, ברקוד/תווית דרך Gemini, עורך מנה/ארוחה/שעה, מועדפים/אחרונים/מותאמים. כותב ל-NUTRITION_DAILY דרך `recomputeNutritionDay` |
 | `storage.js` | StorageManager (localStorage) + FirebaseManager (סנכרון ענן) |
 | `data.js` | נתוני ברירת מחדל |
-| `docs/mfp-nutrition-bridge.gs` | Google Apps Script — גשר שמושך ייצוא MyFitnessPal מ-Gmail (JSONP) |
-| `docs/health-nutrition-bridge.gs` | Google Apps Script — גשר תזונה מ-Apple Health (קיצור דרך דוחף, האפליקציה מושכת) |
-| `docs/backup-bridge.gs` | Google Apps Script — גשר גיבוי שבועי: מקבל גיבוי מלא ושולח לאימייל (MailApp) |
-| `docs/widget-bridge.gs` | Google Apps Script — גשר ווידג'ט: האפליקציה דוחפת snapshot, ווידג'ט Scriptable מושך |
-| `docs/widget-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הבית ל-iOS (תזונה+מאקרו, משקל+מגמה, אימון אחרון). ללא רקע שקוף: ווידג'ט צד-שלישי שאינו צובע את עצמו מקבל מיכל מערכת לבן ואטום, לא Liquid Glass — נוסה ונפסל |
-| `docs/widget-lockscreen-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הנעילה ל-iOS (accessoryCircular/Rectangular/Inline). אותו גשר ו-snapshot; רינדור מונוכרומטי (vibrancy) — היררכיה ב-alpha בלבד. שדה Parameter של הווידג'ט בוחר תוכן: ריק=תזונה, `weight`=ריבוע/מלבן משקל |
-| `docs/photo-bridge.gs` | Google Apps Script — גשר תמונות התקדמות: upload/get/list/del מול תיקיית Drive פרטית; וגם coachWrite/coachCheck לנתוני המאמן |
+| `bridges/mfp-nutrition-bridge.gs` | Google Apps Script — גשר שמושך ייצוא MyFitnessPal מ-Gmail (JSONP) |
+| `bridges/health-nutrition-bridge.gs` | Google Apps Script — גשר תזונה מ-Apple Health (קיצור דרך דוחף, האפליקציה מושכת) |
+| `bridges/backup-bridge.gs` | Google Apps Script — גשר גיבוי שבועי: מקבל גיבוי מלא ושולח לאימייל (MailApp) |
+| `bridges/widget-bridge.gs` | Google Apps Script — גשר ווידג'ט: האפליקציה דוחפת snapshot, ווידג'ט Scriptable מושך |
+| `bridges/widget-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הבית ל-iOS (תזונה+מאקרו, משקל+מגמה, אימון אחרון). ללא רקע שקוף: ווידג'ט צד-שלישי שאינו צובע את עצמו מקבל מיכל מערכת לבן ואטום, לא Liquid Glass — נוסה ונפסל |
+| `bridges/widget-lockscreen-scriptable.js` | סקריפט Scriptable — ווידג'ט מסך הנעילה ל-iOS (accessoryCircular/Rectangular/Inline). אותו גשר ו-snapshot; רינדור מונוכרומטי (vibrancy) — היררכיה ב-alpha בלבד. שדה Parameter של הווידג'ט בוחר תוכן: ריק=תזונה, `weight`=ריבוע/מלבן משקל |
+| `bridges/photo-bridge.gs` | Google Apps Script — גשר תמונות התקדמות: upload/get/list/del מול תיקיית Drive פרטית; וגם coachWrite/coachCheck לנתוני המאמן |
 | `coach-drive-logic.js` | סנכרון נתוני מאמן לדרייב (`GymPro Coach Data`): 8 קבצי JSON מ-`_buildUnifiedSections` + `workouts_log` (Google Doc: טקסט `_archiveCopyText` בלי סיכום מאמן), חלונות ב-`COACH_DRIVE_WINDOWS`, hash לכל קובץ, readme אחרון. דרך גשר התמונות |
+| `bridges/watch-bridge.gs` | Google Apps Script — גשר אפל-ווטש: אימון חי מהשעון (Shortcuts) ל-Firestore `live_session` |
 | `vendor/zbar.js` | ספריית ZBar (WASM) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
 | `test/` | בדיקות Node ללא תלויות — נטענות מסמני `X-START`/`X-END` בקוד המקור |
 
+### מבנה תיקיות — איפה שמים קובץ חדש
+
+- `bridges/` — כל גשרי Apps Script וסקריפטי הווידג'ט; `bridges/guides/` — מתכוני הגדרה
+  בצד האייפון; `bridges/README.md` — אינדקס הגשרים. גשר חדש = קובץ כאן + שורה באינדקס.
+- `docs/plans/` — roadmaps ותוכניות. `docs/specs/` — מפרטים ומתודולוגיות.
+- `docs/mockups/` — מוקאפים (תיעוד בלבד; ההצגה למשתמש היא ב-Artifact).
+
 ### token של גשר Apps Script — ב-Script properties, לא בקוד
 
-`docs/photo-bridge.gs` קורא את ה-token מ-Script properties (`SECRET_TOKEN`), כמו `ADMIN_CODE`
+`bridges/photo-bridge.gs` קורא את ה-token מ-Script properties (`SECRET_TOKEN`), כמו `ADMIN_CODE`
 בגשר של MGivatayim. token שכתוב בקובץ נמחק בכל הדבקה של גרסה חדשה, והמשתמש נאלץ להעתיק
 אותו מחדש. "לא הוגדר" (`TOKEN_NOT_SET`) ו"שגוי" (`BAD_TOKEN`) הן שתי שגיאות נפרדות.
 שאר הגשרים עוד מחזיקים `SECRET_TOKEN` בקוד — כשנוגעים בגשר, מעבירים אותו לאותו דפוס.
@@ -305,7 +313,7 @@ version.json: { "version": "19.MINOR.PATCH" }
 ---
 
 ## גרסה נוכחית
-19.17.0
+19.17.1
 
 ---
 

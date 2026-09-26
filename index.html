@@ -29,6 +29,7 @@
     <script defer src="food-logic.js"></script>
     <script defer src="photos-logic.js"></script>
     <script defer src="voice-logic.js"></script>
+    <script defer src="coach-drive-logic.js"></script>
 
     <!-- Firebase SDK (Compat) — טעינה lazy/non-blocking. לא חוסם DOMContentLoaded.
          נטען ברקע רק למשתמשים עם cloud מוגדר, או on-demand דרך FirebaseManager. -->
@@ -1041,6 +1042,22 @@
                             </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">תמונות ההתקדמות נשמרות בתיקייה פרטית בדרייב שלך דרך הגשר (docs/photo-bridge.gs) — מקור האמת; במכשיר נשמר רק cache. <span class="material-symbols-outlined inline-warn">warning</span> פרטיות: ניתוח ה-AI שולח את התמונות ל-Gemini API — ב-free tier גוגל רשאית להשתמש בקלט לשיפור מודלים; במסלול בתשלום לא.</div>
+                    </div>
+
+                    <!-- נתוני מאמן (Google Drive) -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">נתוני מאמן (Google Drive)</div>
+                        <div class="stg-bento stg-ai-bento">
+                            <div id="coach-drive-status" style="min-height:18px;font-size:0.82em;"></div>
+                            <label class="stg-switch-row" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>סנכרון אוטומטי לדרייב</span>
+                                <span class="stg-switch"><input type="checkbox" id="coach-drive-toggle" class="bridge-toggle" onchange="toggleCoachDrive()"><span class="stg-switch-slider"></span></span>
+                            </label>
+                            <div class="bridge-btn-row">
+                                <button class="bridge-btn bridge-btn--go" onclick="syncCoachDriveNow()">סנכרן עכשיו</button>
+                            </div>
+                        </div>
+                        <div class="ai-security-note" style="margin-top:6px;">קבצי נתונים קטנים למאמן ה-Claude בתיקייה "GymPro Coach Data" בדרייב שלך: שקילות, תזונה ושינה (90 יום), אימונים (56 יום), פירוט תזונה ועקומות דופק (30 יום), תיבת הזיכרון, ו-00_readme.json. מתעדכן בפתיחה ובחזרה לאפליקציה, לכל היותר פעם ב-6 שעות, ורק קבצים שהשתנו. משתמש ב-URL וב-token של גשר התמונות (docs/photo-bridge.gs) — אחרי עדכון הגשר צריך לפרוס גרסה חדשה שלו.</div>
                     </div>
 
                     <!-- ייבוא תזונה (MyFitnessPal) -->

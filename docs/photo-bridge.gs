@@ -22,12 +22,18 @@
  *    ה-SECRET_TOKEN, הפעל את המתג ולחץ "בדוק חיבור".
  *
  * בדיקה בדפדפן:  <WebAppURL>?token=<SECRET_TOKEN>  ← אמור להחזיר {"ok":true,...}
+ *
+ * ── נתוני מאמן (מאז v19.16) ──────────────────────────────────────────────────
+ * אותו גשר כותב גם את קבצי הנתונים של מאמן ה-Claude לתיקייה COACH_FOLDER_NAME
+ * (coachWrite / coachCheck). אחרי עדכון הקובץ: Deploy → Manage deployments →
+ * עריכה → Version: New version. בלי זה ה-URL ממשיך להריץ את הקוד הישן.
  * ==========================================================================*/
 
 // 🔐 שנה לערך אקראי משלך (אותיות/ספרות). העתק אותו גם להגדרות GYMPRO.
 var SECRET_TOKEN = 'CHANGE_ME_to_a_random_secret';
 
 var FOLDER_NAME = 'GymPro Progress Photos';
+var COACH_FOLDER_NAME = 'GymPro Coach Data';
 
 /* ─── פעולות מהאפליקציה (POST) ────────────────────────────────────────────
  * Body (JSON): { token, action, ... }
@@ -35,6 +41,8 @@ var FOLDER_NAME = 'GymPro Progress Photos';
  *   action: 'get'    { id } או { date }                                      → { ok, data:<base64>, mime }
  *   action: 'list'   {}                                                      → { ok, files:[{id,name,date,bytes,updated}] }
  *   action: 'del'    { id }                                                  → { ok }
+ *   action: 'coachWrite' { files:[{name, content, id?}] }  → { ok, folderId, results:[{name, ok, id, bytes, error?}] }
+ *   action: 'coachCheck' { ids:[...] }                     → { ok, folderId, missing:[ids] }
  */
 function doPost(e) {
   var body;
@@ -50,6 +58,8 @@ function doPost(e) {
       case 'get':    return _get(body);
       case 'list':   return _list();
       case 'del':    return _del(body);
+      case 'coachWrite': return _coachWrite(body);
+      case 'coachCheck': return _coachCheck(body);
       default:       return _json({ ok: false, error: 'BAD_ACTION' });
     }
   } catch (err) {
@@ -130,6 +140,92 @@ function _del(body) {
   } catch (err) {
     return _json({ ok: false, error: 'NOT_FOUND' });
   }
+}
+
+/* ─── נתוני מאמן ────────────────────────────────────────────────────────────
+ * קובץ נוצר פעם אחת ומעודכן במקום (setContent) — המזהה שלו קבוע, כך שקישור ששמור
+ * אצל המאמן ממשיך להצביע על הנתונים העדכניים. חיפוש: לפי id, אחרת לפי שם בתיקייה,
+ * אחרת יצירה. כפילויות לפי שם (למשל משתי ריצות מקבילות לפני המנעול) נזרקות לאשפה.
+ */
+function _coachFolder() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('COACH_FOLDER_ID');
+  if (id) {
+    try {
+      var f = DriveApp.getFolderById(id);
+      if (!f.isTrashed()) return f;
+    } catch (err) { /* נמחקה — נמצא או ניצור מחדש */ }
+  }
+  var it = DriveApp.getRootFolder().getFoldersByName(COACH_FOLDER_NAME);
+  var folder = null;
+  while (it.hasNext()) {
+    var cand = it.next();
+    if (!cand.isTrashed()) { folder = cand; break; }
+  }
+  if (!folder) folder = DriveApp.createFolder(COACH_FOLDER_NAME);
+  props.setProperty('COACH_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+function _coachInFolder(file, folder) {
+  var parents = file.getParents();
+  while (parents.hasNext()) if (parents.next().getId() === folder.getId()) return true;
+  return false;
+}
+
+function _coachFile(folder, name, id) {
+  if (id) {
+    try {
+      var byId = DriveApp.getFileById(id);
+      if (!byId.isTrashed() && byId.getName() === name && _coachInFolder(byId, folder)) return byId;
+    } catch (err) { /* לא קיים — נחפש לפי שם */ }
+  }
+  var found = null;
+  var it = folder.getFilesByName(name);
+  while (it.hasNext()) {
+    var f = it.next();
+    if (f.isTrashed()) continue;
+    if (!found) found = f; else f.setTrashed(true);   // אין כפילויות
+  }
+  return found;
+}
+
+function _coachWrite(body) {
+  var files = body.files;
+  if (!files || !files.length) return _json({ ok: false, error: 'NO_FILES' });
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return _json({ ok: false, error: 'BUSY' });
+  try {
+    var folder = _coachFolder();
+    var results = files.map(function (item) {
+      var name = String(item && item.name || '');
+      if (!/^[a-z0-9_]+\.json$/.test(name)) return { name: name, ok: false, error: 'BAD_NAME' };
+      if (typeof item.content !== 'string') return { name: name, ok: false, error: 'NO_CONTENT' };
+      try {
+        var file = _coachFile(folder, name, item.id);
+        if (file) file.setContent(item.content);
+        else file = folder.createFile(Utilities.newBlob(item.content, 'application/json', name));
+        return { name: name, ok: true, id: file.getId(), bytes: file.getSize() };
+      } catch (err) {
+        return { name: name, ok: false, error: 'DRIVE_ERROR: ' + (err && err.message) };
+      }
+    });
+    return _json({ ok: true, folderId: folder.getId(), results: results });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// אילו מזהים כבר לא קיימים (נמחקו/הועברו לאשפה) — כדי שהאפליקציה תכתוב אותם מחדש
+function _coachCheck(body) {
+  var folder = _coachFolder();
+  var missing = (body.ids || []).filter(function (id) {
+    try {
+      var f = DriveApp.getFileById(id);
+      return f.isTrashed() || !_coachInFolder(f, folder);
+    } catch (err) { return true; }
+  });
+  return _json({ ok: true, folderId: folder.getId(), missing: missing });
 }
 
 function _json(obj) {

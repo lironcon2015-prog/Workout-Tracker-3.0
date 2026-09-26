@@ -82,13 +82,15 @@ eq(P._cdPlan({ 'a.json': { id: 'x', hash: 'h' }, 'b.json': { id: 'y', hash: 'h' 
 // ─── חלק 2: סנכרון מלא מול הגשר האמיתי ────────────────────────────────────
 function iter(arr) { let i = 0; return { hasNext: () => i < arr.length, next: () => arr[i++] }; }
 const drive = { files: [], folders: [], writes: [], seq: 0 };
-function mkFile(name, content, parent) {
+const DOC_MIME = 'application/vnd.google-apps.document';
+function mkFile(name, content, parent, mime) {
     const f = {
-        id: 'f' + (++drive.seq), name, content, trashed: false, parent,
+        id: 'f' + (++drive.seq), name, content, trashed: false, parent, mime: mime || 'application/json',
+        moveTo(folder) { this.parent = folder.getId(); },
         getId() { return this.id; }, getName() { return this.name; }, isTrashed() { return this.trashed; },
         setTrashed(t) { this.trashed = t; }, getParents() { return iter(drive.folders.filter(d => d.id === this.parent)); },
         setContent(c) { this.content = c; drive.writes.push(this.name); return this; },
-        getSize() { return Buffer.byteLength(this.content, 'utf8'); }, getMimeType() { return 'application/json'; }
+        getSize() { return Buffer.byteLength(this.content, 'utf8'); }, getMimeType() { return this.mime; }
     };
     drive.files.push(f); drive.writes.push(name);
     return f;
@@ -118,8 +120,19 @@ const gasSandbox = {
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = v; } }) },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }) },
     Utilities: { newBlob: (content, mime, name) => ({ content, mime, name }) },
-    ContentService: { createTextOutput: text => ({ text, setMimeType() { return this; } }), MimeType: { JSON: 'json' } }
+    ContentService: { createTextOutput: text => ({ text, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
+    MimeType: { GOOGLE_DOCS: DOC_MIME },
+    Logger: { log() {} },
+    // Google Doc: נוצר בשורש (כמו DocumentApp.create), setText מעדכן את אותו קובץ במקום
+    DocumentApp: {
+        create(name) { const f = mkFile(name, '', 'root', DOC_MIME); drive.writes.pop(); return docOf(f); },
+        openById(id) { return docOf(byId(drive.files, id)); }
+    }
 };
+function docOf(f) {
+    return { getId: () => f.id, saveAndClose() {},
+             getBody: () => ({ setText(t) { f.content = t; drive.writes.push(f.name); } }) };
+}
 const bridgeSrc = read('docs/photo-bridge.gs');
 const bridge = new Function(...Object.keys(gasSandbox), bridgeSrc + '\nreturn { doPost };')(...Object.values(gasSandbox));
 
@@ -177,6 +190,13 @@ vm.createContext(ctx);
 vm.runInContext(read('bodylog-logic.js'), ctx);
 // _stripCoachFromSummary מתוך archive-logic.js עצמו — אותו ניקוי שהייצוא המאוחד מריץ
 vm.runInContext(read('archive-logic.js').match(/function _stripCoachFromSummary[\s\S]*?\n}\n/)[0], ctx);
+// טקסט ייצוא הסיכום — _archiveCopyText מ-archive-logic.js ובלוק METRICSTEXT מ-workout-core.js, כמו באפליקציה
+vm.runInContext(read('archive-logic.js').match(/function _archiveCopyText[\s\S]*?\n}\n/)[0], ctx);
+Object.assign(ctx, {
+    _fmtClock: sec => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(Math.round(sec % 60)).padStart(2, '0')}`,
+    _readinessFor: () => null, _contextRows: () => [], _slFmtDur: m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`
+});
+vm.runInContext(read('workout-core.js').split('METRICSTEXT-START')[1].split('METRICSTEXT-END')[0].replace(/^[^\n]*\n/, ''), ctx);
 vm.runInContext(cdSrc + '\nthis.CoachDrive = CoachDrive; this._cdIsraelDate = _cdIsraelDate;', ctx);
 ctx.CoachDrive.setOn(true);
 
@@ -196,12 +216,29 @@ const liveFiles = () => drive.files.filter(f => !f.trashed);
     ok(await ctx.CoachDrive.sync({}), 'סנכרון ראשון הצליח');
     const names = liveFiles().map(f => f.name).sort();
     eq(names, ['00_readme.json', 'memory_box.json', 'nutrition_daily.json', 'nutrition_detailed.json', 'sleep_recovery.json',
-               'watch_hr_series.json', 'weights.json', 'workouts.json'], '8 קבצים בתיקייה, בלי כפילויות');
+               'watch_hr_series.json', 'weights.json', 'workouts.json', 'workouts_log'], '9 קבצים בתיקייה, בלי כפילויות');
+    const logFile = () => liveFiles().find(f => f.name === 'workouts_log');
+    eq(logFile().getMimeType(), 'application/vnd.google-apps.document', 'workouts_log הוא Google Doc נייטיב');
+    ok(logFile().parent === drive.folders[0].id, 'ה-Doc הועבר מהשורש לתיקייה');
     eq(drive.folders.map(d => d.name), ['GymPro Coach Data'], 'תיקייה אחת: GymPro Coach Data');
     ok(liveFiles().every(f => f.parent === drive.folders[0].id), 'כל הקבצים בתוך התיקייה');
     eq(drive.writes[drive.writes.length - 1], '00_readme.json', 'readme נכתב אחרון');
     console.log('   גדלים אחרי סנכרון ראשון (דאטה סינתטית):');
-    liveFiles().forEach(f => console.log(`     ${f.name.padEnd(24)} ${(f.getSize() / 1024).toFixed(1)} KB`));
+    liveFiles().forEach(f => console.log(`     ${f.name.padEnd(24)} ${f.mime === DOC_MIME ? f.content.length + ' תווים' : (f.getSize() / 1024).toFixed(1) + ' KB'}`));
+
+    // יומן האימונים — תוכן
+    const log = logFile().content;
+    const wRecs = JSON.parse(liveFiles().find(f => f.name === 'workouts.json').content);
+    const [head, ...rest] = log.split('\n\n');
+    ok(/^generated: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2} · from: \d{4}-\d{2}-\d{2} · to: \d{4}-\d{2}-\d{2} · workouts: \d+$/.test(head), 'כותרת: generated · from · to · workouts');
+    const entries = log.slice(head.length + 2).split('\n\n----------\n\n');
+    eq(entries.length, wRecs.length, 'מספר האימונים ב-Doc = records של workouts.json');
+    ok(head.endsWith('workouts: ' + wRecs.length), 'המספר בכותרת תואם');
+    const newest = data.archive.filter(a => wRecs.some(w => w.timestamp === a.timestamp)).sort((a, b) => b.timestamp - a.timestamp);
+    eq(entries[0], ctx._archiveCopyText(newest[0], false), 'אימון ראשון = החדש, זהה לטקסט ייצוא הסיכום (בלי סיכום מאמן)');
+    eq(entries[entries.length - 1], ctx._archiveCopyText(newest[newest.length - 1], false), 'אימון אחרון = הישן');
+    ok(!/סיכום המאמן|טקסט מאמן/.test(log), 'אין סיכום מאמן ב-Doc');
+    ok(/=== מדדי האימון ===/.test(entries[0]) && /\| Note: קל/.test(entries[0]) && /RIR 2/.test(entries[0]), 'נשמרו מדדי האימון, RIR והערות סט');
 
     // 2. סנכרון שני מיד — אף קובץ לא נכתב
     const w1 = drive.writes.length, f1 = fetchCount;
@@ -216,6 +253,15 @@ const liveFiles = () => drive.files.filter(f => !f.trashed);
     ok(await ctx.CoachDrive.sync({}), 'סנכרון אחרי שינוי שקילה הצליח');
     eq(drive.writes.slice(w2), ['weights.json', '00_readme.json'], 'שינוי שקילה: נכתבו רק weights.json ו-00_readme.json');
     eq(liveFiles().map(f => f.id).sort().join(), idsBefore, 'המזהים בדרייב לא השתנו (עדכון במקום, לא קובץ חדש)');
+
+    // שינוי באימון → ה-Doc מתעדכן במקום: אותו מזהה, עותק אחד
+    const docId = liveFiles().find(f => f.name === 'workouts_log').id;
+    data.archive[0] = Object.assign({}, data.archive[0], { summary: data.archive[0].summary.replace('100kg x 5', '105kg x 5') });
+    const wd = drive.writes.length;
+    ok(await ctx.CoachDrive.sync({}), 'סנכרון אחרי שינוי אימון הצליח');
+    eq(drive.writes.slice(wd).sort(), ['00_readme.json', 'workouts_log'], 'שינוי בטקסט אימון: נכתבו workouts_log ו-readme');
+    eq(liveFiles().filter(f => f.name === 'workouts_log').map(f => f.id), [docId], 'ה-Doc עודכן במקום — אותו מזהה, בלי כפילות');
+    ok(/105kg x 5/.test(liveFiles().find(f => f.name === 'workouts_log').content), 'התוכן החדש ב-Doc');
 
     // קובץ שנמחק ידנית — "סנכרן עכשיו" מחזיר אותו, בלי כפילויות
     liveFiles().find(f => f.name === 'weights.json').trashed = true;
@@ -241,7 +287,11 @@ const liveFiles = () => drive.files.filter(f => !f.trashed);
     const readme = JSON.parse(liveFiles().find(f => f.name === '00_readme.json').content);
     ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/.test(readme.generated), 'generated: ISO עם היסט מקומי');
     eq(readme.app_version, '19.16.0', 'app_version');
-    eq(readme.note, '30 הימים האחרונים ב-Drive עדכניים מהקובץ המאוחד האחרון. בחפיפה, Drive גובר.', 'note');
+    eq(readme.note, 'הנתונים ב-Drive עדכניים מהקובץ המאוחד האחרון. בחפיפה, Drive גובר.', 'note');
+    const lf = readme.files['workouts_log'];
+    ok(lf && lf.window_days === 56 && lf.from && lf.to && lf.records > 0 && lf.chars === logFile().content.length &&
+       lf.last_written && lf.format === 'google_doc_text' && !('bytes' in lf), 'readme: workouts_log עם chars (לא bytes) ו-format');
+    ok(readme.readme.some(l => l.startsWith('workouts_log = אותם אימונים כמו workouts.json')), 'readme: שורת תיאור ל-workouts_log');
     const wf = readme.files['workouts.json'];
     ok(wf.window_days === 56 && wf.from && wf.to && wf.records > 0 && wf.bytes > 0 && wf.last_written, 'לכל קובץ: window_days, from, to, records, bytes, last_written');
     eq(readme.files['weights.json'].bytes, liveFiles().find(f => f.name === 'weights.json').getSize(), 'bytes תואם לגודל בדרייב');

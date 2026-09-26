@@ -36,6 +36,9 @@
  * אותו גשר כותב גם את קבצי הנתונים של מאמן ה-Claude לתיקייה COACH_FOLDER_NAME
  * (coachWrite / coachCheck). אחרי עדכון הקובץ: Deploy → Manage deployments →
  * עריכה → Version: New version. בלי זה ה-URL ממשיך להריץ את הקוד הישן.
+ * מאז v19.17: יומן האימונים נכתב כ-Google Doc (DocumentApp) — הרשאה חדשה. פעם אחת:
+ * בחר בתפריט הפונקציות את authorizeDocs → Run (▶) → Review permissions → Allow.
+ * בלי זה הכתיבה של workouts_log נכשלת בהודעת הרשאה, ושאר הקבצים לא נפגעים.
  * ==========================================================================*/
 
 // 🔐 ה-token לא נמצא בקובץ — הוא ב-Script properties (SECRET_TOKEN). ראה "פריסה" למעלה.
@@ -69,7 +72,8 @@ var COACH_FOLDER_NAME = 'GymPro Coach Data';
  *   action: 'get'    { id } או { date }                                      → { ok, data:<base64>, mime }
  *   action: 'list'   {}                                                      → { ok, files:[{id,name,date,bytes,updated}] }
  *   action: 'del'    { id }                                                  → { ok }
- *   action: 'coachWrite' { files:[{name, content, id?}] }  → { ok, folderId, results:[{name, ok, id, bytes, error?}] }
+ *   action: 'coachWrite' { files:[{name, content, id?, doc?}] }  (doc:true → Google Doc, שם בלי סיומת)
+ *  → { ok, folderId, results:[{name, ok, id, bytes, error?}] }
  *   action: 'coachCheck' { ids:[...] }                     → { ok, folderId, missing:[ids] }
  */
 function doPost(e) {
@@ -229,9 +233,14 @@ function _coachWrite(body) {
     var folder = _coachFolder();
     var results = files.map(function (item) {
       var name = String(item && item.name || '');
-      if (!/^[a-z0-9_]+\.json$/.test(name)) return { name: name, ok: false, error: 'BAD_NAME' };
+      var isDoc = item && item.doc === true;
+      if (!(isDoc ? /^[a-z0-9_]+$/ : /^[a-z0-9_]+\.json$/).test(name)) return { name: name, ok: false, error: 'BAD_NAME' };
       if (typeof item.content !== 'string') return { name: name, ok: false, error: 'NO_CONTENT' };
       try {
+        if (isDoc) {
+          var doc = _coachDoc(folder, name, item.id, item.content);
+          return { name: name, ok: true, id: doc.getId(), bytes: 0 };
+        }
         var file = _coachFile(folder, name, item.id);
         if (file) file.setContent(item.content);
         else file = folder.createFile(Utilities.newBlob(item.content, 'application/json', name));
@@ -244,6 +253,27 @@ function _coachWrite(body) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Google Doc נייטיב: נוצר פעם אחת ב-DocumentApp, ומעודכן במקום (body.setText) — המזהה
+// קבוע, בלי יצירה-ומחיקה. קובץ באותו שם שאינו Doc (שארית) נזרק לאשפה ומוחלף.
+function _coachDoc(folder, name, id, text) {
+  var file = _coachFile(folder, name, id);
+  if (file && file.getMimeType() !== MimeType.GOOGLE_DOCS) { file.setTrashed(true); file = null; }
+  var doc = file ? DocumentApp.openById(file.getId()) : DocumentApp.create(name);
+  doc.getBody().setText(text);
+  doc.saveAndClose();
+  if (file) return file;
+  var created = DriveApp.getFileById(doc.getId());
+  created.moveTo(folder);   // DocumentApp.create יוצר בשורש הדרייב
+  return created;
+}
+
+// הרצה ידנית פעם אחת מהעורך — מאשרת את הרשאת DocumentApp (יומן האימונים)
+function authorizeDocs() {
+  var doc = DocumentApp.create('gympro-authorize-check');
+  DriveApp.getFileById(doc.getId()).setTrashed(true);
+  Logger.log('DocumentApp מאושר');
 }
 
 // אילו מזהים כבר לא קיימים (נמחקו/הועברו לאשפה) — כדי שהאפליקציה תכתוב אותם מחדש

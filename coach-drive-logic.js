@@ -30,7 +30,11 @@ const COACH_DRIVE_TZ = 'Asia/Jerusalem';
 // שדות השעון שנשארים ברשומת האימון. כל השאר (hrSeries, zoneBounds, hrRecovery1 ...)
 // עוברים לרשומה המקבילה ב-watch_hr_series.json — כלום לא נזרק.
 const COACH_WATCH_KEEP = ['hrAvg', 'hrMax', 'activeKcal', 'zoneSec'];
-const COACH_DRIVE_NOTE = '30 הימים האחרונים ב-Drive עדכניים מהקובץ המאוחד האחרון. בחפיפה, Drive גובר.';
+const COACH_DRIVE_NOTE = 'הנתונים ב-Drive עדכניים מהקובץ המאוחד האחרון. בחפיפה, Drive גובר.';
+// מסמכי Google Doc (טקסט רגיל — המאמן קורא JSON גדול כ-base64, ו-Doc כטקסט ישיר).
+// כל מסמך נגזר מקובץ JSON: אותו חלון ואותם אימונים. שם בלי סיומת.
+const COACH_DRIVE_DOCS = { 'workouts_log': 'workouts.json' };
+const COACH_LOG_SEP = '\n\n----------\n\n';
 
 // YYYY-MM-DD לפי שעון ישראל — לא לפי אזור הזמן של המכשיר
 function _cdIsraelDate(ms) {
@@ -132,6 +136,15 @@ function _cdPlan(stateFiles, hashes) {
     });
 }
 
+// גוף יומן האימונים: טקסט הייצוא של כל אימון, מהחדש לישן — כלי הקריאה של המאמן
+// עלול לחתוך מסמך ארוך, ולכן החדש בראש. textFn = _archiveCopyText(item, false).
+function _cdLogBody(items, textFn) {
+    return items.slice().sort((a, b) => b.timestamp - a.timestamp).map(textFn).join(COACH_LOG_SEP);
+}
+function _cdLogHeader(generated, from, to, n) {
+    return `generated: ${generated} · from: ${from} · to: ${to} · workouts: ${n}`;
+}
+
 // תוכן ה-readme, בלי generated — כך אפשר לגבב אותו ולכתוב רק כשמשהו בו השתנה
 function _cdReadmeBody(stateFiles, appVersion, readmeLines) {
     const files = {};
@@ -140,6 +153,14 @@ function _cdReadmeBody(stateFiles, appVersion, readmeLines) {
         files[name] = {
             window_days: COACH_DRIVE_WINDOWS[name], from: f.from || null, to: f.to || null,
             records: f.records || 0, bytes: f.bytes || 0, last_written: f.last_written || null
+        };
+    });
+    Object.keys(COACH_DRIVE_DOCS).forEach(name => {
+        const f = (stateFiles && stateFiles[name]) || {};
+        files[name] = {
+            window_days: COACH_DRIVE_WINDOWS[COACH_DRIVE_DOCS[name]], from: f.from || null, to: f.to || null,
+            records: f.records || 0, chars: f.chars || 0, last_written: f.last_written || null,
+            format: 'google_doc_text'
         };
     });
     return {
@@ -156,6 +177,7 @@ function _cdReadmeBody(stateFiles, appVersion, readmeLines) {
             'כולל הערות האימון, התרגילים והסטים. summary נשאר רק ברשומה ישנה בלי לוג מובנה.',
             'workouts[].watch מכיל כאן רק hrAvg, hrMax, activeKcal ו-zoneSec. עקומת הדופק (hrSeries) ושאר שדות השעון ' +
             '(zoneBounds, hrRecovery1, start/end וכו\') נמצאים ב-watch_hr_series.json — רשומה לכל אימון, מקושרת לפי timestamp.',
+            'workouts_log = אותם אימונים כמו workouts.json, בפורמט טקסט של ייצוא הסיכום, בלי סיכום המאמן, מהחדש לישן.',
             'last_written = מתי הקובץ נכתב לאחרונה. קובץ שהתוכן שלו לא השתנה אינו נכתב מחדש.'
         ].concat(readmeLines || [])
     };
@@ -247,6 +269,18 @@ const CoachDrive = {
                 hashes[name] = await this._sha256(contents[name]);
             }
 
+            // יומן האימונים: הטקסט של ייצוא הסיכום לכל אימון, מהרשומה המקורית בארכיון
+            // (אותם timestamps כמו ב-workouts.json). ה-hash בלי generated — אחרת כל סנכרון היה כותב.
+            const docs = {};
+            for (const name of Object.keys(COACH_DRIVE_DOCS)) {
+                const src = built[COACH_DRIVE_DOCS[name]];
+                const ts = new Set(src.records.map(w => w.timestamp));
+                const items = StorageManager.getArchive().filter(a => a && ts.has(a.timestamp));
+                const body = _cdLogBody(items, it => _archiveCopyText(it, false));
+                docs[name] = { body, records: items.length, from: src.from, to: src.to, window_days: src.window_days };
+                hashes[name] = await this._sha256(JSON.stringify([src.from, src.to, items.length]) + body);
+            }
+
             // "סנכרן עכשיו": קובץ שנמחק ידנית בדרייב מאבד את ה-hash ונכתב מחדש
             if (manual) {
                 const ids = Object.values(s.files).map(f => f && f.id).filter(Boolean);
@@ -266,15 +300,30 @@ const CoachDrive = {
             const toWrite = _cdPlan(s.files, hashes);
             const errors = [];
             if (toWrite.length) {
+                const stamp = _blIsoWithTz(new Date(), COACH_DRIVE_TZ);
+                Object.keys(docs).forEach(name => {
+                    const d = docs[name];
+                    contents[name] = _cdLogHeader(stamp, d.from, d.to, d.records) + '\n\n' + d.body;
+                });
                 const res = await this._post({
                     action: 'coachWrite',
-                    files: toWrite.map(name => ({ name, content: contents[name], id: (s.files[name] || {}).id || undefined }))
+                    files: toWrite.map(name => ({
+                        name, content: contents[name], id: (s.files[name] || {}).id || undefined,
+                        doc: docs[name] ? true : undefined
+                    }))
                 });
                 s.folderId = res.folderId || s.folderId;
-                const stamp = _blIsoWithTz(new Date(), COACH_DRIVE_TZ);
                 toWrite.forEach(name => {
                     const r = (res.results || []).find(x => x.name === name);
                     if (!r || !r.ok) { errors.push(name + ': ' + ((r && r.error) || 'אין תשובה')); return; }
+                    if (docs[name]) {
+                        const d = docs[name];
+                        s.files[name] = {
+                            id: r.id, hash: hashes[name], chars: contents[name].length, records: d.records,
+                            from: d.from, to: d.to, window_days: d.window_days, last_written: stamp, format: 'google_doc_text'
+                        };
+                        return;
+                    }
                     s.files[name] = {
                         id: r.id, hash: hashes[name], bytes: new TextEncoder().encode(contents[name]).length,
                         records: built[name].records.length, from: built[name].from, to: built[name].to,

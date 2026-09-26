@@ -8390,7 +8390,9 @@ function testPhotoBridgeNow() {
     if (typeof ppTestPhotoBridge !== 'function') return;
     ppTestPhotoBridge()
         .then(res => showAlert('הגשר מחובר! תיקייה: "' + res.folder + '" · ' + res.files + ' תמונות בדרייב.'))
-        .catch(e => showAlert('בדיקת הגשר נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. בדוק את ה-URL, ה-token ופריסת הסקריפט.'));
+        .catch(e => showAlert(e && e.message === 'TOKEN_NOT_SET'
+            ? 'בדיקת הגשר נכשלה: בסקריפט לא הוגדר SECRET_TOKEN. ב-Apps Script: Project Settings → Script properties → הוסף SECRET_TOKEN עם אותו ערך שבהגדרות כאן.'
+            : 'בדיקת הגשר נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. בדוק את ה-URL, ה-token ופריסת הסקריפט.'));
 }
 
 function scanPhotoDriveNow() {

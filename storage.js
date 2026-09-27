@@ -907,7 +907,11 @@ const StorageManager = {
         return r.text().then(txt => {
             try { return JSON.parse(txt); }
             catch (e) {
-                const head = String(txt || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+                // דף HTML: הטקסט הנראה, לא תחילת הקוד (<!DOCTYPE><script nonce…> לא אומר כלום).
+                // בדף השגיאה של Apps Script זה המקום שבו כתובה השגיאה ומספר השורה.
+                const head = String(txt || '')
+                    .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
+                    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
                 const hint = /<!DOCTYPE|<html/i.test(txt)
                     ? 'הגשר החזיר דף HTML במקום JSON — כנראה "Who has access" אינו "Anyone", או שגיאת סקריפט.'
                     : 'תשובה לא צפויה מהגשר.';

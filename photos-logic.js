@@ -221,7 +221,9 @@ function ppTestPhotoBridge() {
     const { url, token } = StorageManager.getPhotoBridge();
     if (!url) return Promise.reject(new Error('NO_URL'));
     return fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token))
-        .then(r => r.json())
+        // לא r.json(): דף שגיאה של גוגל (HTML) נתן כאן רק "The string did not match the expected
+        // pattern" של Safari. _bridgeJson מחזיר את קוד התגובה ואת הטקסט של הדף.
+        .then(r => StorageManager._bridgeJson(r))
         .then(res => {
             if (!res || !res.ok) {
                 const err = new Error((res && res.error) || 'BRIDGE_ERROR');

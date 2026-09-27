@@ -36,9 +36,10 @@
  * אותו גשר כותב גם את קבצי הנתונים של מאמן ה-Claude לתיקייה COACH_FOLDER_NAME
  * (coachWrite / coachCheck). אחרי עדכון הקובץ: Deploy → Manage deployments →
  * עריכה → Version: New version. בלי זה ה-URL ממשיך להריץ את הקוד הישן.
- * מאז v19.17: יומן האימונים נכתב כ-Google Doc (DocumentApp) — הרשאה חדשה. פעם אחת:
- * בחר בתפריט הפונקציות את authorizeDocs → Run (▶) → Review permissions → Allow.
- * בלי זה הכתיבה של workouts_log נכשלת בהודעת הרשאה, ושאר הקבצים לא נפגעים.
+ * מאז v19.17.2: יומן האימונים נכתב כ-Google Doc דרך Drive API (UrlFetchApp) — העלאה אחת
+ * שמומרת ל-Doc, שניות בודדות. הרשאה חדשה ("התחברות לשירות חיצוני"). פעם אחת:
+ * בחר בתפריט הפונקציות את authorizeCoach → Run (▶) → Review permissions → Allow.
+ * בלי זה ה-Doc עדיין נכתב, בדרך האיטית (DocumentApp), ושום דבר לא נשבר.
  * ==========================================================================*/
 
 // 🔐 ה-token לא נמצא בקובץ — הוא ב-Script properties (SECRET_TOKEN). ראה "פריסה" למעלה.
@@ -75,6 +76,9 @@ var COACH_FOLDER_NAME = 'GymPro Coach Data';
  *   action: 'coachWrite' { files:[{name, content, id?, doc?}] }  (doc:true → Google Doc, שם בלי סיומת)
  *  → { ok, folderId, results:[{name, ok, id, bytes, error?}] }
  *   action: 'coachCheck' { ids:[...] }                     → { ok, folderId, missing:[ids] }
+ *   action: 'coachStatus' { names:[...] }                  → { ok, files:{ name: {id, hash} } }
+ *     "קבלה": coachWrite רושם את hash התוכן (שדה hash בבקשה) בתיאור הקובץ. כשהתשובה
+ *     לא הגיעה לאפליקציה (503 / ניתוק), היא שואלת כאן מה נכתב בפועל.
  */
 function doPost(e) {
   var body;
@@ -93,6 +97,7 @@ function doPost(e) {
       case 'del':    return _del(body);
       case 'coachWrite': return _coachWrite(body);
       case 'coachCheck': return _coachCheck(body);
+      case 'coachStatus': return _coachStatus(body);
       default:       return _json({ ok: false, error: 'BAD_ACTION' });
     }
   } catch (err) {
@@ -237,14 +242,17 @@ function _coachWrite(body) {
       if (!(isDoc ? /^[a-z0-9_]+$/ : /^[a-z0-9_]+\.json$/).test(name)) return { name: name, ok: false, error: 'BAD_NAME' };
       if (typeof item.content !== 'string') return { name: name, ok: false, error: 'NO_CONTENT' };
       try {
+        var file;
         if (isDoc) {
-          var doc = _coachDoc(folder, name, item.id, item.content);
-          return { name: name, ok: true, id: doc.getId(), bytes: 0 };
+          file = _coachDoc(folder, name, item.id, item.content);
+        } else {
+          file = _coachFile(folder, name, item.id);
+          if (file) file.setContent(item.content);
+          else file = folder.createFile(Utilities.newBlob(item.content, 'application/json', name));
         }
-        var file = _coachFile(folder, name, item.id);
-        if (file) file.setContent(item.content);
-        else file = folder.createFile(Utilities.newBlob(item.content, 'application/json', name));
-        return { name: name, ok: true, id: file.getId(), bytes: file.getSize() };
+        // הקבלה נרשמת רק אחרי שהכתיבה הצליחה
+        if (typeof item.hash === 'string' && /^[0-9a-f]{64}$/.test(item.hash)) file.setDescription(item.hash);
+        return { name: name, ok: true, id: file.getId(), bytes: isDoc ? 0 : file.getSize() };
       } catch (err) {
         return { name: name, ok: false, error: 'DRIVE_ERROR: ' + (err && err.message) };
       }
@@ -255,11 +263,46 @@ function _coachWrite(body) {
   }
 }
 
-// Google Doc נייטיב: נוצר פעם אחת ב-DocumentApp, ומעודכן במקום (body.setText) — המזהה
-// קבוע, בלי יצירה-ומחיקה. קובץ באותו שם שאינו Doc (שארית) נזרק לאשפה ומוחלף.
+// Google Doc נייטיב, מזהה קבוע. דרך מהירה: Drive API — העלאת הטקסט כקובץ אחד שמומר ל-Doc
+// (update במקום לקובץ קיים). DocumentApp בונה פסקה לכל שורה, ~800 שורות = 20–35 שניות,
+// וזה מה שגרם ל-503. הדרך האיטית נשארת גיבוי: לפני אישור הרשאת UrlFetchApp, או בכשל API.
+// קובץ באותו שם שאינו Doc (שארית) נזרק לאשפה ומוחלף.
 function _coachDoc(folder, name, id, text) {
   var file = _coachFile(folder, name, id);
   if (file && file.getMimeType() !== MimeType.GOOGLE_DOCS) { file.setTrashed(true); file = null; }
+  try {
+    return _coachDocFast(folder, name, file, text);
+  } catch (err) {
+    return _coachDocSlow(folder, name, file, text);
+  }
+}
+
+function _coachDocFast(folder, name, file, text) {
+  var auth = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
+  var blob = Utilities.newBlob(text, 'text/plain; charset=utf-8');
+  if (file) {
+    var up = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' + file.getId() + '?uploadType=media', {
+      method: 'patch', contentType: 'text/plain; charset=utf-8', payload: blob.getBytes(),
+      headers: auth, muteHttpExceptions: true
+    });
+    if (up.getResponseCode() >= 300) throw new Error('DRIVE_API ' + up.getResponseCode());
+    return file;
+  }
+  var boundary = 'gympro' + Date.now();
+  var meta = JSON.stringify({ name: name, mimeType: 'application/vnd.google-apps.document', parents: [folder.getId()] });
+  var head = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
+             '\r\n--' + boundary + '\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n';
+  var payload = Utilities.newBlob(head).getBytes().concat(blob.getBytes())
+    .concat(Utilities.newBlob('\r\n--' + boundary + '--').getBytes());
+  var res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'post', contentType: 'multipart/related; boundary=' + boundary, payload: payload,
+    headers: auth, muteHttpExceptions: true
+  });
+  if (res.getResponseCode() >= 300) throw new Error('DRIVE_API ' + res.getResponseCode());
+  return DriveApp.getFileById(JSON.parse(res.getContentText()).id);
+}
+
+function _coachDocSlow(folder, name, file, text) {
   var doc = file ? DocumentApp.openById(file.getId()) : DocumentApp.create(name);
   doc.getBody().setText(text);
   doc.saveAndClose();
@@ -269,11 +312,35 @@ function _coachDoc(folder, name, id, text) {
   return created;
 }
 
-// הרצה ידנית פעם אחת מהעורך — מאשרת את הרשאת DocumentApp (יומן האימונים)
-function authorizeDocs() {
+// הרצה ידנית פעם אחת מהעורך — מאשרת את ההרשאות של נתוני המאמן (Drive API + DocumentApp)
+function authorizeCoach() {
+  UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
+  });
   var doc = DocumentApp.create('gympro-authorize-check');
   DriveApp.getFileById(doc.getId()).setTrashed(true);
-  Logger.log('DocumentApp מאושר');
+  Logger.log('ההרשאות של נתוני המאמן מאושרות');
+}
+function authorizeDocs() { authorizeCoach(); }   // השם הישן — נשאר למי שמחפש אותו
+
+// מה כתוב בפועל: מזהה + הקבלה (hash) לכל שם. ממתין למנעול — אם כתיבה עוד רצה
+// (התשובה שלה נחתכה ב-503 אבל הסקריפט ממשיך), התשובה כאן תגיע רק אחריה.
+function _coachStatus(body) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(45000)) return _json({ ok: false, error: 'BUSY' });
+  try {
+    var folder = _coachFolder();
+    var files = {};
+    (body.names || []).forEach(function (name) {
+      name = String(name || '');
+      if (!/^[a-z0-9_]+(\.json)?$/.test(name)) return;
+      var f = _coachFile(folder, name, null);
+      if (f) files[name] = { id: f.getId(), hash: f.getDescription() || '' };
+    });
+    return _json({ ok: true, folderId: folder.getId(), files: files });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // אילו מזהים כבר לא קיימים (נמחקו/הועברו לאשפה) — כדי שהאפליקציה תכתוב אותם מחדש

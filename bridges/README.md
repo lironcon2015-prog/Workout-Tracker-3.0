@@ -25,6 +25,9 @@
 2. Deploy → Manage deployments → הפריסה הפעילה → עיפרון → Version: **New version**.
    לא New deployment — פריסה חדשה מקבלת כתובת חדשה, והאפליקציה ממשיכה לפנות לישנה (404).
 
+`photo-bridge.gs` בלבד: אחרי עדכון שמוסיף הרשאה, מריצים פעם אחת את `authorizeCoach` מהעורך
+(תפריט הפונקציות → Run → Allow).
+
 גשר שה-token שלו "בקוד": ההדבקה מאפסת אותו ל-`CHANGE_ME`, וצריך להחזיר אותו לפני
 הפריסה. גשר ב-Script properties לא דורש כלום. כשנוגעים בגשר מהסוג הראשון — מעבירים
 אותו ל-Script properties (ראה CLAUDE.md).

@@ -81,7 +81,7 @@ eq(P._cdPlan({ 'a.json': { id: 'x', hash: 'h' }, 'b.json': { id: 'y', hash: 'h' 
 
 // ─── חלק 2: סנכרון מלא מול הגשר האמיתי ────────────────────────────────────
 function iter(arr) { let i = 0; return { hasNext: () => i < arr.length, next: () => arr[i++] }; }
-const drive = { files: [], folders: [], writes: [], seq: 0, api: 'on', apiCalls: 0, cut503: 0 };
+const drive = { files: [], folders: [], writes: [], seq: 0, api: 'on', apiCalls: 0, cut503: 0, cutNet: 0, actions: [] };
 const DOC_MIME = 'application/vnd.google-apps.document';
 function mkFile(name, content, parent, mime) {
     const f = {
@@ -199,6 +199,9 @@ const ctx = {
     fetch: async (url, opt) => {
         fetchCount++;
         const out = bridge.doPost({ postData: { contents: opt.body }, parameter: {} });
+        drive.actions.push(JSON.parse(opt.body).action);
+        // מדמה את 27.9 09:31: הגשר ביצע, והטלפון (שיצא מהאפליקציה) איבד את החיבור
+        if (drive.cutNet > 0) { drive.cutNet--; throw new TypeError('Load failed'); }
         // מדמה את 27.9: הגשר כתב הכל, אבל חזית גוגל החזירה 503 (דף HTML) במקום התשובה
         if (drive.cut503 > 0 && JSON.parse(opt.body).action === 'coachWrite') {
             drive.cut503--;
@@ -316,6 +319,19 @@ const liveFiles = () => drive.files.filter(f => !f.trashed);
     ok(/HTML|503/.test(ctx.CoachDrive.getState().lastError), 'הסיבה המקורית (503) בהודעה');
     wf8.setContent = realSet8;
     ok(await ctx.CoachDrive.sync({ manual: true }), 'הסנכרון הבא משלים');
+
+    // 27.9 09:31: הכתיבה הצליחה, והחיבור נקטע גם לפני התשובה וגם לפני הבירור
+    data.bodyLog[13] = Object.assign({}, data.bodyLog[13], { weight: 68 });
+    data.archive[3] = Object.assign({}, data.archive[3], { summary: data.archive[3].summary.replace('100kg x 5', '95kg x 5') });
+    drive.cutNet = 2;   // coachWrite של ה-JSON + ה-coachStatus שאחריו
+    ok(!(await ctx.CoachDrive.sync({})), 'חיבור שנקטע גם לפני הבירור → כשל');
+    ok(/נקטע/.test(ctx.CoachDrive.getState().lastError), 'ההודעה: "החיבור נקטע באמצע", לא "שגיאת רשת"');
+    ok(ctx.CoachDrive.getState().unverified === true, 'המצב זוכר שיש כתיבה שלא בורר');
+    const w10 = drive.writes.length; drive.actions.length = 0;
+    ok(await ctx.CoachDrive.sync({}), 'הסנכרון הבא מצליח');
+    eq(drive.actions[0], 'coachStatus', 'הסנכרון הבא מתחיל בבירור');
+    eq(drive.writes.slice(w10), ['workouts_log', '00_readme.json'], 'קבצי ה-JSON שכבר נכתבו לא נשלחים שוב — רק מה שלא הגיע');
+    ok(!ctx.CoachDrive.getState().unverified, 'הדגל נוקה אחרי הבירור');
 
     // לפני אישור הרשאת UrlFetchApp — ה-Doc עדיין נכתב, בדרך האיטית
     drive.api = 'off';

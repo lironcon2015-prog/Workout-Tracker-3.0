@@ -217,7 +217,8 @@ const CoachDrive = {
         if (m === 'TOKEN_NOT_SET') return 'בסקריפט של גשר התמונות לא הוגדר SECRET_TOKEN (Project Settings → Script properties)';
         if (m === 'BUSY') return 'הגשר עסוק בסנכרון אחר';
         if (m === 'NO_BRIDGE') return 'גשר התמונות לא מוגדר (URL ו-token בהגדרות "תמונות התקדמות")';
-        if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'שגיאת רשת';
+        // iOS מקפיא אפליקציית ווב ברקע וחותך בקשות פתוחות — כך נראית יציאה מהאפליקציה באמצע
+        if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'החיבור נקטע באמצע (אולי יצאת מהאפליקציה) — הסנכרון הבא ישלים';
         return m || 'שגיאה לא ידועה';
     },
 
@@ -255,7 +256,7 @@ const CoachDrive = {
             if (!e.uncertain) throw e;
             let st;
             try { st = await this._post({ action: 'coachStatus', names: files.map(f => f.name) }); }
-            catch (e2) { throw e; }   // הבירור נכשל — מדווחים את הסיבה המקורית
+            catch (e2) { e.unverified = true; throw e; }   // הבירור נכשל — מדווחים את הסיבה המקורית, והסנכרון הבא יברר
             const byName = {};
             files.forEach(f => {
                 const x = (st.files || {})[f.name];
@@ -350,6 +351,7 @@ const CoachDrive = {
             });
 
             const toWrite = _cdPlan(s.files, hashes);
+            let pending = toWrite;
             const errors = [];
             const stamp = _blIsoWithTz(new Date(), COACH_DRIVE_TZ);
             // תוצאת כתיבה של קובץ אחד → מצב שמור (או שגיאה)
@@ -373,9 +375,24 @@ const CoachDrive = {
                 const d = docs[name];
                 contents[name] = _cdLogHeader(stamp, d.from, d.to, d.records) + '\n\n' + d.body;
             });
+            // סנכרון קודם נקטע לפני שבירר מה נכתב (27.9: יציאה מהאפליקציה באמצע) — קודם בירור
+            // אחד קצר: קובץ שהקבלה שלו תואמת לתוכן הנוכחי נרשם בלי לשלוח אותו שוב. בלי זה כל
+            // ניסיון שולח את כל הקבצים מחדש (~20ש'), ונקטע שוב מאותה סיבה.
+            if (s.unverified && pending.length) {
+                const st = await this._post({ action: 'coachStatus', names: pending });
+                s.folderId = st.folderId || s.folderId;
+                pending = pending.filter(name => {
+                    const x = (st.files || {})[name];
+                    if (!x || x.hash !== hashes[name]) return true;
+                    record(name, { ok: true, id: x.id });
+                    return false;
+                });
+                s.unverified = false;
+                this._saveState(s);
+            }
             // קבצי ה-JSON ואז ה-Doc — בקשות נפרדות: כתיבת Doc איטית לא מחזיקה את כל העבודה,
             // וההתקדמות נשמרת אחרי כל בקשה
-            const groups = [toWrite.filter(n => !docs[n]), toWrite.filter(n => docs[n])].filter(g => g.length);
+            const groups = [pending.filter(n => !docs[n]), pending.filter(n => docs[n])].filter(g => g.length);
             for (const group of groups) {
                 const res = await this._writeGroup(group.map(name => ({
                     name, content: contents[name], id: (s.files[name] || {}).id || undefined,
@@ -412,6 +429,7 @@ const CoachDrive = {
             return true;
         } catch (e) {
             s.lastError = this._describe(e);
+            if (e && e.unverified) s.unverified = true;
             this._saveState(s);
             console.warn('GymPro: coach drive sync failed', e);
             return false;

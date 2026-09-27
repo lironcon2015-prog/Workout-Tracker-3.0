@@ -101,12 +101,21 @@ const StorageManager = {
     saveData(key, data) {
         try {
             localStorage.setItem(key, JSON.stringify(data));
+            if (this._COACH_DRIVE_KEYS.includes(key)) this._coachDriveChanged();
             return true;
         } catch(e) {
             console.error('GymPro: storage write error', key, e);
             if (e.name === 'QuotaExceededError') showAlert('האחסון המקומי מלא. מחק היסטוריית שיחות AI או ייצא גיבוי כדי לפנות מקום.');
             return false;
         }
+    },
+
+    // דאטה שנכנסת לקבצי המאמן בדרייב (coach-drive-logic.js) — שמירה שלה מתזמנת סנכרון.
+    // כל הכתיבות של המפתחות האלה עוברות ב-saveData, ולכן זו נקודת החיבור היחידה.
+    _COACH_DRIVE_KEYS: ['gympro_archive', 'gympro_bodylog', 'gympro_nutrition_daily', 'gympro_food_log',
+        'gympro_nutrition_raw', 'gympro_sleep_daily', 'gympro_vital_lock', 'gympro_memory_box'],
+    _coachDriveChanged() {
+        try { if (typeof CoachDrive !== 'undefined') CoachDrive.onDataChanged(); } catch (e) { /* לא קריטי */ }
     },
 
     // ── הגנת טעינה של התוכניות/התרגילים (v19.14.1) ─────────────────────────

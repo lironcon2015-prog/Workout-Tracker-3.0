@@ -346,6 +346,47 @@ const liveFiles = () => drive.files.filter(f => !f.trashed);
     ok(await ctx.CoachDrive.sync({ manual: true }), 'הסנכרון הבא הצליח');
     eq(drive.writes.slice(w4), ['sleep_recovery.json', '00_readme.json'], 'הסנכרון הבא: הקובץ שנכשל ואז readme');
 
+    // "זמן אמת": אין מרווח של 6 שעות — שינוי מסונכרן מיד אחרי סנכרון מוצלח
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const idle = async () => { while (ctx.CoachDrive._busy || ctx.CoachDrive._timer) await wait(5); };
+    data.bodyLog[8] = Object.assign({}, data.bodyLog[8], { weight: 75 });
+    const w7 = drive.writes.length;
+    ctx.CoachDrive.maybeSync(); await idle();
+    eq(drive.writes.slice(w7), ['weights.json', '00_readme.json'], 'maybeSync מיד אחרי סנכרון מוצלח — שינוי נשלח (אין מרווח 6 שעות)');
+    const rt0 = fetchCount;
+    ctx.CoachDrive.maybeSync(); await idle();
+    eq(fetchCount - rt0, 0, 'maybeSync בלי שינוי — אפס קריאות לגשר');
+
+    // debounce: רצף שינויים = סנכרון אחד, אחרי השקט
+    ctx.CoachDrive.DEBOUNCE_MS = 30;
+    const rt1 = fetchCount, w8 = drive.writes.length;
+    for (const v of [74, 73, 72]) {
+        data.bodyLog[9] = Object.assign({}, data.bodyLog[9], { weight: v });
+        ctx.CoachDrive.onDataChanged();
+        await wait(5);
+    }
+    eq(fetchCount - rt1, 0, 'debounce: שום שליחה בזמן רצף השינויים');
+    await wait(60); await idle();
+    eq(drive.writes.slice(w8), ['weights.json', '00_readme.json'], 'debounce: שליחה אחת אחרי השינוי האחרון');
+    ok(JSON.parse(liveFiles().find(f => f.name === 'weights.json').content).some(r => r.weight === 72), 'נשלח הערך האחרון');
+
+    // יציאה מהאפליקציה: שינוי שממתין נשלח מיד
+    ctx.CoachDrive.DEBOUNCE_MS = 60000;
+    data.bodyLog[10] = Object.assign({}, data.bodyLog[10], { weight: 71 });
+    ctx.CoachDrive.onDataChanged();
+    const w9 = drive.writes.length;
+    ctx.CoachDrive.flushPending(); await idle();
+    eq(drive.writes.slice(w9), ['weights.json', '00_readme.json'], 'flushPending: השינוי נשלח בלי לחכות לדקה');
+
+    // שינוי שמגיע באמצע סנכרון — סיבוב נוסף בסופו
+    ctx.CoachDrive.DEBOUNCE_MS = 10;
+    data.bodyLog[11] = Object.assign({}, data.bodyLog[11], { weight: 70 });
+    const p1 = ctx.CoachDrive.sync({});
+    data.bodyLog[12] = Object.assign({}, data.bodyLog[12], { weight: 69 });
+    ctx.CoachDrive.maybeSync();   // busy → נרשם ל"עוד סיבוב"
+    await p1; await wait(30); await idle();
+    ok(JSON.parse(liveFiles().find(f => f.name === 'weights.json').content).some(r => r.weight === 69), 'שינוי שהגיע באמצע סנכרון נשלח בסיבוב הבא');
+
     // readme — מבנה
     const readme = JSON.parse(liveFiles().find(f => f.name === '00_readme.json').content);
     ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/.test(readme.generated), 'generated: ISO עם היסט מקומי');

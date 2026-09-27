@@ -187,9 +187,13 @@ function _cdReadmeBody(stateFiles, appVersion, readmeLines) {
 const CoachDrive = {
     KEY_ON: 'gympro_coach_drive_on',      // מתג הסנכרון (ברירת מחדל: כבוי)
     KEY_STATE: 'gympro_coach_drive_state', // מזהי קבצים, hashes, זמן סנכרון ושגיאה אחרונים
-    INTERVAL_MS: 6 * 3600000,             // לכל היותר פעם ב-6 שעות (אלא אם "סנכרן עכשיו")
+    // "זמן אמת": סנכרון כדקה אחרי השינוי האחרון (רצף רישומי מזון = שליחה אחת), ומיד ביציאה.
+    // סנכרון בלי שינוי לא יוצא לרשת — ההשוואה (hash) מקומית — ולכן אין צורך במרווח קבוע.
+    DEBOUNCE_MS: 60000,
     RETRY_GAP_MS: 5 * 60000,              // אחרי כשל — לא לנסות שוב בכל חזרה לפרונט
     _busy: null,
+    _timer: null,       // שינוי שממתין לשליחה
+    _again: false,      // שינוי שהגיע בזמן סנכרון — עוד סיבוב בסופו
 
     isOn() { return localStorage.getItem(this.KEY_ON) === '1'; },
     setOn(on) { localStorage.setItem(this.KEY_ON, on ? '1' : '0'); },
@@ -264,20 +268,39 @@ const CoachDrive = {
         return { folderId: res.folderId, byName };
     },
 
-    // נקרא בפתיחה ובחזרה לפרונט. שקט: לא זורק ולא מקפיץ הודעות.
+    // נקרא בפתיחה, בחזרה לפרונט, וכדקה אחרי שינוי. שקט: לא זורק ולא מקפיץ הודעות.
     maybeSync() {
-        if (!this.isOn() || this._busy) return;
+        if (!this.isOn()) return;
+        if (this._busy) { this._again = true; return; }
         if (StorageManager._dbSuspect) return;   // תוכניות לא נטענו — לא לייצא מצב חשוד
         const s = this.getState();
-        if (s.lastSuccess && Date.now() - s.lastSuccess < this.INTERVAL_MS) return;
         if (s.lastError && s.lastAttempt && Date.now() - s.lastAttempt < this.RETRY_GAP_MS) return;
         this.sync({}).catch(() => {});
     },
 
-    // manual = "סנכרן עכשיו": עוקף את 6 השעות ובודק שהקבצים עדיין קיימים בדרייב
+    // נקרא מ-StorageManager.saveData כשנשמרה דאטה שנכנסת לקבצי המאמן
+    onDataChanged() {
+        if (!this.isOn()) return;
+        clearTimeout(this._timer);
+        this._timer = setTimeout(() => { this._timer = null; this.maybeSync(); }, this.DEBOUNCE_MS);
+    },
+
+    // יציאה מהאפליקציה: שינוי שממתין נשלח עכשיו, בלי לחכות לסוף הדקה
+    flushPending() {
+        if (!this._timer) return;
+        clearTimeout(this._timer);
+        this._timer = null;
+        this.maybeSync();
+    },
+
+    // manual = "סנכרן עכשיו": עוקף את ההמתנה אחרי כשל ובודק שהקבצים עדיין קיימים בדרייב
     sync({ manual } = {}) {
         if (this._busy) return this._busy;
-        this._busy = this._run(!!manual).finally(() => { this._busy = null; _cdRefreshSettings(); });
+        this._busy = this._run(!!manual).finally(() => {
+            this._busy = null;
+            _cdRefreshSettings();
+            if (this._again) { this._again = false; this.onDataChanged(); }
+        });
         return this._busy;
     },
 
@@ -446,4 +469,5 @@ async function syncCoachDriveNow() {
 window.addEventListener('load', () => setTimeout(() => { try { CoachDrive.maybeSync(); } catch (e) {} }, 7000));
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { try { CoachDrive.maybeSync(); } catch (e) {} }
+    if (document.visibilityState === 'hidden') { try { CoachDrive.flushPending(); } catch (e) {} }
 });

@@ -4,7 +4,13 @@
 
 ---
 
-## גרסה נוכחית: 19.17.7
+## גרסה נוכחית: 19.17.8
+
+### v19.17.8 — פידבק אחיד לכפתורים של פעולה ארוכה (`runBusy`)
+- **בעיה:** "בדוק חיבור", "סרוק דרייב", "דחוף snapshot", "גבה", "משוך עכשיו" ועוד — לחיצה בלי שום שינוי במסך עד התוצאה (עד 90ש' ב-JSONP) → לחיצות כפולות ופעולות מקבילות. וגם טוסט `pending` נעלם אחרי 3ש' באמצע הפעולה.
+- **דפוס חדש (חובה לכל כפתור רשת/גשר/AI חדש):** `onclick="runBusy(this, 'בודק…', fn)"`. fn מחזירה Promise. נעילה לפי שם הפעולה (גם מכפתורים שונים), השבתה + טקסט + `.is-busy`, שחזור גם בכשל. `btn=null` כשה-sheet נסגר (ייבוא Gmail).
+- טוסט `pending` נשאר עד תוצאה (תקרה 120ש'); `showAlert` ו-`runBusy` מסתירים טוסט `pending` שנשאר תלוי (`hideCloudToastIfPending`).
+- `sendBackupNow`/`sendConnectionsNow` הועברו מנעילה ידנית ל-`runBusy`. בדיקה: `test/run-busy.test.js`.
 
 ### v19.17.7 — "בדוק חיבור" הציג "The string did not match the expected pattern"
 זו הודעת Safari ל-`r.json()` על תשובה שאינה JSON — דף שגיאה של גוגל — בלי שום סיבה. `ppTestPhotoBridge`

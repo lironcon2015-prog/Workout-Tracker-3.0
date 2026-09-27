@@ -8361,3 +8361,17 @@ body.cardio-paused .cl-ring { opacity: 0.45; }
 .ed-modal .conf-cue-add { align-self: flex-start; }
 /* מיכלי flex עם גלילה: בלי זה הילדים נדחסים לגובה המיכל ונחתכים */
 .ed-sheet > *, #ed-ex-body > *, #ed-cl-body > *, .ed-modal-box > * { flex-shrink: 0; }
+
+/* ─── כפתור בפעולה ארוכה (runBusy) ─────────────────────────────────────────
+   פידבק מיידי ללחיצה: הכפתור מושבת, הטקסט מתחלף ("בודק…") ופועם בעדינות עד
+   שהתוצאה מגיעה — כדי שלא ייראה כמו no-op וילחצו שוב. */
+.is-busy {
+    cursor: progress;
+    pointer-events: none;
+    animation: busy-pulse 1.2s ease-in-out infinite;
+}
+@keyframes busy-pulse {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) { .is-busy { animation: none; opacity: 0.6; } }

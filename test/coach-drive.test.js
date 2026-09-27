@@ -120,7 +120,11 @@ const gasSandbox = {
     },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = v; } }) },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }) },
-    Utilities: { newBlob: (content, mime, name) => ({ content, mime, name, getBytes: () => Array.from(Buffer.from(content, 'utf8')) }) },
+    Utilities: {
+        newBlob: (content, mime, name) => ({ content, mime, name, getBytes: () => Array.from(Buffer.from(content, 'utf8')) }),
+        computeDigest: (alg, s) => Array.from(require('crypto').createHash('sha256').update(s, 'utf8').digest()).map(b => b > 127 ? b - 256 : b),
+        DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' }
+    },
     ContentService: { createTextOutput: text => ({ text, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
     MimeType: { GOOGLE_DOCS: DOC_MIME },
     ScriptApp: { getOAuthToken: () => 'oauth' },
@@ -239,8 +243,20 @@ const liveFiles = () => drive.files.filter(f => !f.trashed);
     eq(post('tok').error, 'TOKEN_NOT_SET', 'אין SECRET_TOKEN ב-Script properties → TOKEN_NOT_SET (לא BAD_TOKEN)');
     ok(!(await ctx.CoachDrive.sync({})), 'סנכרון בלי token מוגדר נכשל');
     ok(/Script properties/.test(ctx.CoachDrive.getState().lastError), 'ההודעה מפנה ל-Script properties');
+    // 27.9: הערך ב-Script properties הודבק באייפד עם סימן כיוון בלתי נראה. האפליקציה מנקה
+    // אותו מה-token שלה, והגשר הישן לא — token זהה לעין נדחה. עכשיו שני הצדדים מנקים אותו דבר.
+    props.SECRET_TOKEN = '\u200Ftok\u200E ';
+    eq(post('tok').ok, true, 'סימני כיוון ורווחים ב-Script properties — ה-token עדיין מתקבל');
     props.SECRET_TOKEN = 'tok';
     eq(post('wrong').error, 'BAD_TOKEN', 'token שגוי → BAD_TOKEN');
+    const hint = post('wrong').hint;
+    ok(hint && hint.gotLen === 5 && hint.expLen === 3 && /^[0-9a-f]{4}$/.test(hint.gotFp) && hint.gotFp !== hint.expFp,
+       'BAD_TOKEN מחזיר אורך וטביעה של כל צד (בלי הערך עצמו)');
+    ok(!JSON.stringify(post('wrong')).includes('tok'), 'ה-token של הגשר לא נחשף בתשובה');
+    ctx.StorageManager.getPhotoBridge = () => ({ url: 'https://bridge', token: 'tokk' });
+    ok(!(await ctx.CoachDrive.sync({})), 'token שגוי באפליקציה → כשל');
+    ok(/4 תווים.*3 תווים.*אורך שונה/.test(ctx.CoachDrive.getState().lastError), 'ההודעה מראה את האורכים ואומרת "אורך שונה"');
+    ctx.StorageManager.getPhotoBridge = () => ({ url: 'https://bridge', token: 'tok' });
     eq(post('tok').ok, true, 'token נכון מ-Script properties מתקבל');
 
     // 1. סנכרון ראשון
@@ -296,6 +312,7 @@ const liveFiles = () => drive.files.filter(f => !f.trashed);
 
     // ה-Doc נכתב בדרך המהירה (Drive API), במקום, עם אותו מזהה
     ok(drive.apiCalls > 0, 'ה-Doc נכתב דרך Drive API (העלאה אחת), לא DocumentApp');
+    eq(ctx.CoachDrive.getState().docPath, 'api', 'המצב זוכר שה-Doc נכתב בדרך המהירה');
     // "קבלה" בתיאור הקובץ = ה-hash שבמצב השמור
     eq(liveFiles().find(f => f.name === 'weights.json').desc, ctx.CoachDrive.getState().files['weights.json'].hash, 'קבלה: ה-hash נרשם בתיאור הקובץ');
 
@@ -338,6 +355,8 @@ const liveFiles = () => drive.files.filter(f => !f.trashed);
     data.archive[2] = Object.assign({}, data.archive[2], { summary: data.archive[2].summary.replace('100kg x 5', '97.5kg x 5') });
     const docId2 = liveFiles().find(f => f.name === 'workouts_log').id;
     ok(await ctx.CoachDrive.sync({ manual: true }), 'בלי הרשאת Drive API: הסנכרון מצליח דרך DocumentApp');
+    eq(ctx.CoachDrive.getState().docPath, 'slow', 'המצב זוכר שה-Doc נכתב בדרך האיטית');
+    ok(/UrlFetchApp/.test(ctx.CoachDrive.getState().docError || ''), 'והסיבה שהדרך המהירה נכשלה נשמרת');
     ok(/97\.5kg x 5/.test(liveFiles().find(f => f.name === 'workouts_log').content) &&
        liveFiles().filter(f => f.name === 'workouts_log').map(f => f.id).join() === docId2, 'ה-Doc עודכן במקום גם בדרך האיטית');
     drive.api = 'on';

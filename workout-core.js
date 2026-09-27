@@ -8392,7 +8392,10 @@ function testPhotoBridgeNow() {
     if (typeof ppTestPhotoBridge !== 'function') return;
     ppTestPhotoBridge()
         .then(res => showAlert('הגשר מחובר! תיקייה: "' + res.folder + '" · ' + res.files + ' תמונות בדרייב.'))
-        .catch(e => showAlert(e && e.message === 'TOKEN_NOT_SET'
+        .catch(e => showAlert(e && e.hint
+            ? `בדיקת הגשר נכשלה: ה-token לא תואם. באפליקציה ${e.hint.gotLen} תווים (${e.hint.gotFp}), בגשר ${e.hint.expLen} תווים (${e.hint.expFp}). ` +
+              'העתק את הערך של SECRET_TOKEN מ-Script properties והדבק אותו כאן בשדה ה-token.'
+            : e && e.message === 'TOKEN_NOT_SET'
             ? 'בדיקת הגשר נכשלה: בסקריפט לא הוגדר SECRET_TOKEN. ב-Apps Script: Project Settings → Script properties → הוסף SECRET_TOKEN עם אותו ערך שבהגדרות כאן.'
             : 'בדיקת הגשר נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. בדוק את ה-URL, ה-token ופריסת הסקריפט.'));
 }

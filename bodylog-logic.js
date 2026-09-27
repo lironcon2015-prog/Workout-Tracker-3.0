@@ -1730,6 +1730,7 @@ function _unifiedRange(range) {
 
 // ההסבר המוטמע בקובץ המאוחד מעבר ל-_NUTRI_EXPORT_README — משותף גם ל-00_readme.json בדרייב
 const _UNIFIED_README_EXTRA = [
+    'sleep_recovery: ויטל שלא נמדד באותו לילה (hrv, rhr, respRate, wristTempDev) — השדה חסר ברשומה. הוא אף פעם לא 0; 0 אינו מדידה.',
     'הקובץ מכיל 6 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימוני כוח ואירובי), sleep_recovery (שינה + התאוששות), memory_box (כללים מאושרים לתיבת זיכרון המאמן — אין להם תאריך, נכללים במלואם בכל טווח).',
     'workouts[].watch = סיכום האימון מ-Apple Watch, כשקיים: hrAvg/hrMax (דופק), activeKcal (קלוריות פעילות), ' +
     'hrRecovery1 (ירידת הדופק בדקה הראשונה), hrSeries ([שניות-מההתחלה, min, avg, max] בדילול 30ש\'), ' +

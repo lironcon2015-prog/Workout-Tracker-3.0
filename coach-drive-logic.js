@@ -213,7 +213,13 @@ const CoachDrive = {
         const m = String((err && err.message) || err || '');
         if (err && err.name === 'AbortError') return 'הגשר לא ענה בזמן (timeout)';
         if (m === 'BAD_ACTION') return 'הגשר לא מכיר את coachWrite — פרוס גרסה חדשה של photo-bridge.gs (Deploy → New version)';
-        if (m === 'BAD_TOKEN') return 'ה-token של גשר התמונות שגוי';
+        if (m === 'BAD_TOKEN') {
+            const h = err && err.hint;
+            if (!h) return 'ה-token של גשר התמונות שגוי';
+            // אורך שונה = תו מיותר או חסר; אותו אורך וטביעה שונה = ערך אחר לגמרי
+            return `ה-token לא תואם: באפליקציה ${h.gotLen} תווים (${h.gotFp}), בגשר ${h.expLen} תווים (${h.expFp})` +
+                (h.gotLen !== h.expLen ? ' — אורך שונה: תו מיותר או חסר באחד מהם' : ' — אותו אורך, ערך אחר');
+        }
         if (m === 'TOKEN_NOT_SET') return 'בסקריפט של גשר התמונות לא הוגדר SECRET_TOKEN (Project Settings → Script properties)';
         if (m === 'BUSY') return 'הגשר עסוק בסנכרון אחר';
         if (m === 'NO_BRIDGE') return 'גשר התמונות לא מוגדר (URL ו-token בהגדרות "תמונות התקדמות")';
@@ -241,7 +247,11 @@ const CoachDrive = {
             e.uncertain = true;
             throw e;
         } finally { clearTimeout(t); }
-        if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
+        if (!res || !res.ok) {
+            const err = new Error((res && res.error) || 'BRIDGE_ERROR');
+            if (res && res.hint) err.hint = res.hint;
+            throw err;
+        }
         return res;
     },
 
@@ -363,6 +373,8 @@ const CoachDrive = {
                         id: r.id, hash: hashes[name], chars: contents[name].length, records: d.records,
                         from: d.from, to: d.to, window_days: d.window_days, last_written: stamp, format: 'google_doc_text'
                     };
+                    // באיזו דרך הגשר כתב (רק בכתיבה בפועל, לא באימוץ קבלה) — מוצג בהגדרות
+                    if (r.docPath) { s.docPath = r.docPath; s.docError = r.docError || null; }
                     return;
                 }
                 s.files[name] = {
@@ -452,6 +464,12 @@ function _cdRefreshSettings() {
     const bits = [];
     if (CoachDrive._busy) bits.push('<span style="color:var(--text-dim);">מסנכרן…</span>');
     bits.push('<span style="color:var(--text-dim);">סנכרון אחרון: ' + (s.lastSuccess ? _cdFmtTime(s.lastSuccess) : 'טרם') + '</span>');
+    if (s.docPath) {
+        const why = s.docPath === 'slow' && s.docError
+            ? ' — ' + String(s.docError).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])) : '';
+        bits.push('<span style="color:var(--text-dim);">יומן האימונים נכתב בדרך ' +
+            (s.docPath === 'api' ? 'המהירה' : 'האיטית' + why) + '</span>');
+    }
     if (s.lastError) {
         const err = String(s.lastError).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
         bits.push('<span style="color:var(--danger);">שגיאה אחרונה (' + _cdFmtTime(s.lastAttempt) + '): ' + err + '</span>');

@@ -223,7 +223,11 @@ function ppTestPhotoBridge() {
     return fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token))
         .then(r => r.json())
         .then(res => {
-            if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
+            if (!res || !res.ok) {
+                const err = new Error((res && res.error) || 'BRIDGE_ERROR');
+                if (res && res.hint) err.hint = res.hint;   // BAD_TOKEN: אורך + טביעה של כל צד
+                throw err;
+            }
             return res;   // { ok, folder, files }
         });
 }

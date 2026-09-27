@@ -43,16 +43,29 @@
  * ==========================================================================*/
 
 // 🔐 ה-token לא נמצא בקובץ — הוא ב-Script properties (SECRET_TOKEN). ראה "פריסה" למעלה.
+// אותו ניקוי כמו באפליקציה (_cleanPastedSecret ב-storage.js): רווחים ותווים בלתי נראים
+// (סימני כיוון שמקלדת עברית באייפד מוסיפה בהדבקה). עד v19.17.6 הגשר הוריד רק רווחי קצה,
+// והאפליקציה ניקתה הכל — token זהה לעין נדחה כ"שגוי".
+function _cleanSecret(s) {
+  return String(s || '').replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF\s]/g, '');
+}
 function _secretToken() {
-  return String(PropertiesService.getScriptProperties().getProperty('SECRET_TOKEN') || '').trim();
+  return _cleanSecret(PropertiesService.getScriptProperties().getProperty('SECRET_TOKEN'));
 }
 
-// null = מורשה; אחרת קוד השגיאה. "לא הוגדר" ו"שגוי" הן תקלות שונות — הודעה אחת
+// null = מורשה; אחרת { error, hint }. "לא הוגדר" ו"שגוי" הן תקלות שונות — הודעה אחת
 // לשתיהן הייתה שולחת לבדוק את ההגדרות באפליקציה כשהחסר הוא בצד של הסקריפט.
+// hint ל-BAD_TOKEN: אורך + 4 תווי hash של כל צד — מראה אם זה תו מיותר או ערך אחר, בלי לחשוף אותו.
 function _authError(tok) {
   var secret = _secretToken();
-  if (!secret) return 'TOKEN_NOT_SET';
-  return _sameString(String(tok || ''), secret) ? null : 'BAD_TOKEN';
+  if (!secret) return { error: 'TOKEN_NOT_SET' };
+  var got = _cleanSecret(tok);
+  if (_sameString(got, secret)) return null;
+  return { error: 'BAD_TOKEN', hint: { gotLen: got.length, expLen: secret.length, gotFp: _fp(got), expFp: _fp(secret) } };
+}
+function _fp(s) {
+  var d = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s, Utilities.Charset.UTF_8);
+  return d.slice(0, 2).map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
 }
 
 // השוואה בזמן קבוע — זמן התגובה לא מלמד כמה תווים נוחשו נכון
@@ -87,7 +100,7 @@ function doPost(e) {
 
   var tok = (body && body.token) || (e && e.parameter && e.parameter.token) || '';
   var authErr = _authError(tok);
-  if (authErr) return _json({ ok: false, error: authErr });
+  if (authErr) return _json({ ok: false, error: authErr.error, hint: authErr.hint });
 
   try {
     switch (body.action) {
@@ -111,7 +124,7 @@ function doPost(e) {
 function doGet(e) {
   var p = (e && e.parameter) || {};
   var authErr = _authError(p.token);
-  if (authErr) return _json({ ok: false, error: authErr });
+  if (authErr) return _json({ ok: false, error: authErr.error, hint: authErr.hint });
   var folder = _folder();
   var count = 0;
   var it = folder.getFiles();
@@ -242,9 +255,10 @@ function _coachWrite(body) {
       if (!(isDoc ? /^[a-z0-9_]+$/ : /^[a-z0-9_]+\.json$/).test(name)) return { name: name, ok: false, error: 'BAD_NAME' };
       if (typeof item.content !== 'string') return { name: name, ok: false, error: 'NO_CONTENT' };
       try {
-        var file;
+        var file, doc = null;
         if (isDoc) {
-          file = _coachDoc(folder, name, item.id, item.content);
+          doc = _coachDoc(folder, name, item.id, item.content);
+          file = doc.file;
         } else {
           file = _coachFile(folder, name, item.id);
           if (file) file.setContent(item.content);
@@ -252,7 +266,9 @@ function _coachWrite(body) {
         }
         // הקבלה נרשמת רק אחרי שהכתיבה הצליחה
         if (typeof item.hash === 'string' && /^[0-9a-f]{64}$/.test(item.hash)) file.setDescription(item.hash);
-        return { name: name, ok: true, id: file.getId(), bytes: isDoc ? 0 : file.getSize() };
+        var out = { name: name, ok: true, id: file.getId(), bytes: isDoc ? 0 : file.getSize() };
+        if (doc) { out.docPath = doc.path; if (doc.apiError) out.docError = doc.apiError; }
+        return out;
       } catch (err) {
         return { name: name, ok: false, error: 'DRIVE_ERROR: ' + (err && err.message) };
       }
@@ -270,10 +286,11 @@ function _coachWrite(body) {
 function _coachDoc(folder, name, id, text) {
   var file = _coachFile(folder, name, id);
   if (file && file.getMimeType() !== MimeType.GOOGLE_DOCS) { file.setTrashed(true); file = null; }
+  // מחזיר { file, path, apiError } — באיזו דרך נכתב, ולמה הדרך המהירה נכשלה אם נכשלה
   try {
-    return _coachDocFast(folder, name, file, text);
+    return { file: _coachDocFast(folder, name, file, text), path: 'api' };
   } catch (err) {
-    return _coachDocSlow(folder, name, file, text);
+    return { file: _coachDocSlow(folder, name, file, text), path: 'slow', apiError: String(err && err.message || err).slice(0, 200) };
   }
 }
 
@@ -285,7 +302,7 @@ function _coachDocFast(folder, name, file, text) {
       method: 'patch', contentType: 'text/plain; charset=utf-8', payload: blob.getBytes(),
       headers: auth, muteHttpExceptions: true
     });
-    if (up.getResponseCode() >= 300) throw new Error('DRIVE_API ' + up.getResponseCode());
+    if (up.getResponseCode() >= 300) throw new Error('DRIVE_API ' + up.getResponseCode() + ' ' + up.getContentText().slice(0, 150));
     return file;
   }
   var boundary = 'gympro' + Date.now();
@@ -298,7 +315,7 @@ function _coachDocFast(folder, name, file, text) {
     method: 'post', contentType: 'multipart/related; boundary=' + boundary, payload: payload,
     headers: auth, muteHttpExceptions: true
   });
-  if (res.getResponseCode() >= 300) throw new Error('DRIVE_API ' + res.getResponseCode());
+  if (res.getResponseCode() >= 300) throw new Error('DRIVE_API ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 150));
   return DriveApp.getFileById(JSON.parse(res.getContentText()).id);
 }
 

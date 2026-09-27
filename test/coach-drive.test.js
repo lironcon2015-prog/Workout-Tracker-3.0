@@ -81,12 +81,13 @@ eq(P._cdPlan({ 'a.json': { id: 'x', hash: 'h' }, 'b.json': { id: 'y', hash: 'h' 
 
 // ─── חלק 2: סנכרון מלא מול הגשר האמיתי ────────────────────────────────────
 function iter(arr) { let i = 0; return { hasNext: () => i < arr.length, next: () => arr[i++] }; }
-const drive = { files: [], folders: [], writes: [], seq: 0 };
+const drive = { files: [], folders: [], writes: [], seq: 0, api: 'on', apiCalls: 0, cut503: 0 };
 const DOC_MIME = 'application/vnd.google-apps.document';
 function mkFile(name, content, parent, mime) {
     const f = {
         id: 'f' + (++drive.seq), name, content, trashed: false, parent, mime: mime || 'application/json',
         moveTo(folder) { this.parent = folder.getId(); },
+        desc: '', setDescription(d) { this.desc = d; return this; }, getDescription() { return this.desc; },
         getId() { return this.id; }, getName() { return this.name; }, isTrashed() { return this.trashed; },
         setTrashed(t) { this.trashed = t; }, getParents() { return iter(drive.folders.filter(d => d.id === this.parent)); },
         setContent(c) { this.content = c; drive.writes.push(this.name); return this; },
@@ -119,9 +120,30 @@ const gasSandbox = {
     },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = v; } }) },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }) },
-    Utilities: { newBlob: (content, mime, name) => ({ content, mime, name }) },
+    Utilities: { newBlob: (content, mime, name) => ({ content, mime, name, getBytes: () => Array.from(Buffer.from(content, 'utf8')) }) },
     ContentService: { createTextOutput: text => ({ text, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
     MimeType: { GOOGLE_DOCS: DOC_MIME },
+    ScriptApp: { getOAuthToken: () => 'oauth' },
+    // Drive API (הדרך המהירה ל-Doc): PATCH media לקובץ קיים, POST multipart ליצירה.
+    // drive.api = 'off' מדמה גשר שעוד לא אושרה לו הרשאת UrlFetchApp → נופלים ל-DocumentApp.
+    UrlFetchApp: {
+        fetch(url, opt) {
+            if (drive.api === 'off') throw new Error('אין הרשאה לקרוא ל-UrlFetchApp.fetch');
+            drive.apiCalls++;
+            const bytes = Buffer.from(opt.payload);
+            const m = url.match(/\/files\/([^?]+)\?uploadType=media/);
+            if (m && opt.method === 'patch') {
+                const f = byId(drive.files, m[1]);
+                f.content = bytes.toString('utf8'); drive.writes.push(f.name);
+                return { getResponseCode: () => 200, getContentText: () => '{}' };
+            }
+            const raw = bytes.toString('utf8');
+            const meta = JSON.parse(raw.split('\r\n\r\n')[1].split('\r\n--')[0]);
+            const text = raw.split('\r\n\r\n').slice(2).join('\r\n\r\n').replace(/\r\n--[^\r\n]*--$/, '');
+            const f = mkFile(meta.name, text, meta.parents[0], meta.mimeType);
+            return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ id: f.id }) };
+        }
+    },
     Logger: { log() {} },
     // Google Doc: נוצר בשורש (כמו DocumentApp.create), setText מעדכן את אותו קובץ במקום
     DocumentApp: {
@@ -177,13 +199,19 @@ const ctx = {
     fetch: async (url, opt) => {
         fetchCount++;
         const out = bridge.doPost({ postData: { contents: opt.body }, parameter: {} });
+        // מדמה את 27.9: הגשר כתב הכל, אבל חזית גוגל החזירה 503 (דף HTML) במקום התשובה
+        if (drive.cut503 > 0 && JSON.parse(opt.body).action === 'coachWrite') {
+            drive.cut503--;
+            return { status: 503, text: async () => '<!DOCTYPE html><html><body>Service Unavailable</body></html>' };
+        }
         return { status: 200, text: async () => out.text };
     },
     StorageManager: {
         getBodyLog: () => data.bodyLog, getNutritionDaily: () => data.nutritionDaily, getSleepDaily: () => data.sleep,
         getArchive: () => data.archive, getMemoryBox: () => data.memory, getFoodLog: () => data.foodLog,
         getNutritionRaw: () => null, getPhotoBridge: () => ({ on: false, url: 'https://bridge', token: 'tok' }),
-        _bridgeJson: r => r.text().then(t => JSON.parse(t))
+        // _bridgeJson האמיתי מ-storage.js — כך הודעת ה-503 זהה לזו שבאפליקציה
+        _bridgeJson: new Function('return {' + read('storage.js').match(/    _bridgeJson\(r\) \{[\s\S]*?\n    \},/)[0] + '}')()._bridgeJson
     }
 };
 vm.createContext(ctx);
@@ -262,6 +290,41 @@ const liveFiles = () => drive.files.filter(f => !f.trashed);
     eq(drive.writes.slice(wd).sort(), ['00_readme.json', 'workouts_log'], 'שינוי בטקסט אימון: נכתבו workouts_log ו-readme');
     eq(liveFiles().filter(f => f.name === 'workouts_log').map(f => f.id), [docId], 'ה-Doc עודכן במקום — אותו מזהה, בלי כפילות');
     ok(/105kg x 5/.test(liveFiles().find(f => f.name === 'workouts_log').content), 'התוכן החדש ב-Doc');
+
+    // ה-Doc נכתב בדרך המהירה (Drive API), במקום, עם אותו מזהה
+    ok(drive.apiCalls > 0, 'ה-Doc נכתב דרך Drive API (העלאה אחת), לא DocumentApp');
+    // "קבלה" בתיאור הקובץ = ה-hash שבמצב השמור
+    eq(liveFiles().find(f => f.name === 'weights.json').desc, ctx.CoachDrive.getState().files['weights.json'].hash, 'קבלה: ה-hash נרשם בתיאור הקובץ');
+
+    // 27.9: הכתיבה הצליחה, התשובה נחתכה ב-503 — הסנכרון מברר מה נכתב ומסיים בהצלחה
+    data.bodyLog[6] = Object.assign({}, data.bodyLog[6], { weight: 77 });
+    data.archive[1] = Object.assign({}, data.archive[1], { summary: data.archive[1].summary.replace('100kg x 5', '102.5kg x 5') });
+    drive.cut503 = 2;   // גם בקשת ה-JSON וגם בקשת ה-Doc נחתכות
+    const w5 = drive.writes.length;
+    ok(await ctx.CoachDrive.sync({}), '503 אחרי כתיבה מוצלחת: הסנכרון מברר ומסיים בהצלחה');
+    eq(drive.writes.slice(w5), ['weights.json', 'workouts_log', '00_readme.json'], '503: כל קובץ נכתב פעם אחת, וה-readme בסוף');
+    const w6 = drive.writes.length;
+    ok(await ctx.CoachDrive.sync({}), 'הסנכרון שאחרי');
+    eq(drive.writes.length - w6, 0, 'אחרי 503 שבורר — הסנכרון הבא לא כותב שוב');
+
+    // 503 כשהכתיבה לא קרתה (קבלה ישנה) — כשל עם סיבה, והסנכרון הבא משלים
+    data.bodyLog[7] = Object.assign({}, data.bodyLog[7], { weight: 76 });
+    const wf8 = liveFiles().find(f => f.name === 'weights.json');
+    const realSet8 = wf8.setContent; wf8.setContent = () => { throw new Error('quota'); };
+    drive.cut503 = 1;
+    ok(!(await ctx.CoachDrive.sync({ manual: true })), '503 בלי כתיבה בפועל → כשל (הקבלה לא תואמת)');
+    ok(/HTML|503/.test(ctx.CoachDrive.getState().lastError), 'הסיבה המקורית (503) בהודעה');
+    wf8.setContent = realSet8;
+    ok(await ctx.CoachDrive.sync({ manual: true }), 'הסנכרון הבא משלים');
+
+    // לפני אישור הרשאת UrlFetchApp — ה-Doc עדיין נכתב, בדרך האיטית
+    drive.api = 'off';
+    data.archive[2] = Object.assign({}, data.archive[2], { summary: data.archive[2].summary.replace('100kg x 5', '97.5kg x 5') });
+    const docId2 = liveFiles().find(f => f.name === 'workouts_log').id;
+    ok(await ctx.CoachDrive.sync({ manual: true }), 'בלי הרשאת Drive API: הסנכרון מצליח דרך DocumentApp');
+    ok(/97\.5kg x 5/.test(liveFiles().find(f => f.name === 'workouts_log').content) &&
+       liveFiles().filter(f => f.name === 'workouts_log').map(f => f.id).join() === docId2, 'ה-Doc עודכן במקום גם בדרך האיטית');
+    drive.api = 'on';
 
     // קובץ שנמחק ידנית — "סנכרן עכשיו" מחזיר אותו, בלי כפילויות
     liveFiles().find(f => f.name === 'weights.json').trashed = true;

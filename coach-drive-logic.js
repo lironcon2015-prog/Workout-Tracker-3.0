@@ -222,6 +222,7 @@ const CoachDrive = {
         if (!url || !token) throw new Error('NO_BRIDGE');
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 60000);
+        let res;
         try {
             const r = await fetch(url, {
                 method: 'POST',
@@ -229,10 +230,38 @@ const CoachDrive = {
                 body: JSON.stringify(Object.assign({ token }, payload)),
                 signal: ctrl.signal
             });
-            const res = await StorageManager._bridgeJson(r);
-            if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
-            return res;
+            res = await StorageManager._bridgeJson(r);
+        } catch (e) {
+            // אין תשובת JSON מהגשר (503 של גוגל, ניתוק, timeout) — ייתכן שהסקריפט רץ עד הסוף
+            e.uncertain = true;
+            throw e;
         } finally { clearTimeout(t); }
+        if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
+        return res;
+    },
+
+    // כתיבה עם "קבלה". כשהתשובה לא הגיעה, הכתיבה אולי הצליחה בשרת (כך ב-27.9: הקבצים
+    // נכתבו וה-503 הגיע לאפליקציה) — שואלים את הגשר מה כתוב בפועל. קובץ שהקבלה שלו
+    // (ה-hash שנרשם בתיאור שלו) זהה ל-hash שנשלח נחשב כנכתב. מחזיר { folderId, byName }.
+    async _writeGroup(files) {
+        let res;
+        try {
+            res = await this._post({ action: 'coachWrite', files });
+        } catch (e) {
+            if (!e.uncertain) throw e;
+            let st;
+            try { st = await this._post({ action: 'coachStatus', names: files.map(f => f.name) }); }
+            catch (e2) { throw e; }   // הבירור נכשל — מדווחים את הסיבה המקורית
+            const byName = {};
+            files.forEach(f => {
+                const x = (st.files || {})[f.name];
+                byName[f.name] = x && x.hash === f.hash ? { ok: true, id: x.id } : { ok: false, error: this._describe(e) };
+            });
+            return { folderId: st.folderId, byName };
+        }
+        const byName = {};
+        files.forEach(f => { byName[f.name] = (res.results || []).find(x => x.name === f.name) || { ok: false, error: 'אין תשובה' }; });
+        return { folderId: res.folderId, byName };
     },
 
     // נקרא בפתיחה ובחזרה לפרונט. שקט: לא זורק ולא מקפיץ הודעות.
@@ -299,37 +328,39 @@ const CoachDrive = {
 
             const toWrite = _cdPlan(s.files, hashes);
             const errors = [];
-            if (toWrite.length) {
-                const stamp = _blIsoWithTz(new Date(), COACH_DRIVE_TZ);
-                Object.keys(docs).forEach(name => {
+            const stamp = _blIsoWithTz(new Date(), COACH_DRIVE_TZ);
+            // תוצאת כתיבה של קובץ אחד → מצב שמור (או שגיאה)
+            const record = (name, r) => {
+                if (!r || !r.ok) { errors.push(name + ': ' + ((r && r.error) || 'אין תשובה')); return; }
+                if (docs[name]) {
                     const d = docs[name];
-                    contents[name] = _cdLogHeader(stamp, d.from, d.to, d.records) + '\n\n' + d.body;
-                });
-                const res = await this._post({
-                    action: 'coachWrite',
-                    files: toWrite.map(name => ({
-                        name, content: contents[name], id: (s.files[name] || {}).id || undefined,
-                        doc: docs[name] ? true : undefined
-                    }))
-                });
-                s.folderId = res.folderId || s.folderId;
-                toWrite.forEach(name => {
-                    const r = (res.results || []).find(x => x.name === name);
-                    if (!r || !r.ok) { errors.push(name + ': ' + ((r && r.error) || 'אין תשובה')); return; }
-                    if (docs[name]) {
-                        const d = docs[name];
-                        s.files[name] = {
-                            id: r.id, hash: hashes[name], chars: contents[name].length, records: d.records,
-                            from: d.from, to: d.to, window_days: d.window_days, last_written: stamp, format: 'google_doc_text'
-                        };
-                        return;
-                    }
                     s.files[name] = {
-                        id: r.id, hash: hashes[name], bytes: new TextEncoder().encode(contents[name]).length,
-                        records: built[name].records.length, from: built[name].from, to: built[name].to,
-                        window_days: built[name].window_days, last_written: stamp
+                        id: r.id, hash: hashes[name], chars: contents[name].length, records: d.records,
+                        from: d.from, to: d.to, window_days: d.window_days, last_written: stamp, format: 'google_doc_text'
                     };
-                });
+                    return;
+                }
+                s.files[name] = {
+                    id: r.id, hash: hashes[name], bytes: new TextEncoder().encode(contents[name]).length,
+                    records: built[name].records.length, from: built[name].from, to: built[name].to,
+                    window_days: built[name].window_days, last_written: stamp
+                };
+            };
+            Object.keys(docs).forEach(name => {
+                const d = docs[name];
+                contents[name] = _cdLogHeader(stamp, d.from, d.to, d.records) + '\n\n' + d.body;
+            });
+            // קבצי ה-JSON ואז ה-Doc — בקשות נפרדות: כתיבת Doc איטית לא מחזיקה את כל העבודה,
+            // וההתקדמות נשמרת אחרי כל בקשה
+            const groups = [toWrite.filter(n => !docs[n]), toWrite.filter(n => docs[n])].filter(g => g.length);
+            for (const group of groups) {
+                const res = await this._writeGroup(group.map(name => ({
+                    name, content: contents[name], id: (s.files[name] || {}).id || undefined,
+                    doc: docs[name] ? true : undefined, hash: hashes[name]
+                })));
+                s.folderId = res.folderId || s.folderId;
+                group.forEach(name => record(name, res.byName[name]));
+                this._saveState(s);
             }
             if (errors.length) throw new Error('קבצים שנכשלו — ' + errors.join(' · '));
 
@@ -343,11 +374,8 @@ const CoachDrive = {
             if (writeReadme) {
                 const generated = _blIsoWithTz(new Date(), COACH_DRIVE_TZ);
                 const content = JSON.stringify(Object.assign({ generated }, body));
-                const res = await this._post({
-                    action: 'coachWrite',
-                    files: [{ name: COACH_DRIVE_README, content, id: (prevR || {}).id || undefined }]
-                });
-                const r = (res.results || [])[0];
+                const res = await this._writeGroup([{ name: COACH_DRIVE_README, content, id: (prevR || {}).id || undefined, hash: rHash }]);
+                const r = res.byName[COACH_DRIVE_README];
                 if (!r || !r.ok) throw new Error(COACH_DRIVE_README + ': ' + ((r && r.error) || 'אין תשובה'));
                 s.files[COACH_DRIVE_README] = {
                     id: r.id, hash: rHash, bytes: new TextEncoder().encode(content).length, last_written: generated

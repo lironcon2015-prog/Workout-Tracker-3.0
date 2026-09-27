@@ -624,7 +624,7 @@
                     <div class="settings-group">
                         <div class="settings-group-label">אפליקציה</div>
                         <div class="stg-bento">
-                            <button class="stg-nav-row stg-nav-row--plain" onclick="checkForUpdate()">
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="runBusy(this, 'בודק…', checkForUpdate)">
                                 <span class="stg-row-title">בדוק עדכון</span>
                                 <span class="stg-version-badge" id="settings-version-inline">—</span>
                             </button>
@@ -938,8 +938,8 @@
                             <div class="stg-cloud-row stg-cloud-row--last">
                                 <span class="stg-cloud-label">הכל</span>
                                 <div class="stg-cloud-btns">
-                                    <button class="stg-cloud-btn stg-cloud-btn--up" onclick="backupAllToCloud()">גבה</button>
-                                    <button class="stg-cloud-btn stg-cloud-btn--dl" onclick="restoreAllFromCloud()">שחזר</button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--up" onclick="runBusy(this, 'מגבה…', backupAllToCloud)">גבה</button>
+                                    <button class="stg-cloud-btn stg-cloud-btn--dl" onclick="runBusy(this, 'משחזר…', restoreAllFromCloud)">שחזר</button>
                                 </div>
                             </div>
                         </div>
@@ -987,7 +987,7 @@
                             </div>
                             <div class="bridge-btn-row">
                                 <button class="bridge-btn bridge-btn--save" onclick="saveBackupBridgeSettings()">שמור הגדרות</button>
-                                <button id="backup-send-btn" class="bridge-btn bridge-btn--go" onclick="sendBackupNow()">שלח גיבוי עכשיו</button>
+                                <button id="backup-send-btn" class="bridge-btn bridge-btn--go" onclick="runBusy(this, 'שולח…', sendBackupNow)">שלח גיבוי עכשיו</button>
                             </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">בכל פתיחת אפליקציה נבדק אם עברו 7 ימים מהגיבוי האחרון — ואם כן, קובץ הגיבוי המלא נשלח לאימייל שלך דרך הגשר (bridges/backup-bridge.gs, רץ בחשבון ה-Gmail שלך). בנוסף, <b>בכל שינוי של מפתח חיבור נשלח מיד קובץ חיבורים מעודכן</b> — כך שלמפתח חדש אף פעם אין חלון בלי גיבוי. <span class="material-symbols-outlined inline-warn">warning</span> המייל מכיל את כל המפתחות — הוא נשלח מחשבונך לעצמך בלבד.</div>
@@ -1012,7 +1012,7 @@
                             </div>
                             <div class="bridge-btn-row">
                                 <button class="bridge-btn bridge-btn--save" onclick="saveWidgetBridgeSettings()">שמור הגדרות</button>
-                                <button class="bridge-btn bridge-btn--go" onclick="pushWidgetNow()">דחוף snapshot עכשיו</button>
+                                <button class="bridge-btn bridge-btn--go" onclick="runBusy(this, 'דוחף…', pushWidgetNow)">דחוף snapshot עכשיו</button>
                             </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">האפליקציה דוחפת לגשר (bridges/widget-bridge.gs) תמונת מצב: תזונה היום + מאקרו, משקל ומגמה, האימון האחרון — בכל פתיחה וביציאה. שני ווידג'טים מושכים מאותו גשר: <b>מסך הבית</b> (bridges/widget-scriptable.js, גודל Medium) ו<b>מסך הנעילה</b> (bridges/widget-lockscreen-scriptable.js — עיגול / מלבן / שורה מעל השעון). אותם URL ו-token לשניהם, אין הגדרה נוספת.</div>
@@ -1037,8 +1037,8 @@
                             </div>
                             <div class="bridge-btn-row">
                                 <button class="bridge-btn bridge-btn--save" onclick="savePhotoBridgeSettings()">שמור הגדרות</button>
-                                <button class="bridge-btn bridge-btn--go" onclick="testPhotoBridgeNow()">בדוק חיבור</button>
-                                <button class="bridge-btn bridge-btn--alt" onclick="scanPhotoDriveNow()">סרוק דרייב</button>
+                                <button class="bridge-btn bridge-btn--go" onclick="runBusy(this, 'בודק…', testPhotoBridgeNow)">בדוק חיבור</button>
+                                <button class="bridge-btn bridge-btn--alt" onclick="runBusy(this, 'סורק…', scanPhotoDriveNow)">סרוק דרייב</button>
                             </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">תמונות ההתקדמות נשמרות בתיקייה פרטית בדרייב שלך דרך הגשר (bridges/photo-bridge.gs) — מקור האמת; במכשיר נשמר רק cache. <span class="material-symbols-outlined inline-warn">warning</span> פרטיות: ניתוח ה-AI שולח את התמונות ל-Gemini API — ב-free tier גוגל רשאית להשתמש בקלט לשיפור מודלים; במסלול בתשלום לא.</div>
@@ -1054,7 +1054,7 @@
                                 <span class="stg-switch"><input type="checkbox" id="coach-drive-toggle" class="bridge-toggle" onchange="toggleCoachDrive()"><span class="stg-switch-slider"></span></span>
                             </label>
                             <div class="bridge-btn-row">
-                                <button class="bridge-btn bridge-btn--go" onclick="syncCoachDriveNow()">סנכרן עכשיו</button>
+                                <button class="bridge-btn bridge-btn--go" onclick="runBusy(this, 'מסנכרן…', syncCoachDriveNow)">סנכרן עכשיו</button>
                             </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">קבצי נתונים קטנים למאמן ה-Claude בתיקייה "GymPro Coach Data" בדרייב שלך: שקילות, תזונה ושינה (90 יום), אימונים (56 יום, גם כיומן טקסט ב-Google Doc בשם workouts_log), פירוט תזונה ועקומות דופק (30 יום), תיבת הזיכרון, ו-00_readme.json. מתעדכן כדקה אחרי כל שינוי (אימון, שקילה, מזון), מיד ביציאה מהאפליקציה ובכל פתיחה — ורק קבצים שהשתנו. משתמש ב-URL וב-token של גשר התמונות (bridges/photo-bridge.gs) — אחרי עדכון הגשר צריך לפרוס גרסה חדשה שלו.</div>
@@ -1111,8 +1111,8 @@
                             </label>
                             <div class="bridge-btn-row">
                                 <button class="bridge-btn bridge-btn--save" onclick="saveHealthBridgeSettings()">שמור הגדרות</button>
-                                <button class="bridge-btn bridge-btn--go" onclick="pullHealthNow()">משוך עכשיו</button>
-                                <button class="bridge-btn bridge-btn--dim" onclick="showHealthBridgeDiag()">בדוק גשר</button>
+                                <button class="bridge-btn bridge-btn--go" onclick="runBusy(this, 'מושך…', pullHealthNow)">משוך עכשיו</button>
+                                <button class="bridge-btn bridge-btn--dim" onclick="runBusy(this, 'בודק…', showHealthBridgeDiag)">בדוק גשר</button>
                             </div>
                         </div>
                         <div class="ai-security-note" style="margin-top:6px;">"בדוק גשר" מציג מה <b>הגיע</b> לגשר בפועל — יומן הדחיפות, האימון האחרון והאם יש לו סדרת דופק. זו הדרך להבחין בין "האוטומציה לא רצה" לבין "רצה וחזרה ריקה". המקור המומלץ הוא <b>Health Auto Export</b> (טוטלים יומיים מעובדים, תואמים לאפליקציית Health), שנדחף לגשר בתזמון דטרמיניסטי דרך קיצורי דרך; האפליקציה מושכת אוטומטית בכל כניסה ובכל שעה. ה-token נשמר מקומית בלבד. "משוך גם תזונה" כבוי כברירת מחדל — הדלק רק אם חזרת ל-MFP. ראה bridges/guides/hae-automation-recipe.md.</div>
@@ -2458,7 +2458,7 @@
                 <span class="nutri-io-desc">מושך עכשיו את הימים שהקיצור דחף לגשר</span>
             </span>
         </button>
-        <button class="nutri-io-row" onclick="_nutriIOAction(importNutritionFromGmail)">
+        <button class="nutri-io-row" onclick="_nutriIOAction(() => runBusy(null, '', importNutritionFromGmail))">
             <span class="material-symbols-outlined nutri-io-icon">cloud_download</span>
             <span class="nutri-io-text">
                 <span class="nutri-io-title">ייבוא MyFitnessPal מ-Gmail</span>
@@ -2846,7 +2846,7 @@
                 <span class="stg-row-title">ייבוא חיבורים</span>
                 <span class="material-symbols-outlined stg-chevron" style="color:var(--success);">key</span>
             </button>
-            <button id="conn-send-btn" class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="sendConnectionsNow()">
+            <button id="conn-send-btn" class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="runBusy(this, 'שולח…', sendConnectionsNow)">
                 <span class="stg-row-title">שלח חיבורים לאימייל עכשיו</span>
                 <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">outgoing_mail</span>
             </button>
@@ -2906,7 +2906,7 @@
     <div id="cloud-sync-banner" class="cloud-sync-banner">
         <span class="csb-icon material-symbols-outlined">cloud_off</span>
         <span class="csb-text">הגיבוי האחרון לענן נכשל. הנתונים נשמרו במכשיר אך לא בענן.</span>
-        <button class="csb-action" onclick="backupAllToCloud()">גבה עכשיו</button>
+        <button class="csb-action" onclick="runBusy(this, 'מגבה…', backupAllToCloud)">גבה עכשיו</button>
         <button class="csb-close" onclick="dismissCloudSyncBanner()" aria-label="סגור">&times;</button>
     </div>
 

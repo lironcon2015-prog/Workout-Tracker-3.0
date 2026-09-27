@@ -26,11 +26,58 @@ function showCloudToast(msg, success, state) {
     // force reflow להתחלת אנימציה מחדש אם נקרא שוב
     void t.offsetWidth;
     t.classList.add('show');
+    // 'pending' נשאר עד שהתוצאה מחליפה אותו — אחרת בפעולה של 10–90 שניות
+    // ההודעה נעלמת באמצע ונראה שכלום לא קורה. 120ש' = תקרת ביטחון (JSONP עד 90ש').
     _cloudToastTimer = setTimeout(() => {
         t.classList.remove('show');
         _cloudToastTimer = null;
-    }, 3000);
+    }, kind === 'pending' ? 120000 : 3000);
 }
+
+// הסתרת טוסט "בתהליך" שנשאר תלוי — כשהתוצאה הגיעה כ-showAlert, או בסוף runBusy
+// כשהפעולה יצאה בשקט (למשל "אין מה לשלוח"). טוסט תוצאה אינו נוגע.
+function hideCloudToastIfPending() {
+    const t = document.getElementById('cloud-toast');
+    if (!t || !t.classList.contains('pending')) return;
+    if (_cloudToastTimer) { clearTimeout(_cloudToastTimer); _cloudToastTimer = null; }
+    t.classList.remove('show');
+}
+
+// RUN-BUSY-START
+/* runBusy — עטיפה אחידה לכל כפתור שמפעיל פעולה ארוכה (רשת/גשר/AI).
+ * בלי פידבק מיידי לחיצה נראית כמו no-op, והמשתמש לוחץ שוב (שליחה כפולה,
+ * העלאות מקבילות). כאן: נעילה לפי פעולה — לחיצה חוזרת בזמן ריצה מתעלמת, גם
+ * מכפתור אחר שמפעיל אותה פעולה — השבתת הכפתור, החלפת הטקסט ל-busyLabel,
+ * ושחזור מלא גם בכשל. fn צריכה להחזיר Promise כדי שהנעילה תחזיק עד הסוף.
+ * btn=null מתאים לפעולה שנפתחת מ-sheet שנסגר — נעילה בלבד. */
+const _busyActions = new Set();
+function runBusy(btn, busyLabel, fn, ...args) {
+    const key = fn.name || busyLabel;
+    if (_busyActions.has(key)) return Promise.resolve();
+    _busyActions.add(key);
+    const label = btn ? (btn.querySelector('.stg-row-title') || btn) : null;
+    const prevText = label ? label.textContent : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add('is-busy');
+        btn.setAttribute('aria-busy', 'true');
+        if (label && busyLabel) label.textContent = busyLabel;
+    }
+    let p;
+    try { p = Promise.resolve(fn(...args)); } catch (e) { p = Promise.reject(e); }
+    return p.catch(e => { console.error('GymPro: busy action failed', key, e); })
+        .then(() => {
+            _busyActions.delete(key);
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.remove('is-busy');
+                btn.removeAttribute('aria-busy');
+                if (label && busyLabel) label.textContent = prevText;
+            }
+            if (typeof hideCloudToastIfPending === 'function') hideCloudToastIfPending();
+        });
+}
+// RUN-BUSY-END
 
 // באנר התראה מתמשך כשהגיבוי האחרון לענן נכשל (#3) — מוצג ב-load, לא קשור ללוגיקת ההעתקה.
 // v17.15: מכסה את כל ארבעת מסלולי הסנכרון + אזהרת גודל מקדימה (התקרבות ל-1MB/doc).
@@ -144,6 +191,7 @@ function escapeJsAttr(s) {
 // השמה ל-onclick (ולא addEventListener) — קריאה חופפת בזמן שהמודאל פתוח מחליפה
 // את ה-handler במקום לערום אותו; לחיצת OK אחת לא תריץ callbacks ישנים שנערמו.
 function showAlert(msg, onOk) {
+    hideCloudToastIfPending();   // התוצאה הגיעה — טוסט "בתהליך" מאחורי המודאל כבר לא נכון
     const modal = document.getElementById('custom-alert-modal');
     document.getElementById('custom-alert-msg').textContent = msg;
     modal.style.display = 'flex';
@@ -2063,7 +2111,7 @@ function backupAllToCloud() {
     if (!hasData) { showAlert('אין נתונים מקומיים להעלאה — בוטל כדי לא לדרוס את הגיבוי בענן.'); return; }
     FirebaseManager._armSync();
     showCloudToast('מגבה לענן…', true, 'pending');
-    Promise.all([
+    return Promise.all([
         FirebaseManager.saveArchiveToCloud(),
         FirebaseManager.saveConfigToCloud(),
         FirebaseManager.saveNutritionRawToCloud(),
@@ -2079,7 +2127,8 @@ function backupAllToCloud() {
 
 function restoreAllFromCloud() {
     if (!FirebaseManager.isConfigured()) { showAlert('Firebase לא מוגדר. הגדר חיבור תחילה.'); return; }
-    showConfirm('לשחזר את כל הנתונים מהענן? הנתונים במכשיר יוחלפו בגרסה שבענן.\n\nגיבוי של המצב הנוכחי יירד אוטומטית לפני כן.', () => {
+    // Promise שנפתר רק בסוף השחזור (או בביטול) — כדי ש-runBusy יחזיק את הכפתור נעול
+    return new Promise(done => showConfirm('לשחזר את כל הנתונים מהענן? הנתונים במכשיר יוחלפו בגרסה שבענן.\n\nגיבוי של המצב הנוכחי יירד אוטומטית לפני כן.', () => {
         // רשת ביטחון: צילום המצב הנוכחי לקובץ לפני שדורסים אותו
         try { StorageManager.exportFullBackup(); } catch (e) {}
         showCloudToast('מושך מהענן…', true, 'pending');
@@ -2092,8 +2141,8 @@ function restoreAllFromCloud() {
             showAlert('הנתונים שוחזרו מהענן' + summary + '!', () => { window.location.reload(); });
         }).catch(e => {
             showAlert('השחזור מהענן נכשל: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. הנתונים במכשיר לא השתנו.');
-        });
-    });
+        }).then(done, done);
+    }, done));
 }
 
 function _renderTargetHistoryList() {
@@ -8168,21 +8217,11 @@ function _bridgeToggle(toggleId, save, after) {
     _afterConnectionChange();
 }
 
-// שליחה ידנית של קובץ החיבורים — אותה בעיה שתוקנה ב-sendBackupNow: בניית
-// המטען + fetch לוקחות שנייה ויותר, ובלי פידבק מיידי זה נראה כמו no-op.
-let _connSending = false;
+// שליחה ידנית של קובץ החיבורים — בניית המטען + fetch לוקחות שנייה ויותר.
+// נעילה + השבתת הכפתור דרך runBusy (onclick ב-index.html).
 function sendConnectionsNow() {
-    if (_connSending) return;
-    const btn = document.getElementById('conn-send-btn');
-    _connSending = true;
-    if (btn) { btn.disabled = true; btn.querySelector('.stg-row-title').textContent = 'שולח…'; }
     if (typeof showCloudToast === 'function') showCloudToast('שולח חיבורים לאימייל…', true, 'pending');
-    StorageManager.maybeBackupConnections(true)
-        .catch(() => {})
-        .then(() => {
-            _connSending = false;
-            if (btn) { btn.disabled = false; btn.querySelector('.stg-row-title').textContent = 'שלח חיבורים לאימייל עכשיו'; }
-        });
+    return StorageManager.maybeBackupConnections(true);
 }
 
 // _afterConnectionChange — כל שינוי במפתחות החיבור מפעיל גיבוי חיבורים לאימייל.
@@ -8354,20 +8393,11 @@ function updateBackupBridgeStatus(){ updateBridgeStatus('backup'); }
 // שליחה ידנית — בניית הגיבוי + fetch לוקחות שנייה ויותר. בלי פידבק מיידי זה
 // נראה כאילו כלום לא קרה והמשתמש לוחץ שוב (ושולח מייל כפול). נעילת in-flight
 // + טוסט + השבתת הכפתור סוגרים את זה.
-let _backupSending = false;
+// (הנעילה והשבתת הכפתור — runBusy ב-onclick)
 function sendBackupNow() {
-    if (_backupSending) return;
-    const btn = document.getElementById('backup-send-btn');
-    _backupSending = true;
-    if (btn) { btn.disabled = true; btn.textContent = 'שולח…'; }
     if (typeof showCloudToast === 'function') showCloudToast('שולח גיבוי לאימייל…', true, 'pending');
-    StorageManager.maybeSendWeeklyBackup(true)
-        .then(ok => { if (ok) updateBackupBridgeStatus(); })
-        .catch(() => {})
-        .then(() => {
-            _backupSending = false;
-            if (btn) { btn.disabled = false; btn.textContent = 'שלח גיבוי עכשיו'; }
-        });
+    return Promise.resolve(StorageManager.maybeSendWeeklyBackup(true))
+        .then(ok => { if (ok) updateBackupBridgeStatus(); });
 }
 
 
@@ -8378,7 +8408,7 @@ function updateWidgetBridgeStatus(){ updateBridgeStatus('widget'); }
 
 
 function pushWidgetNow() {
-    StorageManager.maybePushWidgetSnapshot(true).then(ok => { if (ok) updateWidgetBridgeStatus(); });
+    return StorageManager.maybePushWidgetSnapshot(true).then(ok => { if (ok) updateWidgetBridgeStatus(); });
 }
 
 
@@ -8390,7 +8420,7 @@ function updatePhotoBridgeStatus(){ updateBridgeStatus('photo'); }
 
 function testPhotoBridgeNow() {
     if (typeof ppTestPhotoBridge !== 'function') return;
-    ppTestPhotoBridge()
+    return ppTestPhotoBridge()
         .then(res => showAlert('הגשר מחובר! תיקייה: "' + res.folder + '" · ' + res.files + ' תמונות בדרייב.'))
         .catch(e => showAlert(e && e.hint
             ? `בדיקת הגשר נכשלה: ה-token לא תואם. באפליקציה ${e.hint.gotLen} תווים (${e.hint.gotFp}), בגשר ${e.hint.expLen} תווים (${e.hint.expFp}). ` +
@@ -8402,7 +8432,7 @@ function testPhotoBridgeNow() {
 
 function scanPhotoDriveNow() {
     if (typeof ppReconcileFromDrive !== 'function') return;
-    ppReconcileFromDrive()
+    return ppReconcileFromDrive()
         .then(r => {
             showAlert('הסריקה הושלמה: ' + r.added + ' תמונות נוספו לאינדקס, ' + r.linked + ' קושרו מחדש. סה"כ ' + r.total + '.');
             if (typeof _renderBodyPhotos === 'function') _renderBodyPhotos();
@@ -9158,7 +9188,7 @@ async function pullWatchNow(archiveTs) {
 function pullHealthNow() {
     haptic('light');
     _healthSyncLast = 0;
-    syncHealthNutrition(true).then(() => startWatchAutoPull());
+    return syncHealthNutrition(true).then(() => startWatchAutoPull());
 }
 
 // _refreshMetricsPane — מרנדר מחדש את לשונית המדדים בכל מסך שבו היא פתוחה.
@@ -9280,7 +9310,7 @@ function _watchCardHtml(entry) {
         ${tilesHtml}${chartHtml}${_watchZonesHtml(w.zoneSec, w.zoneBounds)}
         <div class="wc-meta">${escapeHtml(metaBits.join(' · '))}
             <span class="wc-meta-acts">${_watchPartial(w)
-                ? `<button class="wc-btn wc-btn--link" onclick="pullWatchNow(${entry.timestamp})">משוך עכשיו</button>` : ''}
+                ? `<button class="wc-btn wc-btn--link" onclick="runBusy(this, 'מושך…', pullWatchNow, ${entry.timestamp})">משוך עכשיו</button>` : ''}
                 <button class="wc-btn wc-btn--link" onclick="unlinkWatchWorkout(${entry.timestamp})">בטל שיוך</button>
             </span>
         </div>
@@ -9313,7 +9343,7 @@ function _watchEmptyHtml(entry) {
             ? 'ממתין לסיכום מ-Apple Watch. אוטומציית סוף-האימון דוחפת אותו לגשר כחצי דקה אחרי הסיום, והאפליקציה בודקת שוב מעצמה במשך 45 דקות — גם אם תעבור למסך אחר.'
             : 'טרם התקבל סיכום מ-Apple Watch לאימון הזה. הנתונים מגיעים דרך גשר ה-Health בייצוא הבא — בדרך כלל תוך דקות מרגע פתיחת הטלפון. "משוך עכשיו" בודק מיד ומדווח מה נמצא בגשר.'}</div>
         <div class="wc-actions">
-            <button class="wc-btn wc-btn--primary" onclick="pullWatchNow(${entry.timestamp})">משוך עכשיו</button>
+            <button class="wc-btn wc-btn--primary" onclick="runBusy(this, 'מושך…', pullWatchNow, ${entry.timestamp})">משוך עכשיו</button>
         </div>
         ${candHtml}
     </div>`;

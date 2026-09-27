@@ -4,6 +4,22 @@
  * Handles all LocalStorage operations. No native alert/confirm.
  */
 
+// ZEROVITAL-START — בלוק טהור, נבדק ב-test/zero-vitals.test.js (אל תסיר את הסמנים)
+// ויטל לילי שערכו 0 (או שלילי/לא מספר) = לא נמדד. מוחק את השדה במקום, כך שהרשומה אומרת
+// "חסר" — כמו שדות השינה (asleepMin וכו') שנמחקים באותו מצב. ערך חיובי מחוץ לטווח לא נוגעים
+// בו: הוא אולי תקלה, אבל גם אולי אמיתי, ו-_validVital ממילא מסנן אותו מהציון. מחזיר כמה נמחקו.
+const _ZERO_VITAL_KEYS = ['hrv', 'rhr', 'respRate', 'wristTempDev'];
+function _stripZeroVitals(night) {
+    let n = 0;
+    _ZERO_VITAL_KEYS.forEach(k => {
+        if (!(k in night)) return;
+        const v = night[k];
+        if (v === null || typeof v !== 'number' || !isFinite(v) || v <= 0) { delete night[k]; n++; }
+    });
+    return n;
+}
+// ZEROVITAL-END
+
 const StorageManager = {
     KEY_WEIGHTS:      'gympro_weights',
     KEY_RM:           'gympro_rm',
@@ -1318,6 +1334,16 @@ const StorageManager = {
     saveSleepDaily(arr) {
         this.saveData(this.KEY_SLEEP_DAILY, arr || []);
     },
+    // cleanZeroVitals — ניקוי רשומות שנשמרו לפני התיקון (rhr:0 ב-21.9 וב-27.9). אידמפוטנטי,
+    // בלי דגל "בוצע": רץ בכל פתיחה, וכותב רק אם באמת נמצא אפס — כך גם אפס שחוזר משחזור
+    // מהענן מתנקה בפתיחה הבאה.
+    cleanZeroVitals() {
+        const nights = this.getSleepDaily();
+        let changed = 0;
+        nights.forEach(n => { if (n && _stripZeroVitals(n)) changed++; });
+        if (changed) this.saveSleepDaily(nights);
+        return changed;
+    },
     // mergeSleepDays — מיזוג לילות מגשר ה-Health (upsert לפי תאריך, src:'health').
     mergeSleepDays(nights) {
         const map = {};
@@ -1377,6 +1403,11 @@ const StorageManager = {
                     merged.wristTempDev = existing.wristTempDev;
                 }
             }
+            // ── ויטל חסר = אין שדה, לא 0 ──────────────────────────────────
+            // הגשר שולח 0 כשאין מדידה (לילה בלי RHR). אחרי שכללי ה-fill למעלה לא מצאו ערך
+            // קיים, ה-0 נשאר ברשומה — ובקובץ המאוחד ובדרייב המאמן קרא "rhr: 0" כמדידה.
+            // הציון והבסיס מסננים אותו (_validVital), אבל הרשומה עצמה חייבת לומר "חסר".
+            _stripZeroVitals(merged);
             // ── מודל שלבי שינה (Apple Health) ──────────────────────────────
             // הקיצור שולח פירוט שלבים (Deep/REM/Core) + סך כולל. אם יש שלבים:
             //   זמן שינה אמיתי = סכום השלבים · ערות = הסך הכולל − השינה · יעילות = שינה/כולל.

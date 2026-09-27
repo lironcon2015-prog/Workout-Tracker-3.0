@@ -471,6 +471,8 @@ document.addEventListener('DOMContentLoaded', () => {
     _scheduleHealthHourlySync();
     // חישוב מחדש של אזורי דופק לאימונים שחושבו במודל ישן — מקומי, פעם אחת
     setTimeout(() => { try { migrateWatchZones(); } catch (e) {} }, 1500);
+    // ויטלים שנשמרו כ-0 (לפני v19.17.4) → שדה חסר. אידמפוטנטי, כותב רק כשיש מה לנקות
+    setTimeout(() => { try { StorageManager.cleanZeroVitals(); } catch (e) {} }, 1600);
     // גיבוי שבועי לאימייל — בדיקה שקטה בפתיחה (שולח רק אם עברו ≥7 ימים)
     setTimeout(() => StorageManager.maybeSendWeeklyBackup(false), 4000);
     // ווידג'ט אייפון — דחיפת snapshot שקטה בפתיחה (throttle 10 דק')

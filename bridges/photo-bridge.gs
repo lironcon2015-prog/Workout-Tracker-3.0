@@ -40,6 +40,8 @@
  * שמומרת ל-Doc, שניות בודדות. הרשאה חדשה ("התחברות לשירות חיצוני"). פעם אחת:
  * בחר בתפריט הפונקציות את authorizeCoach → Run (▶) → Review permissions → Allow.
  * בלי זה ה-Doc עדיין נכתב, בדרך האיטית (DocumentApp), ושום דבר לא נשבר.
+ * מאז v19.17.9: רשימה, ספירה ושליפה מדלגות על קבצים שבאשפה. עדכון לא חובה — האפליקציה
+ * עובדת גם מול הגרסה הקודמת; בלעדיו "סרוק דרייב" עלול להחזיר תמונות שנמחקו.
  * ==========================================================================*/
 
 // 🔐 ה-token לא נמצא בקובץ — הוא ב-Script properties (SECRET_TOKEN). ראה "פריסה" למעלה.
@@ -128,14 +130,20 @@ function doGet(e) {
   var folder = _folder();
   var count = 0;
   var it = folder.getFiles();
-  while (it.hasNext()) { it.next(); count++; }
+  while (it.hasNext()) { if (!it.next().isTrashed()) count++; }
   return _json({ ok: true, folder: FOLDER_NAME, files: count });
 }
 
-// התיקייה הפרטית — נוצרת בשורש הדרייב אם אינה קיימת
+// התיקייה הפרטית — נוצרת בשורש הדרייב אם אינה קיימת.
+// DriveApp מחזיר גם פריטים שבאשפה (קובץ/תיקייה שנזרקו נשארים עם ההורה שלהם) — מדלגים עליהם
+// כאן וברשימה/שליפה. בלי זה "סרוק דרייב" החזיר לגלריה תמונות שנמחקו (v19.17.9).
 function _folder() {
   var it = DriveApp.getFoldersByName(FOLDER_NAME);
-  return it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER_NAME);
+  while (it.hasNext()) {
+    var f = it.next();
+    if (!f.isTrashed()) return f;
+  }
+  return DriveApp.createFolder(FOLDER_NAME);
 }
 
 function _upload(body) {
@@ -159,7 +167,10 @@ function _get(body) {
   }
   if (!file && body.date) {
     var it = _folder().getFilesByName(body.date + '.jpg');
-    if (it.hasNext()) file = it.next();
+    while (!file && it.hasNext()) {
+      var cand = it.next();
+      if (!cand.isTrashed()) file = cand;
+    }
   }
   if (!file) return _json({ ok: false, error: 'NOT_FOUND' });
   return _json({
@@ -175,6 +186,7 @@ function _list() {
   var it = _folder().getFiles();
   while (it.hasNext()) {
     var f = it.next();
+    if (f.isTrashed()) continue;
     var name = f.getName();
     var m = name.match(/^(\d{4}-\d{2}-\d{2})\.jpe?g$/i);
     if (!m) continue;

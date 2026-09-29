@@ -903,6 +903,11 @@ const StorageManager = {
     // not match the expected pattern" ב-Safari) שמסתירה את הסיבה האמיתית: דף
     // התחברות של גוגל (הרשאת Anyone חסרה) או דף שגיאת סקריפט. כאן מחזירים את
     // תחילת הגוף בפועל, כדי שההודעה למשתמש תגיד מה באמת קרה.
+    // v19.17.9: הסיבה לפי השרת שהחזיר את הדף. תשובת Apps Script מגיעה בשתי קפיצות —
+    // script.google.com מריץ את הסקריפט ומפנה ל-script.googleusercontent.com, שמוסר את
+    // התשובה. 404/5xx מהקפיצה השנייה = הסקריפט רץ והתשובה אבדה (29.9: 404 שהוצג כבעיית
+    // "Who has access", בזמן שההעלאות הגיעו לדרייב). 404 מהראשונה = אין פריסה בכתובת.
+    // ההודעה נושאת את שם השרת בלבד — לא את ה-URL (ב-GET הוא מכיל את ה-token).
     _bridgeJson(r) {
         return r.text().then(txt => {
             try { return JSON.parse(txt); }
@@ -911,11 +916,24 @@ const StorageManager = {
                 // בדף השגיאה של Apps Script זה המקום שבו כתובה השגיאה ומספר השורה.
                 const head = String(txt || '')
                     .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
-                    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
-                const hint = /<!DOCTYPE|<html/i.test(txt)
-                    ? 'הגשר החזיר דף HTML במקום JSON — כנראה "Who has access" אינו "Anyone", או שגיאת סקריפט.'
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+                    .replace(/\s+/g, ' ').trim().slice(0, 200);
+                let host = '';
+                try { host = new URL(r.url).host; } catch (x) { /* תשובה בלי url */ }
+                const st = r.status;
+                const hint = /accounts\.google\.com$/.test(host)
+                    ? 'הגשר הפנה לדף התחברות של גוגל — ב-"Who has access" של הפריסה לא נבחר "Anyone".'
+                    : /googleusercontent\.com$/.test(host) && (st === 404 || st >= 500)
+                    ? 'הסקריפט רץ, אבל גוגל לא מסר את התשובה שלו (דף שגיאה בשלב ההפניה) — תקלה חולפת, והפעולה אולי בוצעה.'
+                    : st === 404
+                    ? 'גוגל לא מצא פריסה בכתובת הגשר (404) — אם זה חוזר, ה-URL אינו של הפריסה הפעילה (Deploy → Manage deployments).'
+                    : st >= 500
+                    ? 'שגיאה זמנית בשרתי גוגל.'
+                    : /<!DOCTYPE|<html/i.test(txt)
+                    ? 'הגשר החזיר דף HTML במקום JSON — כנראה שגיאה בסקריפט.'
                     : 'תשובה לא צפויה מהגשר.';
-                throw new Error(`${hint} (HTTP ${r.status}) ${head}`);
+                throw new Error(`${hint} (HTTP ${st}${host ? ' · ' + host : ''}) ${head}`.trim());
             }
         });
     },

@@ -140,6 +140,8 @@ async function ppStorePhoto(sourceBlob, opts) {
     index.sort((a, b) => a.date < b.date ? -1 : 1);
     StorageManager.savePhotoIndex(index);
     _ppSyncConfigSoon();
+    _ppFresh.add(date);          // צילום טרי — עולה מיד, בלי בירור מול הדרייב
+    _ppChecked.delete(date);
     _ppKickUploads();
     return { date, bytes: photo.blob.size };
 }
@@ -176,11 +178,16 @@ function _ppDriveIdOf(date) {
 
 // מחיקה: מקומית + מהדרייב (החלטת מוצר — מחיקה מוחקת בכל מקום)
 async function ppDeletePhoto(date) {
+    const entry = StorageManager.getPhotoIndex().find(e => e.date === date);
     try { await _ppIdbDel('photos', date); await _ppIdbDel('thumbs', date); } catch (e) { /* לא חוסם */ }
-    const driveId = _ppDriveIdOf(date);
     StorageManager.savePhotoIndex(StorageManager.getPhotoIndex().filter(e => e.date !== date));
     _ppSyncConfigSoon();
-    if (driveId) _ppDriveDelete(driveId);   // ברקע — כשל לא חוסם את המחיקה המקומית
+    _ppFresh.delete(date);
+    _ppChecked.delete(date);
+    // בדרייב — דרך התור, ברקע: נשמר עד שהגשר מאשר. תמונה שעוד המתינה (בלי driveId) אולי
+    // כבר נחתה בדרייב והתשובה אבדה — נמחקת לפי קבלה (תאריך + גודל).
+    if (entry && entry.driveId) _ppDriveDelete({ id: entry.driveId });
+    else if (entry && entry.bytes && StorageManager.getPhotoBridge().url) _ppDriveDelete({ date, bytes: entry.bytes });
 }
 
 // ─── סנכרון config מרוכך (debounce) ────────────────────────────────────────
@@ -196,10 +203,51 @@ function _ppSyncConfigSoon() {
 
 // ─── גשר הדרייב (Apps Script — bridges/photo-bridge.gs) ───────────────────────
 // Content-Type: text/plain — בקשה "פשוטה" בלי preflight (כמו שאר הגשרים).
+//
+// תשובת Apps Script מגיעה בשתי קפיצות: script.google.com מריץ את הסקריפט ומפנה ל-
+// script.googleusercontent.com, שמוסר את התשובה. כשהקפיצה השנייה נכשלת, או ש-iOS חותך את
+// הבקשה ביציאה מהאפליקציה — הפעולה בוצעה בדרייב והאפליקציה לא יודעת. 29.9: תמונה הועלתה
+// ב-08:31 ושוב ב-08:41 (אותם בתים) ונשארה "ממתינה". לכן כשל בלי תשובת JSON מסומן uncertain,
+// ופעולה שמשנה משהו מבררת מה קרה לפני שהיא חוזרת — "קבלה", כמו בסנכרון המאמן (v19.17.2).
 
-function _ppBridgePost(payload, timeoutMs) {
+// ─── PPRECEIPT-START — בלוק טהור, נבדק ב-test/photo-upload.test.js (אל תסיר את הסמנים)
+
+// העותק העדכני לכל תאריך. הרשימה מהגשר כוללת גם עותקים שבאשפה (DriveApp לא מסנן אותם,
+// והעלאה חוזרת זורקת את הקודם לאשפה בלי להוציא אותו מהתיקייה) — החי נוצר תמיד אחרון.
+function _ppNewestByDate(files) {
+    const out = {};
+    (files || []).forEach(f => {
+        if (!f || !f.date || !f.id) return;
+        const cur = out[f.date];
+        if (!cur || String(f.updated || '') > String(cur.updated || '')) out[f.date] = f;
+    });
+    return out;
+}
+
+// "קבלה" להעלאה שהתשובה שלה לא הגיעה: העותק העדכני של התאריך, באותו גודל בדיוק = הועלתה.
+// גודל לא ידוע (0) = אין קבלה — עדיפה העלאה חוזרת על פני סימון שגוי.
+function _ppLandedCopy(files, date, bytes) {
+    const f = _ppNewestByDate(files)[date];
+    return f && bytes > 0 && Number(f.bytes) === bytes ? f : null;
+}
+
+// ניסיון חוזר אחרי כשל: 20ש', דקה, 3 דק', ואז כל 10 דק'
+const _PP_RETRY_MS = [20000, 60000, 180000, 600000];
+function _ppRetryDelay(fails) {
+    return _PP_RETRY_MS[Math.min(Math.max(fails, 1), _PP_RETRY_MS.length) - 1];
+}
+
+// אותה מחיקה בתור: לפי מזהה, או (תמונה שנמחקה כשעוד המתינה) לפי תאריך + גודל
+function _ppSameDel(a, b) {
+    return a.id || b.id ? a.id === b.id : a.date === b.date && a.bytes === b.bytes;
+}
+// ─── PPRECEIPT-END ──────────────────────────────────────────────────────────
+
+// opts.force — גם כשהמתג כבוי (כפתור "בדוק חיבור" בהגדרות)
+function _ppBridgePost(payload, timeoutMs, opts) {
     const { on, url, token } = StorageManager.getPhotoBridge();
-    if (!on || !url) return Promise.reject(new Error('BRIDGE_OFF'));
+    if (!url) return Promise.reject(new Error('NO_URL'));
+    if (!on && !(opts && opts.force)) return Promise.reject(new Error('BRIDGE_OFF'));
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeoutMs || 45000);
     return fetch(url, {
@@ -208,120 +256,307 @@ function _ppBridgePost(payload, timeoutMs) {
         body: JSON.stringify(Object.assign({ token }, payload)),
         signal: ctrl.signal
     })
-        .then(r => r.json())
-        .then(res => {
-            if (!res || !res.ok) throw new Error((res && res.error) || 'BRIDGE_ERROR');
-            return res;
-        })
-        .finally(() => clearTimeout(t));
-}
-
-// בדיקת חיבור (doGet health) — לכפתור בהגדרות
-function ppTestPhotoBridge() {
-    const { url, token } = StorageManager.getPhotoBridge();
-    if (!url) return Promise.reject(new Error('NO_URL'));
-    return fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token))
-        // לא r.json(): דף שגיאה של גוגל (HTML) נתן כאן רק "The string did not match the expected
-        // pattern" של Safari. _bridgeJson מחזיר את קוד התגובה ואת הטקסט של הדף.
+        // לא r.json(): על דף שגיאה של גוגל Safari נותן רק "The string did not match the expected
+        // pattern". _bridgeJson מחזיר את הסיבה — קוד, השרת שהחזיר את הדף, והטקסט שלו.
         .then(r => StorageManager._bridgeJson(r))
+        .catch(e => {
+            // אין תשובת JSON (ניתוק, timeout, דף שגיאה) — ייתכן שהגשר ביצע
+            const err = e && typeof e === 'object' ? e : new Error(String(e));
+            err.uncertain = true;
+            throw err;
+        })
         .then(res => {
             if (!res || !res.ok) {
                 const err = new Error((res && res.error) || 'BRIDGE_ERROR');
                 if (res && res.hint) err.hint = res.hint;   // BAD_TOKEN: אורך + טביעה של כל צד
                 throw err;
             }
-            return res;   // { ok, folder, files }
-        });
+            return res;
+        })
+        .finally(() => clearTimeout(t));
 }
 
-// ─── תור העלאה לדרייב ──────────────────────────────────────────────────────
-// רשומות אינדקס בלי driveId = ממתינות. רץ אחרי צילום, בפתיחה, ובחזרת רשת.
-// כשל עוצר את הסבב (ינוסה שוב בטריגר הבא) — בלי לולאת retry אגרסיבית.
+// הודעת כשל נושאת את סיבתה. interactive = המשתמש לחץ ומחכה: ניתוק בלי תשובה הוא אז לא
+// "יצאת מהאפליקציה" אלא בקשה שנחסמה — למשל הפניה לדף התחברות כשהפריסה אינה "Anyone".
+function _ppDescribe(e, interactive) {
+    const m = String((e && e.message) || e || '');
+    if (e && e.name === 'AbortError') return 'הגשר לא ענה בזמן (timeout)';
+    if (m === 'BAD_TOKEN') {
+        const h = e && e.hint;
+        return h ? `ה-token לא תואם: באפליקציה ${h.gotLen} תווים (${h.gotFp}), בגשר ${h.expLen} תווים (${h.expFp})`
+                 : 'ה-token של גשר התמונות שגוי';
+    }
+    if (m === 'TOKEN_NOT_SET') return 'בסקריפט של הגשר לא הוגדר SECRET_TOKEN (Project Settings → Script properties)';
+    if (m === 'BRIDGE_OFF') return 'גשר התמונות כבוי בהגדרות';
+    if (m === 'NO_URL') return 'לא הוגדרה כתובת לגשר התמונות';
+    if (/Failed to fetch|NetworkError|Load failed|network connection was lost/i.test(m)) {
+        return interactive
+            ? 'הבקשה לגשר נכשלה בלי תשובה — אם יש רשת, בדוק שב-"Who has access" של הפריסה נבחר "Anyone"'
+            : 'החיבור נקטע באמצע (אולי יצאת מהאפליקציה, או שהרשת נפלה)';
+    }
+    return m || 'שגיאה לא ידועה';
+}
+
+// בדיקת חיבור — לכפתור בהגדרות. אותו מסלול כמו ההעלאה (POST, action:list): ב-29.9 בדיקת
+// ה-GET החזירה 404 בזמן שההעלאות עצמן הגיעו לדרייב — היא בדקה נתיב שהאפליקציה לא משתמשת בו.
+// תקלה חולפת בדרך (בלי תשובת JSON) מקבלת ניסיון שני לפני שמכריזים על כשל.
+async function ppTestPhotoBridge() {
+    const once = () => _ppBridgePost({ action: 'list' }, 30000, { force: true });
+    let res, firstFail = null;
+    try {
+        res = await once();
+    } catch (e) {
+        if (!e || !e.uncertain || e.name === 'AbortError') throw e;   // תשובה מהגשר, או timeout — סופי
+        // הסיבה + הקוד והשרת (מאיזו קפיצה הגיע הדף), בלי טקסט הדף — הבדיקה בסוף עברה
+        firstFail = _ppDescribe(e, true).replace(/(\(HTTP [^)]*\)).*$/, '$1');
+        await new Promise(r => setTimeout(r, 1500));
+        res = await once();
+    }
+    const skip = _ppDelSkipIds(res.files);
+    const files = Object.keys(_ppNewestByDate((res.files || []).filter(f => !skip.has(f.id)))).length;
+    _ppKickUploads();   // הגשר עונה — מה שממתין עולה עכשיו
+    return { folder: 'GymPro Progress Photos', files, firstFail };
+}
+
+// ─── מחיקות בדרייב שממתינות לאישור הגשר ───────────────────────────────────────
+// מקומי למכשיר ושורד סגירה: מחיקה שלא הגיעה לגשר (iOS חתך, אין רשת) השאירה את הקובץ
+// בדרייב, ו"סרוק דרייב" החזיר אותו. del בטוח לחזרה — קובץ שבאשפה או שלא קיים נחשב נמחק.
+const _PP_DEL_KEY = 'gympro_pp_drive_del_queue';
+function _ppDelQueue() {
+    try { const q = JSON.parse(localStorage.getItem(_PP_DEL_KEY)); return Array.isArray(q) ? q : []; }
+    catch (e) { return []; }
+}
+function _ppSaveDelQueue(q) {
+    try {
+        if (q.length) localStorage.setItem(_PP_DEL_KEY, JSON.stringify(q));
+        else localStorage.removeItem(_PP_DEL_KEY);
+    } catch (e) { console.warn('GymPro photos: del queue not saved', e); }
+}
+// מזהי קבצים ברשימה שהמחיקה שלהם עוד בתור — לא להחזיר אותם לאינדקס ולא לספור אותם
+function _ppDelSkipIds(files) {
+    const ids = new Set();
+    _ppDelQueue().forEach(x => {
+        if (x.id) ids.add(x.id);
+        else { const hit = _ppLandedCopy(files, x.date, x.bytes); if (hit) ids.add(hit.id); }
+    });
+    return ids;
+}
+function _ppDriveDelete(item) {
+    const q = _ppDelQueue();
+    if (!q.some(x => _ppSameDel(x, item))) { q.push(item); _ppSaveDelQueue(q); }
+    _ppKickUploads();
+}
+
+// ─── תור הדרייב: מחיקות, בירור, העלאות ─────────────────────────────────────────
+// רשומות אינדקס בלי driveId = ממתינות. רץ אחרי צילום, בפתיחה, בחזרה לאפליקציה ובחזרת רשת,
+// ואחרי כשל — שוב לבד (20ש', דקה, 3 דק', 10 דק'), בלי לחכות לפתיחה הבאה.
+// driveId נחרת רק על תשובת הגשר או על קבלה מרשימת הדרייב — לא על ניחוש.
 let _ppUploadBusy = false;
+let _ppQueueAgain = false;       // בקשה שהגיעה בזמן ריצה — עוד סיבוב בסופה
+let _ppQueueRun = null;          // הריצה הנוכחית (Promise)
+const _ppFresh = new Set();      // צולמו בסשן הזה ועוד לא נכשלו — עולים בלי בירור
+const _ppChecked = new Set();    // בוררו מול הדרייב מאז הכשל האחרון שלהם — לא לברר שוב
+const _ppUp = { fails: 0, lastError: null, lastAt: 0, timer: null, noBytes: 0 };
+
+// תשובה/קבלה → driveId. תמונה שהוחלפה בזמן ההעלאה (צילום חוזר) לא מקבלת את המזהה של
+// הקודמת, ו-IDB לא נדרס ב-bytes הישנים.
+async function _ppMarkUploaded(date, id, bytes) {
+    const idx = StorageManager.getPhotoIndex();
+    const cur = idx.find(e => e.date === date);
+    if (!cur || cur.driveId || (bytes && cur.bytes && cur.bytes !== bytes)) return false;
+    cur.driveId = id;
+    StorageManager.savePhotoIndex(idx);
+    try {
+        const rec = await _ppIdbGet('photos', date);
+        if (rec && rec.blob && (!bytes || rec.blob.size === bytes)) {
+            rec.uploaded = true; rec.driveId = id;
+            await _ppIdbPut('photos', rec);
+        }
+    } catch (e) { /* IDB הוא cache — האינדקס קובע */ }
+    return true;
+}
+
+function _ppQueueOk() {
+    _ppUp.fails = 0; _ppUp.lastError = null;
+    clearTimeout(_ppUp.timer); _ppUp.timer = null;
+}
+function _ppQueueFail(e) {
+    _ppUp.fails++;
+    _ppUp.lastError = _ppDescribe(e);
+    _ppUp.lastAt = Date.now();
+    console.warn('GymPro photos: drive queue stopped', e);
+    clearTimeout(_ppUp.timer);
+    _ppUp.timer = setTimeout(() => { _ppUp.timer = null; _ppKickUploads(); }, _ppRetryDelay(_ppUp.fails));
+}
 
 async function _ppProcessUploadQueue() {
     if (_ppUploadBusy) return;
     const { on, url } = StorageManager.getPhotoBridge();
     if (!on || !url || !navigator.onLine) return;
-    const pending = StorageManager.getPhotoIndex().filter(e => !e.driveId);
-    if (!pending.length) return;
+    const pendingNow = () => StorageManager.getPhotoIndex().filter(e => !e.driveId);
+    if (!pendingNow().length && !_ppDelQueue().length) { _ppQueueOk(); return; }
     _ppUploadBusy = true;
+    clearTimeout(_ppUp.timer); _ppUp.timer = null;
+    _ppRenderUploadStatus();
+    let changed = false, ok = false;
     try {
-        for (const entry of pending) {
+        // 1. מחיקות. תמונה שנמחקה כשעוד המתינה — הקובץ שנחת (אם נחת) מזוהה לפי קבלה
+        let listed = null;
+        for (const item of _ppDelQueue()) {
+            let id = item.id;
+            if (!id) {
+                if (!listed) listed = (await _ppBridgePost({ action: 'list' }, 60000)).files || [];
+                const hit = _ppLandedCopy(listed, item.date, item.bytes);
+                id = hit && hit.id;
+            }
+            if (id) {
+                try { await _ppBridgePost({ action: 'del', id }); }
+                catch (e) { if (!e || e.message !== 'NOT_FOUND') throw e; }   // לא קיים = כבר נמחק
+            }
+            _ppSaveDelQueue(_ppDelQueue().filter(x => !_ppSameDel(x, item)));
+        }
+        // 2. בירור: ממתינה מסשן קודם או אחרי כשל — אולי כבר נחתה בדרייב והתשובה אבדה
+        const toCheck = pendingNow().filter(e => !_ppFresh.has(e.date) && !_ppChecked.has(e.date));
+        if (toCheck.length) {
+            const files = (await _ppBridgePost({ action: 'list' }, 60000)).files || [];
+            for (const e of toCheck) {
+                let rec = null;
+                try { rec = await _ppIdbGet('photos', e.date); } catch (x) { rec = null; }
+                const bytes = (rec && rec.blob && rec.blob.size) || e.bytes || 0;
+                const hit = _ppLandedCopy(files, e.date, bytes);
+                if (hit && await _ppMarkUploaded(e.date, hit.id, bytes)) changed = true;
+                _ppChecked.add(e.date);
+            }
+        }
+        // 3. העלאה
+        let noBytes = 0;
+        for (const entry of pendingNow()) {
             let rec;
             try { rec = await _ppIdbGet('photos', entry.date); } catch (e) { rec = null; }
-            if (!rec || !rec.blob) continue;   // אין bytes מקומיים — אין מה להעלות
+            if (!rec || !rec.blob) { noBytes++; continue; }   // צולמה במכשיר אחר — ה-bytes שם
             const base64 = await _ppBlobToBase64(rec.blob);
-            const res = await _ppBridgePost({ action: 'upload', date: entry.date, data: base64, mime: 'image/jpeg' });
-            // עדכון driveId באינדקס וב-IDB — קריאה טרייה של האינדקס נגד דריסת שינויים מקבילים
-            const idx = StorageManager.getPhotoIndex();
-            const cur = idx.find(e => e.date === entry.date);
-            if (cur) { cur.driveId = res.id; StorageManager.savePhotoIndex(idx); }
-            rec.uploaded = true; rec.driveId = res.id;
-            await _ppIdbPut('photos', rec);
-            if (typeof _ppRefreshGalleryBadges === 'function') _ppRefreshGalleryBadges();
+            let res;
+            try {
+                res = await _ppBridgePost({ action: 'upload', date: entry.date, data: base64, mime: 'image/jpeg' });
+            } catch (e) {
+                // הניסיון הבא מתחיל בבירור — ייתכן שההעלאה נחתה והתשובה אבדה
+                _ppFresh.delete(entry.date); _ppChecked.delete(entry.date);
+                throw e;
+            }
+            _ppFresh.delete(entry.date);
+            if (await _ppMarkUploaded(entry.date, res.id, rec.blob.size)) changed = true;
         }
-        _ppSyncConfigSoon();
+        _ppUp.noBytes = noBytes;
+        _ppQueueOk();
+        ok = true;
     } catch (e) {
-        console.warn('GymPro photos: upload queue stopped', e);
+        _ppQueueFail(e);
     } finally {
         _ppUploadBusy = false;
+        if (changed) _ppSyncConfigSoon();
+        _ppRefreshGalleryBadges();
+        if (_ppQueueAgain) { _ppQueueAgain = false; if (ok) setTimeout(_ppKickUploads, 0); }
     }
 }
 
-function _ppKickUploads() { _ppProcessUploadQueue(); }
+function _ppKickUploads() {
+    if (_ppUploadBusy) { _ppQueueAgain = true; return _ppQueueRun; }
+    _ppQueueRun = _ppProcessUploadQueue();
+    return _ppQueueRun;
+}
 
-// משיכת תמונה מלאה מהדרייב (לפי driveId מהאינדקס, fallback לפי שם התאריך)
+// שורת מצב בטאב התמונות ובהגדרות: כמה ממתינות, ולמה — כשל בלי סיבה חסם אבחון ימים.
+// short (הטאב): רק משפט הסיבה. בהגדרות: גם הקוד והשרת (מאיזו קפיצה הגיע הדף), בלי טקסט הדף.
+function ppUploadStatusText(short) {
+    const { on, url } = StorageManager.getPhotoBridge();
+    const n = StorageManager.getPhotoIndex().filter(e => !e.driveId).length;
+    if (!n || !on || !url) return '';
+    const what = n === 1 ? 'תמונה אחת ממתינה להעלאה לדרייב' : n + ' תמונות ממתינות להעלאה לדרייב';
+    if (_ppUploadBusy) return what + ' · מעלה…';
+    if (_ppUp.lastError) {
+        const at = new Date(_ppUp.lastAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        const why = short ? _ppUp.lastError.split(' (HTTP ')[0] : _ppUp.lastError.replace(/(\(HTTP [^)]*\)).*$/, '$1');
+        return `${what} · ניסיון אחרון (${at}) נכשל: ${why} · ינוסה שוב אוטומטית`;
+    }
+    if (_ppUp.noBytes >= n) return what + ' · מהמכשיר שבו צולמו';
+    return what;
+}
+
+function _ppRenderUploadStatus() {
+    const el = document.getElementById('pp-upload-status');
+    if (!el) return;
+    const txt = ppUploadStatusText(true);
+    el.textContent = txt;
+    el.style.display = txt ? '' : 'none';
+}
+
+// משיכת תמונה מלאה מהדרייב (לפי driveId מהאינדקס, fallback לפי שם התאריך).
+// קריאה בטוחה לחזרה: תשובה שאבדה בדרך מקבלת ניסיון שני (timeout לא — עוד דקה של המתנה).
 async function _ppFetchFromDrive(date) {
     const { on, url } = StorageManager.getPhotoBridge();
     if (!on || !url) return null;
-    try {
-        const driveId = _ppDriveIdOf(date);
-        const res = await _ppBridgePost(driveId ? { action: 'get', id: driveId } : { action: 'get', date }, 60000);
-        if (!res.data) return null;
-        // driveId התגלה דרך fallback לפי שם — נקבע אותו באינדקס
-        if (!driveId && res.id) {
-            const idx = StorageManager.getPhotoIndex();
-            const cur = idx.find(e => e.date === date);
-            if (cur) { cur.driveId = res.id; StorageManager.savePhotoIndex(idx); _ppSyncConfigSoon(); }
+    const driveId = _ppDriveIdOf(date);
+    const payload = driveId ? { action: 'get', id: driveId } : { action: 'get', date };
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            const res = await _ppBridgePost(payload, 60000);
+            if (!res.data) return null;
+            const blob = _ppBase64ToBlob(res.data, res.mime);
+            // driveId התגלה דרך fallback לפי שם — נקבע אותו באינדקס, רק אם זו אותה תמונה
+            if (!driveId && res.id) {
+                const idx = StorageManager.getPhotoIndex();
+                const cur = idx.find(e => e.date === date);
+                if (cur && !cur.driveId && (!cur.bytes || cur.bytes === blob.size)) {
+                    cur.driveId = res.id; StorageManager.savePhotoIndex(idx); _ppSyncConfigSoon();
+                }
+            }
+            return blob;
+        } catch (e) {
+            if (attempt === 1 && e && e.uncertain && e.name !== 'AbortError') {
+                await new Promise(r => setTimeout(r, 1500));
+                continue;
+            }
+            console.warn('GymPro photos: drive fetch failed', date, e);
+            return null;
         }
-        return _ppBase64ToBlob(res.data, res.mime);
-    } catch (e) {
-        console.warn('GymPro photos: drive fetch failed', date, e);
-        return null;
     }
-}
-
-// מחיקה בדרייב — ברקע, כשל לא חוסם (הקובץ יימחק בניסיון ידני עתידי דרך סריקה)
-function _ppDriveDelete(driveId) {
-    _ppBridgePost({ action: 'del', id: driveId }).catch(e =>
-        console.warn('GymPro photos: drive delete failed', e));
+    return null;
 }
 
 // ─── Reconciliation — "סרוק את הדרייב" ─────────────────────────────────────
 // משחזר את האינדקס מרשימת הקבצים בדרייב (מיזוג — לא דריסה): מכשיר חדש בלי
 // config, או אינדקס שאבד. thumbnails ייבנו lazy בגלילת הגלריה.
+// עותק אחד לכל תאריך — העדכני (האחרים הם שאריות באשפה מהעלאות חוזרות).
 async function ppReconcileFromDrive() {
     const res = await _ppBridgePost({ action: 'list' }, 60000);
+    const skip = _ppDelSkipIds(res.files);   // נמחקו כאן והמחיקה עוד בתור — לא להחזיר
+    const byDate = _ppNewestByDate((res.files || []).filter(f => !skip.has(f.id)));
     const idx = StorageManager.getPhotoIndex();
     let added = 0, linked = 0;
-    (res.files || []).forEach(f => {
-        const cur = idx.find(e => e.date === f.date);
+    Object.keys(byDate).forEach(date => {
+        const f = byDate[date];
+        const cur = idx.find(e => e.date === date);
         if (cur) {
-            if (!cur.driveId) { cur.driveId = f.id; linked++; }
+            // רק אם זו אותה תמונה — ממתינה שהוחלפה מקומית לא תסומן "בענן" עם הקובץ הקודם
+            if (!cur.driveId && (!cur.bytes || cur.bytes === Number(f.bytes))) { cur.driveId = f.id; linked++; }
         } else {
-            idx.push({ date: f.date, driveId: f.id, bytes: f.bytes || 0 });
+            idx.push({ date, driveId: f.id, bytes: f.bytes || 0 });
             added++;
         }
     });
     idx.sort((a, b) => a.date < b.date ? -1 : 1);
     StorageManager.savePhotoIndex(idx);
     _ppSyncConfigSoon();
+    _ppKickUploads();   // ממתינות שלא קושרו — ניסיון העלאה
     return { added, linked, total: idx.length };
 }
 
-// ─── טריגרים: פתיחת אפליקציה + חזרת רשת ─────────────────────────────────────
+// ─── טריגרים: פתיחת אפליקציה, חזרה לאפליקציה, חזרת רשת ─────────────────────────
 window.addEventListener('online', () => _ppKickUploads());
+// חזרה לאפליקציה: העלאה ש-iOS חתך ביציאה משלימה עכשיו, בלי לסגור ולפתוח
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _ppKickUploads();
+});
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(_ppKickUploads, 4000);
     _ppRenderReminder();   // ה-dot על הטאב צריך להופיע כבר בפתיחה, לא רק בכניסה לטאב
@@ -602,6 +837,7 @@ function _ppRenderGallery(index) {
     if (!gal) return;
     if (!index.length) {
         if (head) head.style.display = 'none';
+        _ppRenderUploadStatus();
         gal.innerHTML =
             '<div class="pp-empty"><strong>פרוטוקול צילום — כך ההשוואה תהיה אמינה:</strong><br>' +
             '• בוקר, על קיבה ריקה, אחרי שירותים<br>' +
@@ -618,6 +854,7 @@ function _ppRenderGallery(index) {
         `<div class="pp-cell-date">${_ppCellDate(e.date)}</div>` +
         `<div class="pp-cell-badge ${e.driveId ? 'up' : 'wait'}">${e.driveId ? 'בענן' : 'ממתין'}</div>` +
         '</div>').join('') + '</div>';
+    _ppRenderUploadStatus();
     _ppLoadThumbsInto(index);
 }
 
@@ -651,6 +888,7 @@ function _ppRefreshGalleryBadges() {
             badge.classList.remove('wait'); badge.classList.add('up'); badge.textContent = 'בענן';
         }
     });
+    _ppRenderUploadStatus();
     if (typeof updatePhotoBridgeStatus === 'function') updatePhotoBridgeStatus();
 }
 

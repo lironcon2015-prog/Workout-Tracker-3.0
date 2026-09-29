@@ -8276,7 +8276,10 @@ const BRIDGES = {
         save: (on, u, t) => StorageManager.savePhotoBridge(on, u, t),
         statusExtra: () => {
             const pending = StorageManager.getPhotoIndex().filter(e => !e.driveId).length;
-            return pending ? ' · ' + pending + ' ממתינות להעלאה' : ' · הכל בענן';
+            if (!pending) return ' · הכל בענן';
+            // כמה ממתינות ולמה (הניסיון האחרון נכשל: הסיבה) — אותה שורה כמו בטאב התמונות
+            const line = typeof ppUploadStatusText === 'function' ? ppUploadStatusText() : '';
+            return ' · ' + escapeHtml(line || pending + ' ממתינות להעלאה');
         },
         apply: on => { if (on && typeof _ppKickUploads === 'function') _ppKickUploads(); }   // העלאת ממתינות מיד
     },
@@ -8421,13 +8424,16 @@ function updatePhotoBridgeStatus(){ updateBridgeStatus('photo'); }
 function testPhotoBridgeNow() {
     if (typeof ppTestPhotoBridge !== 'function') return;
     return ppTestPhotoBridge()
-        .then(res => showAlert('הגשר מחובר! תיקייה: "' + res.folder + '" · ' + res.files + ' תמונות בדרייב.'))
+        .then(res => showAlert('הגשר מחובר! תיקייה: "' + res.folder + '" · ' + res.files + ' תמונות בדרייב.' +
+            (res.firstFail ? '\n\nהניסיון הראשון נכשל ועבר בשני (תקלה חולפת): ' + res.firstFail : '')))
         .catch(e => showAlert(e && e.hint
             ? `בדיקת הגשר נכשלה: ה-token לא תואם. באפליקציה ${e.hint.gotLen} תווים (${e.hint.gotFp}), בגשר ${e.hint.expLen} תווים (${e.hint.expFp}). ` +
               'העתק את הערך של SECRET_TOKEN מ-Script properties והדבק אותו כאן בשדה ה-token.'
             : e && e.message === 'TOKEN_NOT_SET'
             ? 'בדיקת הגשר נכשלה: בסקריפט לא הוגדר SECRET_TOKEN. ב-Apps Script: Project Settings → Script properties → הוסף SECRET_TOKEN עם אותו ערך שבהגדרות כאן.'
-            : 'בדיקת הגשר נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת') + '. בדוק את ה-URL, ה-token ופריסת הסקריפט.'));
+            // הסיבה עצמה (שרת, קוד, טקסט הדף) — בלי "בדוק את הפריסה" גורף: ב-29.9 הוא שלח לבדוק
+            // פריסה תקינה בזמן שהתקלה הייתה בדרך חזרה של התשובה
+            : 'בדיקת הגשר נכשלה: ' + _ppDescribe(e, true)));
 }
 
 function scanPhotoDriveNow() {
@@ -8437,7 +8443,7 @@ function scanPhotoDriveNow() {
             showAlert('הסריקה הושלמה: ' + r.added + ' תמונות נוספו לאינדקס, ' + r.linked + ' קושרו מחדש. סה"כ ' + r.total + '.');
             if (typeof _renderBodyPhotos === 'function') _renderBodyPhotos();
         })
-        .catch(e => showAlert('הסריקה נכשלה: ' + (e && e.message ? e.message : 'שגיאת רשת')));
+        .catch(e => showAlert('הסריקה נכשלה: ' + _ppDescribe(e, true)));
 }
 
 

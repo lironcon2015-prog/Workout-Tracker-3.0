@@ -178,6 +178,10 @@ function _wtPickNext(keys, lastDone, weekStart) {
     });
     return best;
 }
+// אימוני בונוס מחוץ לספירה השבועית ול"הבא בתור" — nice-to-have, לא חלק מהתוכנית הקבועה
+function _wtCore(items) {
+    return (items || []).filter(it => it && !it.bonus);
+}
 // WT-NEXT-END
 
 function renderWorkoutMenu() {
@@ -226,7 +230,7 @@ function renderWorkoutMenu() {
             const meta = state.workoutMeta[k];
             if (!(meta && meta.availableInDeload === true && _matchesKindFilter(k))) return;
             const badge = meta.isDeloadOnly ? `<span class="wt-chip wt-chip--deload">Deload Only</span>` : '';
-            items.push({ key: k, badge });
+            items.push({ key: k, badge, bonus: !!meta.isBonus });
         });
         if (!items.length) {
             container.innerHTML = _workoutKindFilter === 'cardio'
@@ -241,7 +245,7 @@ function renderWorkoutMenu() {
             const meta = state.workoutMeta[k];
             if (meta && (meta.isDeloadOnly || meta.isHidden)) return;
             if (!_matchesKindFilter(k)) return;
-            items.push({ key: k, badge: '' });
+            items.push({ key: k, badge: '', bonus: !!(meta && meta.isBonus) });
         });
         if (!items.length) {
             container.innerHTML = _workoutKindFilter === 'cardio'
@@ -258,12 +262,13 @@ function renderWorkoutMenu() {
     const weekStart = _wtWeekStart(Date.now());
     const lastDone = {};
     items.forEach(it => { lastDone[it.key] = (typeof _edLastDone === 'function') ? _edLastDone(it.key) : null; });
-    const doneCount = items.filter(it => (lastDone[it.key] || 0) >= weekStart).length;
+    const core = _wtCore(items);
+    const doneCount = core.filter(it => (lastDone[it.key] || 0) >= weekStart).length;
 
-    if (progressEl) {
-        const segs = items.length <= 7
-            ? `<span class="wt-weekbar">${items.map((_, i) => `<i class="${i < doneCount ? 'on' : ''}"></i>`).join('')}</span>` : '';
-        progressEl.innerHTML = `${segs}<span>${doneCount} מתוך ${items.length} בוצעו השבוע</span>`;
+    if (progressEl && core.length) {
+        const segs = core.length <= 7
+            ? `<span class="wt-weekbar">${core.map((_, i) => `<i class="${i < doneCount ? 'on' : ''}"></i>`).join('')}</span>` : '';
+        progressEl.innerHTML = `${segs}<span>${doneCount} מתוך ${core.length} בוצעו השבוע</span>`;
     }
 
     function metaLine(key) {
@@ -317,7 +322,7 @@ function renderWorkoutMenu() {
     }
 
     function buildRow(it, idx) {
-        const done = (lastDone[it.key] || 0) >= weekStart;
+        const done = !it.bonus && (lastDone[it.key] || 0) >= weekStart;
         const cardio = isCardio(it.key);
         const el = document.createElement('div');
         el.className = 'wt-row' + (done ? ' is-done' : '');
@@ -342,20 +347,25 @@ function renderWorkoutMenu() {
 
     // ── רינדור: hero רק בכוח, ורק כשיש אימון שלא בוצע השבוע ──
     const nextKey = _workoutKindFilter === 'cardio' ? null
-        : _wtPickNext(items.map(it => it.key), lastDone, weekStart);
-    const rest = [];
+        : _wtPickNext(core.map(it => it.key), lastDone, weekStart);
+    const section = text => {
+        const sec = document.createElement('div');
+        sec.className = 'wt-section';
+        sec.textContent = text;
+        container.appendChild(sec);
+    };
+    const rest = [], bonus = [];
     items.forEach((it, idx) => {
         if (it.key === nextKey) container.appendChild(buildHero(it, idx));
-        else rest.push([it, idx]);
+        else (it.bonus ? bonus : rest).push([it, idx]);
     });
     if (rest.length) {
-        if (nextKey) {
-            const sec = document.createElement('div');
-            sec.className = 'wt-section';
-            sec.textContent = 'שאר האימונים';
-            container.appendChild(sec);
-        }
+        if (nextKey) section('שאר האימונים');
         rest.forEach(([it, idx]) => container.appendChild(buildRow(it, idx)));
+    }
+    if (bonus.length) {
+        section('בונוס');
+        bonus.forEach(([it, idx]) => container.appendChild(buildRow(it, idx)));
     }
 }
 
@@ -434,6 +444,7 @@ function openEditorUI() {
     document.getElementById('editor-deload-check').checked = !!meta.availableInDeload;
     document.getElementById('editor-deload-only-check').checked = !!meta.isDeloadOnly;
     document.getElementById('editor-hidden-check').checked = !!meta.isHidden;
+    document.getElementById('editor-bonus-check').checked = !!meta.isBonus;
     _edSyncWhenSeg();
     _renderColorSwatches(meta.color || '');
     _renderThumbPicker(typeof meta._thumbIdx === 'number' ? meta._thumbIdx : 0);
@@ -972,6 +983,8 @@ function saveWorkoutChanges() {
     }
 
     state.workoutMeta[newName].isHidden = document.getElementById('editor-hidden-check').checked;
+    // בונוס: לא נספר בפס השבועי ולא מועמד ל"הבא בתור" (renderWorkoutMenu)
+    state.workoutMeta[newName].isBonus = document.getElementById('editor-bonus-check').checked;
     state.workoutMeta[newName].color = _selectedEditorColor || '';
     state.workoutMeta[newName]._thumbIdx = _selectedThumbIdx >= 0 ? _selectedThumbIdx : (state.workoutMeta[newName]._thumbIdx || 0);
 
@@ -2249,7 +2262,7 @@ function _edStateStr() {
         n: nameEl ? nameEl.value.trim() : '', k: _editorKind,
         x: _editorKind === 'cardio' ? null : managerState.exercises,
         c: _editorKind === 'cardio' ? _editorCardio : null,
-        d: g('editor-deload-check'), o: g('editor-deload-only-check'), h: g('editor-hidden-check'),
+        d: g('editor-deload-check'), o: g('editor-deload-only-check'), h: g('editor-hidden-check'), b: g('editor-bonus-check'),
         col: typeof _selectedEditorColor !== 'undefined' ? _selectedEditorColor : '',
         th: typeof _selectedThumbIdx !== 'undefined' ? _selectedThumbIdx : -1
     });
@@ -2289,7 +2302,8 @@ function _edRenderHero() {
     const when = ED_WHEN_LABEL[_edCurWhen()];
     const hidden = document.getElementById('editor-hidden-check');
     const setSub = document.getElementById('ed-settings-sub');
-    if (setSub) setSub.textContent = `${when}${hidden && hidden.checked ? ' · מוסתרת' : ''}`;
+    const bonus = document.getElementById('editor-bonus-check');
+    if (setSub) setSub.textContent = `${when}${bonus && bonus.checked ? ' · בונוס' : ''}${hidden && hidden.checked ? ' · מוסתרת' : ''}`;
     if (!sub) return;
     if (_editorKind === 'cardio') {
         const c = _editorCardio || {};

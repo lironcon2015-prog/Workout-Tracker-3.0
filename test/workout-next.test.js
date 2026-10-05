@@ -11,7 +11,7 @@ const path = require('path');
 const src = fs.readFileSync(path.join(__dirname, '..', 'editor-logic.js'), 'utf8');
 const block = src.split('WT-NEXT-START')[1]?.split('WT-NEXT-END')[0]?.replace(/^[^\n]*\n/, '');
 if (!block) { console.error('✗ בלוק WT-NEXT לא נמצא ב-editor-logic.js'); process.exit(1); }
-const { _wtWeekStart, _wtPickNext } = new Function(block + '\nreturn { _wtWeekStart, _wtPickNext };')();
+const { _wtWeekStart, _wtPickNext, _wtCore } = new Function(block + '\nreturn { _wtWeekStart, _wtPickNext, _wtCore };')();
 
 let failed = 0;
 function ok(cond, name) {
@@ -37,6 +37,14 @@ ok(_wtPickNext(keys, { A: ws - 6 * DAY, B: null, C: ws - 3 * DAY }, ws) === 'B',
 ok(_wtPickNext(keys, { A: ws + DAY, B: ws + 2 * DAY, C: ws }, ws) === null, 'הכול בוצע השבוע → אין "הבא בתור"');
 ok(_wtPickNext(['A', 'B'], { A: null, B: null }, ws) === 'A', 'שניים שטרם בוצעו → הראשון בסדר התוכנית');
 ok(_wtPickNext([], {}, ws) === null, 'רשימה ריקה → null');
+
+/* ── אימון בונוס ───────────────────────────────────────────────────── */
+const items = [{ key: 'A' }, { key: 'Bonus', bonus: true }, { key: 'C' }];
+const core = _wtCore(items).map(it => it.key);
+ok(core.join() === 'A,C', 'בונוס מחוץ לספירה השבועית');
+ok(_wtPickNext(core, { A: ws + DAY, Bonus: null, C: ws + DAY }, ws) === null,
+   'בונוס שטרם בוצע אינו "הבא בתור" כשכל הקבועים בוצעו');
+ok(_wtPickNext(core, { A: ws - 2 * DAY, Bonus: null, C: ws - 5 * DAY }, ws) === 'C', 'הבחירה רק מבין הקבועים');
 
 console.log(failed ? `\n${failed} נכשלו` : '\nהכול עבר');
 process.exit(failed ? 1 : 0);

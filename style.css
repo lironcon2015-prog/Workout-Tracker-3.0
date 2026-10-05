@@ -5388,6 +5388,86 @@ body.live-mode-active { overflow: hidden; }
     letter-spacing: 3px; text-transform: uppercase;
 }
 
+/* ── טבעת בעמודים (Live בלבד): מנוחה / זמן אימון / התקדמות ──
+   הטבעת נשארת במקום; רק התוכן שבתוכה מוחלק. כל עמוד מדליק קשת אחת (data-page על הטבעת).
+   אזור בטוח לספרות: רדיוס ~110px מתוך 140 — מחרוזת 6+ תווים מקבלת .is-long */
+.live-ring-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.live-ring-arc {
+    fill: none; stroke-width: 2; stroke-linecap: round;
+    stroke-dasharray: 289; stroke-dashoffset: 289;
+    opacity: 0;
+    transition: stroke-dashoffset 1s linear, opacity var(--dur-2) var(--ease);
+}
+.live-ring-arc--work {
+    stroke: var(--accent);
+    filter: drop-shadow(0 0 8px rgba(var(--accent-rgb), 0.5));
+}
+.live-ring-arc--sets {
+    stroke: var(--type-c);
+    filter: drop-shadow(0 0 8px rgba(var(--type-c-rgb), 0.45));
+}
+/* הקפה שנייה — מעבר למשך הצפוי */
+.live-ring-lap {
+    fill: none; stroke: var(--accent); stroke-width: 2;
+    stroke-dasharray: 3 4; opacity: 0;
+    transition: opacity var(--dur-2) var(--ease);
+}
+.live-ring[data-page="0"] .live-ring-arc--rest,
+.live-ring[data-page="1"] .live-ring-arc--work,
+.live-ring[data-page="2"] .live-ring-arc--sets { opacity: 1; }
+.live-ring[data-page="1"].is-over .live-ring-lap { opacity: 0.55; }
+
+.live-ring-track {
+    position: absolute; inset: 0;
+    display: flex;
+    overflow-x: auto; overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    border-radius: var(--r-pill);
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+}
+.live-ring-track::-webkit-scrollbar { display: none; }
+.live-ring-page {
+    position: relative;
+    flex: 0 0 100%; height: 100%;
+    scroll-snap-align: center; scroll-snap-stop: always;
+    display: flex; align-items: center; justify-content: center;
+}
+#workout-live-overlay .live-timer-text { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#workout-live-overlay .live-timer-text.is-long { font-size: 3.8rem; }
+#workout-live-overlay .live-timer-text.is-xlong { font-size: 3.2rem; }
+.live-ring-of { color: rgba(255,255,255,0.4); }
+/* הילת הספרות בצבע העמוד — ברירת המחדל של .live-timer-text ירוקה (מנוחה) */
+#live-work-text { text-shadow: 0 0 30px rgba(var(--accent-rgb), 0.30); }
+#live-sets-text { text-shadow: 0 0 30px rgba(var(--type-c-rgb), 0.30); }
+#workout-live-overlay .live-ring-lbl--work { color: var(--accent); }
+#workout-live-overlay .live-ring-lbl--sets { color: var(--type-c); }
+/* שורה עליונה — סימטרית מול התווית התחתונה (bottom:56px) */
+.live-ring-top {
+    position: absolute; top: 58px; left: 0; right: 0;
+    text-align: center; white-space: nowrap;
+    font-family: 'Heebo', sans-serif;
+    font-size: var(--fs-md); font-weight: 700;
+    color: rgba(255,255,255,0.34);
+}
+.live-ring-top .n {
+    color: rgba(255,255,255,0.72); font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    direction: ltr; unicode-bidi: isolate;
+}
+.live-ring-top .over { color: var(--accent); }
+.live-ring-dots { display: flex; gap: 7px; height: 7px; align-items: center; }
+.live-ring-dots i {
+    width: 7px; height: 7px; border-radius: 4px;
+    background: rgba(255,255,255,0.22);
+    transition: width var(--dur-2) var(--ease), background var(--dur-2) var(--ease);
+}
+.live-ring-dots i.on { width: 20px; background: #fff; }
+@media (prefers-reduced-motion: reduce) {
+    .live-ring-arc, .live-ring-lap, .live-ring-dots i { transition: none; }
+}
+
 .live-next-target {
     width: 100%;
     max-width: 100%;
@@ -5737,10 +5817,18 @@ body.live-mode-active { overflow: hidden; }
     .live-timer-wrap { width: 220px; height: 220px; }
     .live-timer-text { font-size: 3.8rem; }
     .live-ex-name { font-size: 1.5rem; }
+    /* טבעת 220px — אותו יחס כמו ב-280px */
+    #workout-live-overlay .live-timer-text.is-long { font-size: 3.15rem; }
+    #workout-live-overlay .live-timer-text.is-xlong { font-size: 2.65rem; }
+    .live-ring-top { top: 44px; font-size: var(--fs-sm); }
+    .live-ring-col { gap: 10px; }
 }
 @media (max-height: 600px) {
     .live-timer-wrap { width: 180px; height: 180px; }
     .live-timer-text { font-size: 3rem; }
+    #workout-live-overlay .live-timer-text.is-long { font-size: 2.5rem; }
+    #workout-live-overlay .live-timer-text.is-xlong { font-size: 2.1rem; }
+    .live-ring-top { top: 36px; font-size: var(--fs-xs); }
 }
 
 /* ════════════════════════════════════════════════════════════════════

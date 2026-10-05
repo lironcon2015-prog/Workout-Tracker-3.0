@@ -5830,6 +5830,19 @@ body.live-mode-active { overflow: hidden; }
     #workout-live-overlay .live-timer-text.is-xlong { font-size: 2.1rem; }
     .live-ring-top { top: 36px; font-size: var(--fs-xs); }
 }
+/* מסכים גדולים (Pro Max / Plus): טבעת Live 310px — הכול בפנים מוגדל ×1.107 כדי לשמור פרופורציות,
+   עובי הקו נשמר (2 יחידות × 280/310), ומסך הסבב (#cluster-timer-*) לא מושפע — הכול תחת #workout-live-overlay */
+@media (min-width: 428px) and (min-height: 880px) {
+    #workout-live-overlay .live-timer-wrap { width: 310px; height: 310px; }
+    #workout-live-overlay .live-timer-bg,
+    #workout-live-overlay .live-ring-arc,
+    #workout-live-overlay .live-ring-lap { stroke-width: 1.806; }
+    #workout-live-overlay .live-timer-text { font-size: 5.1rem; }
+    #workout-live-overlay .live-timer-text.is-long { font-size: 4.2rem; }
+    #workout-live-overlay .live-timer-text.is-xlong { font-size: 3.55rem; }
+    #workout-live-overlay .live-timer-lbl { bottom: 62px; font-size: 0.72rem; letter-spacing: 3.3px; }
+    .live-ring-top { top: 64px; font-size: 0.88rem; }
+}
 
 /* ════════════════════════════════════════════════════════════════════
    WORKOUT QUICK MENU — כפתור פרימיום + פריטי משנה

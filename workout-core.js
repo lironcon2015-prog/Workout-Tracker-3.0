@@ -418,6 +418,8 @@ function _updateSessionTimerDisplay() {
     const m = Math.floor(elapsed / 60);
     const s = elapsed % 60;
     el.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    // טבעת ה-Live — עמוד "זמן אימון" (פס הטיימר מוסתר מתחת לשכבת ה-Live)
+    if (typeof updateLiveRing === 'function') updateLiveRing(elapsed);
 }
 
 // ─── שמירת session כשהאפליקציה עוברת לרקע ──────────────────────────────────
@@ -4101,6 +4103,8 @@ function resetAndStartTimer(customTime = null) {
     // איפוס מיידי של ה-UI ל-00:00 — מונע ניצנוץ של ערך ישן בעשירית השנייה הראשונה
     // (ה-tick הראשון של ה-interval רץ רק אחרי 100ms, ועד אז התצוגה הייתה משוחזרת מהקודם)
     updateUI('00', '00', 0);
+    // מנוחה חדשה — טבעת ה-Live חוזרת לעמוד המנוחה
+    if (typeof _liveRingToRest === 'function' && document.body.classList.contains('live-mode-active')) _liveRingToRest();
 
     state.timerInterval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
@@ -10034,6 +10038,7 @@ async function enterWorkoutLiveMode() {
 
     updateLiveViewContent();
     _attachLiveSwipe();
+    _attachLiveRing();
     _syncLiveResumeBtn();
     haptic('light');
 }
@@ -10344,6 +10349,8 @@ function updateLiveViewContent() {
         const txt = swipeCard.querySelector('.live-swipe-text');
         if (txt) txt.textContent = state.dropMode ? 'החלק לרישום הדרופ' : 'החלק לרישום הסט';
     }
+
+    updateLiveRing();   // סטים/נפח מתעדכנים מיד אחרי רישום, לא רק ב-tick הבא
 }
 
 // נקרא בכל tick של resetAndStartTimer דרך ה-hook ב-updateUI
@@ -10355,6 +10362,169 @@ function updateLiveTimer(mins, secs, progress) {
     if (bar) {
         const circumference = 289;  // 2 × π × r (r=46)
         bar.style.strokeDashoffset = (circumference - progress * circumference).toFixed(1);
+    }
+    _fitLiveRingText(txt);
+}
+
+// ─── טבעת בעמודים (Live): מנוחה / זמן אימון / התקדמות ──────────────────────
+// הטבעת הכחולה = זמן מתחילת האימון מול משך האימון הצפוי — סופרת כלפי מעלה כמו המנוחה.
+// הצפוי = חציון duration ב-5 האימונים האחרונים מאותו סוג; בלי היסטוריה — הערכה מהתוכנית.
+// LIVE-RING-START
+const LIVE_RING_HISTORY_N = 5;
+const LIVE_RING_SET_SECS = 40;   // זמן ביצוע משוער לסט, להערכה כשאין היסטוריה
+
+// חציון משך (בשניות) לאותו סוג אימון. מיון לפי timestamp (לא entry.date — פורמט he-IL)
+function _liveExpectedFromArchive(archive, type, n) {
+    if (!Array.isArray(archive) || !type) return null;
+    const mins = archive
+        .filter(a => a && a.kind !== 'cardio' && a.type === type && Number(a.duration) > 0)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, n || LIVE_RING_HISTORY_N)
+        .map(a => Number(a.duration))
+        .sort((a, b) => a - b);
+    if (!mins.length) return null;
+    const mid = Math.floor(mins.length / 2);
+    const median = mins.length % 2 ? mins[mid] : (mins[mid - 1] + mins[mid]) / 2;
+    return Math.round(median * 60);
+}
+
+// הערכה מהתוכנית: כל סט = יעד מנוחה + זמן ביצוע
+function _liveExpectedFromPlan(plannedSets, restSecs) {
+    if (!(plannedSets > 0)) return null;
+    return plannedSets * ((restSecs > 0 ? restSecs : 90) + LIVE_RING_SET_SECS);
+}
+
+function _liveClock(secs) {
+    const s = Math.max(0, Math.floor(secs || 0));
+    const m = Math.floor(s / 60), r = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
+}
+
+// מחלקת גודל לפי אורך — שומר את הספרות בתוך האזור הבטוח של הטבעת
+function _liveRingSizeClass(text) {
+    const len = String(text || '').length;
+    return len >= 7 ? 'is-xlong' : len >= 6 ? 'is-long' : '';
+}
+// LIVE-RING-END
+
+function _fitLiveRingText(el) {
+    if (!el) return;
+    const cls = _liveRingSizeClass(el.textContent);
+    el.classList.toggle('is-long', cls === 'is-long');
+    el.classList.toggle('is-xlong', cls === 'is-xlong');
+}
+
+// סטים מתוכננים — אותו חישוב כמו גיליון "תרגילים באימון" (מיין לפי sets של התרגיל, Cut cap, סבב × סבבים)
+function _livePlannedSets() {
+    const list = (state.workouts && state.type && state.workouts[state.type]) || [];
+    let total = 0;
+    list.forEach(item => {
+        if (item.type === 'cluster') {
+            total += (item.exercises ? item.exercises.length : 0) * (item.rounds || 1);
+            return;
+        }
+        const exData = state.exercises.find(e => e.name === item.name);
+        let n = item.isMain
+            ? (exData && exData.sets ? exData.sets.length : (item.sets || 0))
+            : (item.sets || (exData && exData.sets ? exData.sets.length : 0));
+        if (item.isMain && n > CUT_MAIN_SET_CAP && _cutCapMainActive()) n = CUT_MAIN_SET_CAP;
+        total += n;
+    });
+    return total;
+}
+
+// משך צפוי — מחושב פעם אחת לאימון (הארכיון לא משתנה באמצע אימון; getArchive יקר ל-tick)
+let _liveExpectedCache = { key: '', secs: null };
+function _liveExpectedSecs() {
+    const key = (state.workoutStartTime || '') + '|' + (state.type || '');
+    if (_liveExpectedCache.key === key) return _liveExpectedCache.secs;
+    let secs = null;
+    try { secs = _liveExpectedFromArchive(StorageManager.getArchive(), state.type, LIVE_RING_HISTORY_N); }
+    catch (e) { console.warn('live ring: archive read failed', e); }
+    if (!secs) secs = _liveExpectedFromPlan(_livePlannedSets(), state.restTarget);
+    _liveExpectedCache = { key, secs };
+    return secs;
+}
+
+function _liveRingPage() {
+    const tr = document.getElementById('live-ring-track');
+    if (!tr || !tr.clientWidth) return 0;
+    // RTL: scrollLeft שלילי בדפדפנים מודרניים — ערך מוחלט
+    return Math.max(0, Math.min(2, Math.round(Math.abs(tr.scrollLeft) / tr.clientWidth)));
+}
+
+function _setLiveRingPage(page) {
+    const ring = document.getElementById('live-ring');
+    if (ring) ring.dataset.page = String(page);
+    document.querySelectorAll('#live-ring-dots i').forEach((d, i) => d.classList.toggle('on', i === page));
+}
+
+// מנוחה חדשה — חזרה לעמוד המנוחה
+function _liveRingToRest() {
+    const tr = document.getElementById('live-ring-track');
+    if (tr && tr.scrollLeft !== 0) tr.scrollTo({ left: 0, behavior: 'smooth' });
+    _setLiveRingPage(0);
+}
+
+function _attachLiveRing() {
+    const tr = document.getElementById('live-ring-track');
+    if (!tr || tr.dataset.bound) return;
+    tr.dataset.bound = '1';
+    tr.addEventListener('scroll', () => {
+        const p = _liveRingPage();
+        const ring = document.getElementById('live-ring');
+        if (ring && ring.dataset.page !== String(p)) { _setLiveRingPage(p); haptic('light'); updateLiveRing(); }
+    }, { passive: true });
+}
+
+// עמודי זמן אימון והתקדמות. נקרא מ-tick של טיימר האימון ומ-updateLiveViewContent
+function updateLiveRing(elapsedSecs) {
+    if (!document.body.classList.contains('live-mode-active')) return;
+    const C = 289;
+    const elapsed = elapsedSecs != null ? elapsedSecs : (state.sessionElapsedSecs || 0);
+
+    // ── זמן אימון ──
+    const expected = _liveExpectedSecs();
+    const workTxt = document.getElementById('live-work-text');
+    if (workTxt) { workTxt.textContent = _liveClock(elapsed); _fitLiveRingText(workTxt); }
+    const over = expected ? elapsed - expected : 0;
+    const workTop = document.getElementById('live-work-top');
+    if (workTop) {
+        workTop.innerHTML = !expected ? ''
+            : over > 0 ? `<span class="n over">+${_liveClock(over)}</span> מעל הצפוי`
+            : `צפוי <span class="n">${_liveClock(expected)}</span>`;
+    }
+    const workArc = document.getElementById('live-ring-work-arc');
+    if (workArc) {
+        const p = expected ? Math.min(elapsed / expected, 1) : 0;
+        workArc.style.strokeDashoffset = (C - p * C).toFixed(1);
+    }
+    const ring = document.getElementById('live-ring');
+    if (ring) ring.classList.toggle('is-over', over > 0);
+
+    // ── התקדמות: סטים (דרופ אינו סט) + נפח מצטבר ──
+    let done = 0, vol = 0;
+    (state.log || []).forEach(l => {
+        if (l.skip) return;
+        vol += _setVol(l) * (isUnilateral(l.exName) ? 2 : 1);
+        if (!l.drop) done++;
+    });
+    const planned = Math.max(_livePlannedSets(), done);
+    const setsTxt = document.getElementById('live-sets-text');
+    if (setsTxt) {
+        setsTxt.innerHTML = planned ? `${done}<span class="live-ring-of">/${planned}</span>` : String(done);
+        _fitLiveRingText(setsTxt);
+    }
+    const setsTop = document.getElementById('live-sets-top');
+    if (setsTop) {
+        setsTop.innerHTML = vol >= 1000
+            ? `<span class="n">${(vol / 1000).toFixed(1)}</span> טון`
+            : `<span class="n">${Math.round(vol)}</span> ק"ג`;
+    }
+    const setsArc = document.getElementById('live-ring-sets-arc');
+    if (setsArc) {
+        const p = planned ? Math.min(done / planned, 1) : 0;
+        setsArc.style.strokeDashoffset = (C - p * C).toFixed(1);
     }
 }
 

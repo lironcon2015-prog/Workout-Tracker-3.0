@@ -2029,13 +2029,34 @@
             <h1 class="live-ex-name" id="live-ex-name">—</h1>
         </div>
 
-        <div class="live-timer-wrap">
-            <svg class="live-timer-svg" viewBox="0 0 100 100">
-                <circle class="live-timer-bg" cx="50" cy="50" r="46"></circle>
-                <circle id="live-timer-progress" class="live-timer-bar" cx="50" cy="50" r="46"></circle>
-            </svg>
-            <div class="live-timer-text" id="live-timer-text">00:00</div>
-            <div class="live-timer-lbl" id="live-timer-lbl">REST</div>
+        <!-- טבעת בעמודים: מנוחה / זמן אימון / התקדמות. החלקה אופקית בתוך הטבעת (scroll-snap) -->
+        <div class="live-ring-col">
+            <div class="live-timer-wrap live-ring" id="live-ring" data-page="0">
+                <svg class="live-timer-svg" viewBox="0 0 100 100">
+                    <circle class="live-timer-bg" cx="50" cy="50" r="46"></circle>
+                    <circle id="live-timer-progress" class="live-timer-bar live-ring-arc live-ring-arc--rest" cx="50" cy="50" r="46"></circle>
+                    <circle id="live-ring-work-arc" class="live-ring-arc live-ring-arc--work" cx="50" cy="50" r="46"></circle>
+                    <circle id="live-ring-lap-arc" class="live-ring-lap" cx="50" cy="50" r="42"></circle>
+                    <circle id="live-ring-sets-arc" class="live-ring-arc live-ring-arc--sets" cx="50" cy="50" r="46"></circle>
+                </svg>
+                <div class="live-ring-track" id="live-ring-track" aria-label="החלק לזמן אימון והתקדמות">
+                    <div class="live-ring-page">
+                        <div class="live-timer-text" id="live-timer-text">00:00</div>
+                        <div class="live-timer-lbl" id="live-timer-lbl">REST</div>
+                    </div>
+                    <div class="live-ring-page">
+                        <div class="live-ring-top" id="live-work-top"></div>
+                        <div class="live-timer-text" id="live-work-text">00:00</div>
+                        <div class="live-timer-lbl live-ring-lbl--work">WORKOUT</div>
+                    </div>
+                    <div class="live-ring-page">
+                        <div class="live-ring-top" id="live-sets-top"></div>
+                        <div class="live-timer-text" id="live-sets-text">0</div>
+                        <div class="live-timer-lbl live-ring-lbl--sets">SETS</div>
+                    </div>
+                </div>
+            </div>
+            <div class="live-ring-dots" id="live-ring-dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
         </div>
 
         <div class="live-next-target" id="live-next-target" onclick="openLiveEditSheet()">

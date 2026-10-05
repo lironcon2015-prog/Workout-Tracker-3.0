@@ -4434,13 +4434,11 @@ body::before {
     width: 72px; height: 72px; border-radius: var(--r-sm); flex-shrink: 0;
     background-color: var(--surface-1); background-size: cover; background-position: center;
 }
-.wt-row-mark {   /* אירובי: ריבוע בצבע התוכנית + אות ראשונה */
-    width: 52px; height: 52px; border-radius: var(--r-sm); flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 1.05rem;
-    color: var(--c);
-    background: color-mix(in srgb, var(--c) 18%, transparent);
-    border: 1.5px solid color-mix(in srgb, var(--c) 60%, transparent);
+.wt-row--stripe { position: relative; overflow: hidden; padding-right: 16px; }
+.wt-row--stripe::before {   /* פס צבע התוכנית — קצה ימני (תחילת השורה ב-RTL) */
+    content: ''; position: absolute; top: 14px; bottom: 14px; right: 0; width: 4px;
+    border-radius: 0 4px 4px 0; background: var(--c);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--c) 60%, transparent);
 }
 .wt-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .wt-done {

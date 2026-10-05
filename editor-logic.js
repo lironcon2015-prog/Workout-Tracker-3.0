@@ -325,14 +325,10 @@ function renderWorkoutMenu() {
         const done = !it.bonus && (lastDone[it.key] || 0) >= weekStart;
         const cardio = isCardio(it.key);
         const el = document.createElement('div');
-        el.className = 'wt-row' + (done ? ' is-done' : '');
-        let lead;
-        if (cardio) {
-            const c = (state.workoutMeta[it.key] && state.workoutMeta[it.key].color) || 'var(--accent)';
-            lead = `<div class="wt-row-mark" style="--c:${c}">${escapeHtml(String(it.key).trim().charAt(0))}</div>`;
-        } else {
-            lead = `<div class="wt-row-img" style="background-image:url('${thumbUrl(it.key, idx)}')"></div>`;
-        }
+        el.className = 'wt-row' + (done ? ' is-done' : '') + (cardio ? ' wt-row--stripe' : '');
+        // אירובי: תמונה כמו בכוח + פס בצבע התוכנית בקצה הכרטיס
+        if (cardio) el.style.setProperty('--c', (state.workoutMeta[it.key] && state.workoutMeta[it.key].color) || 'var(--accent)');
+        const lead = `<div class="wt-row-img" style="background-image:url('${thumbUrl(it.key, idx)}')"></div>`;
         el.innerHTML = `
             ${lead}
             <div class="wt-row-body">

@@ -160,6 +160,26 @@ function _matchesKindFilter(key) {
     return (_workoutKindFilter === 'cardio') === isCardio;
 }
 
+// WT-NEXT-START
+// "הבא בתור" — האימון שלא בוצע השבוע ושעבר הכי הרבה זמן מאז שבוצע (טרם בוצע = הכי ישן).
+// שבוע קלנדרי מיום ראשון; הכול לפי timestamp — לא entry.date (DD.MM.YY).
+function _wtWeekStart(now) {
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - d.getDay());
+    return d.getTime();
+}
+function _wtPickNext(keys, lastDone, weekStart) {
+    let best = null, bestTs = Infinity;
+    keys.forEach(k => {
+        const ts = lastDone[k] || 0;
+        if (ts >= weekStart) return;          // בוצע השבוע
+        if (ts < bestTs) { bestTs = ts; best = k; }
+    });
+    return best;
+}
+// WT-NEXT-END
+
 function renderWorkoutMenu() {
     const container = document.getElementById('workout-menu-container');
     if (!container) return;
@@ -168,16 +188,15 @@ function renderWorkoutMenu() {
     container.innerHTML = "";
     const title = document.getElementById('workout-week-title');
     const weekLabel = document.getElementById('workout-week-label');
+    const progressEl = document.getElementById('workout-week-progress');
+    if (progressEl) progressEl.innerHTML = '';
 
     const thumbImages = WORKOUT_THUMB_IMAGES;
+    const isCardio = k => (typeof isCardioWorkout === 'function') && isCardioWorkout(k);
 
-    // חץ קדימה — מתאים ל-RTL (כמו arrow_back_ios_new במוקאפ)
-    const chevronSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
-
-    // _planSubtitle — שורת המשנה בכרטיס התוכנית. באירובי אין תרגילים, ולכן
-    // מוצג מה שמגדיר את האימון: סבבים וזמנים, או "רציף".
+    // _planSubtitle — באירובי אין תרגילים, ולכן מוצג מה שמגדיר את האימון: סבבים וזמנים, או "רציף".
     function _planSubtitle(key, count) {
-        if (typeof isCardioWorkout !== 'function' || !isCardioWorkout(key)) return `${count} תרגילים`;
+        if (!isCardio(key)) return `${count} תרגילים`;
         const cfg = (typeof cardioPlanConfig === 'function') ? cardioPlanConfig(key) : null;
         if (!cfg) return 'אירובי';
         if (cfg.mode === 'open') return cfg.targetSec ? `רציף · יעד ${Math.round(cfg.targetSec / 60)} דק׳` : 'רציף · ללא יעד';
@@ -185,93 +204,159 @@ function renderWorkoutMenu() {
         return `${cfg.rounds} סבבים · ${f(cfg.workSec)} / ${f(cfg.restSec)}`;
     }
 
-    function buildCard(key, count, fallbackIdx, isFirst, badge) {
-        const btn = document.createElement('button');
-        btn.className = 'km-manager-card';
-        btn.style.width = '100%';
-        btn.style.textAlign = 'start';
-
-        if (!state.workoutMeta[key]) state.workoutMeta[key] = {};
-        if (typeof state.workoutMeta[key]._thumbIdx !== 'number') {
-            state.workoutMeta[key]._thumbIdx = fallbackIdx;
-        }
-        const thumbIndex = state.workoutMeta[key]._thumbIdx;
-        const imgUrl = thumbImages[thumbIndex % thumbImages.length];
-        const badgeHtml = badge || '';
-        const safeKey = escapeJsAttr(key);
-
-        btn.innerHTML = `
-            <div class="km-manager-card-img" style="background-image:url('${imgUrl}')"></div>
-            <div class="km-manager-card-body">
-                <h3 class="km-manager-card-title">${escapeHtml(key)}</h3>
-                ${badgeHtml}
-                <p class="km-manager-card-count">${_planSubtitle(key, count)}</p>
-                <div class="km-manager-card-actions">
-                    ${(typeof isCardioWorkout === 'function' && isCardioWorkout(key)) ? '' : `
-                    <button class="km-select-card-pill" onclick="event.stopPropagation(); openWorkoutPlanSheet('${safeKey}')">
-                        <span class="material-symbols-outlined" style="font-size:0.85rem;line-height:1;">format_list_bulleted</span>
-                        תרגילים
-                    </button>`}
-                </div>
-            </div>`;
-        btn.onclick = () => selectWorkout(key);
-        return btn;
+    function exCount(key) {
+        let count = 0;
+        const w = state.workouts[key];
+        if (Array.isArray(w)) w.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
+        return count;
     }
 
+    function thumbUrl(key, fallbackIdx) {
+        if (!state.workoutMeta[key]) state.workoutMeta[key] = {};
+        if (typeof state.workoutMeta[key]._thumbIdx !== 'number') state.workoutMeta[key]._thumbIdx = fallbackIdx;
+        return thumbImages[state.workoutMeta[key]._thumbIdx % thumbImages.length];
+    }
+
+    // ── איסוף התוכניות המוצגות ──
+    const items = [];
     if (state.week === 'deload') {
         if (weekLabel) weekLabel.innerText = 'Deload';
-        title.innerText = "שבוע דילואוד";
-        const keys = Object.keys(state.workouts);
-        const deloadWorkouts = keys.filter(k => {
+        title.innerText = 'שבוע דילואוד';
+        Object.keys(state.workouts).forEach(k => {
             const meta = state.workoutMeta[k];
-            return meta && meta.availableInDeload === true && _matchesKindFilter(k);
+            if (!(meta && meta.availableInDeload === true && _matchesKindFilter(k))) return;
+            const badge = meta.isDeloadOnly ? `<span class="wt-chip wt-chip--deload">Deload Only</span>` : '';
+            items.push({ key: k, badge });
         });
-
-        if (deloadWorkouts.length === 0) {
+        if (!items.length) {
             container.innerHTML = _workoutKindFilter === 'cardio'
                 ? `<p class="text-center color-dim">אין תוכנית אירובי שסומנה כזמינה בדילואוד</p>`
                 : `<p class="text-center color-dim">בחר Freestyle או סמן תוכנית כדילואוד בעורך</p>`;
-        } else {
-            deloadWorkouts.forEach((key, idx) => {
-                const meta = state.workoutMeta[key];
-                let count = 0;
-                const w = state.workouts[key];
-                if (Array.isArray(w)) {
-                    w.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
-                }
-                const badge = (meta && meta.isDeloadOnly)
-                    ? `<span class="text-xs color-type-free" style="border:1px solid var(--type-free); border-radius:6px; padding:2px 6px; font-size:0.7em;">Deload Only</span>`
-                    : '';
-                container.appendChild(buildCard(key, count, idx, idx === 0, badge));
-            });
+            return;
         }
     } else {
         if (weekLabel) weekLabel.innerText = `Week ${state.week}`;
-        title.innerText = `שבוע ${state.week} - בחר אימון`;
-        let idx = 0;
-        Object.keys(state.workouts).forEach(key => {
-            const meta = state.workoutMeta[key];
-            if (meta && meta.isDeloadOnly) return;
-            if (meta && meta.isHidden) return;
-            if (!_matchesKindFilter(key)) return;
-
-            let count = 0;
-            const w = state.workouts[key];
-            if (Array.isArray(w)) {
-                w.forEach(item => { if (item.type === 'cluster') count += item.exercises.length; else count++; });
-            }
-            const cardioBadge = (typeof isCardioWorkout === 'function' && isCardioWorkout(key))
-                ? `<span class="km-kind-badge">אירובי</span>` : '';
-            container.appendChild(buildCard(key, count, idx, idx === 0, cardioBadge));
-            idx++;
+        title.innerText = 'בחר אימון';
+        Object.keys(state.workouts).forEach(k => {
+            const meta = state.workoutMeta[k];
+            if (meta && (meta.isDeloadOnly || meta.isHidden)) return;
+            if (!_matchesKindFilter(k)) return;
+            items.push({ key: k, badge: '' });
         });
-        if (idx === 0) {
+        if (!items.length) {
             container.innerHTML = _workoutKindFilter === 'cardio'
                 ? `<p class="text-center color-dim">אין תוכניות אירובי — צור אחת בהגדרות → ניהול תוכניות</p>`
                 : `<p class="text-center color-dim">אין תוכניות כוח פעילות</p>`;
+            return;
         }
     }
 
+    // ── מצב השבוע: ביצוע אחרון, משך צפוי ──
+    let archive = [];
+    try { archive = (typeof _edArchive === 'function') ? _edArchive() : []; }
+    catch (e) { console.warn('workout menu: archive read failed', e); }
+    const weekStart = _wtWeekStart(Date.now());
+    const lastDone = {};
+    items.forEach(it => { lastDone[it.key] = (typeof _edLastDone === 'function') ? _edLastDone(it.key) : null; });
+    const doneCount = items.filter(it => (lastDone[it.key] || 0) >= weekStart).length;
+
+    if (progressEl) {
+        const segs = items.length <= 7
+            ? `<span class="wt-weekbar">${items.map((_, i) => `<i class="${i < doneCount ? 'on' : ''}"></i>`).join('')}</span>` : '';
+        progressEl.innerHTML = `${segs}<span>${doneCount} מתוך ${items.length} בוצעו השבוע</span>`;
+    }
+
+    function metaLine(key) {
+        const parts = [];
+        if (!isCardio(key)) {
+            parts.push(`<span><b>${exCount(key)}</b> תרגילים</span>`);
+            const exp = (typeof _liveExpectedFromArchive === 'function') ? _liveExpectedFromArchive(archive, key, 5) : null;
+            if (exp) parts.push(`<span>~<b>${Math.round(exp / 60)}</b> דק׳</span>`);
+        } else {
+            parts.push(`<span>${_planSubtitle(key, 0)}</span>`);
+        }
+        parts.push(`<span>${typeof _edRel === 'function' ? _edRel(lastDone[key]) : ''}</span>`);
+        return `<div class="wt-meta">${parts.join('')}</div>`;
+    }
+
+    function muscleChips(key) {
+        if (typeof _edPlanStats !== 'function') return '';
+        const by = _edPlanStats(state.workouts[key]).byMuscle;
+        const ent = Object.entries(by).filter(([m]) => m !== 'אחר').sort((a, b) => b[1] - a[1]).slice(0, 3);
+        if (!ent.length) return '';
+        return `<div class="wt-chips">${ent.map(([m]) =>
+            `<span class="wt-chip" style="--c:${(typeof ED_MUSCLE_COLOR !== 'undefined' && ED_MUSCLE_COLOR[m]) || 'var(--m-other)'}">${escapeHtml(m)}</span>`).join('')}</div>`;
+    }
+
+    // כרטיס לחיץ כ-div (לא button) — מכיל כפתור "תרגילים", וכפתור בתוך כפתור אינו HTML תקין
+    function clickable(el, key) {
+        el.setAttribute('role', 'button');
+        el.tabIndex = 0;
+        el.onclick = () => selectWorkout(key);
+        el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectWorkout(key); } };
+        return el;
+    }
+    const plansBtn = (key, cls) => `<button class="wt-pill ${cls || ''}" onclick="event.stopPropagation(); openWorkoutPlanSheet('${escapeJsAttr(key)}')">תרגילים</button>`;
+
+    function buildHero(it, idx) {
+        const el = document.createElement('div');
+        el.className = 'wt-hero';
+        el.innerHTML = `
+            <div class="wt-hero-img" style="background-image:url('${thumbUrl(it.key, idx)}')"><span class="wt-next-tag">הבא בתור</span></div>
+            <div class="wt-hero-body">
+                <h3 class="wt-name">${escapeHtml(it.key)}</h3>
+                ${it.badge}
+                ${metaLine(it.key)}
+                ${muscleChips(it.key)}
+                <div class="wt-hero-actions">
+                    <button class="wt-start" onclick="event.stopPropagation(); selectWorkout('${escapeJsAttr(it.key)}')">התחל אימון</button>
+                    ${plansBtn(it.key, 'wt-pill--lg')}
+                </div>
+            </div>`;
+        return clickable(el, it.key);
+    }
+
+    function buildRow(it, idx) {
+        const done = (lastDone[it.key] || 0) >= weekStart;
+        const cardio = isCardio(it.key);
+        const el = document.createElement('div');
+        el.className = 'wt-row' + (done ? ' is-done' : '');
+        let lead;
+        if (cardio) {
+            const c = (state.workoutMeta[it.key] && state.workoutMeta[it.key].color) || 'var(--accent)';
+            lead = `<div class="wt-row-mark" style="--c:${c}">${escapeHtml(String(it.key).trim().charAt(0))}</div>`;
+        } else {
+            lead = `<div class="wt-row-img" style="background-image:url('${thumbUrl(it.key, idx)}')"></div>`;
+        }
+        el.innerHTML = `
+            ${lead}
+            <div class="wt-row-body">
+                ${done ? '<span class="wt-done">בוצע השבוע</span>' : ''}
+                <h3 class="wt-name">${escapeHtml(it.key)}</h3>
+                ${it.badge}
+                ${metaLine(it.key)}
+            </div>
+            ${cardio ? '' : plansBtn(it.key, 'wt-pill--sm')}`;
+        return clickable(el, it.key);
+    }
+
+    // ── רינדור: hero רק בכוח, ורק כשיש אימון שלא בוצע השבוע ──
+    const nextKey = _workoutKindFilter === 'cardio' ? null
+        : _wtPickNext(items.map(it => it.key), lastDone, weekStart);
+    const rest = [];
+    items.forEach((it, idx) => {
+        if (it.key === nextKey) container.appendChild(buildHero(it, idx));
+        else rest.push([it, idx]);
+    });
+    if (rest.length) {
+        if (nextKey) {
+            const sec = document.createElement('div');
+            sec.className = 'wt-section';
+            sec.textContent = 'שאר האימונים';
+            container.appendChild(sec);
+        }
+        rest.forEach(([it, idx]) => container.appendChild(buildRow(it, idx)));
+    }
 }
 
 // ─── WORKOUT MANAGER ───────────────────────────────────────────────────────

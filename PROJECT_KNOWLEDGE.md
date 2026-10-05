@@ -4,7 +4,16 @@
 
 ---
 
-## גרסה נוכחית: 19.17.11
+## גרסה נוכחית: 19.17.12
+
+### v19.17.12 — מסך בחירת אימון: "הבא בתור" + רשימה קומפקטית (הצעה A)
+- `renderWorkoutMenu` נכתב מחדש: כותרת אחת "בחר אימון" (eyebrow = Week N), פס "X מתוך Y בוצעו השבוע"
+  (`#workout-week-progress`), hero לאימון הבא (`_wtPickNext`: לא בוצע השבוע, הכי ישן; שבוע מיום ראשון,
+  לפי timestamp), שורות 72px לשאר + "בוצע השבוע". אירובי: שורות עם ריבוע `meta.color` + אות, בלי hero.
+- מטא: תרגילים · ~דק' (`_liveExpectedFromArchive`) · `_edRel`. שבבי שרירים מ-`_edPlanStats` + `ED_MUSCLE_COLOR`.
+- כרטיס = div role=button (לא button — הכפתור "תרגילים" בתוכו). Freestyle ו"תרגילים" בטקסט בלבד.
+- `.freestyle-add-icon` ו-`.km-select-card-pill` (CSS) כבר לא בשימוש במסך הזה — לא נמחקו.
+- בדיקה: `test/workout-next.test.js` (בלוק `WT-NEXT-START/END`).
 
 ### v19.17.11 — טבעת Live 310px במסכים גדולים
 - `@media (min-width:428px) and (min-height:880px)`: טבעת 310px, ספרות/is-long/תווית/שורה עליונה ×1.107,

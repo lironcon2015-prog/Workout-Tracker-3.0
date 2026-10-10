@@ -20,8 +20,9 @@ const src = fs.readFileSync(path.join(__dirname, '..', 'workout-core.js'), 'utf8
 const block = src.split('EXHISTORY-START')[1]?.split('EXHISTORY-END')[0]?.replace(/^[^\n]*\n/, '');
 if (!block) { console.error('✗ בלוק EXHISTORY לא נמצא ב-workout-core.js'); process.exit(1); }
 
-const { _exBlockFor, _buildExerciseHistory, _buildExerciseHistoryCapped, EX_HISTORY_SESSIONS } =
-    new Function(block + '\nreturn { _exBlockFor, _buildExerciseHistory, _buildExerciseHistoryCapped, EX_HISTORY_SESSIONS };')();
+const { _exBlockFor, _buildExerciseHistory, _buildExerciseHistoryCapped, EX_HISTORY_SESSIONS,
+        _buildParallelMainLifts, _isMainInSummary } =
+    new Function(block + '\nreturn { _exBlockFor, _buildExerciseHistory, _buildExerciseHistoryCapped, EX_HISTORY_SESSIONS, _buildParallelMainLifts, _isMainInSummary };')();
 
 let failed = 0;
 function ok(cond, name, extra) {
@@ -148,6 +149,47 @@ ok((n2.match(/▸ /g) || []).length === 2, 'קיצוץ ל-2 סשנים מורי�
 ok(n2.includes('[ספוטר] עשיתי חמישי, נכשלתי בו'),
    'גם אחרי קיצוץ — הסשנים שנשארו מלאים, עם ההערות');
 ok(_buildExerciseHistoryCapped(cur, archive).length > 0, 'הגרסה עם התקרה מחזירה טקסט');
+
+// ── דילואוד אינו נקודת ייחוס ─────────────────────────────────────────────
+// סשן דילואוד חדש יותר עם Bench: בקוד הישן הוא נכנס לשלושת האחרונים ודחק את 28.8.
+const S_DELOAD = ['GYMPRO ELITE SUMMARY', 'חזה - מופחת | Deload | 18.9.2026 | 40m', '',
+    'Bench Press (Main) (Main, TM: 115kg) (Vol: 1.0t):', '60kg x 5 (RIR 5)', '',
+    'Dips (Vol: 0.5t):', '0kg x 10 (RIR 3)', ''].join('\n');
+const curD = { timestamp: 2000, exOrder: ['Bench Press (Main)', 'Dips'], summary: 'x' };
+const withDeload = [
+    { timestamp: 1500, date: '18.09.26', type: 'חזה - מופחת', week: 'deload', nutritionalState: 'surplus', summary: S_DELOAD }
+].concat(archive);
+const hD = _buildExerciseHistory(curD, withDeload, EX_HISTORY_SESSIONS);
+ok(!hD.includes('18.09.26') && !hD.includes('60kg x 5'), 'סשן דילואוד אינו נכנס להיסטוריית התרגיל');
+ok(hD.includes('28.08.26') && (hD.split('── Dips')[0].match(/▸ /g) || []).length === 3,
+   'הדילואוד אינו דוחק סשן רגיל — שלושת הסשנים הרגילים נשארים');
+ok(hD.includes('בוצע קודם רק בדילואוד'), 'תרגיל שבוצע רק בדילואוד מסומן ככזה, לא "לא בוצע"');
+const hDcur = _buildExerciseHistory(Object.assign({}, curD, { week: 'deload' }), withDeload, EX_HISTORY_SESSIONS);
+ok(!hDcur.includes('18.09.26'), 'גם כשהאימון הנוכחי דילואוד — דילואוד קודם מסונן');
+
+// ── {parallelMainLifts}: Main של כל אימוני השבוע מול אותו שבוע בבלוק הקודם ──
+const mk = (ts, date, type, week, lines) => ({ timestamp: ts, date, type, week, nutritionalState: 'surplus',
+    exOrder: lines.filter(l => /\(Vol: /.test(l)).map(l => l.split(' (Main,')[0].split(' (Vol')[0]),
+    summary: ['GYMPRO ELITE SUMMARY', `${type} | Week ${week} | ${date} | 60m`, ''].concat(lines, ['']).join('\n') });
+const A_NOW = mk(3100, '06.10.26', 'A', 2, ['OHP (Main) (Main, TM: 60kg) (Vol: 1t):', '50kg x 5 (RIR 2)', '', 'Face Pulls (Vol: 1t):', '30kg x 15 (RIR 2)']);
+const B_NOW = mk(3200, '08.10.26', 'B', 2, ['Bench Press (Main) (Main, TM: 115kg) (Vol: 2t):', '105kg x 5 (RIR 1)']);
+const C_NOW = mk(3300, '10.10.26', 'C', 2, ['Squat (Main) (Main, TM: 140kg) (Vol: 3t):', '125kg x 4 (RIR 1)']);
+const A_PREV = mk(2100, '01.09.26', 'A', 2, ['OHP (Main) (Main, TM: 57.5kg) (Vol: 1t):', '47.5kg x 6 (RIR 2) | Note: הערת OHP']);
+const B_PREV = mk(2200, '03.09.26', 'B', 2, ['Bench Press (Main) (Main, TM: 112.5kg) (Vol: 2t):', '102.5kg x 5 (RIR 1)']);
+const C_PREV = mk(2300, '05.09.26', 'C', 2, ['Squat (Main) (Main, TM: 135kg) (Vol: 3t):', '120kg x 4 (RIR 1)']);
+const B_PREV_W1 = mk(2000, '27.08.26', 'B', 1, ['Bench Press (Main) (Main, TM: 112.5kg) (Vol: 2t):', '90kg x 9 (RIR 1)']);
+const prevBlock = [C_PREV, B_PREV, A_PREV, B_PREV_W1];
+const pm = _buildParallelMainLifts([C_NOW, B_NOW, A_NOW], prevBlock, 2);
+ok(pm.includes('── OHP (Main) ──') && pm.includes('47.5kg x 6 (RIR 2) | Note: הערת OHP'),
+   'OHP של אימון A מגיע מאותו שבוע בבלוק הקודם, מילה במילה');
+ok(pm.includes('── Bench Press (Main) ──') && pm.includes('102.5kg x 5'), 'Bench של אימון B מגיע מאותו שבוע בבלוק הקודם');
+ok(pm.includes('120kg x 4'), 'גם ה-Main של הסוג הנוכחי (C) נכלל');
+ok(!pm.includes('90kg x 9'), 'שבוע אחר בבלוק הקודם אינו נכלל');
+ok(!pm.includes('Face Pulls'), 'רק ליפטי Main');
+ok(_isMainInSummary(A_NOW.summary, 'OHP (Main)') && !_isMainInSummary(A_NOW.summary, 'Face Pulls'), 'זיהוי Main מתג הסיכום');
+const pmMiss = _buildParallelMainLifts([B_NOW], [C_PREV], 2);
+ok(pmMiss.includes('לא בוצע ב-Week 2 של הבלוק הקודם'), 'ליפט שחסר בבלוק הקודם מדווח במפורש');
+ok(_buildParallelMainLifts([B_NOW], prevBlock, 'deload') === '', 'שבוע דילואוד — אין מקטע');
 
 console.log(failed ? `\n${failed} בדיקות נכשלו` : '\nכל הבדיקות עברו');
 process.exit(failed ? 1 : 0);

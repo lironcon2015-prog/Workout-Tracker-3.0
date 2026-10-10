@@ -5759,7 +5759,11 @@ function _buildExerciseHistory(entry, archive, nSessions) {
     const names = (Array.isArray(entry.exOrder) && entry.exOrder.length)
         ? entry.exOrder.slice() : Object.keys(entry.details || {});
     if (!names.length) return '';
-    const past = archive.filter(a => a && a.summary && a.timestamp < entry.timestamp);
+    const before = archive.filter(a => a && a.summary && a.timestamp < entry.timestamp);
+    // דילואוד אינו נקודת ייחוס לשום דבר — גם כשהאימון הנוכחי עצמו דילואוד.
+    // סשן דילואוד בין שלושת האחרונים היה דוחק החוצה סשן רגיל ומציג "ירידה" מדומה.
+    const past = before.filter(a => !_isDeloadEntry(a));
+    const deloadOnly = before.filter(_isDeloadEntry);
     const parts = [];
     names.forEach(nm => {
         const rows = [];
@@ -5767,12 +5771,51 @@ function _buildExerciseHistory(entry, archive, nSessions) {
             if (rows.length >= nSessions) break;
             const blk = _exBlockFor(a.summary, nm);
             if (!blk) continue;
-            const meta = [a.date, a.type, _exWeekLabel(a.week)].filter(Boolean).join(' · ');
-            rows.push(`▸ ${meta} · [מצב תזונתי: ${a.nutritionalState || 'לא ידוע'}]\n${blk}`);
+            rows.push(_exSessionRow(a, blk));
         }
-        parts.push(`── ${nm} ──\n` + (rows.length ? rows.join('\n') : 'לא בוצע קודם לכן בארכיון.'));
+        // תרגיל שבוצע רק בדילואוד — "לא בוצע קודם" הייתה קביעה שגויה
+        const empty = deloadOnly.some(a => _exBlockFor(a.summary, nm))
+            ? 'בוצע קודם רק בדילואוד — לא להשוואה.' : 'לא בוצע קודם לכן בארכיון.';
+        parts.push(`── ${nm} ──\n` + (rows.length ? rows.join('\n') : empty));
     });
     return parts.join('\n\n');
+}
+
+function _isDeloadEntry(a) { return !!a && a.week === 'deload'; }
+
+function _exSessionRow(a, blk) {
+    const meta = [a.date, a.type, _exWeekLabel(a.week)].filter(Boolean).join(' · ');
+    return `▸ ${meta} · [מצב תזונתי: ${a.nutritionalState || 'לא ידוע'}]\n${blk}`;
+}
+
+// _isMainInSummary — האם התרגיל תויג Main בסיכום של אותו אימון. התג נכתב
+// אחרי השם (" (Main, TM: 115kg)" / " (Main)") — כך גם שם שמכיל "(Main)" מזוהה נכון.
+function _isMainInSummary(summary, exName) {
+    const name = String(exName || '').trim();
+    if (!name) return false;
+    return String(summary || '').split('\n').some(l => l.trim().indexOf(name + ' (Main') === 0);
+}
+
+/* {parallelMainLifts} — ליפטי ה-Main של השבוע מול אותו שבוע בבלוק הקודם.
+ * {parallelWorkout} מביא רק את האימון המקביל **מהסוג הנוכחי**, ולכן סיכום
+ * שבוע שנכתב אחרי אימון C קיבל את C מהבלוק הקודם — ולא את Bench/OHP של A ו-B.
+ * weekEntries = אימוני השבוע הנוכחי בבלוק (כולל האימון הנוכחי);
+ * prevBlock = הבלוק הקודם (חדש→ישן). דילואוד מסונן משני הצדדים. */
+function _buildParallelMainLifts(weekEntries, prevBlock, week) {
+    if (week === 'deload' || week == null || week === '') return '';
+    const cur = (weekEntries || []).filter(a => a && a.summary && !_isDeloadEntry(a));
+    const names = [];
+    cur.forEach(a => {
+        const order = (Array.isArray(a.exOrder) && a.exOrder.length) ? a.exOrder : Object.keys(a.details || {});
+        order.forEach(nm => { if (!names.includes(nm) && _isMainInSummary(a.summary, nm)) names.push(nm); });
+    });
+    if (!names.length) return '';
+    const prev = (prevBlock || []).filter(a => a && a.summary && a.week === week && !_isDeloadEntry(a));
+    return names.map(nm => {
+        const rows = prev.map(a => { const b = _exBlockFor(a.summary, nm); return b ? _exSessionRow(a, b) : ''; })
+                         .filter(Boolean);
+        return `── ${nm} ──\n` + (rows.length ? rows.join('\n') : `לא בוצע ב-${_exWeekLabel(week)} של הבלוק הקודם.`);
+    }).join('\n\n');
 }
 
 // _buildExerciseHistoryCapped — תקרת אורך שמקצצת **סשנים ולא תוכן**: 3 → 2 → 1.
@@ -5826,6 +5869,13 @@ function _buildCoachSummaryPrompt(scope, tplOverride) {
         .filter(a => a.week === state.week && a.type === state.type && a.summary)
         .map(_taggedSummary).join('\n\n') || 'אין נתונים מהבלוק הקודם';
 
+    // ליפטי Main של השבוע מול אותו שבוע בבלוק הקודם — רק בסקופ שבוע.
+    const _weekEntries = ctx.current.filter(a => a.week === state.week);
+    if (currentEntry && !_weekEntries.includes(currentEntry)) _weekEntries.unshift(currentEntry);
+    const parallelMainLifts = (scope === 'week' && _buildParallelMainLifts(_weekEntries, ctx.previous, state.week)) || 'אין נתונים';
+    const parallelMainSection = (scope === 'week' && parallelMainLifts !== 'אין נתונים')
+        ? `\n=== ליפטי Main — אותו שבוע בבלוק הקודם ===\n${parallelMainLifts}\n` : '';
+
     const blockWorkouts = ctx.current
         .filter(a => a.timestamp !== ts && a.summary).map(_taggedSummary).join('\n\n') || 'אין נתונים';
 
@@ -5857,7 +5907,7 @@ function _buildCoachSummaryPrompt(scope, tplOverride) {
         ? tplOverride : StorageManager.getCoachPrompt(scope);
     let filled = _fillTemplate(template, {
         reliability, workoutText, nutrition, persona, recentWorkouts, exerciseHistory,
-        weekWorkouts, parallelWorkout, blockWorkouts, analytics, recovery, memoryBox
+        weekWorkouts, parallelWorkout, parallelMainLifts, blockWorkouts, analytics, recovery, memoryBox
     });
     // תבנית מותאמת שנשמרה לפני שה-placeholder הזה נוסף — או שנמחק ממנה בטעות —
     // לא מכילה אותו, ואז המקטע נופל בשקט. מצרפים אותו בסוף.
@@ -5871,6 +5921,8 @@ function _buildCoachSummaryPrompt(scope, tplOverride) {
      ['{exerciseHistory}', exHistorySection]].forEach(([ph, sec]) => {
         if (sec && !template.includes(ph)) filled += '\n' + sec;
     });
+    // {parallelMainLifts} — זנב לסקופ שבוע בלבד (המקטע ריק בשאר הסקופים).
+    if (parallelMainSection && !template.includes('{parallelMainLifts}')) filled += '\n' + parallelMainSection;
     return filled;
 }
 
@@ -6448,6 +6500,42 @@ function buildBlockContext() {
     return { current: currentBlock, previous: previousBlock, previous2: previous2Block };
 }
 
+// E1RM-START — בלוק טהור, נבדק ב-test/e1rm-pick.test.js (אל תסיר את הסמנים)
+/* _pickE1RM — מאיזה אימון לוקחים את ה-e1RM של תרגיל לסנאפשוט המצרפי.
+ * עד כאן נלקח האימון האחרון שבו התרגיל הופיע — גם דילואוד, וגם שבוע 1/2.
+ * e1RM משבועות שונים במחזור אינו בר-השוואה (אחוז TM שונה, ספוטר), ודילואוד
+ * מייצר "ירידה" מדומה. לכן:
+ *   Main  → סט הפיק (ה-AMRAP: המשקל הכבד ביותר) של אימון Week 3 האחרון.
+ *           אין W3 → האימון האחרון שאינו דילואוד, מסומן מאיזה שבוע נלקח.
+ *   אחר   → האימון האחרון שאינו דילואוד, הסט עם ה-e1RM הגבוה (כמו קודם).
+ * archive חדש→ישן. parse/calc מוזרקים (parseSetsFromStrings/calc1RM). */
+function _pickE1RM(archive, exName, isMain, parse, calc, formula) {
+    const setsOf = a => (a && a.details && a.details[exName] && a.details[exName].sets) || [];
+    const pool = (archive || []).filter(a => setsOf(a).length && !(a && a.week === 'deload'));
+    const e1 = p => calc(p.w, p.r, formula);
+    const best = a => parse(setsOf(a)).reduce((m, p) => Math.max(m, e1(p)), 0);
+    const peak = a => {
+        const ps = parse(setsOf(a));
+        if (!ps.length) return 0;
+        const topW = Math.max(...ps.map(p => p.w));
+        return ps.filter(p => p.w === topW).reduce((m, p) => Math.max(m, e1(p)), 0);
+    };
+    const weekLbl = a => a.type === 'Freestyle' ? 'Freestyle' : ('Week ' + a.week);
+    if (isMain) {
+        for (const a of pool) {
+            if (String(a.week) !== '3' || a.type === 'Freestyle') continue;
+            const v = peak(a);
+            if (v > 0) return { v, src: 'W3 AMRAP' };
+        }
+    }
+    for (const a of pool) {
+        const v = best(a);
+        if (v > 0) return { v, src: isMain ? `${weekLbl(a)} — אין W3` : '' };
+    }
+    return null;
+}
+// E1RM-END
+
 /**
  * buildAnalyticsSnapshot — מחזיר string קומפקטי עם נתוני אנליטיקה מצרפיים.
  */
@@ -6470,28 +6558,20 @@ function buildAnalyticsSnapshot() {
         avgGap = Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length * 10) / 10;
     }
 
-    // 1RM מחושב לתרגילי מפתח
+    // 1RM מחושב לתרגילי מפתח — ראה _pickE1RM (דילואוד מסונן; Main מסט ה-AMRAP של W3)
     const rmLines = [];
     const prefs = StorageManager.getAnalyticsPrefs();
     const formula = prefs.formula || 'epley';
     const keyExercises = state.exercises.filter(e => e.isCalc).slice(0, 5);
-    keyExercises.forEach(ex => {
-        for (const item of archive) {
-            if (!item.details || !item.details[ex.name]) continue;
-            const sets = item.details[ex.name].sets || [];
-            if (!sets.length) continue;
-            let maxE1RM = 0;
-            sets.forEach(s => {
-                if (typeof parseSetsFromStrings === 'function') {
-                    const parsed = parseSetsFromStrings([s]);
-                    if (parsed.length) {
-                        const e = typeof calc1RM === 'function' ? calc1RM(parsed[0].w, parsed[0].r, formula) : 0;
-                        if (e > maxE1RM) maxE1RM = e;
-                    }
-                }
-            });
-            if (maxE1RM > 0) { rmLines.push(`${ex.name}: ~${Math.round(maxE1RM)}kg`); break; }
-        }
+    const mainNames = new Set();
+    Object.values(state.workouts || {}).forEach(list => (list || []).forEach(item => {
+        if (item && item.isMain && item.type !== 'cluster') mainNames.add(item.name);
+    }));
+    const parse = typeof parseSetsFromStrings === 'function' ? parseSetsFromStrings : null;
+    const calc  = typeof calc1RM === 'function' ? calc1RM : null;
+    if (parse && calc) keyExercises.forEach(ex => {
+        const pick = _pickE1RM(archive, ex.name, mainNames.has(ex.name), parse, calc, formula);
+        if (pick) rmLines.push(`${ex.name}: ~${Math.round(pick.v)}kg${pick.src ? ` (${pick.src})` : ''}`);
     });
 
     // שרירים — חודש אחרון
@@ -8034,7 +8114,8 @@ function copyAllCoachPrompts() {
         '',
         '── מנגנון הזנב (חשוב לאבחון) ──',
         'בשלושת פרומפטי הסיכום, מקטע שה-placeholder שלו **חסר מהתבנית** מצורף',
-        'אוטומטית בסופה. זה חל על: {recovery} · {memoryBox} · {persona} · {exerciseHistory}.',
+        'אוטומטית בסופה. זה חל על: {recovery} · {memoryBox} · {persona} · {exerciseHistory},',
+        'ובסיכום שבוע בלבד גם על {parallelMainLifts}.',
         'כך מקטע חדש מגיע גם לתבנית שנשמרה לפניו. המשמעות לאבחון: מקטע שמופיע',
         'בפרומפט המוגמר ואינו בתבנית — אינו באג, הוא הזנב. שאר המקטעים ההיסטוריים',
         '({weekWorkouts}, {parallelWorkout}, {blockWorkouts}) **אינם** מצורפים כך:',

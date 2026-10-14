@@ -169,11 +169,20 @@ function _wtWeekStart(now) {
     d.setDate(d.getDate() - d.getDay());
     return d.getTime();
 }
-function _wtPickNext(keys, lastDone, weekStart) {
+// דילוג ידני: skips = { key: timestamp }. דילוג השבוע מוציא את האימון מ"הבא בתור",
+// ובשבועות הבאים נחשב כביצוע לצורך הסדר — כדי שהאימון שדולג לא יקפוץ לראש התור.
+function _wtEffTs(k, lastDone, skips) {
+    return Math.max(lastDone[k] || 0, (skips && skips[k]) || 0);
+}
+function _wtIsSkipped(k, lastDone, skips, weekStart) {
+    const sk = (skips && skips[k]) || 0;
+    return sk >= weekStart && (lastDone[k] || 0) < weekStart;
+}
+function _wtPickNext(keys, lastDone, weekStart, skips) {
     let best = null, bestTs = Infinity;
     keys.forEach(k => {
-        const ts = lastDone[k] || 0;
-        if (ts >= weekStart) return;          // בוצע השבוע
+        const ts = _wtEffTs(k, lastDone, skips);
+        if (ts >= weekStart) return;          // בוצע או דולג השבוע
         if (ts < bestTs) { bestTs = ts; best = k; }
     });
     return best;
@@ -262,6 +271,7 @@ function renderWorkoutMenu() {
     const weekStart = _wtWeekStart(Date.now());
     const lastDone = {};
     items.forEach(it => { lastDone[it.key] = (typeof _edLastDone === 'function') ? _edLastDone(it.key) : null; });
+    const skips = StorageManager.getData(StorageManager.KEY_WT_SKIPS) || {};
     const core = _wtCore(items);
     const doneCount = core.filter(it => (lastDone[it.key] || 0) >= weekStart).length;
 
@@ -317,15 +327,17 @@ function renderWorkoutMenu() {
                     <button class="wt-start" onclick="event.stopPropagation(); selectWorkout('${escapeJsAttr(it.key)}')">התחל אימון</button>
                     ${plansBtn(it.key, 'wt-pill--lg')}
                 </div>
+                <button class="wt-pill wt-pill--sm wt-skip" onclick="event.stopPropagation(); skipWorkoutThisWeek('${escapeJsAttr(it.key)}')">דלג השבוע</button>
             </div>`;
         return clickable(el, it.key);
     }
 
     function buildRow(it, idx) {
         const done = !it.bonus && (lastDone[it.key] || 0) >= weekStart;
+        const skipped = !it.bonus && _wtIsSkipped(it.key, lastDone, skips, weekStart);
         const cardio = isCardio(it.key);
         const el = document.createElement('div');
-        el.className = 'wt-row' + (done ? ' is-done' : '') + (cardio ? ' wt-row--stripe' : '');
+        el.className = 'wt-row' + (done || skipped ? ' is-done' : '') + (cardio ? ' wt-row--stripe' : '');
         // אירובי: תמונה כמו בכוח + פס בצבע התוכנית בקצה הכרטיס
         if (cardio) el.style.setProperty('--c', (state.workoutMeta[it.key] && state.workoutMeta[it.key].color) || 'var(--accent)');
         const lead = `<div class="wt-row-img" style="background-image:url('${thumbUrl(it.key, idx)}')"></div>`;
@@ -333,17 +345,19 @@ function renderWorkoutMenu() {
             ${lead}
             <div class="wt-row-body">
                 ${done ? '<span class="wt-done">בוצע השבוע</span>' : ''}
+                ${skipped ? '<span class="wt-done wt-done--skip">דולג השבוע</span>' : ''}
                 <h3 class="wt-name">${escapeHtml(it.key)}</h3>
                 ${it.badge}
                 ${metaLine(it.key)}
             </div>
-            ${cardio ? '' : plansBtn(it.key, 'wt-pill--sm')}`;
+            ${skipped ? `<button class="wt-pill wt-pill--sm" onclick="event.stopPropagation(); unskipWorkout('${escapeJsAttr(it.key)}')">בטל דילוג</button>`
+                : (cardio ? '' : plansBtn(it.key, 'wt-pill--sm'))}`;
         return clickable(el, it.key);
     }
 
     // ── רינדור: hero רק בכוח, ורק כשיש אימון שלא בוצע השבוע ──
     const nextKey = _workoutKindFilter === 'cardio' ? null
-        : _wtPickNext(core.map(it => it.key), lastDone, weekStart);
+        : _wtPickNext(core.map(it => it.key), lastDone, weekStart, skips);
     const section = text => {
         const sec = document.createElement('div');
         sec.className = 'wt-section';
@@ -363,6 +377,20 @@ function renderWorkoutMenu() {
         section('בונוס');
         bonus.forEach(([it, idx]) => container.appendChild(buildRow(it, idx)));
     }
+}
+
+// דילוג ידני על אימון לשבוע הנוכחי — מקומי בלבד (לא מסונכרן לענן)
+function skipWorkoutThisWeek(key) {
+    const skips = StorageManager.getData(StorageManager.KEY_WT_SKIPS) || {};
+    skips[key] = Date.now();
+    if (!StorageManager.saveData(StorageManager.KEY_WT_SKIPS, skips)) return;
+    renderWorkoutMenu();
+}
+function unskipWorkout(key) {
+    const skips = StorageManager.getData(StorageManager.KEY_WT_SKIPS) || {};
+    delete skips[key];
+    if (!StorageManager.saveData(StorageManager.KEY_WT_SKIPS, skips)) return;
+    renderWorkoutMenu();
 }
 
 // ─── WORKOUT MANAGER ───────────────────────────────────────────────────────

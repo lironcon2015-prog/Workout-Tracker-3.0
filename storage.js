@@ -88,6 +88,7 @@ const StorageManager = {
     KEY_CARDIO_PREFS:       'gympro_cardio_prefs',        // אירובי: ערכת צליל, עוצמת גונג, "עצור מוזיקה בגונג"
     KEY_CARDIO_SEEDED:      'gympro_cardio_seeded',       // דגל זריעת תוכניות האירובי (נחרת רק אחרי כתיבה מוצלחת)
     KEY_CARDIO_THUMBS:      'gympro_cardio_thumbs',       // דגל החלפת תמונות האירובי לתמונות המיועדות
+    KEY_WT_SKIPS:           'gympro_wt_skips',            // דילוג ידני על אימון { key: timestamp } — מקומי, לא לסנכרון
 
     getUsdaKey() { return localStorage.getItem(this.KEY_USDA_KEY) || ''; },
     saveUsdaKey(k) { localStorage.setItem(this.KEY_USDA_KEY, (k || '').trim()); },

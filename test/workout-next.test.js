@@ -11,7 +11,7 @@ const path = require('path');
 const src = fs.readFileSync(path.join(__dirname, '..', 'editor-logic.js'), 'utf8');
 const block = src.split('WT-NEXT-START')[1]?.split('WT-NEXT-END')[0]?.replace(/^[^\n]*\n/, '');
 if (!block) { console.error('✗ בלוק WT-NEXT לא נמצא ב-editor-logic.js'); process.exit(1); }
-const { _wtWeekStart, _wtPickNext, _wtCore } = new Function(block + '\nreturn { _wtWeekStart, _wtPickNext, _wtCore };')();
+const { _wtWeekStart, _wtPickNext, _wtCore, _wtIsSkipped } = new Function(block + "\nreturn { _wtWeekStart, _wtPickNext, _wtCore, _wtIsSkipped: typeof _wtIsSkipped === 'function' ? _wtIsSkipped : null };")();
 
 let failed = 0;
 function ok(cond, name) {
@@ -45,6 +45,18 @@ ok(core.join() === 'A,C', 'בונוס מחוץ לספירה השבועית');
 ok(_wtPickNext(core, { A: ws + DAY, Bonus: null, C: ws + DAY }, ws) === null,
    'בונוס שטרם בוצע אינו "הבא בתור" כשכל הקבועים בוצעו');
 ok(_wtPickNext(core, { A: ws - 2 * DAY, Bonus: null, C: ws - 5 * DAY }, ws) === 'C', 'הבחירה רק מבין הקבועים');
+
+/* ── דילוג ידני ─────────────────────────────────────────────────────── */
+const ld = { A: ws - 7 * DAY, B: ws - 9 * DAY, C: ws - 5 * DAY };
+ok(_wtPickNext(keys, ld, ws, { B: ws + DAY }) === 'A', 'דולג השבוע → לא "הבא בתור" גם באמצע השבוע');
+ok(_wtPickNext(keys, ld, ws, { A: ws + DAY, B: ws + DAY, C: ws + DAY }) === null, 'הכול דולג → אין "הבא בתור"');
+ok(_wtPickNext(keys, ld, ws, { B: ws - 6 * DAY }) === 'A',
+   'דילוג בשבוע שעבר נחשב כביצוע לסדר → לא קופץ לראש התור');
+ok(_wtPickNext(keys, ld, ws, {}) === 'B', 'בלי דילוג → ההתנהגות הקודמת');
+ok(typeof _wtIsSkipped === 'function' && _wtIsSkipped('B', ld, { B: ws + DAY }, ws) === true, 'סימון "דולג השבוע"');
+ok(typeof _wtIsSkipped === 'function' && _wtIsSkipped('B', ld, { B: ws - DAY }, ws) === false, 'דילוג משבוע קודם אינו "דולג השבוע"');
+ok(typeof _wtIsSkipped === 'function' && _wtIsSkipped('B', { B: ws + 2 * DAY }, { B: ws + DAY }, ws) === false,
+   'דולג ואז בוצע → "בוצע", לא "דולג"');
 
 console.log(failed ? `\n${failed} נכשלו` : '\nהכול עבר');
 process.exit(failed ? 1 : 0);

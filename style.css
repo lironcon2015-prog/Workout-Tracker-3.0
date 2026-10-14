@@ -4446,6 +4446,8 @@ body::before {
     background: rgba(var(--success-rgb), 0.12);
     padding: 3px 8px; border-radius: var(--r-pill); align-self: flex-start;
 }
+.wt-done--skip { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.08); }
+.wt-skip { align-self: flex-start; background: transparent; color: rgba(255,255,255,0.55); }
 .wt-hero:focus-visible, .wt-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* =========================================

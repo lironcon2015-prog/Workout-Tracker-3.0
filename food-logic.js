@@ -886,6 +886,50 @@ function _fdNoteHTML(note) {
     </div>`;
 }
 
+// FD-SPLIT-START
+// אחוז הקלוריות מכל מאקרו — מחושב מגרמי המאקרו (4/4/9) ולא מהקלוריות שעל התווית,
+// כדי שהסכום יהיה תמיד 100%. עיגול בשיטת השארית הגדולה. אין מאקרו → null.
+function _fdMacroSplit(p, c, f) {
+    const k = [(+p || 0) * 4, (+c || 0) * 4, (+f || 0) * 9].map(v => Math.max(0, v));
+    const tot = k[0] + k[1] + k[2];
+    if (!(tot > 0)) return null;
+    const raw = k.map(v => v / tot * 100);
+    const pct = raw.map(Math.floor);
+    let left = 100 - pct[0] - pct[1] - pct[2];
+    raw.map((v, i) => [v - pct[i], i]).sort((a, b) => b[0] - a[0])
+        .forEach(([, i]) => { if (left > 0) { pct[i]++; left--; } });
+    return { pct, kcal: k.map(Math.round) };
+}
+// FD-SPLIT-END
+
+// פס הפיצול + מקרא. opts.kcal — הצג קק"ל לכל מאקרו; opts.grams — הצג גרמים
+function _fdSplitHTML(p, c, f, opts) {
+    const sp = _fdMacroSplit(p, c, f);
+    if (!sp) return '';
+    const o = opts || {};
+    const g = [p, c, f].map(v => _fdR(+v || 0));
+    const names = ['חלבון', 'פחמימה', 'שומן'], cls = ['p', 'c', 'f'];
+    const bar = cls.map((k, i) => sp.pct[i] ? `<span class="fd-split-${k}" style="width:${sp.pct[i]}%"></span>` : '').join('');
+    const leg = cls.map((k, i) => {
+        const sub = [o.kcal ? `${sp.kcal[i]} קק״ל` : '', o.grams ? `${g[i]}g` : ''].filter(Boolean).join(' · ');
+        return `<div class="fd-split-lg fd-split-lg--${k}"><span class="fd-split-pct">${sp.pct[i]}%</span><span class="fd-split-nm">${names[i]}</span>${sub ? `<span class="fd-split-sub">${sub}</span>` : ''}</div>`;
+    }).join('');
+    return `<div class="fd-split-bar">${bar}</div><div class="fd-split-legend">${leg}</div>`;
+}
+
+// ארוחות שפס הפיצול שלהן פתוח — נשמר בזיכרון בלבד כדי לשרוד רינדור מחדש של היומן
+const _fdOpenSplits = new Set();
+function fdToggleMealSplit(hdr) {
+    const meal = hdr.dataset.meal;
+    const box = hdr.nextElementSibling;
+    if (!box || !box.classList.contains('fd-meal-split')) return;
+    const open = box.hidden;
+    box.hidden = !open;
+    hdr.classList.toggle('is-open', open);
+    hdr.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) _fdOpenSplits.add(meal); else _fdOpenSplits.delete(meal);
+}
+
 function _fdMealsHTML(entries, mfpOwned) {
     // קיבוץ לפי ארוחה: קודם הארוחות המוגדרות, אחר כך ארוחות חופשיות שהופיעו
     const order = _fdMealLabels();
@@ -909,9 +953,11 @@ function _fdMealsHTML(entries, mfpOwned) {
         const saveBtn = items.length
             ? `<button class="fd-meal-savebtn" data-meal="${_fdEsc(meal)}" title="שמור את הארוחה במותאמים לשימוש חוזר" onclick="event.stopPropagation();fdSaveMealAsCustom(this.dataset.meal)">שמור</button>`
             : '';
+        const splitHTML = items.length ? _fdSplitHTML(mp, mc, mf, { kcal: true, grams: true }) : '';
+        const splitOpen = !!splitHTML && _fdOpenSplits.has(meal);
         const accVar = _FD_MEAL_ACCENT[meal] ? `--fd-meal-accent:${_FD_MEAL_ACCENT[meal]};` : '';
         html += `<div class="fd-meal" style="${accVar}animation-delay:${mi * 0.04}s">
-            <div class="fd-meal-hdr">
+            <div class="fd-meal-hdr${splitHTML && splitOpen ? ' is-open' : ''}" data-meal="${_fdEsc(meal)}"${splitHTML ? ` role="button" tabindex="0" aria-expanded="${splitOpen}" onclick="fdToggleMealSplit(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();fdToggleMealSplit(this)}"` : ''}>
                 <span class="fd-meal-icon"><span class="material-symbols-outlined">${_fdMealIcon(meal)}</span></span>
                 <div class="fd-meal-titles">
                     <span class="fd-meal-name">${_fdEsc(meal)}</span>
@@ -920,8 +966,9 @@ function _fdMealsHTML(entries, mfpOwned) {
                         : '—'}</span>
                 </div>
                 ${delBtn}${saveBtn}
-                <button class="fd-meal-add" onclick="fdOpenAdd('${mealJs}')" aria-label="הוסף מזון"><span class="material-symbols-outlined">add</span></button>
+                <button class="fd-meal-add" onclick="event.stopPropagation();fdOpenAdd('${mealJs}')" aria-label="הוסף מזון"><span class="material-symbols-outlined">add</span></button>
             </div>
+            ${splitHTML ? `<div class="fd-meal-split"${splitOpen ? '' : ' hidden'}>${splitHTML}</div>` : ''}
             <div class="fd-meal-body">`;
         if (items.length) {
             html += items.map(e => {
@@ -1663,8 +1710,13 @@ function _fdUpdatePreview() {
     const _fbTgt = Number((StorageManager.getTargetsForDate(_fdDate) || {}).fb) || 0;
     const fbTxt = m.fb != null ? ` · סיבים ${m.fb}g`
         : (_fbTgt > 0 ? ' · <span class="fd-preview-miss">סיבים — הוסף בעריכת ערכי המוצר</span>' : '');
+    // פיצול אחוזי הקלוריות מחליף את שורת הגרמים (הגרמים במקרא); בלי מאקרו — השורה הישנה
+    const split = _fdSplitHTML(m.p, m.c, m.f, { grams: true });
+    const fbLine = m.fb != null ? `סיבים ${m.fb}g`
+        : (_fbTgt > 0 ? '<span class="fd-preview-miss">סיבים — הוסף בעריכת ערכי המוצר</span>' : '');
     prev.innerHTML = `<span class="fd-preview-kcal">${m.kcal}<small>kcal</small></span>
-        <span class="fd-preview-pcf">חלבון ${m.p}g · פחמימה ${m.c}g · שומן ${m.f}g${fbTxt}</span>
+        ${split ? `<div class="fd-preview-split">${split}</div>${fbLine ? `<span class="fd-preview-pcf">${fbLine}</span>` : ''}`
+            : `<span class="fd-preview-pcf">חלבון ${m.p}g · פחמימה ${m.c}g · שומן ${m.f}g${fbTxt}</span>`}
         <span class="fd-preview-g">${_fdQtyDisplayLabel(g)}</span>
         ${mismatch ? `<div class="fd-kcal-warn"><span class="material-symbols-outlined inline-arrow">warning</span> הקלוריות לא תואמות את פירוט המאקרו (סטייה ${Math.round(mismatch * 100)}%) — ייתכן נתון מקור שגוי</div>` : ''}`;
 }

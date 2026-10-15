@@ -910,6 +910,14 @@ function _fdSplitStyle() {
 }
 // opts.style — דריסת הסגנון (תצוגה מקדימה בהגדרות); opts.eyebrow — שורת "חלוקת קלוריות" (בארוחה);
 // opts.still — בלי אנימציית בנייה (רינדור חוזר בזמן הקלדת כמות / רענון יומן)
+// opts.ctx — 'meal' | 'item': מאפשר החלפה בלחיצה בין אחוזים ראשיים לגרמים ראשיים (נשמר לכל הקשר בנפרד).
+//   ברירת מחדל: בארוחה אחוזים, בעורך המנה גרמים. בלי ctx (תצוגה מקדימה בהגדרות) — אחוזים, בלי החלפה.
+const _FD_SPLIT_PRIMARY_DEFAULT = { meal: 'pct', item: 'g' };
+function _fdSplitPrimary(ctx) {
+    if (!ctx) return 'pct';
+    const v = ((getAnalyticsPrefs() || {}).macroSplitPrimary || {})[ctx];
+    return v === 'pct' || v === 'g' ? v : (_FD_SPLIT_PRIMARY_DEFAULT[ctx] || 'pct');
+}
 function _fdSplitHTML(p, c, f, opts) {
     const sp = _fdMacroSplit(p, c, f);
     if (!sp) return '';
@@ -918,17 +926,24 @@ function _fdSplitHTML(p, c, f, opts) {
     const g = [p, c, f].map(v => `${_fdR(+v || 0)}g`);
     const names = ['חלבון', 'פחמימה', 'שומן'], cls = ['p', 'c', 'f'];
     const totKcal = sp.kcal[0] + sp.kcal[1] + sp.kcal[2];
-    const pctH = v => `<span class="fd-ms-pct">${v}<i>%</i></span>`;
+    const gPrimary = _fdSplitPrimary(o.ctx) === 'g';
+    // ערך ראשי (גדול) ומשני (קטן) לפי ההקשר: אחוז או גרמים
+    const big = i => gPrimary
+        ? `<span class="fd-ms-pct">${_fdR(+[p, c, f][i] || 0)}<i>g</i></span>`
+        : `<span class="fd-ms-pct">${sp.pct[i]}<i>%</i></span>`;
+    const small = i => gPrimary
+        ? `<span class="fd-ms-g fd-ms-g--pct">${sp.pct[i]}%</span>`
+        : `<span class="fd-ms-g">${g[i]}</span>`;
     const mod = (k, i) => `fd-ms--${k}${sp.pct[i] ? '' : ' is-zero'}`;
     let body;
     if (style === 'rows') {
         body = `<div class="fd-ms-rows">${cls.map((k, i) => `<div class="fd-ms-row ${mod(k, i)}">
-            <span class="fd-ms-nm">${names[i]}<span class="fd-ms-g">${g[i]}</span></span>${pctH(sp.pct[i])}
+            <span class="fd-ms-nm">${names[i]}${small(i)}</span>${big(i)}
             <span class="fd-ms-track">${sp.pct[i] ? `<i style="width:${sp.pct[i]}%"></i>` : ''}</span></div>`).join('')}</div>`;
     } else if (style === 'bar') {
         const segs = cls.map((k, i) => sp.pct[i] ? `<i class="fd-ms--${k}" style="width:calc(${sp.pct[i]}% - 2px)"></i>` : '').join('');
         body = `<div class="fd-ms-seg">${segs}</div><div class="fd-ms-cols">${cls.map((k, i) => `<div class="fd-ms-col ${mod(k, i)}">
-            <span class="fd-ms-nm">${names[i]}</span>${pctH(sp.pct[i])}<span class="fd-ms-g">${g[i]}</span></div>`).join('')}</div>`;
+            <span class="fd-ms-nm">${names[i]}</span>${big(i)}${small(i)}</div>`).join('')}</div>`;
     } else {
         // טבעת: קשתות SVG עם קצוות מעוגלים; הכובע העגול מוסיף רוחב-קו לאורך, ולכן מנוכה מהקשת
         const r = 40, C = 2 * Math.PI * r, sw = 7, gap = 0.035 * C;
@@ -945,10 +960,29 @@ function _fdSplitHTML(p, c, f, opts) {
         body = `<div class="fd-ms-ringrow"><div class="fd-ms-ring"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="fd-ms-ring-trk" cx="50" cy="50" r="${r}"></circle>${arcs}</svg>
             <div class="fd-ms-ring-mid"><b>${totKcal}</b><small>קק״ל</small></div></div>
             <div class="fd-ms-legend">${cls.map((k, i) => `<div class="fd-ms-lr ${mod(k, i)}"><span class="fd-ms-dot"></span>
-                <span class="fd-ms-nm">${names[i]}<span class="fd-ms-g">${g[i]}</span></span>${pctH(sp.pct[i])}</div>`).join('')}</div></div>`;
+                <span class="fd-ms-nm">${names[i]}${small(i)}</span>${big(i)}</div>`).join('')}</div></div>`;
     }
     const eyebrow = o.eyebrow ? `<div class="fd-ms-eyebrow">חלוקת קלוריות<b>${totKcal} קק״ל ממאקרו</b></div>` : '';
-    return `<div class="fd-ms fd-ms-style-${style}${o.still ? ' fd-ms--still' : ''}">${eyebrow}${body}</div>`;
+    const swap = (o.ctx === 'meal' || o.ctx === 'item')
+        ? ` data-ctx="${o.ctx}" data-p="${+p || 0}" data-c="${+c || 0}" data-f="${+f || 0}"${o.eyebrow ? ' data-eyebrow="1"' : ''} role="button" tabindex="0" aria-label="החלף בין אחוזים לגרמים" onclick="fdToggleSplitPrimary(event,this)" onkeydown="if(event.key==='Enter'||event.key===' '){fdToggleSplitPrimary(event,this)}"`
+        : '';
+    return `<div class="fd-ms fd-ms-style-${style}${o.still ? ' fd-ms--still' : ''}${o.swapped ? ' fd-ms--swapped' : ''}"${swap}>${eyebrow}${body}</div>`;
+}
+
+// לחיצה על התצוגה: החלפת הערך הראשי (אחוז ↔ גרם) לכל התצוגות מאותו הקשר, ושמירה בהעדפות
+function fdToggleSplitPrimary(ev, el) {
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    const ctx = el && el.dataset.ctx;
+    if (ctx !== 'meal' && ctx !== 'item') return;
+    const prefs = getAnalyticsPrefs();
+    const cur = _fdSplitPrimary(ctx);
+    prefs.macroSplitPrimary = Object.assign({}, prefs.macroSplitPrimary || {}, { [ctx]: cur === 'g' ? 'pct' : 'g' });
+    saveAnalyticsPrefs(prefs);
+    document.querySelectorAll(`.fd-ms[data-ctx="${ctx}"]`).forEach(node => {
+        const d = node.dataset;
+        node.outerHTML = _fdSplitHTML(+d.p, +d.c, +d.f, { ctx, eyebrow: d.eyebrow === '1', still: true, swapped: true });
+    });
+    if (typeof haptic === 'function') haptic('light');
 }
 
 // הגדרות → יומן תזונה: בחירת סגנון + תצוגה מקדימה חיה
@@ -1006,7 +1040,7 @@ function _fdMealsHTML(entries, mfpOwned) {
             ? `<button class="fd-meal-savebtn" data-meal="${_fdEsc(meal)}" title="שמור את הארוחה במותאמים לשימוש חוזר" onclick="event.stopPropagation();fdSaveMealAsCustom(this.dataset.meal)">שמור</button>`
             : '';
         const splitOpen = items.length > 0 && _fdOpenSplits.has(meal);
-        const splitHTML = items.length ? _fdSplitHTML(mp, mc, mf, { eyebrow: true, still: splitOpen }) : '';
+        const splitHTML = items.length ? _fdSplitHTML(mp, mc, mf, { ctx: 'meal', eyebrow: true, still: splitOpen }) : '';
         const accVar = _FD_MEAL_ACCENT[meal] ? `--fd-meal-accent:${_FD_MEAL_ACCENT[meal]};` : '';
         html += `<div class="fd-meal" style="${accVar}animation-delay:${mi * 0.04}s">
             <div class="fd-meal-hdr${splitHTML && splitOpen ? ' is-open' : ''}" data-meal="${_fdEsc(meal)}"${splitHTML ? ` role="button" tabindex="0" aria-expanded="${splitOpen}" onclick="fdToggleMealSplit(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();fdToggleMealSplit(this)}"` : ''}>
@@ -1764,7 +1798,7 @@ function _fdUpdatePreview() {
         : (_fbTgt > 0 ? ' · <span class="fd-preview-miss">סיבים — הוסף בעריכת ערכי המוצר</span>' : '');
     // פיצול אחוזי הקלוריות מחליף את שורת הגרמים (הגרמים במקרא); בלי מאקרו — השורה הישנה
     // רינדור חוזר (הקלדת כמות) — בלי לבנות את הפס מחדש באנימציה בכל הקשה
-    const split = _fdSplitHTML(m.p, m.c, m.f, { still: !!prev.querySelector('.fd-ms') });
+    const split = _fdSplitHTML(m.p, m.c, m.f, { ctx: 'item', still: !!prev.querySelector('.fd-ms') });
     const fbLine = m.fb != null ? `סיבים ${m.fb}g`
         : (_fbTgt > 0 ? '<span class="fd-preview-miss">סיבים — הוסף בעריכת ערכי המוצר</span>' : '');
     prev.innerHTML = `<span class="fd-preview-kcal">${m.kcal}<small>kcal</small></span>

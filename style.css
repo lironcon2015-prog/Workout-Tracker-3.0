@@ -6993,6 +6993,13 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-ms-pct i { font-style: normal; font-weight: 400; font-size: 0.6em; color: var(--text-dim); margin-inline-start: 1px; }
 .fd-ms .is-zero .fd-ms-pct, .fd-ms .is-zero .fd-ms-pct i { color: var(--text-faint, rgba(255,255,255,0.28)); }
 .fd-ms-g { font-variant-numeric: tabular-nums; font-size: var(--fs-xs); color: var(--text-dim); font-weight: 400; }
+.fd-ms-g--pct { color: var(--m); font-weight: 600; }
+.fd-ms .is-zero .fd-ms-g--pct { color: var(--text-faint, rgba(255,255,255,0.28)); }
+.fd-ms[data-ctx] { cursor: pointer; -webkit-tap-highlight-color: transparent; border-radius: var(--r-sm); }
+.fd-ms[data-ctx]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.fd-ms--swapped .fd-ms-pct, .fd-ms--swapped .fd-ms-g { animation: fdMsSwap .28s var(--ease) both; }
+@keyframes fdMsSwap { from { opacity: 0; transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .fd-ms--swapped .fd-ms-pct, .fd-ms--swapped .fd-ms-g { animation: none; } }
 .fd-ms-nm { font-size: var(--fs-sm); font-weight: 500; color: var(--text); display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 /* שורות */
 .fd-ms-rows { display: flex; flex-direction: column; }

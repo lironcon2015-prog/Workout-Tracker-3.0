@@ -750,6 +750,21 @@
                         </div>
                     </div>
 
+                    <!-- יומן תזונה — סגנון חלוקת הקלוריות לפי מאקרו -->
+                    <div class="settings-group">
+                        <div class="settings-group-label">יומן תזונה</div>
+                        <div class="stg-bento stg-msplit-bento">
+                            <span class="stg-row-title">תצוגת חלוקת קלוריות</span>
+                            <div class="stg-nutri-hint">איך יוצג אחוז הקלוריות מחלבון, פחמימה ושומן בארוחה ובעורך המנה</div>
+                            <div class="segment-wrapper" id="macro-split-seg">
+                                <button class="seg-btn" data-style="rows" onclick="setMacroSplitStyle('rows')">שורות</button>
+                                <button class="seg-btn" data-style="bar" onclick="setMacroSplitStyle('bar')">פס</button>
+                                <button class="seg-btn" data-style="ring" onclick="setMacroSplitStyle('ring')">טבעת</button>
+                            </div>
+                            <div class="stg-msplit-preview" id="macro-split-preview"></div>
+                        </div>
+                    </div>
+
                     <div class="bridge-btn-row" style="margin-top:12px;">
                         <button class="bridge-btn bridge-btn--danger" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     </div>

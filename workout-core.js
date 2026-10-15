@@ -1901,6 +1901,7 @@ function openSettings() {
     if (typeof syncLiveModeToggle === 'function') syncLiveModeToggle();
     if (typeof syncHomeCardToggle === 'function') syncHomeCardToggle();
     if (typeof syncThemePicker === 'function') syncThemePicker();
+    if (typeof syncMacroSplitSetting === 'function') syncMacroSplitSetting();
     const _st = document.getElementById('sound-toggle');
     if (_st) _st.checked = soundEnabled;
     const _cst = document.getElementById('cardio-sound-settings-toggle');

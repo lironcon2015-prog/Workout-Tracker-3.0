@@ -912,7 +912,8 @@ function _fdSplitHTML(p, c, f, opts) {
     const bar = cls.map((k, i) => sp.pct[i] ? `<span class="fd-split-${k}" style="width:${sp.pct[i]}%"></span>` : '').join('');
     const leg = cls.map((k, i) => {
         const sub = [o.kcal ? `${sp.kcal[i]} קק״ל` : '', o.grams ? `${g[i]}g` : ''].filter(Boolean).join(' · ');
-        return `<div class="fd-split-lg fd-split-lg--${k}"><span class="fd-split-pct">${sp.pct[i]}%</span><span class="fd-split-nm">${names[i]}</span>${sub ? `<span class="fd-split-sub">${sub}</span>` : ''}</div>`;
+        // רוחב התווית יחסי לאחוז (כמו המקטע בפס), כדי שתשב מתחת למקטע שלה; min-width ב-CSS למקטעים קטנים
+        return `<div class="fd-split-lg fd-split-lg--${k}" style="flex-grow:${sp.pct[i]}"><span class="fd-split-pct">${sp.pct[i]}%</span><span class="fd-split-nm">${names[i]}</span>${sub ? `<span class="fd-split-sub">${sub}</span>` : ''}</div>`;
     }).join('');
     return `<div class="fd-split-bar">${bar}</div><div class="fd-split-legend">${leg}</div>`;
 }

@@ -57,8 +57,8 @@ const r2 = _vitalLockRow(m2.lock, D);
 
 ok(m2.changed === true,      'הערב חורת את מה שטרם נחרת (דופק ונשימה)');
 ok(r2.hrv === 85,            'HRV נשאר 85 — הקריאה של הבוקר, לא של הערב');
-ok(r2.asleepMin === 432,     'משך השינה נשאר של הבוקר');
-ok(r2.efficiency === 0.93,   'היעילות נשארת של הבוקר');
+ok(r2.asleepMin === 440,     'משך השינה גדל (שינה מצטברת) — הגדול גובר');
+ok(r2.efficiency === 0.91,   'היעילות מתעדכנת יחד עם משך השינה שגדל');
 ok(r2.rhr === 55,            'דופק מנוחה שחסר בבוקר נחרת עכשיו — הפעם הראשונה שהתקבל');
 ok(r2.respRate === 14.2,     'נשימה שחסרה בבוקר נחרתת עכשיו');
 
@@ -69,9 +69,25 @@ ok(m3.changed === false,                                   'אין מה לחרו
 ok(JSON.stringify(m3.lock) === JSON.stringify(m2.lock),    'הקיבוע זהה — הציון לא יזוז שוב');
 ok(m3.lock === m2.lock,                                    'בלי שינוי מוחזר אותו מערך (אין העתקה מיותרת)');
 
+/* ── חזרה לישון אחרי הקיבוע: משך השינה גדל, הציון משתחרר לחישוב חוזר ─────── */
+// 16.10: התעוררות ב-7, סנכרון ונעילה על 6:37 (397), חזרה לישון עד ~9 → אפל 7:52 (472)
+const napLock = [{ date: D, hrv: 32, rhr: 51, respRate: 12.5, asleepMin: 397, efficiency: 0.83, rd: { score: 36 } }];
+const nap = _vitalLockMerge(napLock, D, { date: D, hrv: 40, rhr: 49, respRate: 13, asleepMin: 472, efficiency: 0.88 });
+const rn = _vitalLockRow(nap.lock, D);
+ok(nap.changed === true,                 'שינה שגדלה אחרי הקיבוע מסומנת כשינוי');
+ok(rn.asleepMin === 472,                 'משך השינה מתעדכן ל-7:52');
+ok(rn.efficiency === 0.88,               'היעילות מתעדכנת יחד איתו');
+ok(rn.rd === undefined,                  'הציון שחושב על שינה חלקית משתחרר לחישוב חוזר');
+ok(rn.hrv === 32 && rn.rhr === 51 && rn.respRate === 12.5, 'שאר המדדים נשארים נעולים');
+ok(napLock[0].asleepMin === 397 && napLock[0].rd,          'הקלט לא שונה (פונקציה טהורה)');
+const napLess = _vitalLockMerge(nap.lock, D, { date: D, asleepMin: 450, efficiency: 0.9 });
+ok(napLess.changed === false && _vitalLockRow(napLess.lock, D).asleepMin === 472, 'קריאה קטנה יותר אינה מקטינה');
+const napBad = _vitalLockMerge(napLock, D, { date: D, asleepMin: 5000 });
+ok(napBad.changed === false,             'ערך לא תקין אינו מגדיל');
+
 /* ── overlay: הלילה כפי שהמוכנות רואה אותו ───────────────────────────────── */
 const seen = _vitalLockOverlay(later, r2);
-ok(seen.hrv === 85 && seen.rhr === 55 && seen.asleepMin === 432,
+ok(seen.hrv === 85 && seen.rhr === 55 && seen.asleepMin === 440,
    'ה-overlay מחזיר את הערכים החרוטים, לא את הטריים');
 ok(seen.deepMin === undefined && later.hrv === 70,
    'ה-overlay אינו משנה את הקלט (SLEEP_DAILY נשאר טרי)');

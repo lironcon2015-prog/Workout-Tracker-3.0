@@ -523,6 +523,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { try { migrateWatchZones(); } catch (e) {} }, 1500);
     // ויטלים שנשמרו כ-0 (לפני v19.17.4) → שדה חסר. אידמפוטנטי, כותב רק כשיש מה לנקות
     setTimeout(() => { try { StorageManager.cleanZeroVitals(); } catch (e) {} }, 1600);
+    // שם תרגיל ששונה רק ברישיות/רווחים — איחוד הארכיון לשם שבמאגר (אידמפוטנטי, לא בזמן אימון)
+    setTimeout(() => { try { canonicalizeExerciseNames(); } catch (e) { console.warn('canonicalizeExerciseNames failed', e); } }, 1700);
     // גיבוי שבועי לאימייל — בדיקה שקטה בפתיחה (שולח רק אם עברו ≥7 ימים)
     setTimeout(() => StorageManager.maybeSendWeeklyBackup(false), 4000);
     // ווידג'ט אייפון — דחיפת snapshot שקטה בפתיחה (throttle 10 דק')

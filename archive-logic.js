@@ -141,7 +141,107 @@ function _lastPerformancesIn(history, exName, limit) {
     }
     return results;
 }
+
+// ── איחוד שם לשם הקנוני (השם במאגר התרגילים) ──────────────────────────────
+// מפה old→canonical: שם בארכיון שאינו במאגר כפי שהוא, אך תואם בנרמול לשם מאגר
+// **יחיד**. שני שמות מאגר שנבדלים רק ברישיות = עמימות → לא נוגעים.
+function _exCanonMap(names, dbNames) {
+    const exact = new Set(dbNames || []);
+    const byKey = {};
+    (dbNames || []).forEach(n => { const k = _exNameKey(n); (byKey[k] = byKey[k] || []).push(n); });
+    const map = {};
+    (names || []).forEach(n => {
+        if (!n || exact.has(n) || map[n]) return;
+        const c = byKey[_exNameKey(n)];
+        if (c && c.length === 1 && c[0] !== n) map[n] = c[0];
+    });
+    return map;
+}
+// שורת סיכום שמתחילה בשם התרגיל (כותרת בלוק "שם (..." / "שם:" או שורת Cluster מוזחת)
+function _exCanonSummary(summary, map) {
+    if (typeof summary !== 'string' || !summary) return summary;
+    const olds = Object.keys(map).sort((a, b) => b.length - a.length);
+    if (!olds.length) return summary;
+    return summary.split('\n').map(line => {
+        const lead = line.match(/^\s*/)[0], rest = line.slice(lead.length);
+        for (const o of olds) {
+            if (rest.indexOf(o) === 0) {
+                const after = rest.slice(o.length);
+                if (after.startsWith(' (') || after.startsWith(':')) return lead + map[o] + after;
+            }
+        }
+        return line;
+    }).join('\n');
+}
+// _exCanonEntry — רשומת ארכיון עם שמות קנוניים. טהורה: מחזירה { entry, changed }.
+// משנה **שמות בלבד** — סטים, נפח, הערות ותאריכים עוברים כמו שהם.
+function _exCanonEntry(entry, dbNames) {
+    if (!entry || !entry.details) return { entry, changed: false };
+    const map = _exCanonMap(Object.keys(entry.details), dbNames);
+    if (!Object.keys(map).length) return { entry, changed: false };
+    const out = Object.assign({}, entry);
+    const details = {};
+    Object.keys(entry.details).forEach(n => {
+        const c = map[n] || n, d = entry.details[n];
+        if (!details[c]) { details[c] = Object.assign({}, d); return; }
+        // שני השמות באותו אימון (נדיר) — איחוד הסטים והנפח לתרגיל אחד
+        const t = details[c];
+        t.sets = [].concat(t.sets || [], d.sets || []);
+        t.vol = (Number(t.vol) || 0) + (Number(d.vol) || 0);
+        if (d.note && !t.note) t.note = d.note;
+    });
+    out.details = details;
+    if (Array.isArray(entry.exOrder)) {
+        const seen = new Set();
+        out.exOrder = entry.exOrder.map(n => map[n] || n).filter(n => !seen.has(n) && seen.add(n));
+    }
+    if (Array.isArray(entry.log)) {
+        out.log = entry.log.map(l => (l && map[l.exName]) ? Object.assign({}, l, { exName: map[l.exName] }) : l);
+    }
+    if (typeof entry.summary === 'string') out.summary = _exCanonSummary(entry.summary, map);
+    return { entry: out, changed: true };
+}
+// מפה לפי שם תרגיל (משקל אחרון / 1RM / TM): מפתח ישן → קנוני. קנוני קיים גובר.
+function _exCanonKeyed(obj, dbNames) {
+    if (!obj || typeof obj !== 'object') return { obj, changed: false };
+    const map = _exCanonMap(Object.keys(obj), dbNames);
+    if (!Object.keys(map).length) return { obj, changed: false };
+    const out = {};
+    Object.keys(obj).forEach(n => { if (!map[n]) out[n] = obj[n]; });
+    Object.keys(map).forEach(o => { if (!(map[o] in out)) out[map[o]] = obj[o]; });
+    return { obj: out, changed: true };
+}
 // EXNAME-END
+
+// canonicalizeExerciseNames — איחוד שמות בארכיון ובמפות לפי-תרגיל לשם שבמאגר.
+// רץ בכל פתיחה (אין דגל "בוצע": השם עלול להשתנות שוב), כותב רק כשיש מה לאחד.
+// לא רץ בזמן אימון פעיל — האיחוד יקרה בפתיחה הבאה אחרי הסיום.
+function canonicalizeExerciseNames() {
+    if (StorageManager.hasActiveSession && StorageManager.hasActiveSession()) return 0;
+    const dbNames = (state.exercises || []).map(e => e && e.name).filter(Boolean);
+    if (!dbNames.length) return 0;
+    let n = 0;
+    const archive = StorageManager.getArchive();
+    const next = archive.map(e => { const r = _exCanonEntry(e, dbNames); if (r.changed) n++; return r.entry; });
+    if (n) {
+        if (!StorageManager.saveData(StorageManager.KEY_ARCHIVE, next)) {
+            console.warn('canonicalizeExerciseNames: archive save failed (storage full?)');
+            return 0;
+        }
+    }
+    let cfg = false;
+    [StorageManager.KEY_WEIGHTS, StorageManager.KEY_RM, StorageManager.KEY_EXERCISE_TM, StorageManager.KEY_EXERCISE_TM_AT]
+        .forEach(key => {
+            const r = _exCanonKeyed(StorageManager.getData(key), dbNames);
+            if (r.changed && StorageManager.saveData(key, r.obj)) cfg = true;
+        });
+    if ((n || cfg) && typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured && FirebaseManager.isConfigured()) {
+        if (n) FirebaseManager.saveArchiveToCloud().catch(e => console.warn('canonicalizeExerciseNames: archive cloud sync failed', e));
+        if (cfg) FirebaseManager.saveConfigToCloud().catch(e => console.warn('canonicalizeExerciseNames: config cloud sync failed', e));
+    }
+    if (n) console.log(`GymPro: ${n} אימונים — שמות תרגילים אוחדו לשם שבמאגר`);
+    return n;
+}
 
 function getLastPerformances(exName, limit = 5) {
     return _lastPerformancesIn(StorageManager.getArchive(), exName, limit);

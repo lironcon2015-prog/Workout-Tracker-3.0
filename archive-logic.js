@@ -115,17 +115,36 @@ function toggleArchiveCalendar() {
 }
 
 // מחזיר עד `limit` ביצועים אחרונים של תרגיל בארכיון — מהחדש לישן
-function getLastPerformances(exName, limit = 5) {
-    const history = StorageManager.getArchive();
+// EXNAME-START — בלוק טהור, נבדק ב-test/exercise-name-match.test.js (אל תסיר את הסמנים)
+// שם תרגיל הוא מפתח ב-entry.details. שינוי אותיות ("Machine Chest Press" →
+// "machine chest press") או רווח עודף ניתקו את התרגיל מכל ההיסטוריה שלו — בשקט:
+// "ביצוע קודם" פשוט הופיע ריק. השוואה מנורמלת: רישיות, רווחים, צורת יוניקוד.
+function _exNameKey(name) {
+    return String(name || '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+// התאמה מדויקת קודם (המקרה הנפוץ, בלי לולאה), ורק אחריה מנורמלת
+function _findExDetails(details, exName) {
+    if (!details || !exName) return null;
+    if (details[exName]) return details[exName];
+    const k = _exNameKey(exName);
+    for (const n of Object.keys(details)) if (_exNameKey(n) === k) return details[n];
+    return null;
+}
+function _lastPerformancesIn(history, exName, limit) {
     const results = [];
-    for (const entry of history) {
-        if (!entry.details || !entry.details[exName]) continue;
-        const sets = entry.details[exName].sets;
+    for (const entry of (history || [])) {
+        const d = _findExDetails(entry && entry.details, exName);
+        const sets = d && d.sets;
         if (!sets || !sets.length) continue;
         results.push({ sets, date: entry.date || '' });
         if (results.length >= limit) break;
     }
     return results;
+}
+// EXNAME-END
+
+function getLastPerformances(exName, limit = 5) {
+    return _lastPerformancesIn(StorageManager.getArchive(), exName, limit);
 }
 
 // getArchiveClean — הארכיון שממנו נגזר כל מדד **נפח** (אנליטיקה, hero, שיאים,

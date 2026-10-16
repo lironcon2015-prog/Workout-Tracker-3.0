@@ -1730,6 +1730,7 @@ function _unifiedRange(range) {
 
 // ההסבר המוטמע בקובץ המאוחד מעבר ל-_NUTRI_EXPORT_README — משותף גם ל-00_readme.json בדרייב
 const _UNIFIED_README_EXTRA = [
+    'sleep_recovery: manualAddMin = שינה ללא שלבים שהמשתמש הוסיף ידנית (אפל רשמה אותה ולא נקלטה). כשהוא קיים, asleepMin/inBedMin/efficiency כבר כוללים אותו, ו-appleAsleepMin הוא הערך שנקלט מאפל לפני התוספת.',
     'sleep_recovery: ויטל שלא נמדד באותו לילה (hrv, rhr, respRate, wristTempDev) — השדה חסר ברשומה. הוא אף פעם לא 0; 0 אינו מדידה.',
     'הקובץ מכיל 6 מקטעים: weights (שקילות), nutrition_daily (סיכום יומי), nutrition_detailed (פירוט תזונה), workouts (אימוני כוח ואירובי), sleep_recovery (שינה + התאוששות), memory_box (כללים מאושרים לתיבת זיכרון המאמן — אין להם תאריך, נכללים במלואם בכל טווח).',
     'workouts[].watch = סיכום האימון מ-Apple Watch, כשקיים: hrAvg/hrMax (דופק), activeKcal (קלוריות פעילות), ' +
@@ -1767,7 +1768,8 @@ function _buildUnifiedSections(r) {
     const nutritionDetailed = _buildNutritionDetailed(r.from, r.to);
 
     // שינה + התאוששות — לילות מ-Apple Health (שינה, שלבים, HRV/RHR/נשימה/טמפ'), לפי YYYY-MM-DD
-    const sleepRecovery = StorageManager.getSleepDaily().filter(d => inRange(d.date))
+    // שינה ידנית נכללת בסך (asleepMin), ונשארת מזוהה: manualAddMin + appleAsleepMin
+    const sleepRecovery = _sleepManualApplyAll(StorageManager.getSleepDaily().filter(d => inRange(d.date)))
         .sort((a, b) => a.date < b.date ? -1 : 1);
 
     // אימונים — סינון לפי timestamp, הסרת aiSummary + ניקוי טקסט מאמן מוטמע
@@ -1963,12 +1965,52 @@ function _sleepDemoData() {
     return out;
 }
 
+/* ═══ שינה ידנית ללא שלבים ════════════════════════════════════════════════
+ * מקרה נדיר: חזרה לישון שאפל רושמת כ"שינה" בלי שלבים, והיא לא נקלטת. המשתמש
+ * מוסיף אותה ידנית (אריח "זמן שינה"). התוספת נשמרת כשדה נפרד manualAddMin על
+ * הלילה ב-SLEEP_DAILY ומתווספת **בזמן הקריאה** — כתיבה ישירה ל-asleepMin
+ * הייתה נמחקת בסנכרון הבא מהגשר. mergeSleepDays עושה Object.assign על הרשומה
+ * הקיימת, ולכן השדה שורד סנכרונים.
+ * ═════════════════════════════════════════════════════════════════════════*/
+// SLEEPMANUAL-START — בלוק טהור, נבדק ב-test/sleep-manual.test.js (אל תסיר את הסמנים)
+function _sleepManualApply(night) {
+    const add = Math.round(Number(night && night.manualAddMin) || 0);
+    if (!night || !(add > 0)) return night;
+    const stages = (Number(night.coreMin) || 0) + (Number(night.deepMin) || 0) + (Number(night.remMin) || 0);
+    const base = Number(night.asleepMin) > 0 ? Number(night.asleepMin) : stages;
+    const inBedBase = Number(night.inBedMin) > 0 ? Number(night.inBedMin) : base + (Number(night.awakeMin) || 0);
+    const asleep = base + add, inBed = inBedBase + add;
+    const out = Object.assign({}, night, { asleepMin: asleep, inBedMin: inBed, appleAsleepMin: base });
+    if (inBed > 0) out.efficiency = Math.round(Math.min(asleep / inBed, 1) * 100) / 100;
+    return out;
+}
+function _sleepManualApplyAll(nights) {
+    return Array.isArray(nights) ? nights.map(_sleepManualApply) : [];
+}
+// _vitalLockForgetSleep — שינוי ידני (הוספה, תיקון או הסרה) משחרר את משך השינה,
+// היעילות והציון שנחרתו לאותו תאריך, כדי שיינעלו מחדש מהערך המעודכן. בלי זה
+// הסרה לא הייתה משפיעה עד מחר (הקיבוע מגדיל בלבד). טהורה.
+function _vitalLockForgetSleep(lock, date) {
+    const src = Array.isArray(lock) ? lock : [];
+    let changed = false;
+    const out = src.map(r => {
+        if (!r || r.date !== date) return r;
+        if (r.asleepMin == null && r.efficiency == null && !r.rd) return r;
+        const c = Object.assign({}, r);
+        delete c.asleepMin; delete c.efficiency; delete c.rd;
+        changed = true;
+        return c;
+    });
+    return { lock: changed ? out : src, changed };
+}
+// SLEEPMANUAL-END
+
 // _sleepData — מקור הנתונים: אמיתי אם קיים, אחרת דמה (עם דגל).
 function _sleepData() {
     const real = StorageManager.getSleepDaily();
     // ויטלי היום עוברים דרך הקיבוע — הטבעת, הצ'יפים והאריחים חייבים להציג את
     // אותה קריאה שממנה נגזר הציון, אחרת הכרטיס סותר את עצמו.
-    if (real && real.length) return { nights: _vitalLockApply(real), demo: false };
+    if (real && real.length) return { nights: _vitalLockApply(_sleepManualApplyAll(real)), demo: false };
     return { nights: _sleepDemoData(), demo: true };
 }
 
@@ -2253,7 +2295,7 @@ function _readinessAt(nights, idx, allowFreeze) {
 function _readinessNights() {
     const nights = (typeof StorageManager !== 'undefined' && typeof StorageManager.getSleepDaily === 'function')
         ? StorageManager.getSleepDaily() : [];
-    return _vitalLockApply(nights);
+    return _vitalLockApply(_sleepManualApplyAll(nights));
 }
 
 // _rdBand / _rdColor — הרצועה והצבע נגזרים מהציון בלבד. מקור אחד: הציון מוקפא
@@ -2368,11 +2410,12 @@ function _slRing(rd, size) {
 function _slStagesBar(n) {
     const seg = (v, c) => `<span style="flex-grow:${Math.max(v, 0)};background:${c}"></span>`;
     return `<div class="sl-stages-bar">
-        ${seg(n.deepMin, 'var(--st-deep)')}${seg(n.coreMin, 'var(--st-core)')}${seg(n.remMin, 'var(--st-rem)')}${seg(n.awakeMin, 'var(--st-awake)')}</div>
+        ${seg(n.deepMin, 'var(--st-deep)')}${seg(n.coreMin, 'var(--st-core)')}${seg(n.remMin, 'var(--st-rem)')}${n.manualAddMin > 0 ? `<span class="sl-seg-manual" style="flex-grow:${n.manualAddMin}"></span>` : ''}${seg(n.awakeMin, 'var(--st-awake)')}</div>
     <div class="sl-legend">
         <div class="li"><span class="sw" style="background:var(--st-deep)"></span>עמוקה <b>${_slFmtDur(n.deepMin)}</b></div>
         <div class="li"><span class="sw" style="background:var(--st-core)"></span>בסיסית <b>${_slFmtDur(n.coreMin)}</b></div>
         <div class="li"><span class="sw" style="background:var(--st-rem)"></span>REM <b>${_slFmtDur(n.remMin)}</b></div>
+        ${n.manualAddMin > 0 ? `<div class="li"><span class="sw sl-seg-manual"></span>ללא שלב · ידני <b>${_slFmtDur(n.manualAddMin)}</b></div>` : ''}
         <div class="li"><span class="sw" style="background:var(--st-awake)"></span>ערנות <b>${_slFmtDur(n.awakeMin)}</b></div>
     </div>`;
 }
@@ -2447,6 +2490,71 @@ function _slMetric(v, unit, k, delta, dcls, carriedGap, ltr) {
     // השני ("+0.4°" הוצג כ-"0.4°+"). כיוון LTR על תיבת הערך בלבד מקבע את הסדר.
     const cg = carriedGap ? `<div class="sl-carried">מלפני ${carriedGap === 1 ? 'יום' : carriedGap + ' ימים'}</div>` : '';
     return `<div class="sl-metric"><div class="v${ltr ? ' v--ltr' : ''}">${v}<small>${unit || ''}</small></div><div class="k">${k}</div>${delta ? `<div class="d ${dcls}">${delta}</div>` : ''}${cg}</div>`;
+}
+
+// אריח "זמן שינה" — לחיץ (מלבד בדמו): פותח הוספת שינה ידנית ללא שלבים. אין כפתור
+// על המסך בכוונה: השימוש נדיר מאוד. תוספת קיימת מסומנת בשורה קטנה מתחת.
+function _slSleepTile(n, need, sleepOk, demo) {
+    let html = sleepOk
+        ? _slMetric(_slFmtDur(n.asleepMin), '', 'זמן שינה', n.asleepMin >= need ? 'מעל היעד' : 'מתחת ליעד', n.asleepMin >= need ? 'up' : 'down')
+        : _slMetric('—', '', 'זמן שינה', 'טרם נמשך מ-Apple', 'flat');
+    if (n && n.manualAddMin > 0) {
+        html = html.replace(/<\/div>$/, `<div class="sl-carried">כולל ${_slFmtDur(n.manualAddMin)} ידני</div></div>`);
+    }
+    if (demo || !n || !n.date) return html;
+    return html.replace('<div class="sl-metric">',
+        `<div class="sl-metric sl-metric--tap" role="button" tabindex="0" aria-label="הוספת שינה ידנית" onclick="openSleepManual('${n.date}')" onkeydown="if(event.key==='Enter'){openSleepManual('${n.date}')}">`);
+}
+
+// ── חלון הוספת שינה ידנית ───────────────────────────────────────────────
+let _slmDate = null;
+function openSleepManual(date) {
+    const night = StorageManager.getSleepDaily().find(d => d && d.date === date);
+    if (!night) return;
+    _slmDate = date;
+    const add = Math.round(Number(night.manualAddMin) || 0);
+    const stages = (night.coreMin || 0) + (night.deepMin || 0) + (night.remMin || 0);
+    const apple = night.asleepMin > 0 ? night.asleepMin : stages;
+    const [y, m, d] = date.split('-');
+    document.getElementById('slm-sub').textContent = `${d}.${m} · לפי אפל: ${apple > 0 ? _slFmtDur(apple) : '—'}`;
+    document.getElementById('slm-h').value = add ? Math.floor(add / 60) : '';
+    document.getElementById('slm-m').value = add ? add % 60 : '';
+    document.getElementById('slm-del').style.display = add ? '' : 'none';
+    document.getElementById('sleep-manual-overlay').style.display = 'block';
+    document.getElementById('sleep-manual-sheet').classList.add('open');
+}
+function closeSleepManual() {
+    document.getElementById('sleep-manual-overlay').style.display = 'none';
+    document.getElementById('sleep-manual-sheet').classList.remove('open');
+}
+function saveSleepManual(remove) {
+    if (!_slmDate) return;
+    let add = 0;
+    if (!remove) {
+        const hs = document.getElementById('slm-h').value.trim(), ms = document.getElementById('slm-m').value.trim();
+        const h = hs === '' ? 0 : Number(hs), mi = ms === '' ? 0 : Number(ms);
+        if (!Number.isInteger(h) || h < 0 || h > 12) { showAlert('שעות: מספר שלם בין 0 ל-12.'); return; }
+        if (!Number.isInteger(mi) || mi < 0 || mi > 59) { showAlert('דקות: מספר שלם בין 0 ל-59.'); return; }
+        add = h * 60 + mi;
+    }
+    const nights = StorageManager.getSleepDaily();
+    const i = nights.findIndex(d => d && d.date === _slmDate);
+    if (i < 0) { closeSleepManual(); return; }
+    const night = Object.assign({}, nights[i]);
+    if (add > 0) night.manualAddMin = add; else delete night.manualAddMin;
+    nights[i] = night;
+    StorageManager.saveSleepDaily(nights);
+    // הקיבוע הגדיל-בלבד — שחרור משך השינה והציון של התאריך כדי שיינעלו מהערך החדש
+    try {
+        const m = _vitalLockForgetSleep(StorageManager.getVitalLock(), _slmDate);
+        if (m.changed) StorageManager.saveVitalLock(m.lock);
+    } catch (e) { console.warn('sleep manual: vital lock release failed', e); }
+    if (typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured && FirebaseManager.isConfigured()) {
+        FirebaseManager.saveConfigToCloud().catch(() => {});
+    }
+    closeSleepManual();
+    renderSleepView();
+    if (typeof haptic === 'function') haptic('light');
 }
 
 function _slAvg(nights, key, win) {
@@ -2570,9 +2678,7 @@ function renderSleepView() {
         </div>
       </div>
       <div class="sl-mgrid">
-        ${_sleepOk
-            ? _slMetric(_slFmtDur(n.asleepMin), '', 'זמן שינה', n.asleepMin >= need ? 'מעל היעד' : 'מתחת ליעד', n.asleepMin >= need ? 'up' : 'down')
-            : _slMetric('—', '', 'זמן שינה', 'טרם נמשך מ-Apple', 'flat')}
+        ${_slSleepTile(n, need, _sleepOk, demo)}
         ${_validVital('efficiency', n.efficiency)
             ? _slMetric(Math.round(n.efficiency * 100), '%', 'יעילות', n.efficiency >= 0.88 ? 'טובה' : 'בינונית', n.efficiency >= 0.88 ? 'up' : 'flat')
             : _slMetric('—', '', 'יעילות', '', 'flat')}

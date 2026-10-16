@@ -2076,7 +2076,7 @@ function _vitalLockRow(lock, date) {
     return lock.find(r => r && r.date === date) || null;
 }
 
-// _vitalLockMerge — חורת כל מדד שטרם נחרת ויש לו כעת קריאה תקינה.
+// _vitalLockMerge — חורת כל מדד שטרם נחרת ויש לו כעת קריאה תקינה (ומגדיל משך שינה שגדל).
 // טהורה: מחזירה { lock, changed } ואינה נוגעת בקלט.
 // ערך שנחרת **אינו נדרס** — זו כל המטרה. ערך חסר/לא-תקין אינו נחרת, כדי
 // שהניסיון יחזור בסנכרון הבא (כלל "דגל טופל נחרת רק כשבאמת טופל").
@@ -2084,14 +2084,30 @@ function _vitalLockMerge(lock, date, night) {
     const src = Array.isArray(lock) ? lock : [];
     const prev = _vitalLockRow(src, date);
     const row = Object.assign({}, prev || { date });
-    let changed = false;
+    let changed = false, sleepGrew = false;
     RD_LOCK_KEYS.forEach(k => {
-        if (row[k] != null) return;
         const v = night ? night[k] : null;
+        if (row[k] != null) {
+            // חריג: משך שינה מצטבר. חזרה לישון אחרי הקיבוע (התעוררות ב-7, עוד שעה
+            // וחצי אחר כך) מגדילה אותו, ואין בו זיהום-ערוּת כמו ב-HRV — קריאה גדולה
+            // יותר היא האמת המלאה, לא רעש. בלעדיו נשאר "6:37" כשאפל מציגה 7:52.
+            if (k === 'asleepMin' && _validVital(k, v) && v > row[k]) {
+                row[k] = v;
+                changed = sleepGrew = true;
+            }
+            return;
+        }
         if (!_validVital(k, v)) return;
         row[k] = v;
         changed = true;
     });
+    if (sleepGrew) {
+        // היעילות נגזרת מאותו לילה — מתעדכנת יחד עם המשך, אחרת היא של לילה חלקי
+        if (_validVital('efficiency', night.efficiency)) row.efficiency = night.efficiency;
+        // הציון היומי חושב על שינה חלקית — שחרור, כדי שיחושב פעם נוספת ויינעל מחדש
+        // (_readinessAt → _vitalLockSetRd). שאר המדדים נשארים נעולים.
+        delete row.rd;
+    }
     if (!changed) return { lock: src, changed: false };
     const out = src.filter(r => !r || r.date !== date);
     out.push(row);

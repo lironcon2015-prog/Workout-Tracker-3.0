@@ -381,6 +381,24 @@
         </div>
     </div>
 
+    <!-- שינה ידנית ללא שלבים — נפתח מלחיצה על אריח "זמן שינה" (שימוש נדיר, בלי כפתור גלוי) -->
+    <div id="sleep-manual-overlay" class="bottom-sheet-overlay" onclick="closeSleepManual()"></div>
+    <div id="sleep-manual-sheet" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <h3>שינה ללא שלבים</h3>
+        <p class="sub-text" id="slm-sub" style="margin-bottom:14px;"></p>
+        <div class="slm-row">
+            <label class="slm-field"><input type="number" id="slm-h" inputmode="numeric" min="0" max="12" step="1" placeholder="0"><span>שעות</span></label>
+            <span class="slm-colon">:</span>
+            <label class="slm-field"><input type="number" id="slm-m" inputmode="numeric" min="0" max="59" step="1" placeholder="00"><span>דקות</span></label>
+        </div>
+        <p class="slm-hint">לשינה שאפל רשמה בלי שלבים ולא נקלטה, למשל חזרה לישון בבוקר. מתווסף לזמן השינה של הלילה.</p>
+        <div class="bridge-btn-row">
+            <button class="bridge-btn bridge-btn--save" onclick="saveSleepManual()">שמור</button>
+            <button class="bridge-btn bridge-btn--danger" id="slm-del" onclick="saveSleepManual(true)">הסר</button>
+        </div>
+    </div>
+
     <!-- Body Log — export options -->
     <!-- בורר טווח לייצוא — sheet משותף לשקילות ולתזונה, בשפת צ'יפי הטווח של האפליקציה -->
     <div id="range-export-overlay" class="bottom-sheet-overlay" onclick="closeRangeExportSheet()"></div>

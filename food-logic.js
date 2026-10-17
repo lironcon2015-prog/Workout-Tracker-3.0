@@ -1605,6 +1605,26 @@ function _fdUnitToPickerVal(servings, unit, unitLabel, fallbackUnit) {
     return unit || fallbackUnit || 's0';
 }
 
+// חשיפת "הוסף ליומן" כשמקלדת iOS עולה מעל שדה הכמות — השיט נדחף למעלה אבל הכפתור נשאר
+// מעט מתחת לקצה הנראה. ממתינים שהמקלדת תתייצב (resize של visualViewport, עם גיבוי בזמן)
+// וגוללים רק אם הכפתור באמת מוסתר — כך שדה הכמות והתצוגה המקדימה נשארים גלויים.
+function _fdRevealSaveBtn() {
+    const vv = window.visualViewport;
+    let done = false;
+    const reveal = () => {
+        if (done) return;
+        done = true;
+        const btn = document.querySelector('#fd-portion-body .fd-save-btn');
+        if (!btn) return;
+        const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+        if (btn.getBoundingClientRect().bottom > visibleBottom - 8) {
+            btn.scrollIntoView({ block: 'end', behavior: 'smooth' });
+        }
+    };
+    if (vv) vv.addEventListener('resize', () => setTimeout(reveal, 60), { once: true });
+    setTimeout(reveal, 450);
+}
+
 function _fdOpenPortion(food, entry) {
     _fdEnsureDate();           // עורך המנה נפתח גם מחוץ ליומן (צ'אט המאמן) — יום חייב להיות
     _fdCompPickMode = false;   // נתיב עורך כמות — לא מצב בחירת מרכיב
@@ -1645,7 +1665,7 @@ function _fdOpenPortion(food, entry) {
             : _fdEsc(food.name)}${food.brand ? `<small>${_fdEsc(food.brand)}</small>` : ''}</div>
         ${canEditFood ? `<button type="button" class="fd-edit-food-btn" onclick="fdEditFromPortion()"><span class="material-symbols-outlined">edit</span>עריכת ערכי המוצר</button>` : ''}
         <div class="fd-portion-row">
-            <label class="fd-field fd-field--qty"><span>כמות</span><input type="number" id="fd-qty" inputmode="decimal" min="0" step="any" value="${qty}" oninput="_fdUpdatePreview()"></label>
+            <label class="fd-field fd-field--qty"><span>כמות</span><input type="number" id="fd-qty" inputmode="decimal" min="0" step="any" value="${qty}" oninput="_fdUpdatePreview()" onfocus="_fdRevealSaveBtn()"></label>
             <label class="fd-field fd-field--unit"><span>יחידה</span><select id="fd-unit" onchange="_fdUpdatePreview()">${unitOpts}</select></label>
             <label class="fd-field fd-field--time"><span>שעה</span><input type="time" id="fd-time" value="${time}"></label>
         </div>

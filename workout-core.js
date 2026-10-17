@@ -2420,7 +2420,7 @@ function openWorkoutPlanSheet(workoutName) {
             item.exercises.forEach(ex => {
                 num++;
                 const exData = state.exercises.find(e => e.name === ex.name);
-                const setsStr = exData && exData.sets && exData.sets[0] ? `${exData.sets.length}×${exData.sets[0].r}` : '';
+                const setsStr = _repRangeLabel(_repRangeOf(ex));   // סבב — מספר הסבבים בכותרת
                 const muscles = exData ? (exData.muscles || []).join(', ') : '';
                 html += `
                     <div class="plan-ex-item">
@@ -2436,7 +2436,8 @@ function openWorkoutPlanSheet(workoutName) {
             num++;
             const isMain = item.isMain;
             const exData = state.exercises.find(e => e.name === item.name);
-            const setsStr = isMain ? '1RM' : (item.sets > 0 ? `${item.sets}×` + (exData && exData.sets && exData.sets[0] ? exData.sets[0].r : '?') : '');
+            const _rl = _repRangeLabel(_repRangeOf(item));
+            const setsStr = isMain ? '1RM' : (item.sets > 0 ? `${item.sets}×${_rl}` : _rl);
             const muscles = exData ? (exData.muscles || []).join(', ') : '';
             html += `
                 <div class="plan-ex-item ${isMain ? 'plan-main' : ''}">
@@ -2454,6 +2455,14 @@ function openWorkoutPlanSheet(workoutName) {
     });
 
     body.innerHTML = html;
+    // עריכת התוכנית ישירות ממסך השבוע — לא באמצע אימון (העורך עוקף את הזרימה)
+    if (!state.workoutStartTime && typeof editWorkout === 'function') {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'plan-sheet-edit';
+        editBtn.textContent = 'ערוך תוכנית';
+        editBtn.onclick = () => { closePlanSheet(); editWorkout(workoutName, 'ui-workout-type'); };
+        body.appendChild(editBtn);
+    }
     const closeBtn = document.createElement('button');
     closeBtn.className = 'plan-sheet-close';
     closeBtn.textContent = 'סגור';
@@ -2731,6 +2740,7 @@ function showConfirmScreen(forceExName = null) {
         if (currentPlanItem.restTime) state.currentEx.restTime = currentPlanItem.restTime;
         if (currentPlanItem.targetWeight !== undefined) state.currentEx.targetWeight = currentPlanItem.targetWeight;
         if (currentPlanItem.targetReps !== undefined) state.currentEx.targetReps = currentPlanItem.targetReps;
+        if (currentPlanItem.repMin != null) { state.currentEx.repMin = currentPlanItem.repMin; state.currentEx.repMax = currentPlanItem.repMax; }
         if (currentPlanItem.targetRIR !== undefined) state.currentEx.targetRIR = currentPlanItem.targetRIR;
     }
 
@@ -2789,6 +2799,7 @@ function confirmExercise(doEx) {
         if (firstExItem.restTime) state.currentEx.restTime = firstExItem.restTime;
         if (firstExItem.targetWeight !== undefined) state.currentEx.targetWeight = firstExItem.targetWeight;
         if (firstExItem.targetReps !== undefined) state.currentEx.targetReps = firstExItem.targetReps;
+        if (firstExItem.repMin != null) { state.currentEx.repMin = firstExItem.repMin; state.currentEx.repMax = firstExItem.repMax; }
         if (firstExItem.targetRIR !== undefined) state.currentEx.targetRIR = firstExItem.targetRIR;
 
         resizeSets(1);
@@ -3298,6 +3309,13 @@ function initPickers() {
         exHeader.parentNode.insertBefore(queueDiv, exHeader.nextSibling);
     }
 
+    // יעד טווח החזרות מהתוכנית (לא ב-Main ולא בדרופ)
+    const _rrB = document.getElementById('rep-range-badge');
+    if (_rrB) {
+        const r = (!state.dropMode && !_isMainExInCurrentWorkout(state.currentExName)) ? _repRangeOf(state.currentEx) : null;
+        _rrB.textContent = r ? `יעד ${_repRangeLabel(r)}` : '';
+        _rrB.style.display = r ? '' : 'none';
+    }
     const badge = document.getElementById('set-counter');
     const existingTrainingLabel = document.getElementById('cluster-training-label');
     if (existingTrainingLabel) existingTrainingLabel.remove();
@@ -3375,8 +3393,17 @@ function initPickers() {
                 defaultW = manualRange.base;
             }
 
+            // טווח חזרות מהתוכנית: מה שבוצע בפעם הקודמת אם בתוך הטווח, אחרת תחתית הטווח
+            const _rr = _isMainExInCurrentWorkout(state.currentExName) ? null : _repRangeOf(state.currentEx);
             if (planR !== undefined) {
                 defaultR = planR;
+            } else if (_rr) {
+                let lastR = null;
+                try {
+                    const lp = (typeof getLastPerformances === 'function') ? getLastPerformances(state.currentExName, 1) : [];
+                    if (lp[0] && lp[0].sets && lp[0].sets[0]) lastR = parseInt(_parseHistorySetStr(lp[0].sets[0]).reps, 10);
+                } catch (e) {}
+                defaultR = _repDefaultFromRange(_rr, lastR);
             } else if (target && target.r) {
                 defaultR = target.r;
             }
@@ -3594,7 +3621,8 @@ function _buildRecommendationPrompt(exName) {
     const nutri    = getNutritionalContext();
     const persona  = StorageManager.getAIPersona() || '';
     const performances = (typeof getLastPerformances === 'function') ? getLastPerformances(exName, 5) : [];
-    const targetReps   = state.currentEx?.targetReps ?? '';
+    const _rrP = (state.currentEx && !_isMainExInCurrentWorkout(state.currentExName)) ? _repRangeOf(state.currentEx) : null;
+    const targetReps   = _rrP ? _repRangeLabel(_rrP) : (state.currentEx?.targetReps ?? '');
     const targetRIR    = state.currentEx?.targetRIR ?? '';
     const currentSetN  = (state.setIdx || 0) + 1;
     const lastRM       = StorageManager.getLastRM ? StorageManager.getLastRM(exName) : '';
@@ -4183,6 +4211,7 @@ function nextStep() {
             if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
             if (nextExItem.targetWeight !== undefined) state.currentEx.targetWeight = nextExItem.targetWeight;
             if (nextExItem.targetReps !== undefined) state.currentEx.targetReps = nextExItem.targetReps;
+            if (nextExItem.repMin != null) { state.currentEx.repMin = nextExItem.repMin; state.currentEx.repMax = nextExItem.repMax; }
             if (nextExItem.targetRIR !== undefined) state.currentEx.targetRIR = nextExItem.targetRIR;
 
             state.currentEx.sets = [{ w: 10, r: 10 }];
@@ -4556,6 +4585,7 @@ function startNextRound() {
     if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
     if (nextExItem.targetWeight !== undefined) state.currentEx.targetWeight = nextExItem.targetWeight;
     if (nextExItem.targetReps !== undefined) state.currentEx.targetReps = nextExItem.targetReps;
+    if (nextExItem.repMin != null) { state.currentEx.repMin = nextExItem.repMin; state.currentEx.repMax = nextExItem.repMax; }
     if (nextExItem.targetRIR !== undefined) state.currentEx.targetRIR = nextExItem.targetRIR;
 
     state.currentEx.sets = [{ w: 10, r: 10 }];
@@ -4613,6 +4643,7 @@ function skipCurrentExercise() {
                 if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
                 if (nextExItem.targetWeight !== undefined) state.currentEx.targetWeight = nextExItem.targetWeight;
                 if (nextExItem.targetReps !== undefined) state.currentEx.targetReps = nextExItem.targetReps;
+                if (nextExItem.repMin != null) { state.currentEx.repMin = nextExItem.repMin; state.currentEx.repMax = nextExItem.repMax; }
                 if (nextExItem.targetRIR !== undefined) state.currentEx.targetRIR = nextExItem.targetRIR;
 
                 state.currentEx.sets = [{ w: 10, r: 10 }];
@@ -5073,6 +5104,7 @@ function _rebindClusterCurrentEx() {
     if (item.restTime) state.currentEx.restTime = item.restTime;
     if (item.targetWeight !== undefined) state.currentEx.targetWeight = item.targetWeight;
     if (item.targetReps !== undefined) state.currentEx.targetReps = item.targetReps;
+    if (item.repMin != null) { state.currentEx.repMin = item.repMin; state.currentEx.repMax = item.repMax; }
     if (item.targetRIR !== undefined) state.currentEx.targetRIR = item.targetRIR;
 
     state.currentEx.sets = [{ w: 10, r: 10 }];
@@ -6141,6 +6173,31 @@ function closeSessionLog() {
 }
 
 // ─── HISTORY DRAWER ────────────────────────────────────────────────────────
+
+// REPRANGE-START — בלוק טהור, נבדק ב-test/rep-range.test.js (אל תסיר את הסמנים)
+// טווח חזרות מוגדר **בתוכנית** (פריט תוכנית: repMin/repMax), לא בתרגיל. תרגיל Main — אין
+// טווח: החזרות המדויקות באות מתבנית השבוע. בלי טווח: יעד חזרות יחיד ישן (targetReps)
+// מוצג כמדויק, ואחרת ברירת המחדל 8–12.
+const REP_RANGE_DEFAULT = { min: 8, max: 12 };
+function _repRangeOf(item) {
+    if (!item || item.isMain) return null;
+    const mn = Number(item.repMin), mx = Number(item.repMax);
+    if (mn > 0 && mx >= mn) return { min: mn, max: mx, src: 'plan' };
+    const t = Number(item.targetReps);
+    if (t > 0) return { min: t, max: t, src: 'target' };
+    return { min: REP_RANGE_DEFAULT.min, max: REP_RANGE_DEFAULT.max, src: 'default' };
+}
+function _repRangeLabel(r) {
+    if (!r) return '';
+    return r.min === r.max ? String(r.min) : `${r.min}–${r.max}`;
+}
+// ברירת מחדל לבורר החזרות: מה שבוצע בפעם הקודמת אם הוא בתוך הטווח, אחרת תחתית הטווח
+function _repDefaultFromRange(r, lastReps) {
+    if (!r) return null;
+    const l = Number(lastReps);
+    return (l >= r.min && l <= r.max) ? l : r.min;
+}
+// REPRANGE-END
 
 // פירוק string סט בפורמט "Wkg x R (RIR X) | Note: text"
 function _parseHistorySetStr(setStr) {
@@ -10365,7 +10422,10 @@ function updateLiveViewContent() {
         else if (state.dropArmed) { dropChip.style.display = 'inline-block'; dropChip.textContent = 'דרופ אחרי הסט'; }
         else                        dropChip.style.display = 'none';
     }
-    if (targetLbl)  targetLbl.textContent = state.dropMode ? `דרופ ${state.dropLevel}` : 'סט נוכחי';
+    if (targetLbl) {
+        const r = (!state.dropMode && !_isMainExInCurrentWorkout(state.currentExName)) ? _repRangeOf(state.currentEx) : null;
+        targetLbl.textContent = state.dropMode ? `דרופ ${state.dropLevel}` : (r ? `סט נוכחי · יעד ${_repRangeLabel(r)}` : 'סט נוכחי');
+    }
     if (targetCard) targetCard.classList.toggle('is-drop', !!(state.dropMode || state.dropArmed || state.dropDone));
     if (timerLbl)   timerLbl.textContent = state.dropMode ? 'DROP' : 'REST';
 

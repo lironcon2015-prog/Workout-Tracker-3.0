@@ -8674,3 +8674,20 @@ body.cardio-paused .cl-ring { opacity: 0.45; }
 /* עורך תוכנית — הסבר שינוי שם (הארכיון מתעדכן לשם החדש) */
 .ed-rename-hint { font-size: var(--fs-sm); color: var(--accent); background: rgba(var(--accent-rgb), 0.12); border-radius: var(--r-md); padding: 8px 12px; margin-top: 8px; line-height: 1.5; }
 .ed-rename-hint[hidden] { display: none; }
+
+/* טווח חזרות בתוכנית — תג במסך הסט, כפתור עריכה ברשימת התרגילים, בורר בעורך */
+.ios-badge--range { background: rgba(255,255,255,0.06); color: var(--text-dim); border-color: var(--hairline); text-transform: none; letter-spacing: 0.02em; }
+.plan-sheet-edit {
+    display: block; width: calc(100% - 32px); margin: 0 16px 8px;
+    padding: 12px; border-radius: var(--r-sm);
+    background: rgba(var(--accent-rgb), 0.14); border: 1px solid rgba(var(--accent-rgb), 0.35);
+    color: var(--accent); font-size: 0.82rem; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.ed-tgt--2 > div { flex: 1; }
+.ed-rr-def { font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim); margin-inline-start: 6px; }
+.fv-chip.def { opacity: 0.7; }
+.ed-rr-cust { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: var(--fs-sm); color: var(--text-dim); }
+.ed-rr-cust input { width: 64px; height: 40px; text-align: center; font-family: inherit; font-size: 1rem; font-weight: 700;
+    background: var(--surface-1); color: var(--text); border: 1px solid var(--hairline); border-radius: var(--r-sm); }
+.ed-rr-cust small { flex-basis: 100%; color: var(--danger); font-size: var(--fs-xs); }
+.ed-rr-cust small:empty { display: none; }

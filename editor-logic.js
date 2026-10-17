@@ -448,7 +448,10 @@ function createNewWorkout() {
     openEditorUI();
 }
 
-function editWorkout(key) {
+// returnTo — מסך החזרה אחרי שמירה (למשל 'ui-workout-type' כשנפתח מרשימת התרגילים
+// במסך השבוע). בלי — חוזרים לניהול התוכניות כמו תמיד.
+function editWorkout(key, returnTo) {
+    managerState.returnTo = returnTo || null;
     managerState.originalName = key; managerState.currentName = key;
     managerState.exercises = JSON.parse(JSON.stringify(state.workouts[key]));
     openEditorUI();
@@ -869,15 +872,16 @@ function renderEditorList() {
 // שורת מטא לתרגיל בתוכנית — מה שקובע את הביצוע, בשורה אחת
 function _edItemMeta(ex, inCluster) {
     const parts = [];
+    const rr = (typeof _repRangeOf === 'function') ? _repRangeOf(ex) : null;
+    const rl = rr ? _repRangeLabel(rr) : '';
     if (inCluster) {
-        if (ex.targetReps != null) parts.push(`${ex.targetReps} חזרות`);
+        if (rl) parts.push(`${rl} חזרות`);
         parts.push(`מעבר ${_fvFmt(ex.restTime != null ? ex.restTime : 30, 'time')}`);
     } else {
-        parts.push(ex.isMain ? 'יעד לפי 1RM' : `${ex.sets || 3} סטים`);
+        parts.push(ex.isMain ? 'יעד לפי 1RM' : `${ex.sets || 3}×${rl}`);
         parts.push(`מנוחה ${_fvFmt(ex.restTime || (ex.isMain ? 120 : 90), 'time')}`);
     }
-    if (ex.targetWeight != null && ex.targetReps != null && !inCluster) parts.push(`${_fvFmt(ex.targetWeight, 'num')} × ${ex.targetReps}`);
-    else if (ex.targetWeight != null) parts.push(`${_fvFmt(ex.targetWeight, 'num')} ק״ג`);
+    if (ex.targetWeight != null) parts.push(`${_fvFmt(ex.targetWeight, 'num')} ק״ג`);
     return parts.join(' · ');
 }
 
@@ -1109,7 +1113,7 @@ function saveWorkoutChanges() {
         haptic('success');
         state.historyStack.pop();
         _setNavDirection('back');
-        navigate('ui-workout-manager');
+        navigate(managerState.returnTo || 'ui-workout-manager');
         renderManagerList();
         renderWorkoutMenu();
         return;
@@ -1124,7 +1128,7 @@ function saveWorkoutChanges() {
     haptic('success');
 
     state.historyStack.pop();
-    navigate('ui-workout-manager');
+    navigate(managerState.returnTo || 'ui-workout-manager');
     renderManagerList();
     renderWorkoutMenu();
 }
@@ -2441,6 +2445,7 @@ function _edOpenSheet(id) {
     requestAnimationFrame(() => { if (_edSheetWant === id) document.getElementById(id).classList.add('open'); });
 }
 function edCloseSheets() {
+    _edRrCust = false;
     _edSheetWant = null;
     ED_SHEETS.forEach(s => { const el = document.getElementById(s); if (el) el.classList.remove('open'); });
     const ov = document.getElementById('ed-sheet-overlay');
@@ -2504,24 +2509,61 @@ function _edRenderExSheet() {
     const dropRow = !inCl ? `<div class="ed-row"><span class="ed-tx"><span class="ed-n">דרופ סט</span><span class="ed-m">אחרי הסט האחרון</span></span>
         <label class="km-switch"><input type="checkbox" ${ex.dropSet ? 'checked' : ''} onchange="edToggleDrop()"><span class="km-switch-track"></span></label></div>
         ${ex.dropSet ? `<div class="ed-row ed-row--col"><span class="ed-n">ירידה במשקל</span>${fvChipsHtml('ex-drop')}</div>` : ''}` : '';
-    const hasTarget = ex.targetWeight != null || ex.targetReps != null || ex.targetRIR != null;
+    const hasTarget = ex.targetWeight != null || (ex.isMain && ex.targetReps != null) || ex.targetRIR != null;
+    // טווח חזרות — בתוכנית, לכל תרגיל שאינו Main (שם החזרות מגיעות מתבנית השבוע)
+    const rr = (typeof _repRangeOf === 'function') ? _repRangeOf(ex) : null;
+    const rangeRow = rr ? `<div class="ed-row ed-row--col"><span class="ed-n">טווח חזרות${rr.src === 'default' ? ' <small class="ed-rr-def">ברירת מחדל</small>' : ''}</span>${_edRepRangeChipsHtml(rr)}</div>` : '';
 
     body.innerHTML = `
         <div class="ed-sh-head">${_edMono(ex.name)}<span class="ed-tx"><span class="ed-n ed-n--lg">${escapeHtml(ex.name)}</span><span class="ed-m">${escapeHtml(_edExMuscle(ex.name))} · ${pos}</span></span></div>
         ${lastHtml}
         <div class="ed-group">
             ${setsRow}
+            ${rangeRow}
             <div class="ed-row ed-row--col"><span class="ed-n">${inCl ? 'מעבר לתרגיל הבא' : 'מנוחה'}</span>${fvChipsHtml('ex-rest')}</div>
         </div>
         <div class="ed-glbl ed-glbl--row"><span>יעד</span>${last ? `<button class="ed-link ed-link--sm" onclick="edFillFromLast()">מלא מהפעם הקודמת</button>` : (hasTarget ? `<button class="ed-link ed-link--sm" onclick="edClearTargets()">נקה יעד</button>` : '')}</div>
-        <div class="ed-tgt">
+        <div class="ed-tgt${ex.isMain ? '' : ' ed-tgt--2'}">
             <div>${fvValueHtml('ex-tw', 'אוטומטי')}<small>ק״ג</small></div>
-            <div>${fvValueHtml('ex-tr', 'אוטומטי')}<small>חזרות</small></div>
+            ${ex.isMain ? `<div>${fvValueHtml('ex-tr', 'אוטומטי')}<small>חזרות</small></div>` : ''}
             <div>${fvValueHtml('ex-trir', 'אוטומטי')}<small>RIR</small></div>
         </div>
         ${(mainRow || dropRow) ? `<div class="ed-group">${mainRow}${dropRow}</div>` : ''}
         <div class="ed-group"><button class="ed-row ed-row--btn" onclick="edReplaceEx()"><span class="ed-tx"><span class="ed-n">החלף תרגיל</span><span class="ed-m">שומר את הסטים, המנוחה והיעד</span></span><span class="ed-chev">‹</span></button></div>
         <button class="ed-danger" onclick="edRemoveEx()">הסר מהתוכנית</button>`;
+}
+
+// ── טווח חזרות בעורך ──
+const ED_REP_PRESETS = [[6, 8], [8, 10], [8, 12], [10, 12], [12, 15], [15, 20]];
+function _edRepRangeChipsHtml(rr) {
+    const on = (a, b) => rr.src !== 'target' && rr.min === a && rr.max === b;
+    let h = ED_REP_PRESETS.map(([a, b]) =>
+        `<button type="button" class="fv-chip${on(a, b) ? ' on' : ''}${on(a, b) && rr.src === 'default' ? ' def' : ''}" onclick="edSetRepRange(${a}, ${b})">${a}–${b}</button>`).join('');
+    const isPreset = ED_REP_PRESETS.some(([a, b]) => a === rr.min && b === rr.max);
+    if (rr.src === 'target' || !isPreset) h += `<button type="button" class="fv-chip on cust" onclick="edRepRangeCustom()">${rr.min === rr.max ? rr.min : rr.min + '–' + rr.max}</button>`;
+    h += `<button type="button" class="fv-chip other" onclick="edRepRangeCustom()">אחר</button>`;
+    const cust = _edRrCust ? `<div class="ed-rr-cust"><input id="ed-rr-min" type="number" inputmode="numeric" min="1" max="50" value="${rr.min}" onchange="edRepRangeInput()"><span>עד</span><input id="ed-rr-max" type="number" inputmode="numeric" min="1" max="50" value="${rr.max}" onchange="edRepRangeInput()"><small id="ed-rr-err"></small></div>` : '';
+    return `<div class="fv-chips">${h}</div>${cust}`;
+}
+// טווח מוגדר מחליף יעד חזרות יחיד ישן (targetReps)
+function edSetRepRange(min, max) {
+    const ex = _edExObj(); if (!ex) return;
+    ex.repMin = min; ex.repMax = max;
+    delete ex.targetReps;
+    haptic('light'); _edExChanged();
+}
+let _edRrCust = false;
+function edRepRangeCustom() { _edRrCust = true; haptic('light'); _edExChanged(); }
+// טווח חופשי: שני שדות מספר; שמירה כששניהם תקינים
+function edRepRangeInput() {
+    const a = parseInt((document.getElementById('ed-rr-min') || {}).value, 10);
+    const b = parseInt((document.getElementById('ed-rr-max') || {}).value, 10);
+    const err = document.getElementById('ed-rr-err');
+    const bad = !(a >= 1 && b >= a && b <= 50);
+    if (err) err.textContent = bad ? 'מינימום 1 ומעלה, ומקסימום לא קטן ממנו (עד 50)' : '';
+    if (bad) return;
+    _edRrCust = false;
+    edSetRepRange(a, b);
 }
 
 function edToggleMain() { const ex = _edExObj(); if (!ex) return; ex.isMain = !ex.isMain; haptic('light'); _edExChanged(); }
@@ -2538,7 +2580,7 @@ function edFillFromLast() {
     const last = _edLastPerf(ex.name); if (!last) return;
     const top = last.sets.slice().sort((a, b) => (Number(b.w) - Number(a.w)) || (Number(b.r) - Number(a.r)))[0];
     ex.targetWeight = Number(top.w);
-    ex.targetReps = parseInt(top.r, 10) || undefined;
+    if (ex.isMain) ex.targetReps = parseInt(top.r, 10) || undefined;   // שאר התרגילים — טווח חזרות
     const rir = parseFloat(top.rir);
     ex.targetRIR = isNaN(rir) ? undefined : rir;
     haptic('light'); _edExChanged();
@@ -2624,7 +2666,7 @@ function edDeletePlan() {
         _edSnap = '';
         state.historyStack.pop();
         _setNavDirection('back');
-        navigate('ui-workout-manager');
+        navigate(managerState.returnTo || 'ui-workout-manager');
         renderManagerList(); renderWorkoutMenu();
     });
 }

@@ -7316,7 +7316,10 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 .fd-field input[type="number"] { -moz-appearance: textfield; }
 .fd-field input[type="number"]::-webkit-outer-spin-button,
 .fd-field input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.fd-meal-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.fd-meal-chips { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 8px; margin-bottom: 16px; }
+/* שורה אחת עם גלילה אופקית — שבירה לשתי שורות דחפה את "הוסף ליומן" מתחת למקלדת */
+.fd-meal-chips::-webkit-scrollbar { display: none; }
+.fd-meal-chips .fd-chip { flex: none; white-space: nowrap; }
 .fd-chip {
     background: var(--surface-3); border: none; color: var(--text);
     font-family: inherit; font-weight: 700; font-size: var(--fs-md);
@@ -7390,6 +7393,7 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
     flex: 1; background: var(--accent-gradient); color: var(--accent-text); border: none;
     border-radius: var(--r-pill); padding: 16px; font-family: inherit; font-weight: 700;
     font-size: var(--fs-lg); cursor: pointer; box-shadow: var(--accent-glow);
+    scroll-margin-bottom: 12px;
 }
 /* וריאנט משני — "שמור בלבד" (שמירה למאגר ללא תיעוד ביומן, v17.05) */
 .fd-save-btn--quiet { background: var(--surface-4); color: var(--text); box-shadow: none; }

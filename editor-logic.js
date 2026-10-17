@@ -981,17 +981,98 @@ function moveExInCluster(clusterIdx, exIdx, dir) {
     renderEditorList();
 }
 
+// PLANRENAME-START — בלוק טהור, נבדק ב-test/plan-rename.test.js (אל תסיר את הסמנים)
+// שינוי שם תוכנית: הארכיון מזהה תוכנית לפי entry.type. בלי עדכון, האימונים הקודמים
+// מתנתקים — "הבא בתור" חושב שהתוכנית מעולם לא בוצעה, "בוצע השבוע" ו"לפני X ימים" נעלמים.
+// מפתח באובייקט במקום אותו מקום (סדר התוכניות ברשימה נשמר)
+function _planRenameKey(obj, oldK, newK) {
+    if (!obj || typeof obj !== 'object' || !(oldK in obj) || oldK === newK) return obj;
+    const out = {};
+    Object.keys(obj).forEach(k => { out[k === oldK ? newK : k] = obj[k]; });
+    return out;
+}
+// רשומות הארכיון של התוכנית — שינוי type בלבד; השם הקודם נשמר (typeRenamedFrom) לשחזור
+function _planRenameArchive(archive, oldK, newK) {
+    let n = 0;
+    const out = (archive || []).map(e => {
+        if (!e || e.type !== oldK) return e;
+        n++;
+        return Object.assign({}, e, { type: newK, typeRenamedFrom: e.typeRenamedFrom || oldK });
+    });
+    return { archive: out, n };
+}
+// קבוצות האיחוד באנליטיקה: { שם קבוצה: [שמות תוכניות] }
+function _planRenameAliases(aliases, oldK, newK) {
+    if (!aliases || typeof aliases !== 'object') return { aliases, changed: false };
+    let changed = false;
+    const out = {};
+    Object.keys(aliases).forEach(g => {
+        const m = Array.isArray(aliases[g]) ? aliases[g] : [];
+        if (m.indexOf(oldK) < 0) { out[g] = aliases[g]; return; }
+        changed = true;
+        out[g] = Array.from(new Set(m.map(x => x === oldK ? newK : x)));
+    });
+    return { aliases: changed ? out : aliases, changed };
+}
+// PLANRENAME-END
+
+function _planArchiveCount(name) {
+    try { return StorageManager.getArchive().filter(e => e && e.type === name).length; } catch (e) { return 0; }
+}
+
+// _applyPlanRename — עדכון כל מה שמזהה תוכנית לפי שמה: ארכיון, דילוג שבועי, קבוצות
+// אנליטיקה, ואימון פעיל. מחזיר כמה אימונים בארכיון עודכנו.
+function _applyPlanRename(oldK, newK) {
+    const r = _planRenameArchive(StorageManager.getArchive(), oldK, newK);
+    if (r.n && !StorageManager.saveData(StorageManager.KEY_ARCHIVE, r.archive)) {
+        showAlert('שינוי השם נשמר, אבל עדכון הארכיון נכשל (אחסון מלא?) — האימונים הקודמים עדיין בשם הישן.');
+        return 0;
+    }
+    try {
+        const sk = StorageManager.getData(StorageManager.KEY_WT_SKIPS);
+        const nsk = _planRenameKey(sk, oldK, newK);
+        if (nsk !== sk) StorageManager.saveData(StorageManager.KEY_WT_SKIPS, nsk);
+    } catch (e) { console.warn('plan rename: skips', e); }
+    try {
+        const prefs = getAnalyticsPrefs();
+        const a = _planRenameAliases(prefs.workoutAliases, oldK, newK);
+        if (a.changed) { prefs.workoutAliases = a.aliases; saveAnalyticsPrefs(prefs); }
+    } catch (e) { console.warn('plan rename: aliases', e); }
+    if (state.type === oldK) state.type = newK;
+    if (r.n && typeof FirebaseManager !== 'undefined' && FirebaseManager.isConfigured && FirebaseManager.isConfigured()) {
+        FirebaseManager.saveArchiveToCloud().catch(e => console.warn('plan rename: archive cloud sync failed', e));
+    }
+    return r.n;
+}
+
+// שורת הסבר מתחת לשם בעורך — מופיעה רק כשהשם שונה מהמקור ויש לו היסטוריה
+function _edRenameHint() {
+    const el = document.getElementById('ed-rename-hint');
+    if (!el) return;
+    const oldK = managerState.originalName;
+    const nameEl = document.getElementById('editor-workout-name');
+    const v = nameEl ? nameEl.value.trim() : '';
+    const n = (oldK && v && v !== oldK) ? _planArchiveCount(oldK) : 0;
+    el.textContent = n ? `השם יתעדכן גם ב-${n} אימונים קודמים של "${oldK}", כדי שההיסטוריה תישאר מחוברת.` : '';
+    el.hidden = !n;
+}
+
 function saveWorkoutChanges() {
     const newName = document.getElementById('editor-workout-name').value.trim();
     if (!newName) { showAlert("נא להזין שם לתוכנית"); return; }
     // תוכנית אירובית אינה מכילה תרגילים — הבדיקה "התוכנית ריקה" אינה חלה עליה
     if (_editorKind !== 'cardio' && managerState.exercises.length === 0) { showAlert("התוכנית ריקה!"); return; }
 
+    let _renamedCount = -1;
     if (newName !== managerState.originalName) {
         if (state.workouts[newName]) { showAlert("שם תוכנית זה כבר קיים"); return; }
         if (managerState.originalName) {
-            delete state.workouts[managerState.originalName];
-            delete state.workoutMeta[managerState.originalName];
+            // שינוי שם במקום — סדר התוכניות והגדרות ה-meta נשמרים, והארכיון עובר לשם החדש
+            const oldK = managerState.originalName;
+            state.workouts = _planRenameKey(state.workouts, oldK, newName);
+            state.workoutMeta = _planRenameKey(state.workoutMeta, oldK, newName);
+            _renamedCount = _applyPlanRename(oldK, newName);
+            managerState.originalName = newName;
         }
     }
 
@@ -1024,6 +1105,7 @@ function saveWorkoutChanges() {
         StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
         _edSnap = '';
         autoSaveConfigToCloud();
+        if (_renamedCount > 0) showCloudToast(`נשמר · ${_renamedCount} אימונים עודכנו לשם החדש`, true);
         haptic('success');
         state.historyStack.pop();
         _setNavDirection('back');
@@ -1037,6 +1119,7 @@ function saveWorkoutChanges() {
     StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
     _edSnap = '';
     autoSaveConfigToCloud();
+    if (_renamedCount > 0) showCloudToast(`נשמר · ${_renamedCount} אימונים עודכנו לשם החדש`, true);
 
     haptic('success');
 
@@ -2299,6 +2382,7 @@ function _edIsDirty() {
 
 // "שמור" פעיל רק כשיש מה לשמור: שם + תוכן, ובתוכנית קיימת — שינוי כלשהו
 function _edRefreshSave() {
+    _edRenameHint();
     const btn = document.getElementById('ed-save-btn');
     if (!btn) return;
     const nameEl = document.getElementById('editor-workout-name');

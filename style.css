@@ -8670,3 +8670,7 @@ body.cardio-paused .cl-ring { opacity: 0.45; }
     50%      { opacity: 0.9; }
 }
 @media (prefers-reduced-motion: reduce) { .is-busy { animation: none; opacity: 0.6; } }
+
+/* עורך תוכנית — הסבר שינוי שם (הארכיון מתעדכן לשם החדש) */
+.ed-rename-hint { font-size: var(--fs-sm); color: var(--accent); background: rgba(var(--accent-rgb), 0.12); border-radius: var(--r-md); padding: 8px 12px; margin-top: 8px; line-height: 1.5; }
+.ed-rename-hint[hidden] { display: none; }

@@ -609,6 +609,7 @@ function openFoodDiary(date) {
     ov.style.display = 'flex';
     document.body.classList.add('fd-open');
     _fdInitSwipeDelete();
+    _fdInitBatchSelect();
     fdRender();
     haptic('light');
 }
@@ -617,6 +618,7 @@ function closeFoodDiary() {
     const ov = document.getElementById('food-diary');
     if (ov) ov.style.display = 'none';
     document.body.classList.remove('fd-open');
+    _fdSelClear();
     // ריענון הצרכנים של הסיכום היומי
     try { if (typeof renderHomeTodayCards === 'function') renderHomeTodayCards(); } catch (e) {}
     try { if (typeof _refreshActiveView === 'function') _refreshActiveView(); } catch (e) {}
@@ -764,8 +766,10 @@ function fdRender() {
     // סיבים — תמיד מהרשומות הפנימיות, גם ביום שבבעלות MFP: ימי MFP אינם נושאים
     // סיבים ב-NUTRITION_DAILY, ולכן אין מה לגבור עליו (בניגוד לקלוריות/מאקרו).
     const fib = _fdFiberOfDay(entries);
+    if (_fdSel && _fdSelDate !== _fdDate) _fdSelClear();   // מעבר יום מבטל בחירה
     scroll.innerHTML = _fdSummaryHTML(totals, mfpOwned, targets, fib) + _fdNoteHTML(note) + _fdMealsHTML(entries, mfpOwned);
     _fdAnimateRing(scroll);
+    _fdSelSync();
 }
 
 // אנימציית מילוי הטבעת — מ-"ריק" (היקף מלא) לערך היעד, דרך transition של ה-CSS
@@ -1067,7 +1071,8 @@ function _fdMealsHTML(entries, mfpOwned) {
                 return `<div class="fd-swipe" data-no-tab-swipe data-no-swipe-back>
                     <button class="fd-swipe-del" onclick="event.stopPropagation();fdSwipeDelete('${e.id}')" aria-label="מחק רשומה">מחק</button>
                     <div class="fd-swipe-content">
-                    <button class="fd-entry" onclick="fdEditEntry('${e.id}')">
+                    <button class="fd-entry" data-id="${e.id}" onclick="fdEditEntry('${e.id}')">
+                        <span class="fd-sel-ck" aria-hidden="true"></span>
                         <div class="fd-entry-main">
                             <span class="fd-entry-name">${_fdEsc(e.name)}${badge}</span>
                             <span class="fd-entry-sub">${sub}</span>
@@ -1124,7 +1129,7 @@ function _fdInitSwipeDelete() {
 
     scroll.addEventListener('touchstart', (e) => {
         _fdSwipeRow = null; _fdSwipeHoriz = false; _fdSwipeDx = 0; _fdSwipeSuppressClick = false;
-        if (e.touches.length !== 1) return;
+        if (e.touches.length !== 1 || _fdSel) return;   // במצב בחירה — אין סוויפ
         const onDel = !!e.target.closest('.fd-swipe-del');
         if (_fdSwipeOpen && !onDel) { _fdCloseSwipe(_fdSwipeOpen); _fdSwipeSuppressClick = true; }
         if (onDel) return;
@@ -1174,6 +1179,116 @@ function _fdInitSwipeDelete() {
     scroll.addEventListener('touchend', endDrag, { passive: true });
     scroll.addEventListener('touchcancel', endDrag, { passive: true });
     scroll.addEventListener('scroll', () => { if (_fdSwipeOpen) _fdCloseSwipe(_fdSwipeOpen); }, { passive: true });
+}
+
+// ── בחירה מרובה לשינוי שעה ──────────────────────────────────────────
+// לחיצה ארוכה על רשומה פותחת מצב בחירה ומסמנת אותה; הקשה רגילה מסמנת/מבטלת.
+// "החל" נותן לכל הנבחרות את אותה שעה. הבחירה שייכת ליום אחד — מעבר יום/סגירה מבטלים.
+const _FD_LP_MS = 480;
+let _fdSel = null;               // Set של מזהי רשומות, או null מחוץ למצב בחירה
+let _fdSelDate = null;
+let _fdLpTimer = null, _fdLpX0 = 0, _fdLpY0 = 0, _fdLpSuppressClick = false, _fdBatchBound = false;
+let _fdBatchToastTimer = null;
+
+function _fdInitBatchSelect() {
+    const scroll = document.getElementById('fd-scroll');
+    if (!scroll || _fdBatchBound) return;
+    _fdBatchBound = true;
+    const cancel = () => { if (_fdLpTimer) { clearTimeout(_fdLpTimer); _fdLpTimer = null; } };
+    scroll.addEventListener('touchstart', (e) => {
+        cancel(); _fdLpSuppressClick = false;
+        if (e.touches.length !== 1 || _fdSel) return;
+        const btn = e.target.closest('.fd-entry[data-id]');
+        if (!btn) return;
+        _fdLpX0 = e.touches[0].clientX; _fdLpY0 = e.touches[0].clientY;
+        _fdLpTimer = setTimeout(() => {
+            _fdLpTimer = null;
+            // שורת סוויפ שנפתחה בינתיים — לא נכנסים לבחירה
+            if (btn.closest('.fd-swipe.open, .fd-swipe.dragging')) return;
+            _fdLpSuppressClick = true;
+            _fdSelToggle(btn.dataset.id);
+            haptic('medium');
+        }, _FD_LP_MS);
+    }, { passive: true });
+    scroll.addEventListener('touchmove', (e) => {
+        if (!_fdLpTimer) return;
+        const t = e.touches[0];
+        if (Math.abs(t.clientX - _fdLpX0) > 8 || Math.abs(t.clientY - _fdLpY0) > 8) cancel();
+    }, { passive: true });
+    scroll.addEventListener('touchend', cancel, { passive: true });
+    scroll.addEventListener('touchcancel', cancel, { passive: true });
+    // דסקטופ: קליק ימני כתחליף ללחיצה ארוכה
+    scroll.addEventListener('contextmenu', (e) => {
+        const btn = e.target.closest('.fd-entry[data-id]');
+        if (!btn) return;
+        e.preventDefault();
+        if (!_fdSel) _fdSelToggle(btn.dataset.id);
+    });
+}
+
+function _fdSelToggle(id) {
+    if (!_fdSel) { _fdSel = new Set(); _fdSelDate = _fdDate; }
+    const wasEmpty = !_fdSel.size;
+    if (_fdSel.has(id)) _fdSel.delete(id); else _fdSel.add(id);
+    if (!_fdSel.size) { _fdSelClear(); return; }
+    if (wasEmpty) {
+        // שעת ברירת המחדל — של הרשומה הראשונה שסומנה
+        const entry = StorageManager.getFoodLogDay(_fdDate).find(e => e.id === id);
+        const inp = document.getElementById('fd-batch-time');
+        if (inp) inp.value = (entry && entry.time) || _fdNowTime();
+    }
+    _fdSelSync();
+}
+
+function _fdSelClear() {
+    _fdSel = null; _fdSelDate = null;
+    _fdSelSync();
+}
+
+// סנכרון ה-DOM למצב הבחירה בלי רינדור מחדש (שומר גלילה ולא מריץ שוב אנימציות כניסה)
+function _fdSelSync() {
+    const scroll = document.getElementById('fd-scroll');
+    const on = !!(_fdSel && _fdSel.size);
+    if (scroll) {
+        scroll.classList.toggle('fd-selmode', on);
+        scroll.querySelectorAll('.fd-entry[data-id]').forEach(b => b.classList.toggle('is-sel', on && _fdSel.has(b.dataset.id)));
+    }
+    const bar = document.getElementById('fd-batch-bar');
+    if (bar) { bar.classList.toggle('is-on', on); bar.setAttribute('aria-hidden', on ? 'false' : 'true'); }
+    const cnt = document.getElementById('fd-batch-cnt');
+    if (cnt && on) cnt.textContent = `${_fdSel.size} נבחרו`;
+}
+
+function fdBatchCancel() { _fdSelClear(); haptic('light'); }
+
+function fdBatchApply() {
+    if (!_fdSel || !_fdSel.size) return;
+    const inp = document.getElementById('fd-batch-time');
+    const time = inp && inp.value;
+    if (!/^\d{2}:\d{2}$/.test(time || '')) { if (inp) inp.focus(); return; }
+    const date = _fdSelDate || _fdDate;
+    const existing = new Set(StorageManager.getFoodLogDay(date).map(e => e.id));
+    const ids = Array.from(_fdSel).filter(id => existing.has(id));
+    ids.forEach(id => StorageManager.updateFoodEntry(date, id, { time }));
+    _fdSelClear();
+    _fdSyncCloud();
+    fdRender();
+    const scroll = document.getElementById('fd-scroll');
+    if (scroll) ids.forEach(id => {
+        const sub = scroll.querySelector(`.fd-entry[data-id="${id}"] .fd-entry-sub`);
+        if (sub) { sub.classList.add('fd-time-flash'); setTimeout(() => sub.classList.remove('fd-time-flash'), 1400); }
+    });
+    _fdBatchToast(`השעה עודכנה ל-${time} · ${ids.length === 1 ? 'פריט אחד' : ids.length + ' פריטים'}`);
+    haptic('success');
+}
+
+function _fdBatchToast(msg) {
+    const t = document.getElementById('fd-batch-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('is-on');
+    if (_fdBatchToastTimer) clearTimeout(_fdBatchToastTimer);
+    _fdBatchToastTimer = setTimeout(() => { t.classList.remove('is-on'); _fdBatchToastTimer = null; }, 1800);
 }
 
 function fdSwipeDelete(id) {
@@ -1896,6 +2011,8 @@ function closeFoodPortion() {
 function fdEditEntry(id) {
     // נגיעה שסגרה שורת סוויפ פתוחה (או סיימה גרירה) — לא נחשבת כלחיצה על הרשומה
     if (_fdSwipeSuppressClick) { _fdSwipeSuppressClick = false; return; }
+    if (_fdLpSuppressClick) { _fdLpSuppressClick = false; return; }   // הקשה שסיימה לחיצה ארוכה
+    if (_fdSel) { _fdSelToggle(id); return; }
     const entry = StorageManager.getFoodLogDay(_fdDate).find(e => e.id === id);
     if (!entry) return;
     // רשומת מנה מורכבת → Meal Builder (עריכת מרכיבים)

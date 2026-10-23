@@ -7071,6 +7071,55 @@ body.live-mode-active .slog-sheet           { z-index: 10006 !important; }
 }
 .fd-swipe-del:active { filter: brightness(0.9); }
 .fd-entry:active { background: rgba(255,255,255,0.03); }
+/* בחירה מרובה לשינוי שעה — עיגול שנכנס מימין רק במצב בחירה, פס צף בתחתית */
+.fd-entry { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.fd-sel-ck {
+    width: 0; height: 18px; flex-shrink: 0; margin-inline-end: -12px; border-radius: 50%;
+    border: 1.5px solid transparent; position: relative;
+    transition: width var(--dur-2) var(--ease), margin var(--dur-2) var(--ease), border-color var(--dur-2), background var(--dur-2);
+}
+.fd-selmode .fd-sel-ck { width: 18px; margin-inline-end: 0; border-color: rgba(255,255,255,0.22); }
+.fd-entry.is-sel { background: rgba(255,255,255,0.035); }
+.fd-entry.is-sel .fd-sel-ck { background: var(--accent); border-color: var(--accent); }
+.fd-entry.is-sel .fd-sel-ck::after {
+    content: ''; position: absolute; top: 4px; right: 4px; width: 7px; height: 4px;
+    border: solid var(--accent-text); border-width: 0 0 1.6px 1.6px; transform: rotate(-45deg);
+}
+.fd-entry-sub { transition: color var(--dur-3) var(--ease); }
+.fd-entry-sub.fd-time-flash { color: var(--accent); }
+.fd-scroll.fd-selmode { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.fd-batch-bar {
+    position: absolute; left: 12px; right: 12px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 5;
+    display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 8px;
+    background: color-mix(in srgb, var(--surface-3) 92%, transparent);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--hairline-hi); border-radius: var(--r-pill); box-shadow: var(--elev-3);
+    transform: translateY(calc(100% + 40px)); opacity: 0; visibility: hidden; pointer-events: none;
+    transition: transform var(--dur-3) var(--ease), opacity var(--dur-2) var(--ease), visibility 0s linear var(--dur-3);
+}
+.fd-batch-bar.is-on { transform: none; opacity: 1; visibility: visible; pointer-events: auto; transition-delay: 0s; }
+.fd-batch-cnt { padding-inline: 10px 4px; font-size: var(--fs-sm); color: var(--text-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fd-batch-time {
+    flex: 1 1 0; width: 0; min-width: 0; height: 34px; padding: 0 8px; text-align: center;
+    background: var(--surface-4); border: 1px solid var(--hairline); color: var(--text); border-radius: var(--r-pill);
+    font-family: inherit; font-size: var(--fs-lg); font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.fd-batch-go, .fd-batch-no {
+    height: 34px; border: none; border-radius: var(--r-pill); cursor: pointer;
+    font-family: inherit; font-weight: 700; font-size: var(--fs-sm); padding: 0 14px; flex-shrink: 0;
+}
+.fd-batch-go { background: var(--accent); color: var(--accent-text); }
+.fd-batch-no { background: transparent; color: var(--text-dim); padding: 0 8px; }
+.fd-batch-go:active, .fd-batch-no:active { transform: scale(0.94); }
+.fd-batch-toast {
+    position: absolute; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom)); z-index: 5;
+    transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+    background: var(--surface-3); border: 1px solid var(--hairline-hi); border-radius: var(--r-pill);
+    padding: 9px 16px; font-size: var(--fs-sm); color: var(--text);
+    opacity: 0; transition: opacity var(--dur-3) var(--ease);
+}
+.fd-batch-toast.is-on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .fd-sel-ck, .fd-batch-bar, .fd-batch-toast { transition: none; } }
 .fd-entry-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .fd-entry-name { font-weight: 600; font-size: var(--fs-lg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
 .fd-entry-badge {

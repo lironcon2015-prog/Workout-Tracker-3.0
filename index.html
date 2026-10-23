@@ -2566,6 +2566,14 @@
             <button class="fd-manage-btn" onclick="fdOpenCustomFoodsManager()" aria-label="ניהול מזונות מותאמים"><span class="material-symbols-outlined">tune</span></button>
         </div>
         <div class="fd-scroll" id="fd-scroll"></div>
+        <!-- שינוי שעה מרוכז — נפתח בלחיצה ארוכה על רשומה (ראה _fdInitBatchSelect) -->
+        <div class="fd-batch-bar" id="fd-batch-bar" aria-hidden="true">
+            <span class="fd-batch-cnt" id="fd-batch-cnt"></span>
+            <input type="time" class="fd-batch-time" id="fd-batch-time" aria-label="שעה">
+            <button class="fd-batch-go" onclick="fdBatchApply()">החל</button>
+            <button class="fd-batch-no" onclick="fdBatchCancel()">ביטול</button>
+        </div>
+        <div class="fd-batch-toast" id="fd-batch-toast" aria-live="polite"></div>
     </div>
 
     <!-- לוח שנה לבחירת יום ביומן המזון — אותה שפה ויזואלית כמו לוח הארכיון -->

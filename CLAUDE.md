@@ -288,6 +288,7 @@ version.json: { "version": "19.MINOR.PATCH" }
 | `coach-drive-logic.js` | סנכרון נתוני מאמן לדרייב (`GymPro Coach Data`): 8 קבצי JSON מ-`_buildUnifiedSections` + `workouts_log` (Google Doc: טקסט `_archiveCopyText` בלי סיכום מאמן), חלונות ב-`COACH_DRIVE_WINDOWS`, hash לכל קובץ, readme אחרון. דרך גשר התמונות |
 | `bridges/watch-bridge.gs` | Google Apps Script — גשר אפל-ווטש: אימון חי מהשעון (Shortcuts) ל-Firestore `live_session` |
 | `vendor/zbar.js` | ספריית ZBar (WASM) — פענוח ברקוד fallback ל-iOS, טעינה עצלה + runtime-cache ב-SW |
+| `perf-diag.js` | אבחון ביצועי עלייה (הגדרות ← אבחון ביצועים): עוטף שלבי עלייה במדידה ומשחזר את המקור אחרי 12ש'. קריאה בלבד — זיכרון בלבד, בלי כתיבה לאחסון/ענן |
 | `sw.js` | Service Worker |
 | `version.json` | גרסה נוכחית |
 | `test/` | בדיקות Node ללא תלויות — נטענות מסמני `X-START`/`X-END` בקוד המקור |
@@ -320,7 +321,7 @@ version.json: { "version": "19.MINOR.PATCH" }
 ---
 
 ## גרסה נוכחית
-19.17.29
+19.17.30
 
 ---
 

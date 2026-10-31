@@ -1,10 +1,10 @@
 /**
  * GymPro Elite — Service Worker
- * Version: 19.17.29
+ * Version: 19.17.30
  * העלה את CACHE_VERSION בכל עדכון קוד כדי לרענן את ה-cache של המשתמשים.
  */
 
-const CACHE_VERSION = 'gympro-v19.17.29';
+const CACHE_VERSION = 'gympro-v19.17.30';
 const IMG_CACHE = 'gympro-images-v2';
 
 const FILES_TO_CACHE = [
@@ -18,6 +18,7 @@ const FILES_TO_CACHE = [
     './photos-logic.js',
     './voice-logic.js',
     './coach-drive-logic.js',
+    './perf-diag.js',
     './storage.js',
     './data.js',
     './vendor/material-symbols-outlined.woff2',

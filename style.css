@@ -8744,3 +8744,11 @@ body.cardio-paused .cl-ring { opacity: 0.45; }
     background: var(--surface-1); color: var(--text); border: 1px solid var(--hairline); border-radius: var(--r-sm); }
 .ed-rr-cust small { flex-basis: 100%; color: var(--danger); font-size: var(--fs-xs); }
 .ed-rr-cust small:empty { display: none; }
+
+/* אבחון ביצועים (perf-diag.js) */
+.perf-diag-text {
+    direction: rtl; text-align: right; white-space: pre-wrap; word-break: break-word;
+    font-size: 0.72rem; line-height: 1.45; color: var(--text-dim);
+    background: var(--surface-2); border-radius: var(--r-md); padding: 10px 12px;
+    margin: 0; overflow-y: auto; flex: 1 1 auto; min-height: 0; max-height: 52vh;
+}

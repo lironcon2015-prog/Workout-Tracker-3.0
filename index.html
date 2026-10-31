@@ -30,6 +30,7 @@
     <script defer src="photos-logic.js"></script>
     <script defer src="voice-logic.js"></script>
     <script defer src="coach-drive-logic.js"></script>
+    <script defer src="perf-diag.js"></script>
 
     <!-- Firebase SDK (Compat) — טעינה lazy/non-blocking. לא חוסם DOMContentLoaded.
          נטען ברקע רק למשתמשים עם cloud מוגדר, או on-demand דרך FirebaseManager. -->
@@ -443,6 +444,19 @@
         </div>
     </div>
 
+    <!-- אבחון ביצועי עלייה (perf-diag.js) — קריאה בלבד -->
+    <div id="perf-diag-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>אבחון ביצועים</h3>
+            <p class="sub-text" style="margin-bottom:10px;">מדידת הפתיחה האחרונה. לתוצאה מדויקת: סגור את האפליקציה לגמרי, פתח, המתן 12 שניות ורק אז היכנס לכאן.</p>
+            <pre id="perf-diag-text" class="perf-diag-text"></pre>
+            <div class="vertical-stack" style="margin-top:12px;">
+                <button class="btn-main primary-gradient" onclick="copyPerfDiag()">העתק דוח</button>
+                <button class="btn-text color-dim" onclick="closePerfDiag()">סגור</button>
+            </div>
+        </div>
+    </div>
+
     <div id="watch-adopt-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>לאיזו תוכנית לשייך?</h3>
@@ -646,9 +660,12 @@
                                 <span class="stg-row-title">בדוק עדכון</span>
                                 <span class="stg-version-badge" id="settings-version-inline">—</span>
                             </button>
-                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="window.location.reload()">
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="window.location.reload()">
                                 <span class="stg-row-title">רענן אפליקציה</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">refresh</span>
+                            </button>
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="openPerfDiag()">
+                                <span class="stg-row-title">אבחון ביצועים</span>
                             </button>
                         </div>
                     </div>

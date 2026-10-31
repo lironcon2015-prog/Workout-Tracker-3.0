@@ -114,6 +114,13 @@
         try {
             const n = performance.getEntriesByType('navigation')[0];
             if (n) {
+                // פירוק השלב שלפני ה-HTML: הפעלת ה-SW / רשת או cache / הורדה
+                let path = '?';
+                try { const u = new URL(n.name); path = u.pathname + (u.search ? ' +query' : ''); } catch (e) {}
+                out.push(`כתובת: ${path} · SW שולט: ${navigator.serviceWorker && navigator.serviceWorker.controller ? 'כן' : 'לא'}`);
+                out.push(`הפעלת SW (workerStart): ${r(n.workerStart || 0)}ms · fetchStart: ${r(n.fetchStart)}ms`);
+                out.push(`בקשה→תשובה: requestStart ${r(n.requestStart)} · responseStart ${r(n.responseStart)}ms`);
+                out.push(`transferSize: ${n.transferSize != null ? n.transferSize : '?'} · body: ${n.encodedBodySize != null ? n.encodedBodySize : '?'}`);
                 out.push(`HTML התקבל: ${r(n.responseEnd)}ms`);
                 out.push(`DOM מוכן (לפני סקריפטים): ${r(n.domInteractive)}ms`);
                 out.push(`הרצת סקריפטים (defer): ${r(n.domContentLoadedEventStart - n.domInteractive)}ms`);
@@ -125,6 +132,43 @@
             if (fcp) out.push(`ציור ראשון (FCP): ${r(fcp.startTime)}ms`);
         } catch (e) { out.push('navigation timing: לא זמין'); }
         return out;
+    }
+
+    // מספר הרשומות בכל cache של ה-SW (קריאה בלבד) + האם index.html נמצא בו
+    async function cacheLines() {
+        const out = [];
+        try {
+            if (!('caches' in window)) return ['לא זמין'];
+            const names = await caches.keys();
+            for (const nm of names) {
+                const c = await caches.open(nm);
+                const keys = await c.keys();
+                out.push(`${nm}: ${keys.length} רשומות`);
+            }
+            const t0 = now();
+            const hit = await caches.match('./index.html');
+            out.push(`index.html ב-cache: ${hit ? 'כן' : 'לא'} (${(now() - t0).toFixed(1)}ms)`);
+            const t1 = now();
+            const hitNav = await caches.match(location.href);
+            out.push(`הכתובת הנוכחית ב-cache: ${hitNav ? 'כן' : 'לא'} (${(now() - t1).toFixed(1)}ms)`);
+        } catch (e) { out.push('שגיאה: ' + (e && e.name || e)); }
+        return out;
+    }
+
+    // קיבוץ מפתחות לפי תחילית (עד הספרה/המזהה הראשונים) — לזיהוי מקור ריבוי מפתחות
+    function keyGroupLines() {
+        const groups = {};
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i) || '';
+                const g = k.replace(/[0-9a-f]{6,}.*$/i, '*').replace(/\d.*$/, '*');
+                const v = localStorage.getItem(k) || '';
+                const e = groups[g] || (groups[g] = { n: 0, sz: 0 });
+                e.n++; e.sz += k.length + v.length;
+            }
+        } catch (e) { return ['שגיאה: ' + (e && e.name || e)]; }
+        return Object.entries(groups).filter(([, e]) => e.n > 3).sort((a, b) => b[1].n - a[1].n).slice(0, 8)
+            .map(([g, e]) => `${e.n} מפתחות · ${kb(e.sz)}KB  ${g}`);
     }
 
     function storageLines() {
@@ -143,6 +187,8 @@
             // Safari: מכסת localStorage ≈ 5M תווים (UTF-16) לכל origin
             out.push(`סה"כ: ${kb(total)}KB (${rows.length} מפתחות) · ~${Math.round(total / (5 * 1024 * 1024) * 100)}% מתקרה משוערת של 5MB`);
             rows.slice(0, 15).forEach(([k, sz]) => out.push(`${kb(sz)}KB  ${k}`));
+            const kg = keyGroupLines();
+            if (kg.length) { out.push('קבוצות מפתחות:'); kg.forEach(x => out.push('  ' + x)); }
         } catch (e) { out.push('localStorage: שגיאה בקריאה — ' + (e && e.name || e)); }
         return out;
     }
@@ -206,6 +252,8 @@
                 if (est && est.usage != null) L.push(`origin כולל (IndexedDB/cache): ${(est.usage / 1048576).toFixed(1)}MB מתוך ${est.quota ? (est.quota / 1048576).toFixed(0) + 'MB' : '?'}`);
             }
         } catch (e) {}
+        L.push('');
+        L.push('— Cache Storage (SW) —'); (await cacheLines()).forEach(x => L.push(x));
         L.push('');
         L.push('— ארכיון —'); archiveLines().forEach(x => L.push(x));
         return L.join('\n');

@@ -4146,25 +4146,6 @@ body::before {
     letter-spacing: 0.12em;
     color: #c0c6d6;
 }
-/* כפתור "+" בפינת הכרטיס — כניסה מהירה: תזונה → יומן מזון, הרכב גוף → שקילה ידנית.
-   26px עגול במקום תג ה-LIVE הישן; מרג'ין שלילי כדי לא להגדיל את גובה שורת הכותרת. */
-.home-today-add {
-    width: 26px;
-    height: 26px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--surface-4);
-    border: 1px solid var(--hairline-hi);
-    border-radius: var(--r-pill);
-    color: var(--text);
-    cursor: pointer;
-    margin: -4px -4px -4px 0;
-    transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
-}
-.home-today-add .material-symbols-outlined { font-size: 18px; }
-.home-today-add:active { transform: scale(0.88); background: #32323a; }
 .home-today-metric {
     display: flex;
     align-items: baseline;

@@ -1830,9 +1830,14 @@ function saveWorkoutManagerToCloud() {
 async function checkForUpdate() {
     try {
         // cache: 'no-store' → עוקף גם SW cache וגם HTTP cache לחלוטין
-        const res = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) throw new Error('network error');
-        const data = await res.json();
+        // כל שלב זורק סיבה משלו — "אין אינטרנט" גנרי הסתיר ב-v19.17.30 קובץ גרסה ריק
+        let res;
+        try { res = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' }); }
+        catch (e) { throw new Error('אין חיבור לשרת (' + ((e && e.message) || 'fetch') + ')'); }
+        if (!res.ok) throw new Error('השרת החזיר ' + res.status);
+        let data;
+        try { data = await res.json(); }
+        catch (e) { throw new Error('קובץ הגרסה בשרת פגום או ריק'); }
         const serverVersion = data.version || '';
 
         // אם _gymproVersion עדיין לא נטען — קרא גם אותו ישירות מה-SW cache
@@ -1874,7 +1879,7 @@ async function checkForUpdate() {
             showAlert('האפליקציה מעודכנת (v' + (serverVersion || currentVersion) + ')');
         }
     } catch(e) {
-        showAlert('לא ניתן לבדוק עדכונים. בדוק חיבור לאינטרנט.');
+        showAlert('לא ניתן לבדוק עדכונים: ' + ((e && e.message) || 'שגיאה לא ידועה'));
     }
 }
 

@@ -20,8 +20,33 @@ function _stripZeroVitals(night) {
 }
 // ZEROVITAL-END
 
+// WMWEIGHT-START
+// משקל אחרון לפי יחידה: { exName: { kg: 80, plates: 5 } }. המפה הישנה (gympro_weights,
+// { exName: 80 }) נשמרה רק ביחידת ברירת המחדל של התרגיל — לכן היא משמשת fallback
+// ליחידה הזו בלבד, ונשארת מעודכנת עבור הצרכנים הישנים (הצעות לשעון, איחוד שמות).
+function _pickLastWeight(legacy, byMode, exName, mode, defaultMode) {
+    if (mode) {
+        const m = byMode && byMode[exName];
+        if (m && m[mode] != null) return m[mode];
+        if (mode !== defaultMode) return null;
+    }
+    return (legacy && legacy[exName]) || null;
+}
+// מחזיר את שתי המפות אחרי כתיבה (עותקים — לא משנה את הקלט). bw לא נשמר (אין משקל).
+function _writeLastWeight(legacy, byMode, exName, weight, mode, defaultMode) {
+    const m = mode || defaultMode;
+    const outLegacy = Object.assign({}, legacy || {});
+    const outByMode = Object.assign({}, byMode || {});
+    if (m === 'bw') return { legacy: outLegacy, byMode: outByMode };
+    outByMode[exName] = Object.assign({}, outByMode[exName] || {}, { [m]: weight });
+    if (m === defaultMode) outLegacy[exName] = weight;
+    return { legacy: outLegacy, byMode: outByMode };
+}
+// WMWEIGHT-END
+
 const StorageManager = {
     KEY_WEIGHTS:      'gympro_weights',
+    KEY_WEIGHTS_MODE: 'gympro_weights_mode',  // { exName: { kg, plates } } — משקל אחרון לפי יחידה
     KEY_RM:           'gympro_rm',
     KEY_EXERCISE_TM:  'gympro_exercise_tm',   // TM קבוע לתרגילי מיין (מוגדר בהגדרות) — חוסך הזנת 1RM כל אימון
     KEY_EXERCISE_TM_AT: 'gympro_exercise_tm_at',  // { exName: epoch } — מתי עודכן ה-TM לאחרונה (תזכורת שבוע 1)
@@ -334,16 +359,32 @@ const StorageManager = {
 
     // ── Weights / RM ─────────────────────────────────────────────────────
 
-    getLastWeight(exName) {
-        const data = this.getData(this.KEY_WEIGHTS) || {};
-        return data[exName] || null;
+    // יחידת ברירת המחדל של התרגיל במאגר — היחידה שבה נשמרה המפה הישנה
+    _exDefaultWeightMode(exName) {
+        const ex = ((typeof state !== 'undefined' && state.exercises) || []).find(e => e && e.name === exName);
+        return ex ? (ex.weightMode || (ex.isBW ? 'bw' : 'kg')) : 'kg';
     },
 
-    saveWeight(exName, weight) {
+    // mode — יחידה (kg/plates). בלי mode: המפה הישנה (ברירת המחדל של התרגיל)
+    getLastWeight(exName, mode) {
+        return _pickLastWeight(this.getData(this.KEY_WEIGHTS), this.getData(this.KEY_WEIGHTS_MODE),
+            exName, mode, this._exDefaultWeightMode(exName));
+    },
+
+    saveWeight(exName, weight, mode) {
         if (state.week === 'deload') return;
-        const data = this.getData(this.KEY_WEIGHTS) || {};
-        data[exName] = weight;
-        this.saveData(this.KEY_WEIGHTS, data);
+        const r = _writeLastWeight(this.getData(this.KEY_WEIGHTS), this.getData(this.KEY_WEIGHTS_MODE),
+            exName, weight, mode, this._exDefaultWeightMode(exName));
+        this.saveData(this.KEY_WEIGHTS, r.legacy);
+        this.saveData(this.KEY_WEIGHTS_MODE, r.byMode);
+    },
+
+    // שינוי שם תרגיל — מעתיק את המשקלים האחרונים בכל היחידות
+    copyWeights(fromName, toName) {
+        const legacy = this.getData(this.KEY_WEIGHTS) || {};
+        const byMode = this.getData(this.KEY_WEIGHTS_MODE) || {};
+        if (legacy[fromName]) { legacy[toName] = legacy[fromName]; this.saveData(this.KEY_WEIGHTS, legacy); }
+        if (byMode[fromName]) { byMode[toName] = Object.assign({}, byMode[fromName]); this.saveData(this.KEY_WEIGHTS_MODE, byMode); }
     },
 
     getLastRM(exName) {
@@ -1206,6 +1247,7 @@ const StorageManager = {
             exerciseTM: this.getData(this.KEY_EXERCISE_TM) || {},
             exerciseTMAt: this.getData(this.KEY_EXERCISE_TM_AT) || {},
             lastWeights: this.getData(this.KEY_WEIGHTS) || {},
+            lastWeightsByMode: this.getData(this.KEY_WEIGHTS_MODE) || {},
             rmHistory: this.getData(this.KEY_RM) || {},
             hiddenThumbs: this.getData('gympro_hidden_thumbs') || [],
             aliases: prefs.workoutAliases || {},
@@ -1264,6 +1306,7 @@ const StorageManager = {
             if (data.exerciseTM)   this.saveData(this.KEY_EXERCISE_TM, data.exerciseTM);
             if (data.exerciseTMAt) this.saveData(this.KEY_EXERCISE_TM_AT, data.exerciseTMAt);
             if (data.lastWeights)  this.saveData(this.KEY_WEIGHTS, data.lastWeights);
+            if (data.lastWeightsByMode) this.saveData(this.KEY_WEIGHTS_MODE, data.lastWeightsByMode);
             if (data.rmHistory)    this.saveData(this.KEY_RM, data.rmHistory);
             if (data.hiddenThumbs) this.saveData('gympro_hidden_thumbs', data.hiddenThumbs);
             // מיזוג prefs — מעדכן שדות ספציפיים בלי לדרוס שדות שאינם בקובץ
@@ -3181,6 +3224,7 @@ const FirebaseManager = {
                 exerciseTM:     StorageManager.getData(StorageManager.KEY_EXERCISE_TM) || {},
                 exerciseTMAt:   StorageManager.getData(StorageManager.KEY_EXERCISE_TM_AT) || {},
                 lastWeights:    StorageManager.getData(StorageManager.KEY_WEIGHTS) || {},
+                lastWeightsByMode: StorageManager.getData(StorageManager.KEY_WEIGHTS_MODE) || {},
                 rmHistory:      StorageManager.getData(StorageManager.KEY_RM) || {},
                 hiddenThumbs:   StorageManager.getData('gympro_hidden_thumbs') || [],
                 // v17.24: תמונות התקדמות — אינדקס קל + זיכרון מגמת AI בלבד.
@@ -3344,6 +3388,7 @@ const FirebaseManager = {
         if (data.exerciseTM)     StorageManager.saveData(StorageManager.KEY_EXERCISE_TM, data.exerciseTM);
         if (data.exerciseTMAt)   StorageManager.saveData(StorageManager.KEY_EXERCISE_TM_AT, data.exerciseTMAt);
         if (data.lastWeights)    StorageManager.saveData(StorageManager.KEY_WEIGHTS, data.lastWeights);
+        if (data.lastWeightsByMode) StorageManager.saveData(StorageManager.KEY_WEIGHTS_MODE, data.lastWeightsByMode);
         if (data.rmHistory)      StorageManager.saveData(StorageManager.KEY_RM, data.rmHistory);
         if (data.hiddenThumbs)   StorageManager.saveData('gympro_hidden_thumbs', data.hiddenThumbs);
         if (data.photoIndex)     StorageManager.savePhotoIndex(data.photoIndex);

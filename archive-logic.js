@@ -230,7 +230,7 @@ function canonicalizeExerciseNames() {
         }
     }
     let cfg = false;
-    [StorageManager.KEY_WEIGHTS, StorageManager.KEY_RM, StorageManager.KEY_EXERCISE_TM, StorageManager.KEY_EXERCISE_TM_AT]
+    [StorageManager.KEY_WEIGHTS, StorageManager.KEY_WEIGHTS_MODE, StorageManager.KEY_RM, StorageManager.KEY_EXERCISE_TM, StorageManager.KEY_EXERCISE_TM_AT]
         .forEach(key => {
             const r = _exCanonKeyed(StorageManager.getData(key), dbNames);
             if (r.changed && StorageManager.saveData(key, r.obj)) cfg = true;

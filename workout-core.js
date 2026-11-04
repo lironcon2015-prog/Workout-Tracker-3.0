@@ -2737,11 +2737,7 @@ function showConfirmScreen(forceExName = null) {
     state.currentExName = exData.name;
 
     if (currentPlanItem) {
-        if (currentPlanItem.restTime) state.currentEx.restTime = currentPlanItem.restTime;
-        if (currentPlanItem.targetWeight !== undefined) state.currentEx.targetWeight = currentPlanItem.targetWeight;
-        if (currentPlanItem.targetReps !== undefined) state.currentEx.targetReps = currentPlanItem.targetReps;
-        if (currentPlanItem.repMin != null) { state.currentEx.repMin = currentPlanItem.repMin; state.currentEx.repMax = currentPlanItem.repMax; }
-        if (currentPlanItem.targetRIR !== undefined) state.currentEx.targetRIR = currentPlanItem.targetRIR;
+        _applyPlanItem(currentPlanItem);
     }
 
     document.getElementById('confirm-ex-name').innerText = exData.name;
@@ -2796,11 +2792,7 @@ function confirmExercise(doEx) {
         state.currentEx = deepClone(exData);
         state.currentExName = exData.name;
 
-        if (firstExItem.restTime) state.currentEx.restTime = firstExItem.restTime;
-        if (firstExItem.targetWeight !== undefined) state.currentEx.targetWeight = firstExItem.targetWeight;
-        if (firstExItem.targetReps !== undefined) state.currentEx.targetReps = firstExItem.targetReps;
-        if (firstExItem.repMin != null) { state.currentEx.repMin = firstExItem.repMin; state.currentEx.repMax = firstExItem.repMax; }
-        if (firstExItem.targetRIR !== undefined) state.currentEx.targetRIR = firstExItem.targetRIR;
+        _applyPlanItem(firstExItem);
 
         resizeSets(1);
         startRecording();
@@ -3079,19 +3071,44 @@ function isUnilateral(exName) {
 // כל תרגיל יכול לעבוד באחת משלוש שיטות: kg (ברירת מחדל), plates, bw.
 // ברירת המחדל נקבעת בעורך התרגיל (weightMode); דגל isBW ישן ממופה ל-bw.
 // החלפה תוך כדי אימון נשמרת ב-state.sessionWeightModes — חד-פעמית לאותו אימון.
+// אפשר להגדיר יחידה לתרגיל בתוכנית (item.weightMode) — גוברת על המאגר באותו אימון בלבד.
 
 const PLATE_KG = 2.5; // משקל פלטה משוער לחישוב ווליום
 
 const WEIGHT_MODE_LABELS = { kg: 'Weight (kg)', plates: 'פלטות', bw: 'משקל גוף' };
 
-// השיטה האפקטיבית לתרגיל — עדיפות: override של האימון הנוכחי → הגדרת התרגיל → kg
-function _effWeightMode(exName) {
-    const name = exName || state.currentExName;
-    if (state.sessionWeightModes && state.sessionWeightModes[name]) return state.sessionWeightModes[name];
-    const ex = state.exercises.find(e => e.name === name) ||
-               (state.currentEx && state.currentExName === name ? state.currentEx : null);
+// WMODE-START
+// השיטה האפקטיבית לתרגיל — עדיפות: החלפה חד-פעמית באימון הנוכחי → יחידת התרגיל
+// בתוכנית (הועתקה ל-currentEx ב-_applyPlanItem) → ברירת המחדל במאגר → kg.
+// בלי השלב האמצעי יחידה שהוגדרה לתוכנית לא הייתה נראית: הלוקאפ הלך ישר למאגר.
+function _resolveWeightMode(name, sessionModes, currentEx, currentExName, exercises) {
+    if (sessionModes && sessionModes[name]) return sessionModes[name];
+    const isCur = !!currentEx && currentExName === name;
+    if (isCur && currentEx.weightMode) return currentEx.weightMode;
+    const ex = (exercises || []).find(e => e && e.name === name) || (isCur ? currentEx : null);
     if (!ex) return 'kg';
     return ex.weightMode || (ex.isBW ? 'bw' : 'kg');
+}
+// יחידת התוכנית (בלי החלפה חד-פעמית) — היחידה שבה מתפרש targetWeight של התוכנית
+function _planWeightMode(name, currentEx, currentExName, exercises) {
+    return _resolveWeightMode(name, null, currentEx, currentExName, exercises);
+}
+// WMODE-END
+function _effWeightMode(exName) {
+    const name = exName || state.currentExName;
+    return _resolveWeightMode(name, state.sessionWeightModes, state.currentEx, state.currentExName, state.exercises);
+}
+
+// הגדרות פריט תוכנית על התרגיל הנוכחי — נקודה אחת לכל נתיבי הכניסה לתרגיל
+// (תרגיל רגיל, סבב, מעבר בסבב, החלפה). weightMode = יחידת התרגיל באימון הזה.
+function _applyPlanItem(item) {
+    if (!item) return;
+    if (item.restTime) state.currentEx.restTime = item.restTime;
+    if (item.targetWeight !== undefined) state.currentEx.targetWeight = item.targetWeight;
+    if (item.targetReps !== undefined) state.currentEx.targetReps = item.targetReps;
+    if (item.repMin != null) { state.currentEx.repMin = item.repMin; state.currentEx.repMax = item.repMax; }
+    if (item.targetRIR !== undefined) state.currentEx.targetRIR = item.targetRIR;
+    if (item.weightMode) state.currentEx.weightMode = item.weightMode;
 }
 
 // תצוגת משקל של סט לפי שיטה — '80kg' / '5 פלטות' / 'BW'
@@ -3380,7 +3397,11 @@ function initPickers() {
             let planR = state.currentEx.targetReps;
             let planRIR = state.currentEx.targetRIR;
 
-            const savedWeight = StorageManager.getLastWeight(state.currentExName);
+            // משקל שמור ויעד תוכנית — רק ביחידה הפעילה. יעד התוכנית מתפרש ביחידת
+            // התוכנית; אחרי החלפה חד-פעמית ליחידה אחרת הוא לא רלוונטי (40 ק"ג ≠ 40 פלטות).
+            const effMode = _effWeightMode();
+            if (planW !== undefined && effMode !== _planWeightMode(state.currentExName, state.currentEx, state.currentExName, state.exercises)) planW = undefined;
+            const savedWeight = StorageManager.getLastWeight(state.currentExName, effMode);
             const manualRange = state.currentEx.manualRange || {};
 
             if (planW !== undefined) {
@@ -4183,11 +4204,10 @@ function nextStep() {
     if (wMode !== 'kg') entry.wm = wMode; // סימון שיטת המשקל — נשמר גם בארכיון
     if (state.dropMode) entry.drop = state.dropLevel;
 
-    // שמירת "משקל אחרון" רק כשהשיטה תואמת את ברירת המחדל של התרגיל —
-    // override זמני (פלטות/BW על תרגיל ק"ג) לא מזהם את ה-prefill של אימונים הבאים.
+    // "משקל אחרון" נשמר לפי יחידה — ערך פלטות וערך ק"ג לא דורסים זה את זה,
+    // ולכן גם החלפה חד-פעמית נשמרת (ל-prefill של הפעם הבאה באותה יחידה).
     // דרופ לעולם לא נשמר כ"משקל אחרון" — הוא משקל מופחת בעייפות, לא משקל העבודה.
-    const defaultMode = state.currentEx.weightMode || (state.currentEx.isBW ? 'bw' : 'kg');
-    if (!state.dropMode && wMode === defaultMode && wMode !== 'bw') StorageManager.saveWeight(state.currentExName, wVal);
+    if (!state.dropMode && wMode !== 'bw') StorageManager.saveWeight(state.currentExName, wVal, wMode);
     state.log.push(entry);
     // lastLoggedSet נשאר סט האב — הוא ה-prefill של הסט הבא, ודרופ לא אמור לגרור אותו למטה
     if (!state.dropMode) state.lastLoggedSet = entry;
@@ -4208,11 +4228,7 @@ function nextStep() {
             state.currentEx = deepClone(exData);
             state.currentExName = exData.name;
 
-            if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
-            if (nextExItem.targetWeight !== undefined) state.currentEx.targetWeight = nextExItem.targetWeight;
-            if (nextExItem.targetReps !== undefined) state.currentEx.targetReps = nextExItem.targetReps;
-            if (nextExItem.repMin != null) { state.currentEx.repMin = nextExItem.repMin; state.currentEx.repMax = nextExItem.repMax; }
-            if (nextExItem.targetRIR !== undefined) state.currentEx.targetRIR = nextExItem.targetRIR;
+            _applyPlanItem(nextExItem);
 
             state.currentEx.sets = [{ w: 10, r: 10 }];
             state.setIdx = 0; state.lastLoggedSet = null;
@@ -4582,11 +4598,7 @@ function startNextRound() {
     state.currentEx = deepClone(exData);
     state.currentExName = exData.name;
 
-    if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
-    if (nextExItem.targetWeight !== undefined) state.currentEx.targetWeight = nextExItem.targetWeight;
-    if (nextExItem.targetReps !== undefined) state.currentEx.targetReps = nextExItem.targetReps;
-    if (nextExItem.repMin != null) { state.currentEx.repMin = nextExItem.repMin; state.currentEx.repMax = nextExItem.repMax; }
-    if (nextExItem.targetRIR !== undefined) state.currentEx.targetRIR = nextExItem.targetRIR;
+    _applyPlanItem(nextExItem);
 
     state.currentEx.sets = [{ w: 10, r: 10 }];
     startRecording();
@@ -4640,11 +4652,7 @@ function skipCurrentExercise() {
                 state.currentEx = deepClone(exData);
                 state.currentExName = exData.name;
 
-                if (nextExItem.restTime) state.currentEx.restTime = nextExItem.restTime;
-                if (nextExItem.targetWeight !== undefined) state.currentEx.targetWeight = nextExItem.targetWeight;
-                if (nextExItem.targetReps !== undefined) state.currentEx.targetReps = nextExItem.targetReps;
-                if (nextExItem.repMin != null) { state.currentEx.repMin = nextExItem.repMin; state.currentEx.repMax = nextExItem.repMax; }
-                if (nextExItem.targetRIR !== undefined) state.currentEx.targetRIR = nextExItem.targetRIR;
+                _applyPlanItem(nextExItem);
 
                 state.currentEx.sets = [{ w: 10, r: 10 }];
                 state.setIdx = 0; state.lastLoggedSet = null;
@@ -5101,11 +5109,7 @@ function _rebindClusterCurrentEx() {
     state.currentExName = exData.name;
     state.currentEx.isCalc = false;
 
-    if (item.restTime) state.currentEx.restTime = item.restTime;
-    if (item.targetWeight !== undefined) state.currentEx.targetWeight = item.targetWeight;
-    if (item.targetReps !== undefined) state.currentEx.targetReps = item.targetReps;
-    if (item.repMin != null) { state.currentEx.repMin = item.repMin; state.currentEx.repMax = item.repMax; }
-    if (item.targetRIR !== undefined) state.currentEx.targetRIR = item.targetRIR;
+    _applyPlanItem(item);
 
     state.currentEx.sets = [{ w: 10, r: 10 }];
     state.setIdx = 0;

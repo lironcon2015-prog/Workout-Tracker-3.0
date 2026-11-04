@@ -750,8 +750,7 @@ function saveExerciseConfig() {
                     }
                     StorageManager.saveData(StorageManager.KEY_DB_WORKOUTS, state.workouts);
 
-                    const lastW = StorageManager.getLastWeight(targetName);
-                    if (lastW) StorageManager.saveWeight(name, lastW);
+                    StorageManager.copyWeights(targetName, name);
 
                     // רשימות התחליפים מחזיקות שמות — שינוי שם חייב לעדכן גם אותן
                     state.exercises.forEach(e => {
@@ -1542,7 +1541,8 @@ function _selReplaceWith(name) {
     if (r) {
         const it = managerState.exercises[r.idx];
         const obj = it ? (r.i == null ? it : (it.exercises || [])[r.i]) : null;
-        if (obj) obj.name = name;
+        // יחידה בתוכנית שייכת לתרגיל, לא למשבצת — תרגיל אחר חוזר לברירת המחדל שלו
+        if (obj) { obj.name = name; delete obj.weightMode; }
     }
     haptic('success');
     _selBackToEditor();
@@ -2525,17 +2525,39 @@ function _edRenderExSheet() {
         <div class="ed-group">
             ${setsRow}
             ${rangeRow}
+            <div class="ed-row ed-row--col"><span class="ed-n">יחידה${ex.weightMode ? '' : ' <small class="ed-rr-def">ברירת מחדל</small>'}</span>${_edWeightModeChipsHtml(ex)}</div>
             <div class="ed-row ed-row--col"><span class="ed-n">${inCl ? 'מעבר לתרגיל הבא' : 'מנוחה'}</span>${fvChipsHtml('ex-rest')}</div>
         </div>
         <div class="ed-glbl ed-glbl--row"><span>יעד</span>${last ? `<button class="ed-link ed-link--sm" onclick="edFillFromLast()">מלא מהפעם הקודמת</button>` : (hasTarget ? `<button class="ed-link ed-link--sm" onclick="edClearTargets()">נקה יעד</button>` : '')}</div>
         <div class="ed-tgt${ex.isMain ? '' : ' ed-tgt--2'}">
-            <div>${fvValueHtml('ex-tw', 'אוטומטי')}<small>ק״ג</small></div>
+            <div>${fvValueHtml('ex-tw', 'אוטומטי')}<small>${_edPlanWeightMode(ex) === 'plates' ? 'פלטות' : 'ק״ג'}</small></div>
             ${ex.isMain ? `<div>${fvValueHtml('ex-tr', 'אוטומטי')}<small>חזרות</small></div>` : ''}
             <div>${fvValueHtml('ex-trir', 'אוטומטי')}<small>RIR</small></div>
         </div>
         ${(mainRow || dropRow) ? `<div class="ed-group">${mainRow}${dropRow}</div>` : ''}
         <div class="ed-group"><button class="ed-row ed-row--btn" onclick="edReplaceEx()"><span class="ed-tx"><span class="ed-n">החלף תרגיל</span><span class="ed-m">שומר את הסטים, המנוחה והיעד</span></span><span class="ed-chev">‹</span></button></div>
         <button class="ed-danger" onclick="edRemoveEx()">הסר מהתוכנית</button>`;
+}
+
+// ── יחידת משקל בתוכנית ──
+// weightMode על פריט התוכנית גובר על ברירת המחדל במאגר — לאותו אימון בלבד.
+// בחירה בברירת המחדל של המאגר מוחקת את השדה (חוזר לעקוב אחרי המאגר).
+function _edDbWeightMode(name) {
+    const db = (state.exercises || []).find(e => e && e.name === name);
+    return db ? (db.weightMode || (db.isBW ? 'bw' : 'kg')) : 'kg';
+}
+function _edPlanWeightMode(ex) { return ex.weightMode || _edDbWeightMode(ex.name); }
+function _edWeightModeChipsHtml(ex) {
+    const cur = _edPlanWeightMode(ex);
+    const opts = [['kg', 'ק״ג'], ['plates', 'פלטות'], ['bw', 'משקל גוף']];
+    return `<div class="fv-chips">${opts.map(([m, l]) =>
+        `<button type="button" class="fv-chip${cur === m ? ' on' : ''}${cur === m && !ex.weightMode ? ' def' : ''}" onclick="edSetWeightMode('${m}')">${l}</button>`).join('')}</div>`;
+}
+function edSetWeightMode(mode) {
+    const ex = _edExObj(); if (!ex) return;
+    if (mode === _edDbWeightMode(ex.name)) delete ex.weightMode;
+    else ex.weightMode = mode;
+    haptic('light'); _edExChanged();
 }
 
 // ── טווח חזרות בעורך ──

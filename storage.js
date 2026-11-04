@@ -20,6 +20,26 @@ function _stripZeroVitals(night) {
 }
 // ZEROVITAL-END
 
+// SIZEDIAG-START
+// פירוט גודל מסמך לפי שדה — מה תופס מקום. מחזיר [[שדה, בייטים], ...] מהגדול לקטן.
+// אורך UTF-8 של ה-JSON (עברית = 2 בייט לתו) — אותו קירוב של _estimateDocSize.
+function _docSizeBreakdown(obj, limit) {
+    const enc = (v) => { try { const j = JSON.stringify(v); return j ? unescape(encodeURIComponent(j)).length : 0; } catch (e) { return 0; } };
+    return Object.keys(obj || {})
+        .map(k => [k, enc(obj[k])])
+        .filter(([, b]) => b > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit || 5);
+}
+// אזהרת הארכיון נמדדת על ה-chunk הגדול ביותר — מגבלת ה-1MB היא למסמך,
+// לא לסכום ה-batch. הסכום הקודם הקפיץ אזהרה כוזבת בכל כתיבה מלאה.
+function _archiveWarnBytes(chunkJsons, writeIdx) {
+    let max = 0, idx = -1;
+    (writeIdx || []).forEach(i => { const b = (chunkJsons[i] || '').length; if (b > max) { max = b; idx = i; } });
+    return { bytes: max, idx };
+}
+// SIZEDIAG-END
+
 // WMWEIGHT-START
 // משקל אחרון לפי יחידה: { exName: { kg: 80, plates: 5 } }. המפה הישנה (gympro_weights,
 // { exName: 80 }) נשמרה רק ביחידת ברירת המחדל של התרגיל — לכן היא משמשת fallback
@@ -2735,7 +2755,7 @@ const FirebaseManager = {
     // ── Sync Status (#3, הורחב ב-v17.15) ───────────────────────────────────────
     // מעקב אחר הצלחת הסנכרון האחרון של כל ארבעת המסלולים (archive/config/raw/ai).
     // מפתחות: <store>Ok, <store>At, <store>OkAt, <store>FailAt, <store>PendingAt,
-    //         <store>Err ('size'/'other'), <store>Warn (bytes).
+    //         <store>Err ('size'/'other'), <store>Warn (bytes), <store>WarnTop ([[שדה, בייטים]]).
     // הבאנר בעליית האפליקציה ושורת הסטטוס בהגדרות נשענים על זה — כשל לעולם לא שקט.
     //
     // v19.7.6 — PendingAt: "יש שינוי מקומי שטרם נדחף". עד כאן הסטטוס ידע רק **מתי
@@ -2793,10 +2813,12 @@ const FirebaseManager = {
     },
 
     // אזהרת גודל מקדימה: נרשמת כשהמסמך מעל DOC_SIZE_WARN, נמחקת כשחוזר מתחת לסף.
-    _recordSizeWarn(store, bytes) {
+    // top — פירוט המסמך (_docSizeBreakdown), כדי שהאזהרה תגיד *מה* לפנות ולא רק כמה.
+    _recordSizeWarn(store, bytes, top) {
         try {
             const s = this.getSyncStatus();
             if (bytes) s[store + 'Warn'] = bytes; else delete s[store + 'Warn'];
+            if (bytes && top && top.length) s[store + 'WarnTop'] = top; else delete s[store + 'WarnTop'];
             localStorage.setItem(this.KEY_SYNC_STATUS, JSON.stringify(s));
         } catch { /* לא קריטי */ }
     },
@@ -2955,6 +2977,36 @@ const FirebaseManager = {
     },
 
     // תיאור הכשל האחרון של מסלול — להודעות UI מדויקות במקום "בדוק חיבור" גנרי
+    // תיאור אזהרת גודל: איזה מסמך, כמה אחוז, ומה תופס בו מקום.
+    // מחזיר null כשאין אזהרה. full=false — שורה קצרה לבאנר.
+    SIZE_STORE_LABELS: { archive: 'ארכיון אימונים', config: 'נתונים ותזונה', raw: 'קובץ MFP', ai: 'שיחות AI' },
+    SIZE_FIELD_LABELS: {
+        workouts: 'תוכניות', exercises: 'מאגר תרגילים', meta: 'הגדרות תוכניות', analyticsPrefs: 'העדפות',
+        nutrition: 'מצב תזונתי', nutritionLog: 'יומן תזונה', nutritionDaily: 'תזונה יומית', sleepDaily: 'שינה',
+        vitalLock: 'נעילת מדדים', watchWorkouts: 'אימוני שעון', hrZones: 'אזורי דופק', nutritionNotes: 'הערות תזונה',
+        targetHistory: 'היסטוריית יעדים', foodDb: 'מאגר מזון', bodyProfile: 'פרופיל גוף', bodylog: 'שקילות',
+        coachPrompts: 'פרומפטים למאמן', memoryBox: 'קופסת זיכרון', exerciseTM: 'TM', exerciseTMAt: 'תאריכי TM',
+        lastWeights: 'משקלים אחרונים', lastWeightsByMode: 'משקלים לפי יחידה', rmHistory: 'היסטוריית 1RM',
+        hiddenThumbs: 'תמונות מוסתרות', photoIndex: 'אינדקס תמונות', photoTrend: 'מגמת תמונות',
+        messages: 'הודעות', coachMemory: 'זיכרון מאמן'
+    },
+    describeSizeWarn(full) {
+        const st = this.getSyncStatus() || {};
+        const stores = Object.keys(this.SIZE_STORE_LABELS).filter(k => st[k + 'Warn']);
+        if (!stores.length) return null;
+        const store = stores.reduce((a, b) => (st[b + 'Warn'] > st[a + 'Warn'] ? b : a));
+        const pct = Math.round(st[store + 'Warn'] / 1048576 * 100);
+        const head = `מסמך "${this.SIZE_STORE_LABELS[store]}" ב-${pct}% ממגבלת Firestore`;
+        if (!full) return head;
+        const kb = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + 'MB' : Math.round(b / 1024) + 'KB';
+        const top = (st[store + 'WarnTop'] || []).map(([k, b]) => {
+            const m = /^archive_(\d+)$/.exec(k);
+            const name = m ? `חלק ${+m[1] + 1} של הארכיון` : (this.SIZE_FIELD_LABELS[k] || k);
+            return `${name} ${kb(b)}`;
+        });
+        return head + (top.length ? ' · הכבדים: ' + top.join(' · ') : '');
+    },
+
     describeSyncFailure(store) {
         const st = this.getSyncStatus();
         const err = st[store + 'Err'], msg = st[store + 'ErrMsg'];
@@ -3002,6 +3054,12 @@ const FirebaseManager = {
             const prevCount = (prevMeta && prevMeta.chunkCount) || 0;
             const plan = this._chunkPlan(prevMeta, chunks.map(c => c.json), this.ARCHIVE_SCHEMA);
 
+            // אזהרת גודל — על כל ה-chunks (גם אלה שלא נכתבים עכשיו): הם המסמכים שבענן.
+            // נמדד לפני היציאה המוקדמת, כדי שאזהרה כוזבת ישנה (סכום ה-batch) תתנקה.
+            const _aw = _archiveWarnBytes(chunks.map(c => c.json), chunks.map((c, i) => i));
+            this._recordSizeWarn('archive', _aw.bytes > this.DOC_SIZE_WARN ? _aw.bytes : null,
+                [['archive_' + _aw.idx, _aw.bytes]]);
+
             // שום שינוי בפועל — לא שולחים דבר. שמירה חוזרת של אותו ארכיון (למשל
             // סבב ניסיון חוזר) עלתה עד כה במלוא המטען, ועכשיו היא חינם.
             if (!plan.write.length && chunkCount === prevCount &&
@@ -3029,7 +3087,7 @@ const FirebaseManager = {
             // לשלוח מחיקה של מסמך שכבר אינו קיים בכל שמירה ושמירה.
             if (plan.full) batch.delete(col.doc('archive'));
 
-            this._recordSizeWarn('archive', _bytes > this.DOC_SIZE_WARN ? _bytes : null);
+
             await this._withTimeout(batch.commit(),
                 plan.full ? this.FULL_WRITE_TIMEOUT_MS : this.WRITE_TIMEOUT_MS);
             this._recordSync('archive', true);
@@ -3236,7 +3294,8 @@ const FirebaseManager = {
             // אזהרה מקדימה על התקרבות למגבלת 1MB — כדי לדעת חודשים מראש, לא בדיעבד
             const bytes = this._estimateDocSize(configData);
             _bytes = bytes;
-            this._recordSizeWarn('config', bytes > this.DOC_SIZE_WARN ? bytes : null);
+            this._recordSizeWarn('config', bytes > this.DOC_SIZE_WARN ? bytes : null,
+                bytes > this.DOC_SIZE_WARN ? _docSizeBreakdown(configData, 5) : null);
             await this._withTimeout(
                 this._db.collection('gympro_data').doc('config').set(configData), this.WRITE_TIMEOUT_MS);
             await this._saveFoodLogChunks();
@@ -3414,7 +3473,8 @@ const FirebaseManager = {
             // 300 הודעות ארוכות + זיכרון מאמן יכולים להתקרב ל-1MB — אזהרה מקדימה
             const bytes = this._estimateDocSize(payload);
             _bytes = bytes;
-            this._recordSizeWarn('ai', bytes > this.DOC_SIZE_WARN ? bytes : null);
+            this._recordSizeWarn('ai', bytes > this.DOC_SIZE_WARN ? bytes : null,
+                bytes > this.DOC_SIZE_WARN ? _docSizeBreakdown(payload, 5) : null);
             await this._withTimeout(
                 this._db.collection('gympro_data').doc('ai_history').set(payload), this.WRITE_TIMEOUT_MS);
             this._recordSync('ai', true);

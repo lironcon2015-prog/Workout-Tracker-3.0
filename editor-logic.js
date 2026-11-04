@@ -1800,10 +1800,10 @@ function updateFirebaseStatus() {
             html += `<br><span style="color:var(--text-dim);font-size:0.85em;">&#10003; מסונכרן: ${fmt(Math.max(...okTimes))}${partial}</span>`;
         }
         // אזהרת גודל מקדימה — המסמך מתקרב למחסום ה-1MB של Firestore
-        const warns = ['config', 'ai'].filter(k => sync[k + 'Warn']);
-        if (warns.length) {
-            const pct = Math.round(Math.max(...warns.map(k => sync[k + 'Warn'])) / 1048576 * 100);
-            html += `<br><span style="color:var(--type-c);font-weight:700;font-size:0.85em;">&#9888; מסמך הגיבוי ב-${pct}% ממגבלת Firestore — פנה מקום בקרוב</span>`;
+        // כולל ארכיון (עד כאן רק config/ai — והבאנר הראה גם ארכיון בלי שיהיה לו פירוט כאן)
+        const sizeWarn = FirebaseManager.describeSizeWarn(true);
+        if (sizeWarn) {
+            html += `<br><span style="color:var(--type-c);font-weight:700;font-size:0.85em;">&#9888; ${escapeHtml(sizeWarn)}</span>`;
         }
         el.innerHTML = html;
     } else {

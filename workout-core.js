@@ -108,8 +108,10 @@ async function maybeShowCloudSyncBanner() {
             txt.textContent = 'הגיבוי לענן נכשל: ' + failed.map(s => labels[s]).join(', ') + why +
                               _syncFailSince(sync, failed) + '. הנתונים נשמרו במכשיר אך לא בענן.';
         } else {
-            const pct = Math.round(Math.max(...warned.map(s => sync[s + 'Warn'])) / 1048576 * 100);
-            txt.textContent = `מסמך הגיבוי בענן הגיע ל-${pct}% ממגבלת Firestore — הגיבוי ימשיך לעבוד, אבל כדאי לפנות מקום בקרוב.`;
+            // שם המסמך — בלעדיו אי אפשר לדעת מה לפנות. הפירוט המלא בהגדרות.
+            const head = FirebaseManager.describeSizeWarn(false) ||
+                `מסמך הגיבוי ב-${Math.round(Math.max(...warned.map(s => sync[s + 'Warn'])) / 1048576 * 100)}% ממגבלת Firestore`;
+            txt.textContent = `${head} — הגיבוי ימשיך לעבוד. פירוט מה תופס מקום: הגדרות ← סנכרון ענן.`;
         }
     }
     banner.classList.add('show');

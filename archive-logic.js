@@ -1632,6 +1632,16 @@ const HERO_METRIC_DEFS = {
     total:    (a) => ({ val: a.length, lbl: 'סך\nאימונים' })
 };
 
+// CALDAYS-START — בלוק טהור, נבדק ב-test/cal-days.test.js (אל תסיר את הסמנים)
+// ימים קלנדריים (לפי חצות מקומית) בין ts לבין now — לא 24 שעות שחלפו.
+// אימון של אתמול ב-21:00 שנצפה ב-07:00 הוא "אתמול", אף שחלפו רק 10 שעות.
+function _calDaysAgo(ts, now) {
+    const d0 = new Date(now == null ? Date.now() : now); d0.setHours(0, 0, 0, 0);
+    const d1 = new Date(ts); d1.setHours(0, 0, 0, 0);
+    return Math.round((d0 - d1) / 86400000);   // round — עמיד למעברי שעון קיץ
+}
+// CALDAYS-END
+
 function renderHeroCard() {
     const prefs = getAnalyticsPrefs(), archive = getArchiveClean();
     // "אימון אחרון" נלקח מהארכיון **המלא**: אימון אירובי מסונן מהמדדים הנגזרים
@@ -1640,7 +1650,7 @@ function renderHeroCard() {
     const lastWoEl = document.getElementById('hero-last-workout');
     if (lastWoEl) {
         if (fullArchive.length > 0) {
-            const last = fullArchive[0], days = Math.floor((Date.now() - last.timestamp) / 86400000);
+            const last = fullArchive[0], days = _calDaysAgo(last.timestamp);
             const daysStr = days === 0 ? 'היום' : days === 1 ? 'אתמול' : `לפני ${days} ימים`;
             lastWoEl.textContent = `${last.type} • ${daysStr}`;
         } else { lastWoEl.textContent = 'טרם בוצעו אימונים'; }
@@ -2155,7 +2165,7 @@ function renderConsistencyTrack(archive, n) {
     data.forEach((w, i) => {
         const dt = new Date(w.timestamp);
         let dtStr = `${dt.getDate().toString().padStart(2,'0')}.${(dt.getMonth()+1).toString().padStart(2,'0')}`;
-        if (i === 0 && Math.floor((Date.now() - w.timestamp) / 86400000) === 0) dtStr = 'היום';
+        if (i === 0 && _calDaysAgo(w.timestamp) === 0) dtStr = 'היום';
 
         let iconHtml = '', wrapCls = '';
         

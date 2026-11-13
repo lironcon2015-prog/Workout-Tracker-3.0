@@ -7595,7 +7595,9 @@ body.fd-comp-pick #fd-add-sheet { z-index: 1101; }
 .fd-add-done[hidden] { display: none; }
 
 /* ── 4 · בחירת ארוחה בשיט ההוספה ── */
-.fd-add-meals { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; overflow-x: auto; scrollbar-width: none; }
+/* flex-shrink:0 — השורה היא ילד של שיט flex בעמודה; overflow-x:auto הופך אותה למכל גלילה
+   שה-min-height האוטומטי שלו 0, ולכן כשרשימת התוצאות ארוכה היא נמעכה לפס דק וחתכה את הצ'יפים */
+.fd-add-meals { display: flex; flex-shrink: 0; align-items: center; gap: 6px; margin: 0 0 12px; overflow-x: auto; scrollbar-width: none; }
 .fd-add-meals::-webkit-scrollbar { display: none; }
 .fd-add-meals-lbl { font-size: var(--fs-sm); color: var(--text-dim); flex-shrink: 0; margin-inline: 4px 2px; }
 .fd-add-meals .fd-chip {

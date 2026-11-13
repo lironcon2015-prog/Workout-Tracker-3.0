@@ -7544,7 +7544,7 @@ body.fd-comp-pick #fd-add-sheet { z-index: 1101; }
 
 /* ── הודעה עם "בטל" ── */
 .fd-toast {
-    position: fixed; left: 12px; right: 12px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 1150;
+    position: fixed; left: 12px; right: 12px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 1150;
     display: flex; align-items: center; gap: 10px; overflow: hidden;
     padding-block: 6px; padding-inline: 16px 6px; min-height: 46px; box-sizing: border-box;
     background: var(--surface-4); border: 1px solid var(--hairline-hi);

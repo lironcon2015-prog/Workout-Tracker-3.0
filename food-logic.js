@@ -1366,6 +1366,7 @@ function _fdToast(html, onUndo) {
     const t = document.getElementById('fd-undo-toast');
     if (!t) return;
     clearTimeout(_fdToastTimer);
+    _fdQuickToastId = null;   // הודעה חדשה — הקודמת (אם הייתה של הוספה מהירה) כבר לא מוצגת
     _fdToastUndoFn = onUndo || null;
     t.querySelector('.fd-toast-txt').innerHTML = html;
     t.querySelector('.fd-toast-undo').hidden = !onUndo;
@@ -1724,7 +1725,6 @@ function _fdRenderFoodList(foods, box, append) {
     const dbMap = new Map(StorageManager.getFoodDb().map(x => [x.id, x]));
     const dbIds = new Set(dbMap.keys());
     const html = foods.map(f => {
-        const brand = (f.brand && f.brand !== 'חומר גלם') ? _fdEsc(f.brand) + ' · ' : '';
         const p = f.per100 || {};
         // מזון "יחידה" מאוחסן ב-per100 מוכפל ×100 (טריק התאמה למודל הפנימי) — לתצוגה יש לחלק חזרה
         const isUnit = f.baseUnit === 'unit';
@@ -1735,7 +1735,10 @@ function _fdRenderFoodList(foods, box, append) {
         // ארוחה שמורה — מזון "יחידה" עם components; מוצגת כ"מנה" עם מספר מרכיבים
         const isMeal = !!(f.components && f.components.length);
         const per100Lbl = isMeal ? 'מנה' : isUnit ? 'יחידה' : f.baseUnit === 'ml' ? '100 מ"ל' : '100 ג\'';
-        const compsLbl = isMeal ? f.components.length + ' מרכיבים · ' : '';
+        // כל חלק בתוך <bdi>: רצף "130 kcal · 100 ג'" (ספרות + לטינית) היה נבלע ברצף LTR אחד
+        // ומוצג הפוך בשורה עברית — "ג' kcal · 100 130"
+        const subParts = [isMeal ? f.components.length + ' מרכיבים' : '', (f.brand && f.brand !== 'חומר גלם') ? _fdEsc(f.brand) : '',
+            `${_fdFmt(dKcal)} kcal`, per100Lbl].filter(Boolean);
         // עריכה: מזון מותאם/ארוחה שמורה, וגם מוצר סרוק (gemini) או OFF שכבר שמור במאגר — תיקון שם/ערכים או מחיקה
         const editable = f.source === 'custom' || f.source === 'meal' || ((f.source === 'gemini' || f.source === 'off') && dbIds.has(f.id));
         const editBtn = editable
@@ -1747,7 +1750,7 @@ function _fdRenderFoodList(foods, box, append) {
         return `<button class="fd-food-row" onclick="fdSelectFoodById('${_fdEsc(f.id)}')">
             <div class="fd-food-main">
                 <span class="fd-food-name">${_fdSrcChip(f)}${_fdEsc(f.name)}</span>
-                <span class="fd-food-sub">${compsLbl}${brand}${_fdFmt(dKcal)} kcal · ${per100Lbl}</span>
+                <span class="fd-food-sub">${subParts.map(x => `<bdi>${x}</bdi>`).join(' · ')}</span>
                 <span class="fd-entry-pcf"><i class="macro-p">ח ${Math.round(dP)}</i><i class="macro-c">פ ${Math.round(dC)}</i><i class="macro-f">ש ${Math.round(dF)}</i></span>
             </div>
             ${editBtn}
@@ -1782,13 +1785,16 @@ function _fdSyncTally() {
     const st = document.getElementById('fd-add-status');
     const done = document.getElementById('fd-add-done');
     const on = _fdQuickTally.n > 0;
-    if (st) st.innerHTML = on ? `נוספו <b>${_fdQuickTally.n}</b> · <b>${_fdFmt(_fdQuickTally.k)}</b> kcal` : 'נתוני מזון: Open Food Facts';
+    if (st) st.innerHTML = on ? `נוספו <b>${_fdQuickTally.n}</b> · <bdi><b>${_fdFmt(_fdQuickTally.k)}</b> kcal</bdi>` : 'נתוני מזון: Open Food Facts';
     if (st) st.classList.toggle('on', on);
     if (done) done.hidden = !on;
 }
 
+// הקשה על "הוסף" מתעדת; הקשה חוזרת על "נוסף" מבטלת את אותה הוספה (בלי לחכות להודעה)
+const _fdQuickAdded = {};   // entryId → { date, entry } — הוספות מהירות שעוד ניתנות לביטול מהכפתור
+let _fdQuickToastId = null; // הרשומה שההודעה הפתוחה מתייחסת אליה
 function fdQuickAdd(id, el) {
-    if (el && el.classList.contains('done')) return;
+    if (el && el.classList.contains('done')) { _fdQuickRemove(el.dataset.eid, el); haptic('light'); return; }
     const food = _fdFoodCache[id] || StorageManager.getFoodDb().find(f => f.id === id);
     if (!food) return;
     const g = _fdQuickPortion(food, StorageManager.getFoodLastPortion(food.id));
@@ -1799,18 +1805,28 @@ function fdQuickAdd(id, el) {
     StorageManager.upsertFoodToDb(food);   // כמו fdSelectFoodById — מזון מהרשת נשמר רק בבחירה
     const entry = StorageManager.addFoodEntry(date, _fdBuildEntry(food, g, _fdNowTime(), meal));
     StorageManager.bumpFoodUsage(food.id, meal);
+    _fdQuickAdded[entry.id] = { date, entry };
     _fdQuickTally.n++; _fdQuickTally.k += entry.kcal || 0;
     _fdSyncTally();
-    if (el) { el.classList.add('done'); el.textContent = 'נוסף'; }
+    if (el) { el.classList.add('done'); el.textContent = 'נוסף'; el.dataset.eid = entry.id; el.setAttribute('aria-label', 'בטל הוספה'); }
     _fdAfterLogChange();
     haptic('medium');
-    _fdToast(`<b>${_fdEsc(entry.name)}</b> · ${_fdEsc(_fdPortionLabel(entry))} · נוסף ל${_fdEsc(meal)}`, () => {
-        StorageManager.deleteFoodEntry(date, entry.id);
-        _fdQuickTally.n--; _fdQuickTally.k -= entry.kcal || 0;
-        _fdSyncTally();
-        if (el && el.isConnected) { el.classList.remove('done'); el.textContent = 'הוסף'; }
-        _fdAfterLogChange();
-    });
+    _fdToast(`<b>${_fdEsc(entry.name)}</b> · <bdi>${_fdEsc(_fdPortionLabel(entry))}</bdi> · נוסף ל${_fdEsc(meal)}`, () => _fdQuickRemove(entry.id, el));
+    _fdQuickToastId = entry.id;
+}
+function _fdQuickRemove(eid, el) {
+    const rec = eid && _fdQuickAdded[eid];
+    if (!rec) return;
+    delete _fdQuickAdded[eid];
+    StorageManager.deleteFoodEntry(rec.date, eid);
+    _fdQuickTally.n = Math.max(0, _fdQuickTally.n - 1);
+    _fdQuickTally.k = Math.max(0, _fdQuickTally.k - (rec.entry.kcal || 0));
+    _fdSyncTally();
+    if (el && el.isConnected && el.dataset.eid === eid) {
+        el.classList.remove('done'); el.textContent = 'הוסף'; delete el.dataset.eid; el.removeAttribute('aria-label');
+    }
+    if (_fdQuickToastId === eid) { _fdQuickToastId = null; _fdToastHide(); }
+    _fdAfterLogChange();
 }
 function fdAddDone() { closeFoodAdd(); haptic('light'); }
 

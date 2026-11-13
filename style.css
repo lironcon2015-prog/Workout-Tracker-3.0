@@ -7607,21 +7607,6 @@ body.fd-comp-pick #fd-add-sheet { z-index: 1101; }
 .fd-add-meals .fd-chip.active { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 body.fd-comp-pick .fd-add-meals { display: none; }   /* בחירת מרכיב למנה — הארוחה לא רלוונטית */
 
-/* ── 4 · כפתור הוספה ראשי — מחוץ לאזור הגלילה, ולכן קבוע בגלילה ── */
-.fd-fab {
-    position: absolute; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 4;
-    display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; height: 54px;
-    padding-block: 0; padding-inline: 24px 9px;
-    background: var(--accent-gradient); color: var(--accent-text); border: none; border-radius: var(--r-pill);
-    font-family: inherit; font-weight: 700; font-size: var(--fs-lg); cursor: pointer;
-    box-shadow: var(--accent-glow), var(--elev-3);
-    transition: transform var(--dur-1) var(--ease), opacity var(--dur-2) var(--ease);
-}
-.fd-fab:active { transform: translateX(-50%) scale(0.97); }
-.fd-fab-meal { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: var(--r-pill); background: rgba(0,0,0,0.24); font-size: var(--fs-sm); font-weight: 700; }
-.fd-fab-meal:empty { display: none; }
-.food-diary-overlay.fd-sel-on .fd-fab { opacity: 0; pointer-events: none; }
-.fd-scroll { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
 .fd-scroll.fd-selmode.fd-selmode--copy { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
 
 /* ── 3 · "העתק להיום" בפס הבחירה (יום עבר בלבד) ── */
@@ -7720,7 +7705,7 @@ body.fd-comp-pick .fd-add-meals { display: none; }   /* בחירת מרכיב ל
 .fd-summary { touch-action: pan-y; }
 
 @media (prefers-reduced-motion: reduce) {
-    .fd-toast, .fd-quick, .fd-fab, .fd-meal-chev, .fd-comp-chev { transition: none; }
+    .fd-toast, .fd-quick, .fd-meal-chev, .fd-comp-chev { transition: none; }
     .fd-toast-bar.run { animation: none; }
 }
 

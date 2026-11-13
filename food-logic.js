@@ -750,7 +750,6 @@ function fdRender() {
     if (nextBtn) nextBtn.disabled = _fdDate >= _blTodayStr();
     const back = document.getElementById('fd-backtoday');
     if (back) back.hidden = _fdDate >= _blTodayStr();
-    _fdSyncFab();
 
     const scroll = document.getElementById('fd-scroll');
     if (!scroll) return;
@@ -1268,8 +1267,6 @@ function _fdSelSync() {
     const copy = on && (_fdSelDate || _fdDate) < _blTodayStr();
     if (bar) bar.classList.toggle('has-copy', copy);
     if (scroll) scroll.classList.toggle('fd-selmode--copy', copy);
-    const dia = document.getElementById('food-diary');
-    if (dia) dia.classList.toggle('fd-sel-on', on);   // כפתור ההוספה הראשי מפנה מקום לפס
     const cnt = document.getElementById('fd-batch-cnt');
     if (cnt && on) cnt.textContent = `${_fdSel.size} נבחרו`;
 }
@@ -1849,52 +1846,6 @@ function fdPickAddMeal(el) {
     haptic('light');
 }
 
-// FDMEALTIME-START — בלוק טהור, נבדק ב-test/meal-time.test.js (אל תסיר את הסמנים)
-// fdMealForTime — הארוחה שהשעה הנוכחית הכי קרובה לשעה הטיפוסית שלה. שעה טיפוסית =
-// חציון שעות התיעוד של הארוחה (מ-3 רשומות ומעלה); אחרת ברירת מחדל לארוחות המובנות.
-// nowMin/samples בדקות מחצות. מרחק מעגלי — 23:50 קרוב ל-00:10.
-const _FD_MEAL_DEFAULT_MIN = { 'בוקר': 8 * 60, 'צהריים': 13 * 60, 'נשנוש': 16 * 60 + 30, 'ערב': 19 * 60 + 30 };
-function fdMealForTime(nowMin, samples, labels) {
-    labels = labels || [];
-    const typical = {};
-    labels.forEach(m => {
-        const v = ((samples && samples[m]) || []).filter(x => isFinite(x)).slice().sort((a, b) => a - b);
-        if (v.length >= 3) typical[m] = v[Math.floor(v.length / 2)];
-        else if (_FD_MEAL_DEFAULT_MIN[m] != null) typical[m] = _FD_MEAL_DEFAULT_MIN[m];
-    });
-    let best = null, bestD = Infinity;
-    labels.forEach(m => {
-        if (typical[m] == null) return;
-        const d0 = Math.abs(nowMin - typical[m]);
-        const d = Math.min(d0, 1440 - d0);
-        if (d < bestD) { bestD = d; best = m; }
-    });
-    return best || labels[0] || null;
-}
-// FDMEALTIME-END
-
-// _fdMealForNow — דוגם את שעות התיעוד של 60 הימים האחרונים (מפתחות היומן הם ISO,
-// והשוואה מול _addDays(ISO) תקינה)
-function _fdMealForNow() {
-    const log = StorageManager.getFoodLog() || {};
-    const from = _addDays(_blTodayStr(), -60);
-    const samples = {};
-    Object.keys(log).forEach(d => {
-        if (d < from) return;
-        (log[d] || []).forEach(e => {
-            const m = /^(\d{1,2}):(\d{2})/.exec((e && e.time) || '');
-            if (!m) return;
-            (samples[e.meal] || (samples[e.meal] = [])).push(+m[1] * 60 + +m[2]);
-        });
-    });
-    const now = new Date();
-    return fdMealForTime(now.getHours() * 60 + now.getMinutes(), samples, _fdMealLabels());
-}
-function _fdSyncFab() {
-    const lbl = document.getElementById('fd-fab-meal');
-    if (lbl) lbl.textContent = _fdMealForNow() || '';
-}
-function fdFabAdd() { fdOpenAdd(_fdMealForNow()); }
 
 // ── 14 · ניווט ימים: חזרה להיום + סוויפ על כרטיס הסיכום ─────────────
 // הסוויפ רק על כרטיס הסיכום — על שורות הרשומות סוויפ שמאלה שמור למחיקה.

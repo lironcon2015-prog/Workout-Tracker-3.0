@@ -1819,6 +1819,19 @@ const StorageManager = {
         return entry;
     },
 
+    // insertFoodEntry — החזרת רשומה שנמחקה (ביטול מחיקה ביומן) למקומה המקורי, עם אותו id.
+    // addFoodEntry היה מוסיף אותה לסוף היום, והרשומה הייתה "קופצת" לסוף הארוחה.
+    insertFoodEntry(date, entry, index) {
+        if (!this.isDateKey(date) || !entry || !entry.id) return;
+        const log = this.getFoodLog();
+        const arr = log[date] || (log[date] = []);
+        if (arr.some(e => e.id === entry.id)) return;   // כבר קיימת — ביטול כפול
+        const i = (index >= 0 && index <= arr.length) ? index : arr.length;
+        arr.splice(i, 0, entry);
+        this._saveFoodLog(log);
+        this.recomputeNutritionDay(date);
+    },
+
     updateFoodEntry(date, id, patch) {
         if (!this.isDateKey(date)) return;
         const log = this.getFoodLog();

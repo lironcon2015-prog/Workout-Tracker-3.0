@@ -7672,6 +7672,7 @@ body.fd-comp-pick .fd-add-meals { display: none; }   /* בחירת מרכיב ל
 .fd-unres-ai:disabled { opacity: var(--opacity-disabled); }
 .fd-unres-msg { font-size: var(--fs-xs); color: var(--text-dim); line-height: 1.5; }
 .fd-comp--est { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.fd-src-chip.src-guess { color: var(--warn); border-color: rgba(var(--warn-rgb), 0.4); }
 .fd-src-chip.src-est { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* ── 10 · ארוחה ריקה — שורה אחת ── */

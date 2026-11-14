@@ -1411,7 +1411,7 @@ async function _ppRunAnalysis(manual) {
         const res = await _geminiRequest({
             contents: [{ role: 'user', parts }],
             generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: 'application/json' }
-        }, { json: true, timeoutMs: 60000 });
+        }, { feature: 'ניתוח תמונות התקדמות', json: true, timeoutMs: 60000 });
 
         // ולידציה + נרמול — אל תסמוך על המודל
         const comparability = Math.max(0, Math.min(10, Math.round(Number(res.comparability) || 0)));

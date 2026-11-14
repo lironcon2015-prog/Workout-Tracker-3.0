@@ -7661,6 +7661,16 @@ body.fd-comp-pick .fd-add-meals { display: none; }   /* בחירת מרכיב ל
 .fd-free-title { margin-bottom: 12px; }
 /* "פריטים נפרדים" — אין שם מנה ואין שמירה כארוחה */
 #fd-meal-body.fd-free-sep .fd-meal-name-inp, #fd-meal-body.fd-free-sep .fd-savedb { display: none; }
+/* פריטים שלא זוהו במאגר — לא חוסמים הוספה של מה שזוהה */
+.fd-free-unres { margin: 0 0 14px; padding: 12px; border: 1px dashed var(--hairline-hi); border-radius: var(--r-md); display: flex; flex-direction: column; gap: 10px; }
+.fd-free-unres[hidden] { display: none; }
+.fd-unres-h { font-size: var(--fs-sm); font-weight: 700; color: var(--text-dim); }
+.fd-unres-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.fd-unres-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; border-radius: var(--r-pill); background: var(--surface-3); font-size: var(--fs-md); color: var(--text); }
+.fd-unres-x { width: 22px; height: 22px; border: none; border-radius: var(--r-pill); background: rgba(255,255,255,0.10); color: var(--text-dim); font-family: inherit; font-size: var(--fs-md); font-weight: 900; line-height: 1; cursor: pointer; padding: 0; }
+.fd-unres-ai { align-self: flex-start; background: var(--accent-soft); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); font-family: inherit; font-weight: 700; font-size: var(--fs-sm); padding: 9px 16px; border-radius: var(--r-pill); cursor: pointer; }
+.fd-unres-ai:disabled { opacity: var(--opacity-disabled); }
+.fd-unres-msg { font-size: var(--fs-xs); color: var(--text-dim); line-height: 1.5; }
 .fd-comp--est { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .fd-src-chip.src-est { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 

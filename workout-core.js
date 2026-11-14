@@ -3694,14 +3694,111 @@ function _geminiOrderedModels(config) {
 
 function _geminiMarkModelOk(m) { try { localStorage.setItem(GEMINI_PREF_MODEL_KEY, m); } catch (e) {} }
 
+// ── אבחון קריאות AI (הגדרות ← אבחון סוכן AI) ────────────────────────────
+// כל קריאה ל-Gemini נרשמת **לפני** שהיא יוצאת לרשת ומתעדכנת בכל ניסיון מודל — כך גם ריצה
+// שלא הושלמה (האפליקציה נסגרה, נתקעה) נשארת ביומן עם המודל שבו היא עמדה. מקומי בלבד:
+// לא מסונכרן לענן ולא בקובץ המאוחד — זה אבחון, לא דאטה של המשתמש.
+const AI_DIAG_KEY = 'gympro_ai_diag';
+const AI_DIAG_MAX = 20;
+const _aiDiagLive = new Set();   // ריצות שעדיין פעילות בטעינה הנוכחית של הדף
+function _aiDiagLoad() {
+    try { const a = JSON.parse(localStorage.getItem(AI_DIAG_KEY)); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+}
+function _aiDiagSave(run) {
+    try {
+        const list = _aiDiagLoad().filter(r => r && r.id !== run.id);
+        list.unshift(run);
+        localStorage.setItem(AI_DIAG_KEY, JSON.stringify(list.slice(0, AI_DIAG_MAX)));
+    } catch (e) {}
+}
+function _aiDiagStart(feature) {
+    const run = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                  feature: feature || 'לא מזוהה', start: Date.now(), status: 'running', attempts: [] };
+    _aiDiagLive.add(run.id);
+    _aiDiagSave(run);
+    return run;
+}
+// תחילת ניסיון — נכתב מיד, כדי שריצה שנקטעה תראה באיזה מודל עמדה
+function _aiDiagTry(run, model) {
+    if (!run) return Date.now();
+    run.current = model;
+    run.currentAt = Date.now();
+    _aiDiagSave(run);
+    return run.currentAt;
+}
+function _aiDiagAttempt(run, model, outcome, t0) {
+    if (!run) return;
+    run.attempts.push({ model, outcome, ms: Date.now() - t0 });
+    delete run.current; delete run.currentAt;
+    if (outcome === 'הצליח') run.model = model;
+    _aiDiagSave(run);
+}
+function _aiDiagEnd(run, ok, err) {
+    if (!run) return;
+    run.status = ok ? 'ok' : 'error';
+    run.ms = Date.now() - run.start;
+    if (err) run.error = String((err && err.message) || err).slice(0, 200) + (err && err._details ? ` (${err._details})` : '');
+    _aiDiagLive.delete(run.id);
+    _aiDiagSave(run);
+}
+// עטיפה אחידה: ריצה חדשה, או הצטרפות לריצה קיימת (opts.diagRun — למשל fallback של תמלול)
+async function _aiDiagWrap(opts, defaultFeature, fn) {
+    const own = !opts.diagRun;
+    const run = opts.diagRun || _aiDiagStart(opts.feature || defaultFeature);
+    try { const r = await fn(run); if (own) _aiDiagEnd(run, true); return r; }
+    catch (e) { if (own) _aiDiagEnd(run, false, e); throw e; }
+}
+function _aiDiagFmtMs(ms) { return ms == null ? '—' : (ms < 1000 ? ms + 'ms' : (ms / 1000).toFixed(1) + 'ש\''); }
+function _aiDiagTime(t) { const d = new Date(t), p = x => String(x).padStart(2, '0'); return `${p(d.getDate())}.${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+function _aiDiagRunText(r) {
+    const live = _aiDiagLive.has(r.id);
+    const status = r.status === 'ok' ? 'הושלמה' : r.status === 'error' ? 'נכשלה'
+        : live ? 'בתהליך' : 'לא הושלמה (האפליקציה נסגרה או נטענה מחדש באמצע)';
+    const lines = [`${r.feature} — ${_aiDiagTime(r.start)}`, `  סטטוס: ${status}`];
+    const model = r.model || r.current || (r.attempts.length ? r.attempts[r.attempts.length - 1].model : null);
+    lines.push(`  מודל: ${model || '—'}${r.model ? '' : (model ? ' (לא ענה)' : '')}`);
+    const total = r.ms != null ? r.ms : (live ? Date.now() - r.start : null);
+    lines.push(`  זמן כולל: ${_aiDiagFmtMs(total)}${r.ms == null && live ? ' (עד עכשיו)' : ''}`);
+    r.attempts.forEach((a, i) => lines.push(`  ניסיון ${i + 1}: ${a.model} — ${a.outcome} · ${_aiDiagFmtMs(a.ms)}`));
+    if (r.current) lines.push(`  ניסיון ${r.attempts.length + 1}: ${r.current} — ${live ? 'ממתין לתשובה' : 'נקטע'}${live ? ' · ' + _aiDiagFmtMs(Date.now() - r.currentAt) : ''}`);
+    if (r.error) lines.push(`  שגיאה: ${r.error}`);
+    return lines.join('\n');
+}
+function buildAiDiagReport() {
+    const list = _aiDiagLoad();
+    if (!list.length) return 'עדיין לא נרשמו קריאות AI במכשיר הזה.';
+    const out = ['הריצה האחרונה:', _aiDiagRunText(list[0])];
+    const coach = list.find(r => r.feature === 'צ\'אט המאמן');
+    if (coach && coach !== list[0]) out.push('', 'הריצה האחרונה של צ\'אט המאמן:', _aiDiagRunText(coach));
+    const rest = list.slice(1).filter(r => r !== coach).slice(0, 8);
+    if (rest.length) out.push('', 'קריאות קודמות:', rest.map(_aiDiagRunText).join('\n\n'));
+    return out.join('\n');
+}
+let _aiDiagReport = '';
+function openAiDiag() {
+    const modal = document.getElementById('ai-diag-modal');
+    const pre = document.getElementById('ai-diag-text');
+    if (!modal || !pre) return;
+    _aiDiagReport = buildAiDiagReport();
+    pre.textContent = _aiDiagReport;
+    modal.style.display = 'flex';
+}
+function closeAiDiag() { const m = document.getElementById('ai-diag-modal'); if (m) m.style.display = 'none'; }
+function copyAiDiag() { if (typeof _copyText === 'function') _copyText(_aiDiagReport, 'הדוח הועתק — הדבק אותו בשיחה.'); }
+
 /**
  * _geminiRequest — בקשת generateContent אחת עם fallback על כל המודלים.
  * payload: { systemInstruction?, contents, generationConfig } — בלי thinkingConfig (מוזרק פר-מודל).
- * opts: { timeoutMs=30000, json=false, fallbackStatuses=[400,404,429,503] }
+ * opts: { timeoutMs=30000, json=false, fallbackStatuses=[400,404,429,503], feature, diagRun }
+ *   feature — שם הפיצ'ר ביומן האבחון; diagRun — הצטרפות לריצת אבחון קיימת
  *   json=true → מפרסר JSON ומנסה מודל הבא גם על תשובה לא-תקינה (שימור התנהגות ה-Vision/מזון).
  * מחזיר { text, parts, finishReason, model } או את ה-JSON המפורסר כש-json=true.
  */
 async function _geminiRequest(payload, opts = {}) {
+    return _aiDiagWrap(opts, 'קריאת AI', run => _geminiRequestCore(payload, opts, run));
+}
+async function _geminiRequestCore(payload, opts, run) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
     const timeoutMs = opts.timeoutMs || 30000;
@@ -3715,6 +3812,7 @@ async function _geminiRequest(payload, opts = {}) {
                 generationConfig: Object.assign({}, payload.generationConfig, { thinkingConfig: _geminiThinkingConfig(modelName) })
             };
             if (payload.systemInstruction) body.system_instruction = payload.systemInstruction;
+            var _t0 = _aiDiagTry(run, modelName);
             const ctrl = new AbortController();
             const timer = setTimeout(() => ctrl.abort(), timeoutMs);
             let response;
@@ -3727,6 +3825,7 @@ async function _geminiRequest(payload, opts = {}) {
                 });
             } finally { clearTimeout(timer); }
             if (!response.ok) {
+                _aiDiagAttempt(run, modelName, 'HTTP ' + response.status, _t0);
                 if (fallbackStatuses.includes(response.status)) { lastErr = `${modelName}: ${response.status}`; continue; }
                 const errData = await response.json().catch(() => ({}));
                 throw new Error(`API_ERROR_${response.status}: ${errData.error?.message || ''}`);
@@ -3738,17 +3837,21 @@ async function _geminiRequest(payload, opts = {}) {
             if (opts.json) {
                 let parsed;
                 try { parsed = JSON.parse(text); }
-                catch (e) { lastErr = `${modelName}: bad JSON`; continue; }   // מודל החזיר JSON שבור — נסה הבא
+                catch (e) { _aiDiagAttempt(run, modelName, 'JSON שבור', _t0); lastErr = `${modelName}: bad JSON`; continue; }   // מודל החזיר JSON שבור — נסה הבא
+                _aiDiagAttempt(run, modelName, 'הצליח', _t0);
                 _geminiMarkModelOk(modelName);
                 return parsed;
             }
+            _aiDiagAttempt(run, modelName, 'הצליח', _t0);
             _geminiMarkModelOk(modelName);
             return { text, parts, finishReason: candidate?.finishReason || '', model: modelName };
         } catch (e) {
             if (e.name === 'AbortError' || (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')))) {
+                _aiDiagAttempt(run, modelName, e.name === 'AbortError' ? 'timeout' : 'שגיאת רשת', _t0);
                 lastErr = `${modelName}: ${e.name === 'AbortError' ? 'timeout' : e.message}`;
                 continue;
             }
+            if (run && run.current) _aiDiagAttempt(run, modelName, 'שגיאה', _t0);
             throw e;
         }
     }
@@ -3818,6 +3921,9 @@ async function _transcribeViaInteractions(base64, mimeType, timeoutMs, apiKey) {
  * מנסה קודם את מודל התמלול הייעודי; אם אינו זמין — generateContent רב-מודלי.
  */
 async function _geminiTranscribe(base64, mimeType, opts = {}) {
+    return _aiDiagWrap(opts, 'תמלול סט בקול', run => _geminiTranscribeCore(base64, mimeType, opts, run));
+}
+async function _geminiTranscribeCore(base64, mimeType, opts, run) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
     const timeoutMs = opts.timeoutMs || 20000;
@@ -3825,10 +3931,13 @@ async function _geminiTranscribe(base64, mimeType, opts = {}) {
     let skip = false;
     try { skip = localStorage.getItem(GEMINI_TRANSCRIBE_OFF_KEY) === '1'; } catch (e) {}
     if (!skip) {
+        const t0 = _aiDiagTry(run, GEMINI_TRANSCRIBE_MODEL);
         try {
             const t = await _transcribeViaInteractions(base64, mimeType, timeoutMs, config.apiKey);
+            _aiDiagAttempt(run, GEMINI_TRANSCRIBE_MODEL, t ? 'הצליח' : 'תשובה ריקה', t0);
             if (t) return t;
         } catch (e) {
+            _aiDiagAttempt(run, GEMINI_TRANSCRIBE_MODEL, e && e.name === 'AbortError' ? 'timeout' : String((e && e.message) || e), t0);
             if (e && e._permanent) { try { localStorage.setItem(GEMINI_TRANSCRIBE_OFF_KEY, '1'); } catch (e2) {} }
         }
     }
@@ -3839,11 +3948,14 @@ async function _geminiTranscribe(base64, mimeType, opts = {}) {
     const res = await _geminiRequest({
         contents: [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType, data: base64 } }] }],
         generationConfig: { temperature: 0, maxOutputTokens: 120 }
-    }, { timeoutMs });
+    }, { timeoutMs, diagRun: run });
     return (res.text || '').trim();
 }
 
 async function _callGeminiOneShot(prompt, opts = {}) {
+    return _aiDiagWrap(opts, 'קריאת AI', run => _callGeminiOneShotCore(prompt, opts, run));
+}
+async function _callGeminiOneShotCore(prompt, opts, run) {
     const config = StorageManager.getAIConfig();
     if (!config.apiKey) throw new Error('API_KEY_MISSING');
 
@@ -3872,6 +3984,7 @@ async function _callGeminiOneShot(prompt, opts = {}) {
             const generationConfig = _genConfigFor(modelName);
             let fullText = '';
 
+            var _t0 = _aiDiagTry(run, modelName);
             for (let round = 0; round <= MAX_CONT_ROUNDS; round++) {
                 const ctrl = new AbortController();
                 const timer = setTimeout(() => ctrl.abort(), ATTEMPT_TIMEOUT_MS);
@@ -3887,6 +4000,7 @@ async function _callGeminiOneShot(prompt, opts = {}) {
                     clearTimeout(timer);
                 }
                 if (!response.ok) {
+                    _aiDiagAttempt(run, modelName, 'HTTP ' + response.status, _t0);
                     if (response.status === 429 || response.status === 503 || response.status === 404) {
                         lastErr = `${modelName}: ${response.status}`;
                         continue modelLoop; // עבור למודל הבא
@@ -3897,28 +4011,31 @@ async function _callGeminiOneShot(prompt, opts = {}) {
                 const data = await response.json();
                 const candidate = data.candidates?.[0];
                 const parts = candidate?.content?.parts || [];
-                if (!opts.freeText) { _markOk(modelName); return parts.find(p => !p.thought)?.text || ''; }
+                if (!opts.freeText) { _aiDiagAttempt(run, modelName, 'הצליח', _t0); _markOk(modelName); return parts.find(p => !p.thought)?.text || ''; }
 
                 // freeText — איחוד כל ה-parts (תשובה ארוכה עלולה להתפצל)
                 const chunk = parts.filter(p => !p.thought).map(p => p.text || '').join('');
                 fullText += chunk;
 
                 // אם המודל סיים מרצונו (STOP) או שאין עוד מה לחתוך — מחזירים
-                if (candidate?.finishReason !== 'MAX_TOKENS' || !chunk) { _markOk(modelName); return fullText.trim(); }
+                if (candidate?.finishReason !== 'MAX_TOKENS' || !chunk) { _aiDiagAttempt(run, modelName, round ? `הצליח (${round + 1} סבבים)` : 'הצליח', _t0); _markOk(modelName); return fullText.trim(); }
 
                 // נחתך באמצע — מבקשים המשך מהנקודה שבה עצר, בלי לחזור על מה שנכתב.
                 // דוחפים את ה-parts המקוריים (כולל thoughtSignature) — Gemini 3 דורש זאת ב-multi-turn.
                 contents.push({ role: 'model', parts });
                 contents.push({ role: 'user', parts: [{ text: 'המשך בדיוק מהמקום שבו עצרת, ללא חזרה על מה שכבר נכתב וללא הקדמה.' }] });
             }
+            _aiDiagAttempt(run, modelName, 'הצליח (נחתך אחרי סבבי המשך)', _t0);
             _markOk(modelName);
             return fullText.trim();
         } catch(e) {
             // AbortError (timeout) או שגיאת רשת — מנסים את המודל הבא
             if (e.name === 'AbortError' || (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')))) {
+                _aiDiagAttempt(run, modelName, e.name === 'AbortError' ? 'timeout' : 'שגיאת רשת', _t0);
                 lastErr = `${modelName}: ${e.name === 'AbortError' ? 'timeout' : e.message}`;
                 continue;
             }
+            if (run && run.current) _aiDiagAttempt(run, modelName, 'שגיאה', _t0);
             throw e;
         }
     }
@@ -3941,7 +4058,7 @@ async function requestAIRecommendation() {
 
     try {
         const prompt   = _buildRecommendationPrompt(state.currentExName);
-        const raw      = await _callGeminiOneShot(prompt);
+        const raw      = await _callGeminiOneShot(prompt, { feature: 'המלצה לסט הבא' });
         const cleaned  = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
         const rec      = JSON.parse(cleaned);
         if (typeof rec.w !== 'number' || typeof rec.r !== 'number') throw new Error('BAD_RESPONSE');
@@ -5990,7 +6107,7 @@ function generateCoachSummary() {
     body.innerHTML = `<div class="coach-loading"><span class="coach-spinner"></span> המאמן מנתח את האימון…</div>`;
 
     const prompt = _buildCoachSummaryPrompt(scope);
-    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true, temperature: 0.35 })
+    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true, temperature: 0.35, feature: 'סיכום אימון' })
         .then(text => {
             const clean = (text || '').trim();
             if (!clean) throw new Error('EMPTY_RESPONSE');
@@ -6060,7 +6177,7 @@ function refineCoachSummary(note) {
     body.className = 'coach-card-body loading';
     body.innerHTML = `<div class="coach-loading"><span class="coach-spinner"></span> המאמן מעדכן את הסיכום…</div>`;
 
-    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true, temperature: 0.35 })
+    _coachSummaryPromise = _callGeminiOneShot(prompt, { freeText: true, temperature: 0.35, feature: 'עדכון סיכום אימון' })
         .then(text => {
             const clean = (text || '').trim();
             if (!clean) throw new Error('EMPTY_RESPONSE');
@@ -7270,7 +7387,7 @@ async function _updateCoachMemory() {
             conversation: convo
         });
 
-        const out = await _callGeminiOneShot(prompt, { freeText: true, maxTokens: 700 });
+        const out = await _callGeminiOneShot(prompt, { freeText: true, maxTokens: 700, feature: 'עדכון זיכרון המאמן' });
         const clean = (out || '').replace(/```[\s\S]*?```/g, '').trim();
         if (clean) {
             StorageManager.setCoachMemory({ text: clean.slice(0, 1400), coveredLen: aiChatHistory.length, updatedAt: Date.now() });
@@ -7304,7 +7421,7 @@ async function callGeminiAPI(userMessage) {
             { role: 'user', parts: [{ text: userMessage }] }
         ],
         generationConfig: { temperature: 0.7, maxOutputTokens: deep ? 2048 : 768 }
-    }, { timeoutMs: 90000, fallbackStatuses: [404, 429, 503] });
+    }, { feature: 'צ\'אט המאמן', timeoutMs: 90000, fallbackStatuses: [404, 429, 503] });
 
     // זיהוי קטיעה אמיתית מתקרת הטוקנים — לסימון במקום בליעה שקטה
     if (finishReason === 'MAX_TOKENS' && text) {

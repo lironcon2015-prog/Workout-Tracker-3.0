@@ -164,6 +164,7 @@ function _offToFood(p, allowPartial) {
 // ולא כ"חסר" — זו ההבחנה שכל מנגנון הסיבים בנוי עליה.
 // Open Food Facts הוא מאגר מוצרים ארוזים — חסרים בו חומרי גלם בסיסיים.
 // ערכים ל-100 גרם (חלק אכיל). s = מנה נפוצה אופציונלית (יחידה/כוס).
+// FDBASIC-START — נטען ב-test/free-text-match.test.js (אל תסיר את הסמנים)
 const _BASIC_RAW = [
     // עוף / בשר / דגים (נא, חלק אכיל)
     { n: 'חזה עוף', k: 120, p: 23, c: 0, f: 2.6, fb: 0 },
@@ -247,7 +248,9 @@ const BASIC_FOODS = _BASIC_RAW.map((x, i) => ({
     per100: { kcal: x.k, p: x.p, c: x.c, f: x.f, fb: x.fb },
     servings: (x.s || []).concat([{ label: '100 גרם', grams: 100 }])
 }));
+// FDBASIC-END
 
+// FDSCORE-START — נטען ב-test/free-text-match.test.js (אל תסיר את הסמנים)
 // נרמול לחיפוש — trim + הסרת ניקוד/טעמים עבריים
 function _fdNorm(s) { return String(s || '').trim().replace(/[֑-ׇ]/g, ''); }
 
@@ -291,6 +294,8 @@ function _fdScore(text, q) {
     // בונוס קטן לשם קצר (התאמה ממוקדת) — שובר שוויון בתוך אותה דרגה
     return score + Math.max(0, 5 - Math.min(5, Math.floor(n.length / 12)));
 }
+
+// FDSCORE-END
 
 // ציון לאובייקט מזון — שם + מותג (מותג נכלל כדי ש"קוטג' תנובה" ימצא לפי המותג)
 function _fdFoodScore(f, q) { return _fdScore((f.name || '') + ' ' + (f.brand || ''), q); }
@@ -2874,6 +2879,7 @@ function fdParseFreeItems(text) {
 }
 // FDFREEPARSE-END
 
+// FDMATCH-START — בלוק טהור (תלוי רק ב-FDSCORE), נבדק ב-test/free-text-match.test.js
 // וריאנטים לשם לצורך התאמה: כפי שנכתב, ויחיד של מילים ברבים ("ביצים" → "ביצה"/"ביצ")
 function _fdNameVariants(name) {
     const w = String(name).split(/\s+/).filter(Boolean);
@@ -2883,8 +2889,9 @@ function _fdNameVariants(name) {
 // התאמה מקומית: מזונות שתועדו (כולל מזון נספר), אחר כך חומרי גלם. ציון ≥85 = כל המילים כמילים שלמות.
 // מילות אופן הכנה — "חזה עוף צלוי" הוא "חזה עוף" לצורך התאמה (השמות במאגר בלעדיהן)
 const _FD_PREP_WORDS = /^(?:צלוי|צלויה|צלויים|מבושל|מבושלת|מבושלים|אפוי|אפויה|אפויים|מטוגן|מטוגנת|מטוגנים|בגריל|גריל|קלוי|קלויה|מוקפץ|מוקפצת|מאודה|טרי|טרייה|טריים|ביתי|ביתית|בתנור|במחבת|בסיר|על|האש)$/;
+// fdMatchFoodIn — המזון המתאים לשם מתוך רשימות לפי סדר עדיפות (הראשונה שיש בה התאמה גוברת).
 // noUnit — מסלול ה-AI: התשובה בגרמים, ולכן מזון נספר לא מותאם
-function _fdFreeMatchLocal(name, noUnit) {
+function fdMatchFoodIn(name, lists, noUnit) {
     // בלי גרשיים בשני הצדדים: "קוטג'" נחתך למילה "קוטג", ובלי זה לא היה נחשב כהתאמת מילה שלמה
     const unq = x => String(x || '').replace(/['"׳״]/g, '');
     const words = unq(name).split(/\s+/).filter(Boolean);
@@ -2906,7 +2913,14 @@ function _fdFreeMatchLocal(name, noUnit) {
         return rb;
     };
     const ok = f => f && f.per100 && !(f.components && f.components.length) && (!noUnit || (f.baseUnit || 'g') !== 'unit');
-    return pick(StorageManager.getFoodDb().filter(f => f.lastUsed && ok(f))) || pick(BASIC_FOODS.filter(ok));
+    for (const list of lists) { const f = pick((list || []).filter(ok)); if (f) return f; }
+    return null;
+}
+// FDMATCH-END
+
+// מזונות שתועדו (כולל נספרים), אחר כך חומרי הגלם המובנים
+function _fdFreeMatchLocal(name, noUnit) {
+    return fdMatchFoodIn(name, [StorageManager.getFoodDb().filter(f => f.lastUsed), BASIC_FOODS], noUnit);
 }
 // _fdFreeResolve — פריט מפוענח → מרכיב ל-Meal Builder, או null כשאין מזון מתאים (→ "לא זוהו").
 // מזון שזוהה בלי כמות שניתנת לתרגום (בלי מנה מוגדרת) — מופיע עם כמות משוערת ומסומן "בדוק כמות".

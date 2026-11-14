@@ -1286,14 +1286,11 @@ function fdBatchCopyToday() {
         delete c.id;
         return StorageManager.addFoodEntry(today, c);
     });
-    const kcal = added.reduce((a, e) => a + (+e.kcal || 0), 0);
     _fdSelClear();
     _fdAfterLogChange();
     haptic('success');
-    _fdToast(`הועתקו להיום ${added.length === 1 ? 'פריט אחד' : added.length + ' פריטים'} · <bdi>${_fdFmt(kcal)} kcal</bdi>`, () => {
-        added.forEach(e => StorageManager.deleteFoodEntry(today, e.id));
-        _fdAfterLogChange();
-    });
+    // אישור בלבד, בלי "בטל" (החלטת משתמש): ביטול הוספה נדיר ופשוט — מוחקים את הרשומה
+    _fdBatchToast(`הועתקו להיום ${added.length === 1 ? 'פריט אחד' : added.length + ' פריטים'}`);
 }
 
 function fdBatchApply() {
@@ -1363,7 +1360,6 @@ function _fdToast(html, onUndo) {
     const t = document.getElementById('fd-undo-toast');
     if (!t) return;
     clearTimeout(_fdToastTimer);
-    _fdQuickToastId = null;   // הודעה חדשה — הקודמת (אם הייתה של הוספה מהירה) כבר לא מוצגת
     _fdToastUndoFn = onUndo || null;
     t.querySelector('.fd-toast-txt').innerHTML = html;
     t.querySelector('.fd-toast-undo').hidden = !onUndo;
@@ -1787,9 +1783,9 @@ function _fdSyncTally() {
     if (done) done.hidden = !on;
 }
 
-// הקשה על "הוסף" מתעדת; הקשה חוזרת על "נוסף" מבטלת את אותה הוספה (בלי לחכות להודעה)
+// הקשה על "הוסף" מתעדת; הקשה חוזרת על "נוסף" מבטלת את אותה הוספה. אין הודעת "בטל" על הוספה
+// (החלטת משתמש) — הכפתור והמונה הם המשוב
 const _fdQuickAdded = {};   // entryId → { date, entry } — הוספות מהירות שעוד ניתנות לביטול מהכפתור
-let _fdQuickToastId = null; // הרשומה שההודעה הפתוחה מתייחסת אליה
 function fdQuickAdd(id, el) {
     if (el && el.classList.contains('done')) { _fdQuickRemove(el.dataset.eid, el); haptic('light'); return; }
     const food = _fdFoodCache[id] || StorageManager.getFoodDb().find(f => f.id === id);
@@ -1808,8 +1804,6 @@ function fdQuickAdd(id, el) {
     if (el) { el.classList.add('done'); el.textContent = 'נוסף'; el.dataset.eid = entry.id; el.setAttribute('aria-label', 'בטל הוספה'); }
     _fdAfterLogChange();
     haptic('medium');
-    _fdToast(`<b>${_fdEsc(entry.name)}</b> · <bdi>${_fdEsc(_fdPortionLabel(entry))}</bdi> · נוסף ל${_fdEsc(meal)}`, () => _fdQuickRemove(entry.id, el));
-    _fdQuickToastId = entry.id;
 }
 function _fdQuickRemove(eid, el) {
     const rec = eid && _fdQuickAdded[eid];
@@ -1822,7 +1816,6 @@ function _fdQuickRemove(eid, el) {
     if (el && el.isConnected && el.dataset.eid === eid) {
         el.classList.remove('done'); el.textContent = 'הוסף'; delete el.dataset.eid; el.removeAttribute('aria-label');
     }
-    if (_fdQuickToastId === eid) { _fdQuickToastId = null; _fdToastHide(); }
     _fdAfterLogChange();
 }
 function fdAddDone() { closeFoodAdd(); haptic('light'); }

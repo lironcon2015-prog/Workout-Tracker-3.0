@@ -560,7 +560,7 @@ async function _callGeminiFood(base64, mimeType) {
     return _geminiRequest({
         contents: [{ role: 'user', parts }],
         generationConfig: { temperature: 0.1, maxOutputTokens: 200, responseMimeType: 'application/json' }
-    }, { json: true, timeoutMs: 45000 });
+    }, { feature: 'קריאת תווית / ברקוד מתמונה', json: true, timeoutMs: 45000 });
 }
 
 // _callGeminiMeal — הערכת מנה מתוך תמונת אוכל אמיתי (לא תווית): זיהוי + הערכת משקל ומאקרו לכל המנה
@@ -577,7 +577,7 @@ async function _callGeminiMeal(base64, mimeType) {
     return _geminiRequest({
         contents: [{ role: 'user', parts }],
         generationConfig: { temperature: 0.2, maxOutputTokens: 400, responseMimeType: 'application/json' }
-    }, { json: true, timeoutMs: 45000 });
+    }, { feature: 'זיהוי מנה מתמונה', json: true, timeoutMs: 45000 });
 }
 
 // ════════ DIARY OVERLAY ════════
@@ -1432,8 +1432,6 @@ function fdOpenAdd(meal) {
     _fdRenderAddMeals();
     _fdQuickTally = { n: 0, k: 0 };
     _fdSyncTally();
-    const fr = document.getElementById('fd-free-btn');
-    if (fr) fr.hidden = !StorageManager.getAIConfig().apiKey;
     _fdAttachScrollBlur();
     _fdBindKeyboardLift();
     fdSetTab('recent');
@@ -1668,7 +1666,7 @@ async function _fdAiNutrition(q) {
     return _geminiRequest({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0, maxOutputTokens: 150, responseMimeType: 'application/json' }
-    }, { json: true });
+    }, { feature: 'הערכת AI למזון', json: true });
 }
 
 // ממיר תשובת AI לאובייקט מזון ושומר ב-DB (קאש → פעם הבאה מיידי + offline)
@@ -2603,7 +2601,7 @@ async function _fdAiParseLabelText(text) {
     const res = await _geminiRequest({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0, maxOutputTokens: 200, responseMimeType: 'application/json' }
-    }, { json: true });
+    }, { feature: 'קריאת תווית מודבקת', json: true });
     if (!res || res.found === false || res.kcal == null) return null;
     return { name: res.name || null, kcal: _fdR(res.kcal), p: _fdR(res.protein), c: _fdR(res.carbs), f: _fdR(res.fat), fb: _fdRn(res.fiber), unit: res.per === '100ml' ? 'ml' : 'g', basis: 100, ai: true };
 }
@@ -2775,7 +2773,6 @@ function fdConfirmMealName() {
 // משקל והערכת ערכים ל-100ג'. כל פריט מותאם קודם למאגר (מזון שתועד / חומר גלם) — ושם
 // הערכים מהמאגר גוברים על ההערכה. התוצאה נפתחת ב-Meal Builder לבדיקה לפני תיעוד.
 function fdOpenFreeText() {
-    if (!StorageManager.getAIConfig().apiKey) { showAlert('לתיעוד בטקסט חופשי נדרש מפתח Gemini (הגדרות → AI Coach).'); return; }
     const sheet = document.getElementById('fd-portion-sheet');
     const body = document.getElementById('fd-portion-body');
     if (!sheet || !body) return;
@@ -2802,7 +2799,7 @@ async function _fdAiFreeText(text) {
     return _geminiRequest({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.1, maxOutputTokens: 900, responseMimeType: 'application/json' }
-    }, { json: true, timeoutMs: 45000 });
+    }, { feature: 'טקסט חופשי — זיהוי מזון', json: true, timeoutMs: 45000 });
 }
 
 // התאמת פריט למאגר: קודם מזונות שתועדו בעבר, אחר כך חומרי הגלם. כל מילות הפריט חייבות
@@ -2836,25 +2833,157 @@ function _fdAiErrText(e) {
     if (/^API_ERROR_/.test(m)) return 'שגיאת API ' + m.replace(/^API_ERROR_/, '');
     return m || 'שגיאה לא ידועה';
 }
-async function fdParseFreeText() {
+// FDFREEPARSE-START — בלוק טהור, נבדק ב-test/free-text-parse.test.js (אל תסיר את הסמנים)
+// fdParseFreeItems — פירוק טקסט חופשי בעברית לפריטים: כמות, יחידה ושם. בלי רשת ובלי מאגר.
+// "200 גרם אורז, 2 ביצים ו-3 פרוסות לחם" → [{qty:200,unit:'g'}, {qty:2}, {qty:3,unit:'פרוסה'}]
+// unit: 'g' / 'ml' (עם mult לק"ג/ליטר), או שם מנה ('כף', 'כפית', 'כוס', 'פרוסה', 'יחידה'), או null.
+// size: מילות גודל ("קטן", "גדול") — לא חלק מהשם להתאמה, כי שמות במאגר בלעדיהן.
+const _FD_NUM_WORDS = { 'חצי': 0.5, 'רבע': 0.25, 'אחד': 1, 'אחת': 1, 'שתי': 2, 'שתיים': 2, 'שני': 2, 'שניים': 2,
+    'שלוש': 3, 'שלושה': 3, 'ארבע': 4, 'ארבעה': 4, 'חמש': 5, 'חמישה': 5, 'שש': 6, 'שישה': 6 };
+const _FD_UNIT_WORDS = [
+    [/^(?:גרם|גר'?|ג'|ג|gr|g)$/i, 'g', 1], [/^(?:ק"ג|קג|קילו|kg)$/i, 'g', 1000],
+    [/^(?:מ"ל|מל|ml)$/i, 'ml', 1], [/^(?:ליטר)$/, 'ml', 1000],
+    [/^כפות$|^כף$/, 'כף'], [/^כפיות?$/, 'כפית'], [/^כוס(?:ות)?$/, 'כוס'], [/^פרוס(?:ה|ות)$/, 'פרוסה'], [/^יחיד(?:ה|ות)$/, 'יחידה']
+];
+const _FD_SIZE_WORDS = /^(?:קטן|קטנה|קטנים|קטנות|גדול|גדולה|גדולים|גדולות|בינוני|בינונית)$/;
+function fdParseFreeItems(text) {
+    const qtyStart = '(?=\\d|חצי|רבע|כף|כפית|כוס|פרוס|שתי|שני|שלוש|ארבע|חמש|שש)';
+    // גרש/גרשיים עבריים (מקלדת iOS) → ' / " — כמו בשמות שבמאגר ("קוטג'", "מ"ל")
+    const parts = String(text || '').replace(/׳/g, "'").replace(/״/g, '"')
+        .split(/\s*(?:[,،;\n+]|\s+וגם\s+)\s*/)
+        .reduce((acc, p) => acc.concat(p.split(new RegExp('\\s+ו-?' + qtyStart))), [])
+        .map(x => x.trim()).filter(Boolean)
+        // "1 וחצי כוסות" — ה"ו" כאן היא חלק מהכמות, לא פריט חדש: מאחדים חזרה
+        .reduce((acc, p) => {
+            if (acc.length && /^(?:חצי|רבע)(?:\s|$)/.test(p) && /\d$/.test(acc[acc.length - 1])) acc[acc.length - 1] += ' וחצי'.replace('חצי', p.split(/\s/)[0]) + p.slice(p.split(/\s/)[0].length);
+            else acc.push(p);
+            return acc;
+        }, []);
+    return parts.map(raw => {
+        // "200ג" / "200גרם" → "200 ג"; "3%" נשאר צמוד (חלק משם: "חלב 3%")
+        const toks = raw.replace(/(\d)([^\d\s.,%])/g, '$1 $2').replace(/[-–]/g, ' ').split(/\s+/).filter(Boolean);
+        let qty = null, unit = null, mult = 1;
+        const name = [], size = [];
+        toks.forEach(t => {
+            if (qty == null && /^\d+(?:[.,]\d+)?$/.test(t)) { qty = parseFloat(t.replace(',', '.')); return; }
+            if (qty == null && _FD_NUM_WORDS[t] != null) { qty = _FD_NUM_WORDS[t]; return; }
+            if (qty != null && (t === 'וחצי' || t === 'ורבע')) { qty += t === 'וחצי' ? 0.5 : 0.25; return; }
+            if (!unit) {
+                const u = _FD_UNIT_WORDS.find(x => x[0].test(t));
+                if (u) { unit = u[1]; mult = u[2] || 1; return; }
+            }
+            if (t === 'של') return;
+            if (_FD_SIZE_WORDS.test(t)) { size.push(t); return; }
+            name.push(t);
+        });
+        if (qty == null && unit) qty = 1;   // "כף טחינה" = כף אחת
+        return { raw, name: name.join(' '), qty, unit, mult, size: size.join(' ') };
+    }).filter(it => it.name);
+}
+// FDFREEPARSE-END
+
+// וריאנטים לשם לצורך התאמה: כפי שנכתב, ויחיד של מילים ברבים ("ביצים" → "ביצה"/"ביצ")
+function _fdNameVariants(name) {
+    const w = String(name).split(/\s+/).filter(Boolean);
+    const sing = rep => w.map(t => t.length > 3 && /(?:ים|ות)$/.test(t) ? t.slice(0, -2) + rep : t).join(' ');
+    return Array.from(new Set([w.join(' '), sing('ה'), sing('')]));
+}
+// התאמה מקומית: מזונות שתועדו (כולל מזון נספר), אחר כך חומרי גלם. ציון ≥85 = כל המילים כמילים שלמות.
+function _fdFreeMatchLocal(name) {
+    // בלי גרשיים בשני הצדדים: "קוטג'" נחתך למילה "קוטג", ובלי זה לא היה נחשב כהתאמת מילה שלמה
+    const unq = x => String(x || '').replace(/['"׳״]/g, '');
+    const variants = _fdNameVariants(unq(name));
+    const pick = list => {
+        let best = null, bs = 0;
+        list.forEach(f => variants.forEach(v => { const sc = _fdScore(unq(f.name), v); if (sc > bs) { bs = sc; best = f; } }));
+        return bs >= 85 ? best : null;
+    };
+    const ok = f => f && f.per100 && !(f.components && f.components.length);
+    return pick(StorageManager.getFoodDb().filter(f => f.lastUsed && ok(f))) || pick(BASIC_FOODS.filter(ok));
+}
+// _fdFreeResolve — פריט מפוענח → מרכיב ל-Meal Builder, או null כשאין מזון מתאים או שהכמות לא
+// ניתנת לתרגום בביטחון (אז הפריט עובר לרשימת "לא זוהו" ולא מנחשים 100 גרם).
+function _fdFreeResolve(it) {
+    const food = _fdFreeMatchLocal(it.name);
+    if (!food) return null;
+    const p = food.per100 || {};
+    const baseUnit = food.baseUnit || 'g';
+    if (baseUnit === 'unit') {
+        // מזון נספר (per100 מאוחסן ×100) — הכמות היא מספר יחידות
+        if (it.unit === 'g' || it.unit === 'ml') return null;
+        const last = food.lastPortion && food.lastPortion.unit === 'serving' ? Number(food.lastPortion.qty) : null;
+        const count = it.qty != null ? it.qty : (last || 1);
+        return { name: food.name, grams: count, baseUnit: 'unit', srcFood: food,
+                 per100: { kcal: (p.kcal || 0) / 100, p: (p.p || 0) / 100, c: (p.c || 0) / 100, f: (p.f || 0) / 100,
+                           fb: _fdFbOf(p) == null ? undefined : _fdRn(_fdFbOf(p) / 100) } };
+    }
+    const servs = (food.servings || []).filter(x => x && x.grams && x.grams !== 100);
+    let grams = null;
+    if (it.unit === 'g' || it.unit === 'ml') grams = it.qty * (it.mult || 1);
+    else if (it.unit) {
+        const sv = (food.servings || []).find(x => x && x.label && x.label.indexOf(it.unit) >= 0);
+        if (!sv) return null;
+        grams = sv.grams * (it.qty || 1);
+    } else if (it.qty != null && it.qty >= 20) grams = it.qty;            // "180 חזה עוף" — גרמים
+    else if (it.qty != null) { if (!servs[0]) return null; grams = servs[0].grams * it.qty; }   // "2 ביצים"
+    else {
+        const q = _fdQuickPortion(food, food.lastPortion);                 // בלי כמות — הכמות האחרונה
+        if (q) grams = q.grams; else if (servs[0]) grams = servs[0].grams; else return null;
+    }
+    if (!(grams > 0)) return null;
+    return { name: food.name, grams: Math.round(grams * 10) / 10, baseUnit, srcFood: food, per100: JSON.parse(JSON.stringify(p)) };
+}
+
+// פענוח: מה שזוהה בקוד נפתח מיד ב-Meal Builder; מה שלא — רשימה עם "זהה עם AI" שאינה חוסמת הוספה
+function fdParseFreeText() {
     const inp = document.getElementById('fd-free-input');
     const msg = document.getElementById('fd-free-msg');
-    const go = document.getElementById('fd-free-go');
     const text = inp ? inp.value.trim() : '';
     if (!text) { if (inp) inp.focus(); return; }
-    if (go) { go.disabled = true; go.textContent = 'מפענח…'; }
-    if (msg) msg.textContent = '';
+    const items = fdParseFreeItems(text);
+    if (!items.length) { if (msg) msg.textContent = 'לא זוהו פריטים בטקסט. כתוב כמות ושם לכל פריט, מופרדים בפסיקים.'; return; }
+    const comps = [], unresolved = [];
+    items.forEach(it => { const c = _fdFreeResolve(it); if (c) comps.push(c); else unresolved.push(it.raw); });
+    const meal = _fdMeal || _fdMealLabels()[0];
+    closeFoodPortion();
+    _fdOpenMealBuilder({ name: comps.length === 1 ? comps[0].name : 'ארוחה', components: comps, meal, time: _fdNowTime(), editId: null, free: true, unresolved });
+}
+
+// ── פריטים שלא זוהו במאגר — זיהוי עם AI לבקשת המשתמש ─────────────────
+let _fdFreeUnres = [];
+let _fdUnresSeq = 0;   // מזהה בקשה — תשובה שמגיעה אחרי סגירת ה-Builder או בקשה חדשה נזרקת
+function _fdRenderUnres(note) {
+    const box = document.getElementById('fd-free-unres');
+    if (!box) return;
+    if (!_fdFreeUnres.length) { box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    const hasKey = !!StorageManager.getAIConfig().apiKey;
+    box.innerHTML = `<div class="fd-unres-h">לא זוהו במאגר (${_fdFreeUnres.length})</div>
+        <div class="fd-unres-list">${_fdFreeUnres.map((r, i) => `<span class="fd-unres-chip">${_fdEsc(r)}<button type="button" class="fd-unres-x" onclick="fdUnresRemove(${i})" aria-label="הסר">×</button></span>`).join('')}</div>
+        ${hasKey ? '<button type="button" class="fd-unres-ai" id="fd-unres-ai" onclick="fdUnresAi()">זהה עם AI</button>'
+                 : '<div class="fd-unres-msg">לזיהוי עם AI נדרש מפתח Gemini (הגדרות → AI Coach).</div>'}
+        ${note ? `<div class="fd-unres-msg">${_fdEsc(note)}</div>` : ''}`;
+}
+function fdUnresRemove(i) { _fdFreeUnres.splice(i, 1); _fdRenderUnres(); haptic('light'); }
+async function fdUnresAi() {
+    if (!_fdFreeUnres.length) return;
+    const btn = document.getElementById('fd-unres-ai');
+    if (btn) { btn.disabled = true; btn.textContent = 'מזהה…'; }
+    const seq = ++_fdUnresSeq;
+    const asked = _fdFreeUnres.slice();
+    const stillOpen = () => seq === _fdUnresSeq && _fdMealFree && document.getElementById('fd-meal-sheet')?.classList.contains('open');
     try {
-        const res = await _fdAiFreeText(text);
+        const res = await _fdAiFreeText(asked.join(', '));
+        if (!stillOpen()) return;
         const items = (res && Array.isArray(res.items)) ? res.items.filter(it => it && it.name && Number(it.grams) > 0) : [];
-        if (!items.length) { if (msg) msg.textContent = 'לא זוהו פריטי מזון בטקסט. כתוב כמות ושם לכל פריט.'; return; }
-        const meal = _fdMeal || _fdMealLabels()[0];
-        closeFoodPortion();
-        _fdOpenMealBuilder({ name: (res && res.name) || 'ארוחה', components: items.map(_fdFreeItemToComp), meal, time: _fdNowTime(), editId: null, free: true });
+        if (!items.length) { _fdRenderUnres('ה-AI לא זיהה מזון בפריטים האלה.'); return; }
+        items.map(_fdFreeItemToComp).forEach(c => _fdMealComponents.push(c));
+        _fdFreeUnres = _fdFreeUnres.filter(r => asked.indexOf(r) < 0);
+        _fdRenderComponents();
+        _fdRenderUnres();
+        haptic('medium');
     } catch (e) {
-        if (msg) msg.textContent = 'הפענוח נכשל: ' + _fdAiErrText(e);
-    } finally {
-        if (go && go.isConnected) { go.disabled = false; go.textContent = 'פענח'; }
+        if (stillOpen()) _fdRenderUnres('הזיהוי נכשל: ' + _fdAiErrText(e));
     }
 }
 
@@ -3347,6 +3476,8 @@ function _fdOpenMealBuilder(opts) {
         c.est ? { est: true } : {}, c.srcFood ? { srcFood: c.srcFood } : {}, c._open ? { _open: true } : {}));
     _fdMealFree = !!opts.free;
     _fdMealSplit = _fdMealFree;
+    _fdFreeUnres = (opts.unresolved || []).slice();
+    _fdUnresSeq++;
     _fdMealEditId = opts.editId || null;
     _fdMealMode = opts.mode || 'log';
     _fdMealSavedId = opts.savedId || null;
@@ -3372,6 +3503,7 @@ function _fdOpenMealBuilder(opts) {
             <span class="fd-meal-total-macros" id="fd-meal-total-macros"></span>
         </div>
         <div class="fd-comp-list" id="fd-comp-list"></div>
+        ${_fdMealFree ? '<div class="fd-free-unres" id="fd-free-unres" hidden></div>' : ''}
         <div class="fd-comp-addrow">
             <button class="fd-comp-add" onclick="fdMealSearchComponent()"><span class="material-symbols-outlined">search</span>חפש מרכיב</button>
             <button class="fd-comp-add fd-comp-add--manual" onclick="fdMealAddComponent()"><span class="material-symbols-outlined">edit</span>ידני</button>
@@ -3384,6 +3516,7 @@ function _fdOpenMealBuilder(opts) {
             <button class="fd-save-btn" id="fd-meal-save" onclick="fdSaveMeal()">${saveLbl}</button>
         </div>`;
     _fdRenderComponents();
+    _fdRenderUnres();
     document.getElementById('fd-meal-overlay').style.display = 'block';
     sheet.classList.add('open');
     haptic('light');
@@ -3502,7 +3635,8 @@ function _fdSyncFreeUi() {
     if (body) body.classList.toggle('fd-free-sep', _fdMealSplit);
     const n = _fdMealComponents.filter(c => c.grams > 0).length;
     const t = document.getElementById('fd-free-title');
-    if (t) t.textContent = _fdMealComponents.length === 1 ? 'זוהה פריט אחד' : `זוהו ${_fdMealComponents.length} פריטים`;
+    const nc = _fdMealComponents.length;
+    if (t) t.textContent = nc === 0 ? 'לא זוהו פריטים במאגר' : nc === 1 ? 'זוהה פריט אחד' : `זוהו ${nc} פריטים`;
     document.querySelectorAll('#fd-free-seg button').forEach((b, i) => b.classList.toggle('active', (i === 0) === _fdMealSplit));
     const sv = document.getElementById('fd-meal-save');
     if (sv) sv.textContent = _fdMealSplit ? (n === 1 ? 'הוסף פריט אחד ליומן' : `הוסף ${n} פריטים ליומן`) : 'הוסף כמנה אחת ליומן';
@@ -3531,6 +3665,7 @@ function fdMealAddComponent() {
 }
 
 function closeFoodMeal() {
+    _fdUnresSeq++;   // תשובת AI שעוד בדרך — לא תוחל על Builder סגור
     const ov = document.getElementById('fd-meal-overlay');
     if (ov) ov.style.display = 'none';
     const sh = document.getElementById('fd-meal-sheet');
@@ -3611,8 +3746,18 @@ function _fdSaveFreeSeparate() {
             barcode: sf ? (sf.barcode || null) : null, baseUnit: c.baseUnit || 'g',
             per100: JSON.parse(JSON.stringify(c.per100 || {}))   // בלי שדות undefined (Firestore)
         };
-        const unit = food.baseUnit === 'ml' ? 'ml' : 'g';
-        StorageManager.addFoodEntry(_fdDate, _fdBuildEntry(food, { grams: c.grams, unit, qtyVal: c.grams }, time, meal));
+        let g;
+        if (food.baseUnit === 'unit') {
+            // מזון נספר: במרכיב הערכים ליחידה; ברשומה per100 נשמר ×100 (אותו מודל כמו עורך הכמות)
+            const u = food.per100;
+            food.per100 = JSON.parse(JSON.stringify({ kcal: (u.kcal || 0) * 100, p: (u.p || 0) * 100, c: (u.c || 0) * 100, f: (u.f || 0) * 100,
+                                                      fb: _fdFbOf(u) == null ? undefined : _fdFbOf(u) * 100 }));
+            const lbl = (sf && sf.servings && sf.servings[0] && sf.servings[0].label) || '1 יחידה';
+            g = { grams: c.grams, unit: 'serving', qtyVal: c.grams, gramsPerUnit: 1, label: lbl };
+        } else {
+            g = { grams: c.grams, unit: food.baseUnit === 'ml' ? 'ml' : 'g', qtyVal: c.grams };
+        }
+        StorageManager.addFoodEntry(_fdDate, _fdBuildEntry(food, g, time, meal));
         if (sf) { StorageManager.upsertFoodToDb(sf); StorageManager.bumpFoodUsage(sf.id, meal); }
     });
     closeFoodMeal();

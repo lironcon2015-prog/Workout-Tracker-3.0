@@ -1493,7 +1493,7 @@ async function _callGeminiVision(base64, mimeType) {
     const parsed = await _geminiRequest({
         contents: [{ role: 'user', parts }],
         generationConfig: { temperature: 0.1, maxOutputTokens: 120, responseMimeType: 'application/json' }
-    }, { json: true, timeoutMs: 45000 });
+    }, { feature: 'קריאת משקל מתמונה', json: true, timeoutMs: 45000 });
     const w = (typeof parsed.weight === 'number') ? parsed.weight : null;
     const bf = (typeof parsed.bodyFat === 'number') ? parsed.bodyFat : null;
     return { weight: w, bodyFat: bf };

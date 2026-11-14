@@ -3007,7 +3007,7 @@ async function requestAIPlateauAdvice() {
         // freeText — הפרומפט מבקש טקסט חופשי; מצב ה-JSON הכפוי של ברירת המחדל
         // התנגש עם ההנחיה וגרם לג'נרוט ארוך ואיטי עד תקרת הטוקנים
         const raw = (typeof _callGeminiOneShot === 'function')
-            ? await _callGeminiOneShot(prompt, { freeText: true, maxTokens: 1024 })
+            ? await _callGeminiOneShot(prompt, { freeText: true, maxTokens: 1024, feature: 'ניתוח פלאטו בתרגיל' })
             : '';
         const text = (raw || '').trim().replace(/^["']|["']$/g, '');
         if (!text) throw new Error('EMPTY_RESPONSE');

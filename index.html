@@ -444,6 +444,19 @@
         </div>
     </div>
 
+    <!-- אבחון קריאות AI (workout-core.js, buildAiDiagReport) — קריאה בלבד, מקומי -->
+    <div id="ai-diag-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>אבחון סוכן AI</h3>
+            <p class="sub-text" style="margin-bottom:10px;">כל קריאה ל-AI באפליקציה: איזה מודל, כמה זמן, ומה קרה בכל ניסיון. נשמר רק במכשיר הזה.</p>
+            <pre id="ai-diag-text" class="perf-diag-text"></pre>
+            <div class="vertical-stack" style="margin-top:12px;">
+                <button class="btn-main primary-gradient" onclick="copyAiDiag()">העתק דוח</button>
+                <button class="btn-text color-dim" onclick="closeAiDiag()">סגור</button>
+            </div>
+        </div>
+    </div>
+
     <!-- אבחון ביצועי עלייה (perf-diag.js) — קריאה בלבד -->
     <div id="perf-diag-modal" class="modal-overlay">
         <div class="modal-content">
@@ -660,8 +673,11 @@
                                 <span class="stg-row-title">רענן אפליקציה</span>
                                 <span class="material-symbols-outlined stg-chevron" style="color:var(--accent);">refresh</span>
                             </button>
-                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="openPerfDiag()">
+                            <button class="stg-nav-row stg-nav-row--plain" onclick="openPerfDiag()">
                                 <span class="stg-row-title">אבחון ביצועים</span>
+                            </button>
+                            <button class="stg-nav-row stg-nav-row--plain stg-nav-row--last" onclick="openAiDiag()">
+                                <span class="stg-row-title">אבחון סוכן AI</span>
                             </button>
                         </div>
                     </div>
@@ -2631,7 +2647,7 @@
         <div class="fd-add-foot">
             <div class="fd-foot-btns">
                 <button class="fd-custom-btn" onclick="fdNewCustomFood()"><span class="material-symbols-outlined">add</span>מזון מותאם</button>
-                <button class="fd-custom-btn fd-custom-btn--free" id="fd-free-btn" onclick="fdOpenFreeText()">טקסט חופשי</button>
+                <button class="fd-custom-btn fd-custom-btn--free" onclick="fdOpenFreeText()">טקסט חופשי</button>
             </div>
             <div class="fd-foot-status">
                 <span class="fd-credit" id="fd-add-status">נתוני מזון: Open Food Facts</span>

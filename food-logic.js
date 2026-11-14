@@ -2805,15 +2805,7 @@ async function _fdAiFreeText(text) {
 // התאמת פריט למאגר: קודם מזונות שתועדו בעבר, אחר כך חומרי הגלם. כל מילות הפריט חייבות
 // להופיע בשם המזון כמילים שלמות (ציון ≥85) — "חלב שקדים" לא ייתפס כ"חלב".
 // מזון נספר ("יחידה") וארוחות שמורות לא מותאמים: הפריט מגיע בגרמים.
-function _fdFreeMatch(name) {
-    const pick = list => {
-        let best = null, bs = 0;
-        list.forEach(f => { const sc = _fdScore(f.name || '', name); if (sc > bs) { bs = sc; best = f; } });
-        return bs >= 85 ? best : null;
-    };
-    const ok = f => f && f.per100 && !(f.components && f.components.length) && (f.baseUnit || 'g') !== 'unit';
-    return pick(StorageManager.getFoodDb().filter(f => f.lastUsed && ok(f))) || pick(BASIC_FOODS.filter(ok));
-}
+function _fdFreeMatch(name) { return _fdFreeMatchLocal(name, true); }
 function _fdFreeItemToComp(it) {
     const grams = Math.round(Number(it.grams) * 10) / 10;
     const f = _fdFreeMatch(it.name);
@@ -2889,20 +2881,35 @@ function _fdNameVariants(name) {
     return Array.from(new Set([w.join(' '), sing('ה'), sing('')]));
 }
 // התאמה מקומית: מזונות שתועדו (כולל מזון נספר), אחר כך חומרי גלם. ציון ≥85 = כל המילים כמילים שלמות.
-function _fdFreeMatchLocal(name) {
+// מילות אופן הכנה — "חזה עוף צלוי" הוא "חזה עוף" לצורך התאמה (השמות במאגר בלעדיהן)
+const _FD_PREP_WORDS = /^(?:צלוי|צלויה|צלויים|מבושל|מבושלת|מבושלים|אפוי|אפויה|אפויים|מטוגן|מטוגנת|מטוגנים|בגריל|גריל|קלוי|קלויה|מוקפץ|מוקפצת|מאודה|טרי|טרייה|טריים|ביתי|ביתית|בתנור|במחבת|בסיר|על|האש)$/;
+// noUnit — מסלול ה-AI: התשובה בגרמים, ולכן מזון נספר לא מותאם
+function _fdFreeMatchLocal(name, noUnit) {
     // בלי גרשיים בשני הצדדים: "קוטג'" נחתך למילה "קוטג", ובלי זה לא היה נחשב כהתאמת מילה שלמה
     const unq = x => String(x || '').replace(/['"׳״]/g, '');
-    const variants = _fdNameVariants(unq(name));
+    const words = unq(name).split(/\s+/).filter(Boolean);
+    const core = words.filter(w => !_FD_PREP_WORDS.test(w)).join(' ');
+    const variants = Array.from(new Set(_fdNameVariants(words.join(' ')).concat(core ? _fdNameVariants(core) : [])));
+    const qWords = new Set(variants.join(' ').split(/\s+/));
     const pick = list => {
+        // 1. כל מילות הפריט כמילים שלמות בשם המזון (ציון ≥85)
         let best = null, bs = 0;
         list.forEach(f => variants.forEach(v => { const sc = _fdScore(unq(f.name), v); if (sc > bs) { bs = sc; best = f; } }));
-        return bs >= 85 ? best : null;
+        if (bs >= 85) return best;
+        // 2. הפוך: כל מילות שם המזון (שתיים לפחות) מופיעות בפריט — "חזה עוף" בתוך "חזה עוף בגריל עם תבלינים".
+        //    מילה אחת לא מספיקה: "חלב" בתוך "חלב שקדים" היה התאמה שגויה.
+        let rb = null, rl = 0;
+        list.forEach(f => {
+            const fw = _fdWords(unq(f.name)).filter(w => !_FD_PREP_WORDS.test(w));
+            if (fw.length >= 2 && fw.length > rl && fw.every(w => qWords.has(w))) { rb = f; rl = fw.length; }
+        });
+        return rb;
     };
-    const ok = f => f && f.per100 && !(f.components && f.components.length);
+    const ok = f => f && f.per100 && !(f.components && f.components.length) && (!noUnit || (f.baseUnit || 'g') !== 'unit');
     return pick(StorageManager.getFoodDb().filter(f => f.lastUsed && ok(f))) || pick(BASIC_FOODS.filter(ok));
 }
-// _fdFreeResolve — פריט מפוענח → מרכיב ל-Meal Builder, או null כשאין מזון מתאים או שהכמות לא
-// ניתנת לתרגום בביטחון (אז הפריט עובר לרשימת "לא זוהו" ולא מנחשים 100 גרם).
+// _fdFreeResolve — פריט מפוענח → מרכיב ל-Meal Builder, או null כשאין מזון מתאים (→ "לא זוהו").
+// מזון שזוהה בלי כמות שניתנת לתרגום (בלי מנה מוגדרת) — מופיע עם כמות משוערת ומסומן "בדוק כמות".
 function _fdFreeResolve(it) {
     const food = _fdFreeMatchLocal(it.name);
     if (!food) return null;
@@ -2918,20 +2925,22 @@ function _fdFreeResolve(it) {
                            fb: _fdFbOf(p) == null ? undefined : _fdRn(_fdFbOf(p) / 100) } };
     }
     const servs = (food.servings || []).filter(x => x && x.grams && x.grams !== 100);
-    let grams = null;
+    let grams = null, guess = false;
     if (it.unit === 'g' || it.unit === 'ml') grams = it.qty * (it.mult || 1);
     else if (it.unit) {
         const sv = (food.servings || []).find(x => x && x.label && x.label.indexOf(it.unit) >= 0);
         if (!sv) return null;
         grams = sv.grams * (it.qty || 1);
     } else if (it.qty != null && it.qty >= 20) grams = it.qty;            // "180 חזה עוף" — גרמים
-    else if (it.qty != null) { if (!servs[0]) return null; grams = servs[0].grams * it.qty; }   // "2 ביצים"
-    else {
+    else if (it.qty != null) {                                             // "2 ביצים"
+        if (servs[0]) grams = servs[0].grams * it.qty; else { grams = 100 * it.qty; guess = true; }
+    } else {
         const q = _fdQuickPortion(food, food.lastPortion);                 // בלי כמות — הכמות האחרונה
-        if (q) grams = q.grams; else if (servs[0]) grams = servs[0].grams; else return null;
+        if (q) grams = q.grams; else if (servs[0]) grams = servs[0].grams; else { grams = 100; guess = true; }
     }
     if (!(grams > 0)) return null;
-    return { name: food.name, grams: Math.round(grams * 10) / 10, baseUnit, srcFood: food, per100: JSON.parse(JSON.stringify(p)) };
+    return Object.assign({ name: food.name, grams: Math.round(grams * 10) / 10, baseUnit, srcFood: food, per100: JSON.parse(JSON.stringify(p)) },
+        guess ? { qtyGuess: true } : {});
 }
 
 // פענוח: מה שזוהה בקוד נפתח מיד ב-Meal Builder; מה שלא — רשימה עם "זהה עם AI" שאינה חוסמת הוספה
@@ -3473,7 +3482,8 @@ function _fdOpenMealBuilder(opts) {
     // est/srcFood/_open — שדות עבודה של ה-Builder בלבד; fdSaveMeal בונה את המרכיבים מחדש בלעדיהם
     _fdMealComponents = (opts.components || []).map(c => Object.assign(
         { name: c.name, grams: c.grams, per100: c.per100, baseUnit: c.baseUnit || 'g' },
-        c.est ? { est: true } : {}, c.srcFood ? { srcFood: c.srcFood } : {}, c._open ? { _open: true } : {}));
+        c.est ? { est: true } : {}, c.srcFood ? { srcFood: c.srcFood } : {}, c._open ? { _open: true } : {},
+        c.qtyGuess ? { qtyGuess: true } : {}));
     _fdMealFree = !!opts.free;
     _fdMealSplit = _fdMealFree;
     _fdFreeUnres = (opts.unresolved || []).slice();
@@ -3534,10 +3544,10 @@ function _fdRenderComponents() {
         return `<div class="fd-comp fd-comp--c${c.est ? ' fd-comp--est' : ''}${c._open ? ' is-open' : ''}">
             <div class="fd-comp-main" role="button" tabindex="0" onclick="fdToggleComp(${i})" aria-expanded="${!!c._open}">
                 <span class="fd-comp-name"><span class="fd-comp-nm" id="fd-mc-nm-${i}">${_fdEsc(c.name) || 'מרכיב חדש'}</span><span class="material-symbols-outlined fd-comp-chev" aria-hidden="true">expand_more</span></span>
-                <span class="fd-comp-kcal">${c.est ? '<span class="fd-src-chip src-est">AI</span>' : ''}<span><b id="fd-mc-kc-${i}">${_fdFmt(kcal)}</b> kcal<span id="fd-mc-sum-${i}"></span></span><span class="fd-comp-warn" id="fd-mc-warn-${i}" style="display:none" title=""> <span class="material-symbols-outlined inline-arrow">warning</span></span></span>
+                <span class="fd-comp-kcal">${c.est ? '<span class="fd-src-chip src-est">AI</span>' : ''}${c.qtyGuess ? '<span class="fd-src-chip src-guess" id="fd-mc-guess-' + i + '">בדוק כמות</span>' : ''}<span><b id="fd-mc-kc-${i}">${_fdFmt(kcal)}</b> kcal<span id="fd-mc-sum-${i}"></span></span><span class="fd-comp-warn" id="fd-mc-warn-${i}" style="display:none" title=""> <span class="material-symbols-outlined inline-arrow">warning</span></span></span>
             </div>
             <div class="fd-comp-qty">
-                <input type="number" id="fd-mc-g-${i}" inputmode="decimal" min="0" step="any" value="${_fdR(c.grams)}" oninput="_fdMealRecalc()">
+                <input type="number" id="fd-mc-g-${i}" inputmode="decimal" min="0" step="any" value="${_fdR(c.grams)}" oninput="_fdCompQtyEdited(${i})">
                 <span class="fd-comp-unit">${isUnit ? 'יחידות' : 'גרם'}</span>
             </div>
             <button class="fd-comp-del" onclick="fdMealRemoveComp(${i})" aria-label="הסר מרכיב"><span class="material-symbols-outlined">close</span></button>
@@ -3614,6 +3624,13 @@ function _fdMealRecalc() {
         : `<i class="fd-meal-fib"${fib.partial ? ' title="חלק מהמרכיבים ללא נתון סיבים — המספר הוא רצפה"' : ''}>סיבים ${fib.fb}${fib.partial ? '+' : ''}</i>`;
     if (tm) tm.innerHTML = `<i class="macro-p">חלבון ${Math.round(tot.p)}</i><i class="macro-c">פחמ' ${Math.round(tot.c)}</i><i class="macro-f">שומן ${Math.round(tot.f)}</i>${fibHtml}`;
     if (_fdMealFree) _fdSyncFreeUi();
+}
+
+// עריכת כמות מבטלת את סימון "בדוק כמות" (הכמות כבר לא משוערת)
+function _fdCompQtyEdited(i) {
+    const c = _fdMealComponents[i];
+    if (c && c.qtyGuess) { delete c.qtyGuess; const g = document.getElementById('fd-mc-guess-' + i); if (g) g.remove(); }
+    _fdMealRecalc();
 }
 
 // פתיחה/סגירה של ערכי מרכיב — בלי רינדור מחדש, כדי לא לאבד פוקוס/ערכים שבהקלדה

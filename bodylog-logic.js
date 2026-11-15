@@ -1867,13 +1867,19 @@ function _uniSetsFromLog(log, h) {
     return map;
 }
 
-// summary כפי ש-_saveToArchive כותב אותו. tags = מה שבין שם התרגיל ל-" (Vol:" (Main/TM/צד אחד)
-function _uniSummaryFromLog(w, tags, h) {
+// summary כפי שהאפליקציה כותבת אותו. tags = מה שבין שם התרגיל ל-" (Vol:" (Main/TM/צד אחד).
+// variant: 'save' = _saveToArchive (סוף אימון); 'edit' = _rebuildArchiveSummary (שמירת עריכה בארכיון) —
+// בלי שורות "הערת תרגיל", בלי "(Skipped)" ובלי שורות לתרגיל שדולג כולו.
+function _uniSummaryFromLog(w, tags, h, variant) {
+    const isEdit = variant === 'edit';
     const d = new Date(w.timestamp);
     const wl = w.week === 'deload' ? 'Deload'
-             : (w.type === 'Freestyle' || w.week === 'Freestyle') ? 'Freestyle' : `Week ${w.week}`;
-    const lines = ['GYMPRO ELITE SUMMARY',
-        `${w.type} | ${wl} | ${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()} | ${w.duration}m`, ''];
+             : (w.type === 'Freestyle' || w.week === 'Freestyle') ? 'Freestyle'
+             : (isEdit && !w.week) ? '' : `Week ${w.week}`;
+    const dStr = `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+    const lines = ['GYMPRO ELITE SUMMARY', isEdit
+        ? `${w.type}${wl ? ' | ' + wl : ''} | ${dStr} | ${w.duration || 0}m`
+        : `${w.type} | ${wl} | ${dStr} | ${w.duration}m`, ''];
     if (w.note) { lines.push(`הערה: ${w.note}`); lines.push(''); }
     const det = w.details || {};
     const skips = {};
@@ -1893,9 +1899,9 @@ function _uniSummaryFromLog(w, tags, h) {
             const vol = det[ex] ? det[ex].vol : 0;
             const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : vol + 'kg';
             lines.push(`${ex}${(tags && tags[ex]) || ''} (Vol: ${volStr}):`);
-            if (det[ex] && det[ex].note) lines.push(`הערת תרגיל: ${det[ex].note}`);
+            if (!isEdit && det[ex] && det[ex].note) lines.push(`הערת תרגיל: ${det[ex].note}`);
             h.groupDrops(seg.sets).forEach(g => lines.push(h.setLineText(g.entry, g.drops, true)));
-            if (skips[ex] > 0) lines.push('(Skipped)');
+            if (!isEdit && skips[ex] > 0) lines.push('(Skipped)');
             lines.push('');
         } else {
             const byRound = {};
@@ -1911,7 +1917,7 @@ function _uniSummaryFromLog(w, tags, h) {
         }
     });
     const covered = new Set(segs.filter(s => s.type === 'normal').map(s => s.exName));
-    (w.exOrder || []).forEach(ex => {
+    if (!isEdit) (w.exOrder || []).forEach(ex => {
         if (!covered.has(ex) && skips[ex] > 0 && !segs.some(s => s.sets.some(e => e.exName === ex))) {
             lines.push(`${ex}: (Skipped)`); lines.push('');
         }
@@ -1951,14 +1957,23 @@ function _uniCompactWorkout(w, h) {
     if (typeof w.summary === 'string' && w.kind !== 'cardio') {
         const names = [...new Set(full.map(e => e.exName).concat(w.exOrder || []))];
         const tags = _uniTagsFromSummary(w.summary, names);
-        // שורות שונות (למשל כותרת אחרי שינוי שם תוכנית, או פורמט ישן) נשמרות כתיקון נקודתי
-        const gen = _uniSummaryFromLog(fullW, tags, h).split('\n'), orig = w.summary.split('\n');
-        const fix = {};
-        if (gen.length === orig.length) orig.forEach((l, i) => { if (l !== gen[i]) fix[i] = l; });
-        if (gen.length === orig.length && Object.keys(fix).length <= UNI_SUMMARY_MAX_FIX) {
+        // שורות שונות (למשל כותרת אחרי שינוי שם תוכנית) נשמרות כתיקון נקודתי. שתי הגרסאות נבדקות
+        // (סוף אימון / עריכה בארכיון) — נבחרת זו עם פחות תיקונים
+        const orig = w.summary.split('\n');
+        let best = null;
+        ['save', 'edit'].forEach(variant => {
+            const gen = _uniSummaryFromLog(fullW, tags, h, variant).split('\n');
+            if (gen.length !== orig.length) return;
+            const fix = {};
+            orig.forEach((l, i) => { if (l !== gen[i]) fix[i] = l; });
+            const n = Object.keys(fix).length;
+            if (n <= UNI_SUMMARY_MAX_FIX && (!best || n < best.n)) best = { variant, fix, n };
+        });
+        if (best) {
             delete c.summary;
             if (Object.keys(tags).length) c.exTags = tags;
-            if (Object.keys(fix).length) c.summaryFix = fix;
+            if (best.n) c.summaryFix = best.fix;
+            if (best.variant === 'edit') c.summaryVariant = 'edit';
         }
     }
     c.log = w.log.map(e => _uniRow(e, UNI_LOG_COLS, UNI_LOG_DEFAULTS));
@@ -1980,11 +1995,11 @@ function _uniDecodeWorkout(c, h) {
         });
     }
     if (!('summary' in c) && w.kind !== 'cardio') {
-        const lines = _uniSummaryFromLog(w, c.exTags, h).split('\n');
+        const lines = _uniSummaryFromLog(w, c.exTags, h, c.summaryVariant).split('\n');
         Object.keys(c.summaryFix || {}).forEach(i => { lines[i] = c.summaryFix[i]; });
         w.summary = lines.join('\n');
     }
-    delete w.exTags; delete w.summaryFix;
+    delete w.exTags; delete w.summaryFix; delete w.summaryVariant;
     return w;
 }
 
@@ -2010,12 +2025,26 @@ function _uniDecodeNutritionDay(day) {
 }
 
 function _uniCompactPayload(payload, h) {
-    return Object.assign({}, payload, {
+    // format מיד אחרי app/type — שיופיע בראש הקובץ, לפני הדאטה
+    const head = { app: payload.app, type: payload.type,
         format: { version: UNI_FORMAT_VERSION, log_cols: UNI_LOG_COLS, log_defaults: UNI_LOG_DEFAULTS,
-                  food_cols: UNI_FOOD_COLS, micros_cols: UNI_MICRO_COLS },
+                  food_cols: UNI_FOOD_COLS, micros_cols: UNI_MICRO_COLS } };
+    return Object.assign(head, payload, {
         nutrition_detailed: (payload.nutrition_detailed || []).map(_uniCompactNutritionDay),
         workouts: h ? (payload.workouts || []).map(w => _uniCompactWorkout(w, h)) : payload.workouts
     });
+}
+// כתיבה מרובת שורות: כל מפתח top-level בשורה, וכל רשומה במערך בשורה משלה (בלי הזחה פנימית).
+// JSON תקין — מאפשר לקרוא את הקובץ בחלקים לפי שורות.
+function _uniStringify(payload) {
+    const keys = Object.keys(payload).filter(k => payload[k] !== undefined);
+    return '{\n' + keys.map((k, i) => {
+        const v = payload[k];
+        const body = (Array.isArray(v) && v.length)
+            ? '[\n' + v.map(x => JSON.stringify(x === undefined ? null : x)).join(',\n') + '\n]'
+            : JSON.stringify(v);
+        return JSON.stringify(k) + ': ' + body + (i < keys.length - 1 ? ',' : '');
+    }).join('\n') + '\n}\n';
 }
 function _uniDecode(payload, h) {
     if (!payload.format || payload.format.version !== UNI_FORMAT_VERSION) return payload;
@@ -2038,8 +2067,30 @@ const _UNIFIED_COMPACT_README = [
     'workouts[].details[ex].sets ו-workouts[].summary מושמטים כשהם נגזרים במלואם מ-log (נבדק לכל אימון בנפרד; כשלא — הם נשארים). ' +
     'summaryFix = שורות (לפי אינדקס) שבהן הסיכום המקורי שונה מהגזירה, למשל כותרת לפני שינוי שם התוכנית. ' +
     'מספר הסטים של תרגיל = מספר שורות log שלו שאינן skip ואינן drop. exTags = התגיות בכותרת התרגיל בסיכום (Main, TM, צד אחד). ' +
-    'שחזור מלא למבנה המקורי: _uniDecode ב-bodylog-logic.js.'
+    'שחזור מלא למבנה המקורי: _uniDecode ב-bodylog-logic.js. מי שמשחזר בלעדיו — לפי שני הכללים הבאים, בדיוק.',
+    'גזירת details[ex].sets: לכל תרגיל, שורות log שאינן skip (כולל קלאסטר) לפי הסדר. שורת סט = "{W} x {r} (RIR {rir})" ' +
+    'ואם יש note — " | Note: {note}". W = "BW" כש-wm=bw, "{w} פלטות" כש-wm=plates, אחרת "{w}kg". rir חסר = "—". ' +
+    'שורה עם drop משורשרת לסט הקודם של אותו תרגיל עם " ⤵ " ואינה סט חדש. vol אינו נגזר — נשאר ב-details.',
+    'כללי רינדור ב-summary: (1) Vol: v>=1000 → (v/1000).toFixed(1)+"t" — עיגול JavaScript, half-up על הערך הבינארי ' +
+    '(2250 → "2.3t", לא "2.2t" של round/"%.1f" ב-Python); אחרת v+"kg". ' +
+    '(2) תרגיל קלאסטר שכל שורות ה-log שלו skip אינו נכלל בבלוקי "Cluster סבב N", ומופיע כ-"{ex}: (Skipped)" ' +
+    'אחרי כל המקטעים, לפי סדר exOrder (כמו כל תרגיל שדולג כולו). (3) שורת skip בתוך קלאסטר שאינו מדולג כולו — מושמטת מבלוק הסבב. ' +
+    '(4) הערת תרגיל (details[ex].note) מופיעה כשורה "הערת תרגיל: ..." מיד אחרי כותרת התרגיל.',
+    'summaryVariant:"edit" = הסיכום נבנה מחדש בעריכת ארכיון: בכותרת week חסר מושמט ו-duration חסר = 0, ' +
+    'ואין שורות "הערת תרגיל", "(Skipped)" או "{ex}: (Skipped)". בלי השדה = סיכום מסוף אימון (הכללים למטה).',
+    'גזירת summary (שורות מופרדות ב-\\n, ובסוף trimEnd): "GYMPRO ELITE SUMMARY"; "{type} | {Week N / Deload / Freestyle} | {d.m.yyyy} | {duration}m" ' +
+    '(תאריך מ-timestamp בשעון ישראל, בלי אפסים מובילים); שורה ריקה; אם יש note לאימון — "הערה: {note}" ושורה ריקה. ' +
+    'אחר כך מקטעים לפי סדר log בלי שורות skip: רצף שורות רגילות של אותו תרגיל = מקטע רגיל; רצף שורות isCluster = מקטע קלאסטר. ' +
+    'מקטע רגיל: "{ex}{exTags[ex]} (Vol: {V}):" — V = vol/1000 ב-toFixed(1) של JavaScript ו-"t" כש-vol>=1000 ' +
+    '(חצי מעוגל כלפי מעלה: 2250 → "2.3t"; לא העיגול הבנקאי של Python round או "%.1f" שנותנים 2.2), אחרת "{vol}kg"; ' +
+    'אם יש details[ex].note — "הערת תרגיל: {note}"; שורות הסט כמו ב-sets; "(Skipped)" אם לתרגיל יש שורת skip כלשהי; שורה ריקה. ' +
+    'מקטע קלאסטר: לפי round (חסר = 1) בסדר עולה — "Cluster סבב {n}:", לכל שורה "  {ex}: {W} x {r} (RIR {rir})" ' +
+    '(+ " | Note: {note}"), ושורה ריקה. בסוף, אחרי כל המקטעים ובסדר exOrder: כל תרגיל שכל שורותיו skip (גם תרגיל קלאסטר) — ' +
+    '"{ex}: (Skipped)" ושורה ריקה. לבסוף summaryFix מחליף שורות לפי אינדקס (0 = השורה הראשונה).'
 ];
+// השורה הראשונה ב-readme — מי שקורא את הקובץ (Claude) נתקל בה לפני כל דאטה
+const _UNIFIED_COMPACT_NOTICE = 'הקובץ בפורמט דחוס (format v2): log, ארוחות ו-micros הם שורות לפי העמודות שבשדה format, ' +
+    'ו-summary/details.sets מושמטים כשהם נגזרים מ-log. לפענח לפי format והסעיפים בסוף readme לפני שימוש.';
 
 function exportUnifiedData(range) {
     const r = _unifiedRange(range);
@@ -2052,7 +2103,7 @@ function exportUnifiedData(range) {
 
     const payload = {
         app: 'GYMPRO ELITE', type: 'unified_export',
-        readme: _NUTRI_EXPORT_README.concat(_UNIFIED_README_EXTRA, _UNIFIED_COMPACT_README),
+        readme: [_UNIFIED_COMPACT_NOTICE].concat(_NUTRI_EXPORT_README, _UNIFIED_README_EXTRA, _UNIFIED_COMPACT_README),
         generated: _blIsoWithTz(new Date(), _BL_EXPORT_TZ),
         range: { label: r.label, from: r.from, to: r.to },
         counts: {
@@ -2071,7 +2122,7 @@ function exportUnifiedData(range) {
     // דחיסה חסרת-אובדן + בלי הזחה. בלי פונקציות התיעוד (workout-core) האימונים נשארים מלאים.
     const _h = (typeof _setLineText === 'function' && typeof _groupSetsWithDrops === 'function')
         ? { setLineText: _setLineText, groupDrops: _groupSetsWithDrops, fmtW: _fmtW, dropArrow: DROP_ARROW } : null;
-    const blob = new Blob([JSON.stringify(_uniCompactPayload(payload, _h))], { type: 'application/json;charset=utf-8;' });
+    const blob = new Blob([_uniStringify(_uniCompactPayload(payload, _h))], { type: 'application/json;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `gympro_unified_${slug}_${_blTodayStr()}.json`;

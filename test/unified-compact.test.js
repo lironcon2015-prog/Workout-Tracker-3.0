@@ -29,8 +29,8 @@ function fnSrc(name) {
 const arrow = core.match(/const DROP_ARROW = '([^']+)'/)[1];
 const api = new Function(`const DROP_ARROW = '${arrow}';\n` +
     ['_fmtW', '_groupSetsWithDrops', '_setLineText'].map(fnSrc).join('\n') + block +
-    '\nreturn { _uniCompactPayload, _uniDecode, _uniCanon, h: { setLineText: _setLineText, groupDrops: _groupSetsWithDrops, fmtW: _fmtW, dropArrow: DROP_ARROW } };')();
-const { _uniCompactPayload, _uniDecode, _uniCanon, h } = api;
+    '\nreturn { _uniStringify, _uniCompactPayload, _uniDecode, _uniCanon, h: { setLineText: _setLineText, groupDrops: _groupSetsWithDrops, fmtW: _fmtW, dropArrow: DROP_ARROW } };')();
+const { _uniStringify, _uniCompactPayload, _uniDecode, _uniCanon, h } = api;
 
 let failed = 0;
 function ok(cond, name) { console.log(`${cond ? '✓' : '✗'} ${name}`); if (!cond) failed++; }
@@ -159,6 +159,68 @@ ok(appOk, 'הסיכום ש-_saveToArchive כותב נגזר במלואו (summar
 if (!appOk) console.error('  ← פורמט הסיכום ב-_saveToArchive (workout-core.js) השתנה. עדכן את _uniSummaryFromLog / _uniSetsFromLog ב-bodylog-logic.js.');
 ok(_uniCanon(_uniDecode({ format: { version: 2 }, workouts: [cApp], nutrition_detailed: [] }, h).workouts[0]) === _uniCanon(appEntry),
    'אימון מ-_saveToArchive חוזר זהה בפענוח');
+
+// ── מקרי רינדור מהמפרט: קלאסטר שדולג כולו, skip בתוך קלאסטר, הערת תרגיל ──
+const log2 = [
+    L('Squat', 125, 5, '2'),
+    L('Pull Ups', 0, 12, '3', { isCluster: true, round: 1, wm: 'bw' }),
+    L('Y Raises', 9, 12, '1.5', { isCluster: true, round: 1 }),
+    L('Rear Delt', 0, 0, '2', { isCluster: true, round: 1, skip: true }),   // קלאסטר שדולג כולו
+    L('Pull Ups', 0, 10, '3', { isCluster: true, round: 2, wm: 'bw' }),
+    L('Y Raises', 0, 0, '2', { isCluster: true, round: 2, skip: true }),    // skip בתוך קלאסטר שאינו מדולג
+    L('Rear Delt', 0, 0, '2', { isCluster: true, round: 2, skip: true }),
+    L('Leg Curl', 30, 10, '2')
+];
+const fromApp2 = runArchive({
+    log: log2.map(e => Object.assign({}, e)), type: 'רגליים', week: 2, isFreestyle: false, workoutDurationMins: 50,
+    exNotes: { 'Squat': 'עומק מלא' }, workouts: {}
+}, `${d0.getDate()}.${d0.getMonth() + 1}.${d0.getFullYear()}`, '');
+const s2 = fromApp2.summary.split('\n');
+ok(s2.includes('Rear Delt: (Skipped)') && !s2.some(l => l.includes('  Rear Delt:')), 'קלאסטר שדולג כולו: "{ex}: (Skipped)" ולא בבלוק הסבב');
+ok(s2.filter(l => l.startsWith('  Y Raises:')).length === 1, 'skip בתוך קלאסטר — מושמט מבלוק הסבב');
+ok(s2[s2.indexOf('Squat (Vol: 625kg):') + 1] === 'הערת תרגיל: עומק מלא', 'הערת תרגיל מיד אחרי כותרת התרגיל');
+const app2 = { timestamp: ts + 20, date: '2026-11-14', type: 'רגליים', week: 2, duration: 50, note: '', ...fromApp2, log: log2 };
+const cApp2 = JSON.parse(JSON.stringify(_uniCompactPayload({ workouts: [app2], nutrition_detailed: [] }, h))).workouts[0];
+ok(!('summary' in cApp2) && !cApp2.summaryFix && Object.values(cApp2.details).every(x => !('sets' in x)), 'המקרים האלה נגזרים במלואם מ-log');
+ok(_uniCanon(_uniDecode({ format: { version: 2 }, workouts: [cApp2], nutrition_detailed: [] }, h).workouts[0]) === _uniCanon(app2), 'והפענוח מחזיר אותם זהים');
+
+// Vol: עיגול JavaScript (half-up) — 2250 → "2.3t"
+const vol2250 = Object.assign({}, app2, { timestamp: ts + 21 });
+vol2250.details = JSON.parse(JSON.stringify(app2.details)); vol2250.details.Squat.vol = 2250;
+vol2250.summary = app2.summary.replace('Squat (Vol: 625kg):', 'Squat (Vol: 2.3t):');
+const cV = JSON.parse(JSON.stringify(_uniCompactPayload({ workouts: [vol2250], nutrition_detailed: [] }, h))).workouts[0];
+ok(!('summary' in cV) && !cV.summaryFix, 'Vol 2250 נגזר כ-"2.3t"');
+
+// ── סיכום שנבנה מחדש בעריכת ארכיון (_rebuildArchiveSummary) — הגרסה האמיתית מ-archive-logic.js ──
+const archSrc = fs.readFileSync(path.join(root, 'archive-logic.js'), 'utf8');
+function fnFrom(src, name) {
+    const i = src.indexOf('function ' + name + '(');
+    if (i < 0) throw new Error('missing ' + name);
+    for (let k = src.indexOf('{', i), dep = 0; k < src.length; k++) {
+        if (src[k] === '{') dep++;
+        else if (src[k] === '}' && !--dep) return src.slice(i, k + 1);
+    }
+}
+const rebuild = new Function(`const DROP_ARROW = '${arrow}';\n` +
+    ['_fmtW', '_groupSetsWithDrops', '_setLineText'].map(fnSrc).join('\n') +
+    "\nconst isUnilateral = n => n === 'Leg Curl';\n" + fnFrom(archSrc, '_rebuildArchiveSummary') + '\nreturn _rebuildArchiveSummary;')();
+const edited2 = Object.assign({}, app2, { timestamp: ts + 22, note: 'נערך' });
+edited2.summary = rebuild(edited2);
+const cEd = JSON.parse(JSON.stringify(_uniCompactPayload({ workouts: [edited2], nutrition_detailed: [] }, h))).workouts[0];
+const edOk = !('summary' in cEd) && cEd.summaryVariant === 'edit' && !cEd.summaryFix;
+ok(edOk, 'סיכום מעריכת ארכיון נגזר (summaryVariant=edit)');
+if (!edOk) console.error('  ← פורמט _rebuildArchiveSummary (archive-logic.js) השתנה. עדכן את variant "edit" ב-_uniSummaryFromLog.');
+ok(_uniCanon(_uniDecode({ format: { version: 2 }, workouts: [cEd], nutrition_detailed: [] }, h).workouts[0]) === _uniCanon(edited2), 'סיכום מעריכה חוזר זהה בפענוח');
+
+// ── פלט מרובה שורות: JSON תקין, מפתח top-level ורשומה בשורה משלהם ──
+const text = _uniStringify(_uniCompactPayload(payload, h));
+const lines = text.split('\n');
+ok(_uniCanon(_uniDecode(JSON.parse(text), h)) === _uniCanon(orig), 'פלט מרובה שורות הוא JSON תקין שחוזר זהה');
+ok(lines.filter(l => /^"[^"]+": /.test(l)).length === Object.keys(JSON.parse(text)).length, 'כל מפתח top-level בשורה משלו');
+ok(lines.filter(l => l.startsWith('{"timestamp":')).length === payload.workouts.length, 'כל אימון בשורה משלו');
+ok(lines.filter(l => l.startsWith('{"date":"2026-11-1')).length === nutrition.length + payload.weights.length, 'כל יום תזונה/שקילה בשורה משלו');
+ok(JSON.stringify(Object.keys(JSON.parse(text))) === JSON.stringify(['app', 'type', 'format'].concat(Object.keys(payload).slice(2))),
+   'סדר המפתחות נשמר (format מיד אחרי app/type)');
 
 if (failed) { console.error(`\n${failed} בדיקות נכשלו`); process.exit(1); }
 console.log('\nכל הבדיקות עברו');

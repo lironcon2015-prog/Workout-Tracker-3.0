@@ -5628,6 +5628,8 @@ function _saveToArchive(note) {
     const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
     const archiveDateStr = now.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
+    // ARCHIVE-SUMMARY-START — נבדק ב-test/unified-compact.test.js מול _uniSummaryFromLog (bodylog-logic.js).
+    // שינוי בפורמט הסיכום כאן מחייב עדכון שם, אחרת הקובץ המאוחד מפסיק לדחוס סיכומים.
     const exOrder = [];
     const exMap = {};
     // דרופ משורשר לשורת סט האב (⤵) ולא נדחף כרשומה נפרדת — כך
@@ -5739,6 +5741,7 @@ function _saveToArchive(note) {
             summaryLines.push('');
         }
     });
+    // ARCHIVE-SUMMARY-END
 
     // ── Minimal log stored for display (archive detail view) ──
     const archivedLog = state.log.map(l => ({

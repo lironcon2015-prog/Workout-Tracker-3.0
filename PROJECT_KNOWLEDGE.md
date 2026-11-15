@@ -4,7 +4,11 @@
 
 ---
 
-## גרסה נוכחית: 19.19.3
+## גרסה נוכחית: 19.19.4
+
+### v19.19.4 — בדיקת סטייה לפורמט הסיכום
+הבלוק `ARCHIVE-SUMMARY` ב-`_saveToArchive` רץ ב-`test/unified-compact.test.js` עם state מדומה, והבדיקה נכשלת אם הסיכום
+שהוא כותב כבר לא נגזר ב-`_uniSummaryFromLog`. החוב מ-v19.19.3 הפך מסטייה שקטה לבדיקה אדומה.
 
 ### v19.19.3 — דחיסת הקובץ המאוחד (חסרת-אובדן)
 הקובץ המאוחד הגיע ל-2.9MB. `exportUnifiedData` מעביר את ה-payload דרך `_uniCompactPayload` (בלוק `UNI-COMPACT`

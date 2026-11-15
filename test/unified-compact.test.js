@@ -137,5 +137,28 @@ ok(_uniCanon(noH.workouts) === _uniCanon(orig.workouts) && _uniCanon(_uniDecode(
 const before = JSON.stringify(orig, null, 2).length, after = JSON.stringify(compact).length;
 ok(after < before * 0.5, `הקובץ קטן ביותר מחצי (${before} → ${after})`);
 
+// ── זיהוי סטייה: הסיכום האמיתי של _saveToArchive חייב להיגזר ב-_uniSummaryFromLog ──
+// הבלוק ARCHIVE-SUMMARY רץ כמו שהוא, עם state מדומה. אם הפורמט שם השתנה —
+// כאן זה נכשל, במקום שהקובץ המאוחד יגדל בשקט.
+const arch = core.split('ARCHIVE-SUMMARY-START')[1]?.split('ARCHIVE-SUMMARY-END')[0];
+if (!arch) { console.error('✗ בלוק ARCHIVE-SUMMARY לא נמצא ב-workout-core.js'); process.exit(1); }
+const runArchive = new Function('state', 'dateStr', 'note',
+    `const DROP_ARROW = '${arrow}'; const PLATE_KG = 2.5;\n` +
+    ['_fmtW', '_groupSetsWithDrops', '_setLineText', '_setStrVol', '_setStrVolOne'].map(fnSrc).join('\n') +
+    "\nconst isUnilateral = n => n === 'Leg Curl'; const _displayTM = n => n === 'Bench Press' ? 100 : null;\n" +
+    arch.replace(/^[^\n]*\n/, '') + '\nreturn { summary: summaryLines.join("\\n").trimEnd(), details, exOrder };');
+const d0 = new Date(ts);
+const fromApp = runArchive({
+    log: log.map(e => Object.assign({}, e)), type: 'חזה - גב', week: 3, isFreestyle: false, workoutDurationMins: 67,
+    exNotes: { 'Bench Press': 'אחיזה רחבה' }, workouts: { 'חזה - גב': [{ name: 'Bench Press', isMain: true }] }
+}, `${d0.getDate()}.${d0.getMonth() + 1}.${d0.getFullYear()}`, 'יום טוב');
+const appEntry = Object.assign({}, strength, fromApp, { timestamp: ts + 10 });
+const cApp = JSON.parse(JSON.stringify(_uniCompactPayload({ workouts: [appEntry], nutrition_detailed: [] }, h))).workouts[0];
+const appOk = !('summary' in cApp) && !cApp.summaryFix && Object.values(cApp.details).every(x => !('sets' in x));
+ok(appOk, 'הסיכום ש-_saveToArchive כותב נגזר במלואו (summary + details.sets מושמטים)');
+if (!appOk) console.error('  ← פורמט הסיכום ב-_saveToArchive (workout-core.js) השתנה. עדכן את _uniSummaryFromLog / _uniSetsFromLog ב-bodylog-logic.js.');
+ok(_uniCanon(_uniDecode({ format: { version: 2 }, workouts: [cApp], nutrition_detailed: [] }, h).workouts[0]) === _uniCanon(appEntry),
+   'אימון מ-_saveToArchive חוזר זהה בפענוח');
+
 if (failed) { console.error(`\n${failed} בדיקות נכשלו`); process.exit(1); }
 console.log('\nכל הבדיקות עברו');

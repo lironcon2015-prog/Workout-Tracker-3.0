@@ -1805,6 +1805,242 @@ function _buildUnifiedSections(r) {
     return { weights, nutritionDaily, nutritionDetailed, sleepRecovery, workouts, memoryBox };
 }
 
+// ─── דחיסת הקובץ המאוחד (export-only) ───────────────────────────────────────
+// הקובץ המאוחד הגיע ל-2.8MB: הזחה, כל אימון שמור שלוש פעמים (log/details.sets/summary),
+// ושמות שדות שחוזרים בכל פריט מזון. הדחיסה חסרת-אובדן: מה שמושמט נגזר במלואו מ-log,
+// ונבדק לכל רשומה בנפרד — summary/sets מושמטים רק אם השחזור זהה תו-לתו, אחרת נשארים.
+// _uniDecode הוא המימוש ההפוך (מקור אמת לשחזור). לא נוגע בקבצי המאמן בדרייב.
+// helpers = { setLineText, groupDrops, fmtW, dropArrow } — הפונקציות מ-workout-core.js.
+// UNI-COMPACT-START
+const UNI_FORMAT_VERSION = 2;
+const UNI_LOG_COLS = ['exName', 'w', 'r', 'rir'];
+const UNI_LOG_DEFAULTS = { note: '', isCluster: false, round: null, skip: false };
+const UNI_SUMMARY_MAX_FIX = 3;   // מעבר לזה הסיכום נשאר מלא — כבר לא "נגזר"
+const UNI_FOOD_COLS = ['name', 'brand', 'grams', 'kcal', 'protein', 'carbs', 'fat', 'fiber'];
+// micros של MyFitnessPal — אותם 13 מפתחות בכל פריט
+const UNI_MICRO_COLS = ['Saturated Fat', 'Polyunsaturated Fat', 'Monounsaturated Fat', 'Trans Fat', 'Cholesterol',
+    'Sodium (mg)', 'Potassium', 'Fiber', 'Sugar', 'Vitamin A', 'Vitamin C', 'Calcium', 'Iron'];
+
+const _uniIsObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+// JSON עם מפתחות ממוינים — להשוואת "חזר זהה" בלי תלות בסדר המפתחות
+function _uniCanon(v) {
+    if (Array.isArray(v)) return '[' + v.map(_uniCanon).join(',') + ']';
+    if (_uniIsObj(v)) return '{' + Object.keys(v).filter(k => v[k] !== undefined).sort()
+        .map(k => JSON.stringify(k) + ':' + _uniCanon(v[k])).join(',') + '}';
+    return JSON.stringify(v === undefined ? null : v);
+}
+
+// אובייקט → שורה: ערכי cols לפי הסדר (null = חסר), nulls בסוף נחתכים,
+// ושאר השדות (שאינם ברירת מחדל) באובייקט אחרון. ערך-אובייקט לעולם לא בעמודה.
+function _uniRow(o, cols, defaults, encodeExtra) {
+    const row = cols.map(k => (o[k] === undefined || _uniIsObj(o[k])) ? null : o[k]);
+    while (row.length && row[row.length - 1] === null) row.pop();
+    const extra = {};
+    Object.keys(o).forEach(k => {
+        if (cols.includes(k) && !_uniIsObj(o[k])) return;
+        if (o[k] === undefined) return;
+        if (defaults && k in defaults && o[k] === defaults[k]) return;
+        extra[k] = encodeExtra ? encodeExtra(k, o[k]) : o[k];
+    });
+    if (Object.keys(extra).length) { while (row.length < cols.length) row.push(null); row.push(extra); }
+    return row;
+}
+function _uniUnrow(row, cols, defaults, decodeExtra) {
+    const o = Object.assign({}, defaults || {});
+    const vals = row.slice();
+    const extra = (vals.length && _uniIsObj(vals[vals.length - 1])) ? vals.pop() : null;
+    cols.forEach((k, i) => { if (vals[i] !== undefined && vals[i] !== null) o[k] = vals[i]; });
+    if (extra) Object.keys(extra).forEach(k => { o[k] = decodeExtra ? decodeExtra(k, extra[k]) : extra[k]; });
+    return o;
+}
+
+// details[ex].sets כפי ש-_saveToArchive בונה אותם מה-log (דרופ משורשר לסט האב)
+function _uniSetsFromLog(log, h) {
+    const map = {};
+    log.forEach(e => {
+        if (e.skip) return;
+        const arr = map[e.exName] || (map[e.exName] = []);
+        const line = h.setLineText(e, null, true);
+        if (e.drop && arr.length) arr[arr.length - 1] += ` ${h.dropArrow} ${line}`;
+        else arr.push(line);
+    });
+    return map;
+}
+
+// summary כפי ש-_saveToArchive כותב אותו. tags = מה שבין שם התרגיל ל-" (Vol:" (Main/TM/צד אחד)
+function _uniSummaryFromLog(w, tags, h) {
+    const d = new Date(w.timestamp);
+    const wl = w.week === 'deload' ? 'Deload'
+             : (w.type === 'Freestyle' || w.week === 'Freestyle') ? 'Freestyle' : `Week ${w.week}`;
+    const lines = ['GYMPRO ELITE SUMMARY',
+        `${w.type} | ${wl} | ${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()} | ${w.duration}m`, ''];
+    if (w.note) { lines.push(`הערה: ${w.note}`); lines.push(''); }
+    const det = w.details || {};
+    const skips = {};
+    w.log.forEach(e => { if (e.skip) skips[e.exName] = (skips[e.exName] || 0) + 1; });
+    const segs = [];
+    w.log.filter(l => !l.skip).forEach(e => {
+        const last = segs[segs.length - 1];
+        if (!e.isCluster) {
+            if (last && last.type === 'normal' && last.exName === e.exName) last.sets.push(e);
+            else segs.push({ type: 'normal', exName: e.exName, sets: [e] });
+        } else if (last && last.type === 'cluster') last.sets.push(e);
+        else segs.push({ type: 'cluster', sets: [e] });
+    });
+    segs.forEach(seg => {
+        if (seg.type === 'normal') {
+            const ex = seg.exName;
+            const vol = det[ex] ? det[ex].vol : 0;
+            const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : vol + 'kg';
+            lines.push(`${ex}${(tags && tags[ex]) || ''} (Vol: ${volStr}):`);
+            if (det[ex] && det[ex].note) lines.push(`הערת תרגיל: ${det[ex].note}`);
+            h.groupDrops(seg.sets).forEach(g => lines.push(h.setLineText(g.entry, g.drops, true)));
+            if (skips[ex] > 0) lines.push('(Skipped)');
+            lines.push('');
+        } else {
+            const byRound = {};
+            seg.sets.forEach(e => { const rn = e.round || 1; (byRound[rn] || (byRound[rn] = [])).push(e); });
+            Object.keys(byRound).map(Number).sort((a, b) => a - b).forEach(rn => {
+                lines.push(`Cluster סבב ${rn}:`);
+                byRound[rn].forEach(e => {
+                    const rir = e.rir !== undefined ? e.rir : '—';
+                    lines.push(`  ${e.exName}: ${h.fmtW(e)} x ${e.r} (RIR ${rir})${e.note ? ` | Note: ${e.note}` : ''}`);
+                });
+                lines.push('');
+            });
+        }
+    });
+    const covered = new Set(segs.filter(s => s.type === 'normal').map(s => s.exName));
+    (w.exOrder || []).forEach(ex => {
+        if (!covered.has(ex) && skips[ex] > 0 && !segs.some(s => s.sets.some(e => e.exName === ex))) {
+            lines.push(`${ex}: (Skipped)`); lines.push('');
+        }
+    });
+    return lines.join('\n').trimEnd();
+}
+
+// תגיות כותרת התרגיל מתוך summary המקורי (המידע היחיד בו שאין לו שדה ברשומה)
+function _uniTagsFromSummary(summary, exNames) {
+    const tags = {};
+    String(summary || '').split('\n').forEach(line => {
+        const vi = line.lastIndexOf(' (Vol: ');
+        if (vi < 0 || !line.endsWith('):')) return;
+        const head = line.slice(0, vi);
+        const ex = exNames.filter(n => head.startsWith(n)).sort((a, b) => b.length - a.length)[0];
+        if (ex && head.length > ex.length) tags[ex] = head.slice(ex.length);
+    });
+    return tags;
+}
+
+function _uniCompactWorkout(w, h) {
+    if (!Array.isArray(w.log) || !w.log.length) return w;   // אין log — אין ממה לגזור, נשאר כמו שהוא
+    const c = Object.assign({}, w);
+    const full = w.log.map(e => Object.assign({}, UNI_LOG_DEFAULTS, e));
+    const fullW = Object.assign({}, w, { log: full });
+    // details.sets — מושמט רק כשהוא זהה לגזירה מה-log
+    if (_uniIsObj(w.details)) {
+        const derived = _uniSetsFromLog(full, h);
+        c.details = {};
+        Object.keys(w.details).forEach(ex => {
+            const dd = Object.assign({}, w.details[ex]);
+            if (Array.isArray(dd.sets) && JSON.stringify(dd.sets) === JSON.stringify(derived[ex] || [])) delete dd.sets;
+            c.details[ex] = dd;
+        });
+    }
+    // summary — מושמט רק כשהשחזור זהה תו-לתו
+    if (typeof w.summary === 'string' && w.kind !== 'cardio') {
+        const names = [...new Set(full.map(e => e.exName).concat(w.exOrder || []))];
+        const tags = _uniTagsFromSummary(w.summary, names);
+        // שורות שונות (למשל כותרת אחרי שינוי שם תוכנית, או פורמט ישן) נשמרות כתיקון נקודתי
+        const gen = _uniSummaryFromLog(fullW, tags, h).split('\n'), orig = w.summary.split('\n');
+        const fix = {};
+        if (gen.length === orig.length) orig.forEach((l, i) => { if (l !== gen[i]) fix[i] = l; });
+        if (gen.length === orig.length && Object.keys(fix).length <= UNI_SUMMARY_MAX_FIX) {
+            delete c.summary;
+            if (Object.keys(tags).length) c.exTags = tags;
+            if (Object.keys(fix).length) c.summaryFix = fix;
+        }
+    }
+    c.log = w.log.map(e => _uniRow(e, UNI_LOG_COLS, UNI_LOG_DEFAULTS));
+    // רשת ביטחון: אם הפענוח לא מחזיר בדיוק את הרשומה (ברירות מחדל של log כלולות) — מייצאים אותה מלאה
+    return _uniCanon(_uniDecodeWorkout(c, h)) === _uniCanon(fullW) ? c : w;
+}
+
+function _uniDecodeWorkout(c, h) {
+    if (!Array.isArray(c.log) || !c.log.length || !Array.isArray(c.log[0])) return c;
+    const w = Object.assign({}, c);
+    w.log = c.log.map(r => _uniUnrow(r, UNI_LOG_COLS, UNI_LOG_DEFAULTS));
+    if (_uniIsObj(c.details)) {
+        const derived = _uniSetsFromLog(w.log, h);
+        w.details = {};
+        Object.keys(c.details).forEach(ex => {
+            const dd = Object.assign({}, c.details[ex]);
+            if (!('sets' in dd)) dd.sets = derived[ex] || [];
+            w.details[ex] = dd;
+        });
+    }
+    if (!('summary' in c) && w.kind !== 'cardio') {
+        const lines = _uniSummaryFromLog(w, c.exTags, h).split('\n');
+        Object.keys(c.summaryFix || {}).forEach(i => { lines[i] = c.summaryFix[i]; });
+        w.summary = lines.join('\n');
+    }
+    delete w.exTags; delete w.summaryFix;
+    return w;
+}
+
+// תזונה מפורטת: meals → [[שם ארוחה, [שורות פריט], {שדות ארוחה נוספים}?], ...]
+const _uniFoodExtraEnc = (k, v) => k === 'components' && Array.isArray(v) ? v.map(x => _uniRow(x, UNI_FOOD_COLS))
+                                 : k === 'micros' && _uniIsObj(v) ? _uniRow(v, UNI_MICRO_COLS) : v;
+const _uniFoodExtraDec = (k, v) => k === 'components' && Array.isArray(v) ? v.map(x => _uniUnrow(x, UNI_FOOD_COLS))
+                                 : k === 'micros' && Array.isArray(v) ? _uniUnrow(v, UNI_MICRO_COLS) : v;
+function _uniCompactNutritionDay(day) {
+    if (!Array.isArray(day.meals)) return day;
+    const c = Object.assign({}, day, { meals: day.meals.map(m => {
+        const rest = Object.assign({}, m); delete rest.meal; delete rest.items;
+        const out = [m.meal, (m.items || []).map(it => _uniRow(it, UNI_FOOD_COLS, null, _uniFoodExtraEnc))];
+        if (Object.keys(rest).length) out.push(rest);
+        return out;
+    }) });
+    return _uniCanon(_uniDecodeNutritionDay(c)) === _uniCanon(day) ? c : day;
+}
+function _uniDecodeNutritionDay(day) {
+    if (!Array.isArray(day.meals)) return day;
+    return Object.assign({}, day, { meals: day.meals.map(m => !Array.isArray(m) ? m : Object.assign(
+        { meal: m[0], items: (m[1] || []).map(r => _uniUnrow(r, UNI_FOOD_COLS, null, _uniFoodExtraDec)) }, m[2] || {})) });
+}
+
+function _uniCompactPayload(payload, h) {
+    return Object.assign({}, payload, {
+        format: { version: UNI_FORMAT_VERSION, log_cols: UNI_LOG_COLS, log_defaults: UNI_LOG_DEFAULTS,
+                  food_cols: UNI_FOOD_COLS, micros_cols: UNI_MICRO_COLS },
+        nutrition_detailed: (payload.nutrition_detailed || []).map(_uniCompactNutritionDay),
+        workouts: h ? (payload.workouts || []).map(w => _uniCompactWorkout(w, h)) : payload.workouts
+    });
+}
+function _uniDecode(payload, h) {
+    if (!payload.format || payload.format.version !== UNI_FORMAT_VERSION) return payload;
+    const out = Object.assign({}, payload, {
+        nutrition_detailed: (payload.nutrition_detailed || []).map(_uniDecodeNutritionDay),
+        workouts: h ? (payload.workouts || []).map(w => _uniDecodeWorkout(w, h)) : payload.workouts
+    });
+    delete out.format;
+    return out;
+}
+// UNI-COMPACT-END
+
+const _UNIFIED_COMPACT_README = [
+    'פורמט דחוס (format.version=2), חסר-אובדן. שורה = מערך ערכים לפי סדר העמודות שב-format; null או ערך חסר בסוף = השדה לא קיים; ' +
+    'אם האיבר האחרון בשורה הוא אובייקט — אלה שדות נוספים של אותה רשומה.',
+    'nutrition_detailed[].meals = [[שם ארוחה, [שורות פריט לפי format.food_cols]], ...]. שדות נוספים של פריט (time, micros, components, fiberPartial) באובייקט האחרון; ' +
+    'components הן שורות לפי אותן food_cols, ו-micros היא שורה לפי format.micros_cols. מבנה זה שקול ל-meals → {meal, items[]} שמתואר למעלה.',
+    'workouts[].log = שורות לפי format.log_cols (exName, w, r, rir). שדה שאינו מופיע מקבל את ערך format.log_defaults ' +
+    '(note ריק, isCluster=false, round=null, skip=false); wm (bw/plates) ו-drop באובייקט האחרון כשקיימים.',
+    'workouts[].details[ex].sets ו-workouts[].summary מושמטים כשהם נגזרים במלואם מ-log (נבדק לכל אימון בנפרד; כשלא — הם נשארים). ' +
+    'summaryFix = שורות (לפי אינדקס) שבהן הסיכום המקורי שונה מהגזירה, למשל כותרת לפני שינוי שם התוכנית. ' +
+    'מספר הסטים של תרגיל = מספר שורות log שלו שאינן skip ואינן drop. exTags = התגיות בכותרת התרגיל בסיכום (Main, TM, צד אחד). ' +
+    'שחזור מלא למבנה המקורי: _uniDecode ב-bodylog-logic.js.'
+];
+
 function exportUnifiedData(range) {
     const r = _unifiedRange(range);
     if (r === null) return;
@@ -1816,7 +2052,7 @@ function exportUnifiedData(range) {
 
     const payload = {
         app: 'GYMPRO ELITE', type: 'unified_export',
-        readme: _NUTRI_EXPORT_README.concat(_UNIFIED_README_EXTRA),
+        readme: _NUTRI_EXPORT_README.concat(_UNIFIED_README_EXTRA, _UNIFIED_COMPACT_README),
         generated: _blIsoWithTz(new Date(), _BL_EXPORT_TZ),
         range: { label: r.label, from: r.from, to: r.to },
         counts: {
@@ -1832,7 +2068,10 @@ function exportUnifiedData(range) {
         sleep_recovery: sleepRecovery, memory_box: memoryBox
     };
     const slug = range === 'custom' ? 'custom' : (range === 'all' ? 'all' : range + 'd');
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
+    // דחיסה חסרת-אובדן + בלי הזחה. בלי פונקציות התיעוד (workout-core) האימונים נשארים מלאים.
+    const _h = (typeof _setLineText === 'function' && typeof _groupSetsWithDrops === 'function')
+        ? { setLineText: _setLineText, groupDrops: _groupSetsWithDrops, fmtW: _fmtW, dropArrow: DROP_ARROW } : null;
+    const blob = new Blob([JSON.stringify(_uniCompactPayload(payload, _h))], { type: 'application/json;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `gympro_unified_${slug}_${_blTodayStr()}.json`;

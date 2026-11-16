@@ -321,7 +321,7 @@ version.json: { "version": "19.MINOR.PATCH" }
 ---
 
 ## גרסה נוכחית
-19.19.5
+19.19.6
 
 ---
 

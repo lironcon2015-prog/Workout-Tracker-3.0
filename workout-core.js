@@ -3489,13 +3489,13 @@ function initPickers() {
         // משקל גוף — אין משקל לבחור
         wPick.add(new Option('BW', 0));
     } else if (wMode === 'plates') {
-        // פלטות — מונה 1–30 בקפיצות של 1; ערך שמור מקונטקסט ק"ג נחתך לטווח
-        let defaultP = Math.round(defaultW) || 1;
-        if (defaultP < 1) defaultP = 1;
-        if (defaultP > 30) defaultP = 1;
+        // פלטות — מונה 1–30 בקפיצות של 1; ערך שמור מקונטקסט ק"ג נחתך לטווח.
+        // שבר פלטה (3.5) נשמר כמו שהוא ומוזרק כ-option — עיגול כאן הפך 3.5 ל-4 בסט הבא
+        let defaultP = defaultW > 0 && defaultW <= 30 ? parseFloat(defaultW.toFixed(2)) : 1;
         for (let i = 1; i <= 30; i++) {
             let o = new Option(i, i); if (i === defaultP) o.selected = true; wPick.add(o);
         }
+        if (defaultP !== Math.floor(defaultP)) _insertSortedOption(wPick, defaultP, String(defaultP));
     } else {
         let minW = manualRange.min !== undefined ? manualRange.min : (state.currentEx.minW !== undefined ? state.currentEx.minW : Math.max(0, defaultW - 40));
         let maxW = manualRange.max !== undefined ? manualRange.max : (state.currentEx.maxW !== undefined ? state.currentEx.maxW : defaultW + 50);
@@ -4194,7 +4194,8 @@ function commitCustomValue(field, raw) {
         if (num < 0) num = 0;
         num = parseFloat(num.toFixed(2));
         if (_effWeightMode() === 'plates') {
-            num = Math.max(1, Math.round(num));
+            // שברי פלטה מותרים (3.5); רק 0 נדחה — אין "אפס פלטות"
+            if (num <= 0) num = 1;
             _insertSortedOption(sel, num, String(num));
         } else {
             _insertSortedOption(sel, num, num + ' kg');
